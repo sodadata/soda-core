@@ -420,13 +420,20 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         )
 
     @classmethod
-    def from_existing_session(cls, session: SparkSession, name: str, use_catalog: bool = False) -> DataSourceImpl:
+    def from_existing_session(
+        cls,
+        session: SparkSession,
+        name: str,
+        use_catalog: bool = False,
+        catalog: Optional[str] = None,
+    ) -> DataSourceImpl:
         # Locally-owned dict so we never mutate caller-shared state via the
         # ``connection_properties`` plumbing.
         connection_properties = {
             "spark_session": session,
             "schema_": name,
             "use_catalog": use_catalog,
+            "catalog": catalog,
         }
         ds_model = SparkDataFrameDataSourceModel(
             name=name,

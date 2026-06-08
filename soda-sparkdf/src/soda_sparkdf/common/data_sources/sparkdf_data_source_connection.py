@@ -24,6 +24,14 @@ class SparkDataFrameConnectionProperties(DataSourceConnectionProperties, ABC):
             "False for local Spark which has no catalog concept."
         ),
     )
+    catalog: Optional[str] = Field(
+        None,
+        description=(
+            "Catalog to write DWH/diagnostics tables into when ``use_catalog=true``. When "
+            "unset, the catalog is resolved at runtime from ``SELECT current_catalog()`` "
+            "against the active SparkSession. Ignored when ``use_catalog=false``."
+        ),
+    )
 
 
 class SparkDataFrameNewSessionProperties(SparkDataFrameConnectionProperties):
