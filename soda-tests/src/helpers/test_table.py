@@ -100,6 +100,45 @@ class TestTableSpecificationBuilder:
     def column_text(self, name: str) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.TEXT)
 
+    def column_unbounded_text(self, name: str) -> TestTableSpecificationBuilder:
+        """Add a column that stores text of unbounded length.
+
+        Maps to the adapter's largest variable-length string type:
+          * postgres / snowflake / bigquery / databricks / duckdb: ``TEXT``
+            (or the adapter's equivalent unbounded string)
+          * sqlserver / fabric / synapse: ``varchar(max)`` (SqlServer's
+            unbounded varchar — distinct from ``varchar(default_length)``
+            which truncates at 8000 chars)
+
+        The active adapter is detected from the ``TEST_DATASOURCE`` env var
+        (the same one the data source test helpers read). Tests calling
+        this builder method don't need to special-case per-adapter
+        themselves.
+
+        Use this instead of ``column_text`` when the test inserts large
+        payloads (>~8 kB per row) — ``column_text`` silently truncates on
+        SqlServer because its TEXT→varchar mapping uses the default length.
+        """
+        import os as _os
+
+        test_ds = _os.environ.get("TEST_DATASOURCE", "postgres").lower()
+        sqlserver_family = {"sqlserver", "fabric", "synapse"}
+        if test_ds in sqlserver_family:
+            # "max" is a string sentinel; SqlDataType renders it via
+            # f"{name}({character_maximum_length})" → "varchar(max)".
+            # Outside the sqlserver family this would render as
+            # "text(max)" or "varchar(max)" which most other adapters
+            # reject, hence the gate above. The mapping override
+            # `SqlServerSqlDialect.map_test_sql_data_type_to_data_source`
+            # only fills in `default_varchar_length()` when the field
+            # is None, so the sentinel passes through unchanged.
+            return self.column(
+                name=name,
+                soda_data_type_name=SodaDataTypeName.VARCHAR,
+                character_maximum_length="max",  # type: ignore[arg-type]
+            )
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.TEXT)
+
     def column_smallint(self, name) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.SMALLINT)
 

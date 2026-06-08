@@ -882,7 +882,81 @@ class DataSourceTestHelper:
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
         self._create_test_table(test_table)
-        self._insert_test_table_rows(test_table)
+        # Pick the INSERT path based on whether any column is unbounded
+        # (column_unbounded_text → "max" sentinel for length). Standard
+        # short-row fixtures stay on the original single-statement path
+        # that historically all existing tests depend on. Fat-row test
+        # fixtures use the chunked path so they don't build one giant
+        # INSERT SQL string that overflows the driver's per-batch limit
+        # (e.g. sqlserver's TDS / pyodbc TCP buffer rejects single
+        # statements approaching ~64 MB).
+        if self._spec_has_unbounded_column(test_table):
+            self._insert_test_table_rows_chunked(test_table)
+            # Verify that the MIN length we read back from each
+            # unbounded column matches the MIN we wrote. Catches
+            # silent driver/collation truncations of "unbounded" data.
+            self._verify_unbounded_columns_data_length(test_table)
+        else:
+            self._insert_test_table_rows(test_table)
+
+    def _string_length_sql_function(self) -> str:
+        """SQL function name that returns the character length of a string
+        column. Defaults to the ANSI-ish ``length(...)`` which is what
+        postgres / snowflake / bigquery / databricks understand. SqlServer
+        adapters override to ``datalength`` (the postgres-equivalent that
+        doesn't trim trailing spaces — sqlserver's ``len(...)`` does)."""
+        return "length"
+
+    def _verify_unbounded_columns_data_length(self, test_table: TestTable) -> None:
+        """For every column flagged unbounded by the spec, query
+        ``SELECT MIN(<length_fn>(col))`` and verify the result matches
+        the minimum payload length recorded by the spec. If the driver
+        / DB silently truncated rows at insert, the actual MIN will be
+        lower than the expected MIN and we fail loudly.
+
+        Skipped when the spec has zero rows (nothing to verify)."""
+        spec_columns = test_table.columns
+        rows = test_table.row_values
+        if not rows:
+            return
+        column_names = list(spec_columns.keys())
+        length_fn = self._string_length_sql_function()
+        dialect = self.data_source_impl.sql_dialect
+
+        problems: list[str] = []
+        for col_idx, (col_name, spec_col) in enumerate(spec_columns.items()):
+            if not isinstance(spec_col.sql_data_type.character_maximum_length, str):
+                continue  # not an unbounded column
+            # Expected MIN from the spec's row data.
+            try:
+                values = [row[col_idx] for row in rows if row[col_idx] is not None]
+            except (IndexError, KeyError):
+                continue
+            if not values:
+                continue
+            expected_min = min(len(str(v)) for v in values)
+            # Query actual MIN from the DB.
+            qcol = dialect.quote_default(col_name)
+            sql = f"SELECT MIN({length_fn}({qcol})) FROM {test_table.qualified_name}"
+            try:
+                result = self.data_source_impl.execute_query(sql, log_query=False)
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"{col_name}: length query failed ({exc!r})")
+                continue
+            if not result.rows or result.rows[0][0] is None:
+                problems.append(f"{col_name}: length query returned no row")
+                continue
+            actual_min = int(result.rows[0][0])
+            if actual_min < expected_min:
+                problems.append(
+                    f"{col_name}: expected MIN length ≥ {expected_min}, got {actual_min} "
+                    f"(rows were silently truncated)"
+                )
+        if problems:
+            raise AssertionError(
+                f"Unbounded-column data-length verification failed for "
+                f"{test_table.unique_name}: " + "; ".join(problems)
+            )
 
     def _create_test_table(self, test_table: TestTable) -> None:
         my_create_table = CREATE_TABLE(
@@ -895,10 +969,93 @@ class DataSourceTestHelper:
         sql: str = self.data_source_impl.sql_dialect.build_create_table_sql(my_create_table)
         self.data_source_impl.execute_update(sql)
 
+    def _spec_has_unbounded_column(self, test_table: TestTable) -> bool:
+        """True iff the spec contains a column declared with
+        ``column_unbounded_text`` (or otherwise marked unbounded by setting
+        ``character_maximum_length`` to a non-int sentinel like ``"max"``).
+
+        Bounded specs go through the original ``_insert_test_table_rows``
+        path; unbounded specs go through the chunked path. Detecting via
+        the column type avoids guessing based on row-data size at runtime.
+        """
+        for column in test_table.columns.values():
+            length = column.sql_data_type.character_maximum_length
+            # The Builder's `column_unbounded_text` sets length to the
+            # string "max" on sqlserver-family adapters. On other adapters
+            # the column maps to TEXT (length stays None) — which is
+            # already unbounded so no chunking needed there either, but
+            # we still route through the chunked path to keep behaviour
+            # consistent and to gracefully handle large payloads on any
+            # adapter.
+            if isinstance(length, str):
+                return True
+        return False
+
     def _insert_test_table_rows(self, test_table: TestTable) -> None:
+        """Insert all rows in a single INSERT statement.
+
+        Historic behaviour. Works fine for the typical test fixture (a
+        handful of short rows). Don't use this for fat-row payloads —
+        use ``_insert_test_table_rows_chunked`` instead, dispatched from
+        ``_create_and_insert_test_table`` when the spec declares an
+        unbounded column."""
         sql: str = self._insert_test_table_rows_sql(test_table)
         if sql:
             self.data_source_impl.execute_update(sql)
+
+    def _insert_test_table_rows_chunked(self, test_table: TestTable) -> None:
+        """Bulk-insert in chunks so per-statement SQL stays under the
+        dialect's ``get_max_sql_statement_length()``.
+
+        Fat-row test fixtures (e.g. 200 rows × 1 MB payload for the
+        Phase 7 memory tests) would otherwise build a 200 MB
+        ``INSERT INTO ... VALUES (...)`` string and push it through the
+        DB driver — postgres tolerates this, sqlserver's TDS / pyodbc
+        TCP socket buffer drops the connection with an opaque ``0x20``
+        ("connection reset / broken pipe") error.
+
+        Strategy mirrors
+        ``DataSourceExtension._split_insert_into_multiple_statements``
+        but lives here because the test infra runs before any extension
+        is wired up.
+        """
+        if not test_table.row_values:
+            return
+
+        dialect = self.data_source_impl.sql_dialect
+        max_len = dialect.get_max_sql_statement_length()
+        rows = test_table.row_values
+        columns = [COLUMN(column.name) for column in test_table.columns.values()]
+        table_name = test_table.qualified_name
+
+        # Cheap per-row byte estimate to pick a chunk size without
+        # building the full SQL first. For typical fixtures (alphanumeric
+        # payloads, simple ints), `repr(value)` is close enough. We aim
+        # for a chunk SQL of ~half the dialect max to leave headroom for
+        # INSERT INTO header + escape overhead.
+        per_row_bytes = max(
+            sum(len(repr(v)) + 2 for v in row) + len(row) * 2 + 4
+            for row in rows[: min(8, len(rows))]
+        )
+        chunk_size = max(1, (max_len // 2) // max(1, per_row_bytes))
+        chunk_size = min(chunk_size, len(rows))
+
+        i = 0
+        while i < len(rows):
+            chunk = rows[i : i + chunk_size]
+            chunk_sql = dialect.build_insert_into_sql(
+                INSERT_INTO(
+                    fully_qualified_table_name=table_name,
+                    values=[VALUES_ROW(row) for row in chunk],
+                    columns=columns,
+                )
+            )
+            if len(chunk_sql) > max_len and chunk_size > 1:
+                # Estimate was too loose (extreme escaping). Halve and retry.
+                chunk_size = max(1, chunk_size // 2)
+                continue
+            self.data_source_impl.execute_update(chunk_sql)
+            i += chunk_size
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
