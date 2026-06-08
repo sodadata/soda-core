@@ -360,6 +360,17 @@ def execute_check_collections(
                     f"Error in session post-processing handler {type(handler).__name__}: {e}",
                     exc_info=True,
                 )
+                # Backstop: a well-behaved handle_session isolates per item and posts its own
+                # terminal stage state. If the override escapes anyway, mark this handler's
+                # stages FAILED per file — mirroring the per-file path's
+                # run_post_processing_handlers, so a crashing session handler never leaves a
+                # post-processing stage stuck/unreported. (No-ops when scan_id/cloud is absent.)
+                for item in session_items:
+                    item.contract_impl._handle_post_processing_failure(
+                        scan_id=item.verification_result.scan_id,
+                        exc=e,
+                        contract_verification_handler=handler,
+                    )
         # Re-stamp the per-file thread label on log records (incl. handler
         # emissions) — mirrors run_post_processing_handlers' final relabel pass,
         # now done once per file after all session handlers have run, so the

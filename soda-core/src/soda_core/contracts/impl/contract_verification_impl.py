@@ -77,7 +77,8 @@ class ContractVerificationHandler(ABC):
         contract_impl: ContractImpl,
         data_source_impl: Optional[DataSourceImpl],
         contract_verification_result: ContractVerificationResult,
-        soda_cloud: SodaCloud,
+        # Optional: None in local/no-cloud runs and when publish_results is False.
+        soda_cloud: Optional[SodaCloud],
         # Optional: a file skipped from the combined upload is post-processed with response None.
         soda_cloud_send_results_response_json: Optional[dict],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
@@ -91,7 +92,7 @@ class ContractVerificationHandler(ABC):
     def handle_session(
         self,
         items: list[PostProcessingSessionItem],
-        soda_cloud: SodaCloud,
+        soda_cloud: Optional[SodaCloud],
         soda_cloud_send_results_response_json: Optional[dict] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> None:
@@ -101,6 +102,7 @@ class ContractVerificationHandler(ABC):
         single combined upload, passing every successfully-verified file of the
         group. ``soda_cloud_send_results_response_json`` is the shared group
         response (the one ``scanId``); per-file responses live on each item.
+        ``soda_cloud`` may be ``None`` (local/no-cloud or publish_results=False).
 
         The default preserves the historical per-file behavior: invoke ``handle``
         for each item with that item's own response_json, isolating per-file
@@ -108,6 +110,12 @@ class ContractVerificationHandler(ABC):
         path did. Subtypes needing true session scope (the diagnostics-warehouse
         extractor: one config fetch per dataset, one DWH connection, one
         aggregated stage update) override this method.
+
+        Contract for overriders: (1) isolate each item — one file's failure must
+        not abort the rest; (2) ALWAYS post a terminal post-processing stage state
+        (in a ``finally``), even when every item fails, so a stage never hangs.
+        If the override itself raises, the executor marks the handler's stages
+        FAILED as a backstop.
         """
         for item in items:
             try:

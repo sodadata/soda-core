@@ -261,6 +261,28 @@ def test_handler_exception_in_handle_session_is_isolated():
     assert recording.session_calls[0][0] == ["alpha", "gamma"]
 
 
+def test_handle_session_crash_triggers_post_processing_failure_backstop(monkeypatch):
+    """If an overridden handle_session escapes, the executor marks that handler's stages FAILED
+    per surviving file (via _handle_post_processing_failure) — mirroring the per-file path, so a
+    crashing session handler never leaves a post-processing stage stuck/unreported."""
+    backstop_calls: list[tuple[str, str]] = []
+
+    def spy(self, *, scan_id, exc, contract_verification_handler):
+        backstop_calls.append(
+            (getattr(self.yaml.yaml_source, "_label", "anon"), type(contract_verification_handler).__name__)
+        )
+
+    monkeypatch.setattr(_StubImpl, "_handle_post_processing_failure", spy)
+
+    exploding = _ExplodingHandler()
+    sources = [_StubSource("alpha"), _StubSource("gamma")]
+    with _registered(exploding):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert len(session_result.results) == 2
+    assert backstop_calls == [("alpha", "_ExplodingHandler"), ("gamma", "_ExplodingHandler")]
+
+
 def test_default_handle_session_isolates_per_item_handle_failure():
     """The default handle_session must isolate a per-item ``handle`` failure: a raise on one
     file does not stop ``handle`` running for the others, and the session still completes."""
