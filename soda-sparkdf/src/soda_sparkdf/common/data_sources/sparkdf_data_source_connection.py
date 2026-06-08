@@ -27,9 +27,11 @@ class SparkDataFrameConnectionProperties(DataSourceConnectionProperties, ABC):
     catalog: Optional[str] = Field(
         None,
         description=(
-            "Catalog to write DWH/diagnostics tables into when ``use_catalog=true``. When "
-            "unset, the catalog is resolved at runtime from ``SELECT current_catalog()`` "
-            "against the active SparkSession. Ignored when ``use_catalog=false``."
+            "Explicit catalog binding for downstream consumers that need a 3-level "
+            "Unity-Catalog identifier (e.g. soda-extensions' diagnostics-warehouse writer "
+            "when ``use_catalog=true``). soda-core itself does not interpret this field; "
+            "consumers are expected to fall back to ``SELECT current_catalog()`` against "
+            "the active SparkSession when it is unset. Ignored when ``use_catalog=false``."
         ),
     )
 
