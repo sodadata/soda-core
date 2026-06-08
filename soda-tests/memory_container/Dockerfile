@@ -1,9 +1,11 @@
 # Image for the memory_container pytest plugin.
 #
-# Phase 5+: full workspace install (libpq + ODBC + soda-core + soda-tests +
-# soda-postgres + soda-sqlserver + soda-extensions/soda). Built editably so
-# that setuptools entry points (soda.plugins.check_types.* etc.) register and
-# soda's plugin discovery works.
+# Full workspace install of soda-core / soda-tests / soda-extensions plus
+# every adapter the memory_container suite exercises:
+#   postgres, sqlserver, snowflake, bigquery, databricks.
+# Built editably so that setuptools entry points
+# (soda.plugins.check_types.* / soda.plugins.data_source.* etc.) register
+# and soda's plugin discovery works.
 #
 # Source is COPYed to the SAME absolute path the runtime bind mount will use
 # (`/Users/niels/Repositories/soda_claude`) so editable `.pth` paths line up
@@ -35,7 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Third-party Python deps (data-source drivers + everything from Phase 1/2/3)
+# Third-party Python deps. Cloud-DB Python drivers are added here so a
+# single image supports running memory_container tests against any of the
+# supported source adapters. Credentials still come from the host's env
+# vars at runtime; this layer only ships the client libraries.
 RUN pip install --no-cache-dir \
         pytest==7.4.4 \
         psutil==7.2.2 \
@@ -54,7 +59,10 @@ RUN pip install --no-cache-dir \
         "psycopg[binary]>=3.2,<4" \
         "pyodbc>=5.0" \
         "pandas>=2.0.0" \
-        "pyarrow>=20.0.0"
+        "pyarrow>=20.0.0" \
+        "snowflake-connector-python>=3.0" \
+        "google-cloud-bigquery>=2.25.0" \
+        "databricks-sql-connector"
 
 # Workspace source. The bind-mount target path is host-specific (developer
 # machines vary), so it's an ARG. Default matches the canonical dev layout.
@@ -72,6 +80,9 @@ RUN pip install --no-cache-dir --no-deps \
         -e ${REPO_PARENT}/soda-core/soda-tests \
         -e ${REPO_PARENT}/soda-core/soda-postgres \
         -e ${REPO_PARENT}/soda-core/soda-sqlserver \
+        -e ${REPO_PARENT}/soda-core/soda-snowflake \
+        -e ${REPO_PARENT}/soda-core/soda-bigquery \
+        -e ${REPO_PARENT}/soda-core/soda-databricks \
         -e ${REPO_PARENT}/soda-extensions/soda
 
 # WORKDIR is set at runtime via `docker run -w` to mirror the host rootdir.
