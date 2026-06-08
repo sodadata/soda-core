@@ -709,6 +709,22 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         )
         return "failed", msg
 
+    # Surface silently-swallowed verification handler exceptions. soda catches
+    # post-processing handler errors in check_collections/base.py and logs via
+    # logger.error without propagating — the inner test passes (assertions
+    # only check check-outcomes, not handler state) but the workload we mean
+    # to measure aborted partway through. Without this guard the measurement
+    # would silently reflect that aborted pipeline, not the intended one.
+    handler_error = _detect_swallowed_handler_error(stdout)
+    if handler_error is not None:
+        return "failed", (
+            f"Inner test passed but a soda verification handler raised silently.\n"
+            f"The peak ({peak_mb:.1f} MB / {limit_mb} MB) does NOT reflect the intended "
+            f"workload — the pipeline aborted before completion.\n"
+            f"See {artifact_dir}/inner_pytest_stdout.log for full context.\n\n"
+            f"{handler_error}"
+        )
+
     # Pass — log the peak so it's visible in pytest output.
     print(
         f"[memory_container] {item.nodeid}: "
@@ -747,6 +763,52 @@ def _read_int(path: Path) -> int:
         return int(path.read_text().strip())
     except (OSError, ValueError):
         return 0
+
+
+# Soda emits this exact prefix from check_collections/base.py's exception
+# handler around verification-handler invocation. Matching on the literal
+# "verification handler" suffix keeps the pattern narrow enough to avoid
+# false positives from arbitrary user code that happens to log "Error in".
+_HANDLER_ERROR_RE = re.compile(r"Error in .+? verification handler: .*")
+
+# Truncation cap for the failure-message excerpt. Plenty for the message + a
+# typical traceback; full context is always available in inner_pytest_stdout.log.
+_HANDLER_ERROR_MAX_LEN = 4000
+
+
+def _detect_swallowed_handler_error(stdout: Optional[str]) -> Optional[str]:
+    """If soda's verification-handler error appears anywhere in the inner
+    stdout, return a snippet that includes the marker line and the traceback
+    that immediately followed. Otherwise return None.
+
+    Used by ``_run_in_container`` to fail tests where soda swallowed a
+    handler exception (logged at ERROR level but not re-raised). Returning
+    a string here makes the test fail with that string as the reason; None
+    leaves the existing pass/fail decision untouched.
+    """
+    if not stdout:
+        return None
+    marker = _HANDLER_ERROR_RE.search(stdout)
+    if marker is None:
+        return None
+
+    # Walk forward from the marker, collecting lines until we hit a clear
+    # boundary (next pytest message, next iso-timestamped log line, end of
+    # output). exc_info=True writes "Traceback (most recent call last):"
+    # immediately after the message, so consecutive lines belong together.
+    start = marker.start()
+    tail = stdout[start:]
+    # Boundary regex: a line that starts with pytest's section header
+    # (=====, PASSED, FAILED) or another ISO-timestamped log line.
+    boundary = re.search(
+        r"\n(?:={3,}|PASSED|FAILED|\d{4}-\d{2}-\d{2}T?\d{2}:\d{2}:\d{2})",
+        tail,
+    )
+    end = boundary.start() if boundary else len(tail)
+    snippet = tail[:end].rstrip()
+    if len(snippet) > _HANDLER_ERROR_MAX_LEN:
+        snippet = snippet[:_HANDLER_ERROR_MAX_LEN] + "\n... [truncated]"
+    return snippet
 
 
 def _make_artifact_dir(item: pytest.Item) -> Path:
