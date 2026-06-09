@@ -107,9 +107,9 @@ class ContractVerificationHandler(ABC):
         The default preserves the historical per-file behavior: invoke ``handle``
         for each item with that item's own response_json, isolating per-file
         failures via ``_handle_post_processing_failure`` exactly as the per-file
-        path did. Subtypes needing true session scope (the diagnostics-warehouse
-        extractor: one config fetch per dataset, one DWH connection, one
-        aggregated stage update) override this method.
+        path did. Subtypes needing true session scope (e.g. resolve shared config
+        once, reuse one connection, post one aggregated stage update for the whole
+        session) override this method.
 
         Contract for overriders: (1) isolate each item — one file's failure must
         not abort the rest; (2) ALWAYS post a terminal post-processing stage state

@@ -318,8 +318,8 @@ def execute_check_collections(
     # post-processed HERE, after the single combined upload, so handlers see the
     # shared scan_id / response_json. Handlers run ONCE per wire-source group via
     # ``handle_session`` (not once per file): this lets a session-scoped handler
-    # (e.g. the diagnostics-warehouse extractor) fetch config once per dataset,
-    # reuse one connection, and post a single aggregated stage update. ERROR
+    # do session-level work once (e.g. resolve shared config, reuse one connection,
+    # post a single aggregated stage update) instead of repeating it per file. ERROR
     # placeholders are skipped for parity with the non-combine path (an exception
     # in verify() bypasses handlers). Each item carries the shared response when it
     # was part of the upload, else None, so the default per-item ``handle_session``
@@ -372,9 +372,9 @@ def execute_check_collections(
                 # escaping override). If such an override had already posted COMPLETED for some
                 # items before raising, those get re-marked FAILED here. We accept over-reporting
                 # FAILED over leaving a stage hung — the alternative (tracking which items already
-                # reached a terminal stage) lives inside the handler, not the executor. The one
-                # real override (FailedRowsExtractor) posts a single aggregated stage in a
-                # ``finally`` and never escapes, so this path is unreached in practice.
+                # reached a terminal stage) lives inside the handler, not the executor. An override
+                # that honors the documented contract (isolate per item; always post a terminal
+                # stage in ``finally``) never escapes, so this path is unreached in practice.
                 for item in session_items:
                     item.contract_impl._handle_post_processing_failure(
                         scan_id=item.verification_result.scan_id,
@@ -483,16 +483,14 @@ def _raise_if_combined_session_spans_multiple_datasets(
     """Raise ``InvalidArgumentException`` if a ``combine_uploads = True`` wire source's
     files target more than one dataset.
 
-    A combine-upload session uploads all its files under ONE ``scanId`` (one per
-    wire source). Downstream, the diagnostics warehouse keys a scan by ``scan_id`` and
-    links ``check_results`` / diagnostics to it by ``scan_id`` alone, assuming one scan
-    maps to exactly one dataset. Letting a single ``scanId`` span multiple datasets would
-    write multiple ``scans`` rows sharing that ``scan_id`` and fan out those joins. Data
-    standards run one dataset per scan (e.g. ``data-standard verify --dataset <DQN>``); a
-    multi-dataset combined session (e.g. ``-c`` files declaring different ``dataset:``) is
-    rejected here rather than silently corrupting the warehouse. Non-combine subtypes
-    (contracts) are exempt — each file is its own scan. Stubs/results missing a qualified
-    dataset name are skipped.
+    A combine-upload session uploads all its files under ONE ``scanId`` (one per wire
+    source). Downstream consumers key a scan by ``scan_id`` and link per-check results to
+    it by ``scan_id`` alone, assuming one scan maps to exactly one dataset. Letting a single
+    ``scanId`` span multiple datasets would break that 1:1 link (e.g. multiple scan rows
+    sharing one ``scan_id``, fanned-out joins). A combine-upload subtype is therefore expected
+    to cover a single dataset per session; a multi-dataset combined session is rejected here
+    rather than producing an incoherent scan. Non-combine subtypes are exempt — each file is
+    its own scan. Impls missing a qualified dataset name are skipped.
     """
     datasets_by_wire_source: dict[str, set[str]] = {}
     for impl, impl_class, _construct_exc, _yaml_source in constructed:
@@ -508,7 +506,7 @@ def _raise_if_combined_session_spans_multiple_datasets(
         detail = "\n".join(f"  - {ws}: {ds}" for ws, ds in offenders.items())
         raise InvalidArgumentException(
             "A combined (combine_uploads) session must target a single dataset — its files share "
-            "one scanId and the diagnostics warehouse assumes one scan maps to one dataset. "
+            "one scanId, and a scan is assumed to map to exactly one dataset. "
             "Multiple datasets found in a single wire source:\n" + detail + "\n"
-            "Run one dataset per verify (e.g. data-standard verify --dataset <DQN>)."
+            "Run one dataset per combined session."
         )
