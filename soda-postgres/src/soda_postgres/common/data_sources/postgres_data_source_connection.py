@@ -147,6 +147,15 @@ class PostgresDataSourceConnection(DataSourceConnection):
           * Server-side cursors hold a snapshot on the backend — long
             transactions can interact with vacuum / replication slots.
             For Soda's typical scan duration (seconds) this is irrelevant.
+          * ``withhold=True`` keeps the cursor alive past intermediate
+            ``connection.commit()`` calls — needed because the
+            failed-rows DWH pump path commits at the end of every
+            ``_optimized_insert`` batch on the SAME connection. Without
+            this, a flush triggered mid-iteration kills the source cursor
+            and the next ``fetchone()`` raises ``cursor "soda_stream_…"
+            does not exist``. Postgres materialises the cursor's
+            remaining unfetched rows server-side at commit time; the
+            client-side memory footprint stays bounded.
         """
         if getattr(self.connection, "autocommit", False):
             # Server-side cursors can't be created in autocommit mode — fall
@@ -173,7 +182,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
             )
 
         try:
-            with self.connection.cursor(name=cursor_name) as cursor:
+            with self.connection.cursor(name=cursor_name, withhold=True) as cursor:
                 cursor.itersize = 1
                 cursor.execute(sql)
                 description: tuple[tuple] = cursor.description
