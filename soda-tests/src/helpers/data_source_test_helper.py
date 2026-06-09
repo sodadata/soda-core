@@ -1536,7 +1536,14 @@ class DataSourceTestHelper:
             TestTableSpecification.builder()
             .table_purpose(table_purpose)
             .column_integer("id")
-            .column_text("payload")
+            # column_unbounded_text picks the adapter's true unbounded string
+            # type (TEXT on postgres, varchar(MAX) on sqlserver / fabric /
+            # synapse). column_text would map to varchar(default_length) =
+            # 8000 on the sqlserver family, silently truncating any payload
+            # larger than that — every fat-row test (payload_bytes ≥ 100 KB)
+            # would error at insert time with "String or binary data would
+            # be truncated".
+            .column_unbounded_text("payload")
             .rows(rows=rows)
             .build()
         )
