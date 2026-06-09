@@ -56,6 +56,6 @@ def test_minimal_contract():
         """
         )
     )
-    logs.remove_from_root_logger()
+    logs.close()
 
     assert not logs.get_errors_str()

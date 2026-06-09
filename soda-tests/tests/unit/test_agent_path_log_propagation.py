@@ -122,11 +122,10 @@ def test_execute_on_agent_does_not_leak_impl_logs_to_root_logger_across_items(mo
         soda_cloud_use_agent=True,
     )
 
-    # After the session returns, the only root-logger handler delta should
-    # be the session-level Logs() (which is itself cleaned up by the public
-    # entry's lifecycle). The impl's own LogCapturer must have been removed.
-    # Allow at most one residual (the session-level capturer) above baseline.
+    # Capture is routed through one process-wide root capturer; no per-impl or
+    # per-session handler is added. At most one handler appears above baseline
+    # (that shared capturer, installed once).
     assert len(logging.root.handlers) <= handler_count_before + 1, (
-        f"Impl LogCapturer leaked to root logger. "
+        f"Unexpected root-logger handler growth. "
         f"Before: {handler_count_before}, after: {len(logging.root.handlers)}"
     )

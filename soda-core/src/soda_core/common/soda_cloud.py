@@ -756,7 +756,7 @@ class SodaCloud:
         if contract_dataset_cloud_url:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
-        logs.remove_from_root_logger()
+        logs.close()
         verification_result.log_records = logs.get_log_records()
 
         return verification_result

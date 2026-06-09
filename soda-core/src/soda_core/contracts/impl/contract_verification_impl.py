@@ -353,7 +353,7 @@ class ContractVerificationSessionImpl:
                     only_validate_without_execute=True,
                 )
                 init_log_records = contract_impl.logs.pop_log_records()
-                contract_impl.logs.remove_from_root_logger()
+                contract_impl.logs.close()
 
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,

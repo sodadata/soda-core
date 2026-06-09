@@ -76,7 +76,7 @@ def build_contract_impl(
         return contract_impl
     finally:
         if own_logs:
-            logs.remove_from_root_logger()
+            logs.close()
 
 
 def get_check_impl(

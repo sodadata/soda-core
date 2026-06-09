@@ -117,7 +117,7 @@ def test_required_variable_without_value_logs_error():
         error_str = logs.get_errors_str()
         assert "required_var" in error_str, f"Expected 'required_var' in error message: {error_str}"
     finally:
-        logs.remove_from_root_logger()
+        logs.close()
 
 
 def test_variables_env_resolution(env_vars: dict):

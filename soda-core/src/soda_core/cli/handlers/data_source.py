@@ -6,7 +6,7 @@ from typing import Optional
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.logs import LogCapturer
+from soda_core.common.logs import Logs
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
@@ -88,19 +88,15 @@ def handle_test_data_source(
 class _TestConnectionLogUploader:
     """Wires Soda Cloud log upload around the test-connection flow.
 
-    Holds a LogsQueue bound to the given scan_id and a LogCapturer that
-    forwards root-logger records to it. Must be closed to flush the final batch.
-    """
+    Holds a ``Logs`` backed by a ``LogsQueue`` bound to the given scan_id, so
+    root-logger records during the test stream to Cloud. Must be closed to flush
+    the final batch."""
 
-    def __init__(self, logs_queue, log_capturer):
-        self._logs_queue = logs_queue
-        self._log_capturer = log_capturer
+    def __init__(self, logs: Logs):
+        self._logs = logs
 
     def close(self) -> None:
-        try:
-            self._log_capturer.remove_from_root_logger()
-        finally:
-            self._logs_queue.close()
+        self._logs.close()
 
 
 def _build_log_uploader(
@@ -134,5 +130,4 @@ def _build_log_uploader(
         scan_id=scan_id,
         dataset="",
     )
-    log_capturer = LogCapturer(logs_queue)
-    return _TestConnectionLogUploader(logs_queue=logs_queue, log_capturer=log_capturer)
+    return _TestConnectionLogUploader(logs=Logs(gatherer=logs_queue))

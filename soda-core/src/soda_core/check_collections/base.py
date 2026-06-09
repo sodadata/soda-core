@@ -412,6 +412,13 @@ class CheckCollectionImpl:
         """
         return None
 
+    @property
+    def thread_label(self) -> str:
+        """Per-collection ``thread`` value stamped on each captured record:
+        ``"{wire_source}.{collection_id}"`` (or the bare ``wire_source`` without a
+        ``collection_id``). Soda Cloud surfaces it as a per-scan log filter."""
+        return f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
+
     def __init__(
         self,
         yaml: CheckCollectionYaml,
@@ -436,6 +443,8 @@ class CheckCollectionImpl:
         self.logs: Logs = logs if logs is not None else Logs()
         self.yaml: CheckCollectionYaml = yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
+        # Stamp this collection's ``thread`` label on every record it emits.
+        self.logs.label = self.thread_label
         self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
@@ -906,14 +915,6 @@ class CheckCollectionImpl:
         if not self.combine_uploads:
             self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
 
-        # Stamp per-file thread label on log records (covers query/upload/
-        # in-verify-handler emissions). Combine subtypes get a second
-        # relabel pass at the end of ``run_post_processing_handlers``
-        # because phase 3 invokes that AFTER verify() returns and any
-        # logs the handlers emit then would otherwise carry raw OS thread
-        # ids and break the Cloud-side per-file grouping.
-        self._apply_thread_label_to_log_records(log_records)
-
         return verification_result
 
     def run_post_processing_handlers(
@@ -950,30 +951,6 @@ class CheckCollectionImpl:
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
-
-        # Re-stamp the per-file thread label on any records appended by
-        # the handler loop above. Non-combine path: verify() relabels
-        # again right after returning from here, so this is idempotent.
-        # Combine path: handlers run in phase 3 AFTER verify() already
-        # relabelled, so without this pass the handler-emitted records
-        # would carry raw OS thread ids — the Cloud-side wire grouping
-        # by ``thread`` field would then misbucket them.
-        self._apply_thread_label_to_log_records(verification_result.log_records)
-
-    def _apply_thread_label_to_log_records(self, log_records: Optional[list[LogRecord]]) -> None:
-        """Stamp the per-file label on every log record so combined uploads
-        group records by file via the wire's ``thread`` field.
-
-        Idempotent — safe to call multiple times as more records get
-        appended to the same list (the gatherer's live list is shared
-        across emit sites, including the post-pop YAML upload + handler
-        emissions).
-        """
-        if not log_records:
-            return
-        thread_label = f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
-        for record in log_records:
-            record.thread = thread_label
 
     def verify_on_runner(
         self,

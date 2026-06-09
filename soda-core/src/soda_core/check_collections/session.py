@@ -12,6 +12,7 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import datetime
 from typing import Optional, Union
 
@@ -27,7 +28,7 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
@@ -35,6 +36,18 @@ from soda_core.contracts.impl.diagnostics_warehouse_files import (
 )
 
 
+def _capturing(impl: CheckCollectionImpl):
+    """Activate this impl's ``Logs`` for a block so its verify()/handler records
+    land in (and are labelled for) the right collection. No-op for lightweight
+    test doubles that carry no ``Logs``."""
+    impl_logs = getattr(impl, "logs", None)
+    return impl_logs.activate(impl.thread_label) if impl_logs is not None else nullcontext()
+
+
+# Each owned impl's Logs activates on construction and is never individually
+# closed, so restore the active capture target to its pre-call value on exit
+# (no Logs left dangling as active after the session).
+@preserve_active_logs()
 def execute_check_collections(
     yaml_sources: list[CheckCollectionYamlSource],
     data_source_impl: Optional[DataSourceImpl],
@@ -124,6 +137,11 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
+
+    # Each impl's ``Logs`` becomes active as it is constructed, capturing its
+    # construction logs; phase 2/3 re-activate it around verify()/handlers via
+    # ``_capturing(impl)``. Only one gatherer is ever active, so siblings can't
+    # cross-capture.
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
     # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
@@ -221,12 +239,14 @@ def execute_check_collections(
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
-        try:
-            results.append(impl.verify())
-        except Exception as exc:
-            if abort_on_first_error:
-                raise
-            results.append(impl_class.build_error_result(yaml_source, exc))
+        # Capture this verify()'s records into this collection's gatherer.
+        with _capturing(impl):
+            try:
+                results.append(impl.verify())
+            except Exception as exc:
+                if abort_on_first_error:
+                    raise
+                results.append(impl_class.build_error_result(yaml_source, exc))
 
     # ---- Phase 3: combined upload (cloud-gated) + post-processing handlers (always). ----
     # ``constructed`` is positionally aligned with ``results``, so we iterate
@@ -324,7 +344,10 @@ def execute_check_collections(
         response_for_file = (
             response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None
         )
-        impl.run_post_processing_handlers(result, response_for_file)
+        # Handlers run after verify() returned; re-activate so their records are
+        # captured for this collection.
+        with _capturing(impl):
+            impl.run_post_processing_handlers(result, response_for_file)
 
     return CheckCollectionSessionResult(results)
 
