@@ -13,6 +13,39 @@
 # pyproject.toml changes still need a rebuild.
 #
 # Build is driven from the soda_claude/ parent as build context — see Makefile.
+#
+# ---------------------------------------------------------------------------
+# Analyzing memray.bin files produced by the memory tests
+# ---------------------------------------------------------------------------
+# memray runs INSIDE this container — never install it on the host venv
+# (version skew against the .bin format, venv pollution).
+#
+# To inspect a memray.bin file from the artifact directory, run a memray
+# subcommand inside this image with the artifact dir bind-mounted:
+#
+#   docker run --rm \
+#       -v /path/to/artifact_dir:/work \
+#       soda-memtest:latest \
+#       python -m memray summary /work/memray.bin
+#
+# For per-function PEAK-RESIDENT attribution (what cgroup actually sees at
+# peak, not lifetime totals), write a small script using memray's Python
+# API and mount it alongside the artifact:
+#
+#   # script using memray.FileReader.get_high_watermark_allocation_records()
+#   docker run --rm \
+#       -v /path/to/scripts:/scripts \
+#       -v /path/to/artifact_dir:/work \
+#       soda-memtest:latest \
+#       python /scripts/memray_extract_peak.py /work/memray.bin > peak.json
+#
+# `memray transform csv` is the wrong tool for "where does memory go at peak"
+# — it emits LIFETIME totals (every allocation ever made, summed), inflated
+# by transients. Use the high-watermark API for peak analysis.
+#
+# Full template and worked example:
+#   soda_claude/memory_management/MEMRAY_DOCKER_ANALYSIS.md
+# ---------------------------------------------------------------------------
 FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
