@@ -492,21 +492,28 @@ def _raise_if_combined_session_spans_multiple_datasets(
     rather than producing an incoherent scan. Non-combine subtypes are exempt — each file is
     its own scan. Impls missing a qualified dataset name are skipped.
     """
-    datasets_by_wire_source: dict[str, set[str]] = {}
-    for impl, impl_class, _construct_exc, _yaml_source in constructed:
+    # wire_source -> dataset -> [file path], so the error can point at the offending files
+    # (mirrors _raise_if_duplicate_collection_ids).
+    files_by_dataset: dict[str, dict[str, list[str]]] = {}
+    for impl, impl_class, _construct_exc, yaml_source in constructed:
         if impl is None or impl_class is None or not impl_class.combine_uploads:
             continue
         dataset = getattr(impl, "soda_qualified_dataset_name", None)
         if not dataset:
             continue
-        datasets_by_wire_source.setdefault(impl_class.wire_source, set()).add(dataset)
+        path = getattr(yaml_source, "file_path", None) or repr(yaml_source)
+        files_by_dataset.setdefault(impl_class.wire_source, {}).setdefault(dataset, []).append(path)
 
-    offenders = {ws: sorted(ds) for ws, ds in datasets_by_wire_source.items() if len(ds) > 1}
+    offenders = {ws: by_ds for ws, by_ds in files_by_dataset.items() if len(by_ds) > 1}
     if offenders:
-        detail = "\n".join(f"  - {ws}: {ds}" for ws, ds in offenders.items())
+        lines: list[str] = []
+        for wire_source, by_ds in offenders.items():
+            lines.append(f"  - {wire_source}:")
+            for dataset, paths in sorted(by_ds.items()):
+                lines.append(f"      {dataset}: {', '.join(paths)}")
         raise InvalidArgumentException(
             "A combined (combine_uploads) session must target a single dataset — its files share "
             "one scanId, and a scan is assumed to map to exactly one dataset. "
-            "Multiple datasets found in a single wire source:\n" + detail + "\n"
+            "Multiple datasets found in a single wire source:\n" + "\n".join(lines) + "\n"
             "Run one dataset per combined session."
         )

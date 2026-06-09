@@ -58,6 +58,10 @@ def _registered(*handlers: ContractVerificationHandler):
     saved_handlers = list(reg.contract_verification_handlers)
     saved_stages = dict(reg.post_processing_stages)
     try:
+        # Start from a clean slate so handlers leaked by other test modules (some register
+        # without cleanup) don't run during this block and break per-handler assertions.
+        reg.contract_verification_handlers = []
+        reg.post_processing_stages = {}
         for handler in handlers:
             reg.register(handler)
         yield

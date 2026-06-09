@@ -319,6 +319,12 @@ class CheckCollectionImpl:
     # When True, N files of this subtype in one session combine into one
     # ``sodaCoreInsertScanResults`` upload. Default False keeps the
     # per-file upload path (byte-identical wire output) intact.
+    #
+    # Contract for combine_uploads=True subtypes: all files of one session must target a
+    # single dataset (they share one scanId, and a scan is assumed to map to one dataset).
+    # The executor enforces this via ``_raise_if_combined_session_spans_multiple_datasets``,
+    # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
+    # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
