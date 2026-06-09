@@ -202,6 +202,7 @@ def execute_check_collections(
     # ignore ``abort_on_first_error`` (which gates per-file engine errors).
     _raise_if_kind_offenders(kind_offenders, expected_kinds)
     _raise_if_duplicate_collection_ids(constructed)
+    _raise_if_combined_session_spans_multiple_datasets(constructed)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -361,10 +362,19 @@ def execute_check_collections(
                     exc_info=True,
                 )
                 # Backstop: a well-behaved handle_session isolates per item and posts its own
-                # terminal stage state. If the override escapes anyway, mark this handler's
-                # stages FAILED per file — mirroring the per-file path's
-                # run_post_processing_handlers, so a crashing session handler never leaves a
-                # post-processing stage stuck/unreported. (No-ops when scan_id/cloud is absent.)
+                # terminal stage state (the documented overrider contract). If the override
+                # escapes anyway, mark this handler's stages FAILED per file — mirroring the
+                # per-file path's run_post_processing_handlers, so a crashing session handler
+                # never leaves a post-processing stage stuck/unreported. (No-ops when
+                # scan_id/cloud is absent.)
+                #
+                # Intentionally conservative: this fires only on a contract violation (an
+                # escaping override). If such an override had already posted COMPLETED for some
+                # items before raising, those get re-marked FAILED here. We accept over-reporting
+                # FAILED over leaving a stage hung — the alternative (tracking which items already
+                # reached a terminal stage) lives inside the handler, not the executor. The one
+                # real override (FailedRowsExtractor) posts a single aggregated stage in a
+                # ``finally`` and never escapes, so this path is unreached in practice.
                 for item in session_items:
                     item.contract_impl._handle_post_processing_failure(
                         scan_id=item.verification_result.scan_id,
@@ -457,4 +467,48 @@ def _raise_if_duplicate_collection_ids(
         raise InvalidArgumentException(
             "Duplicate collection identifier(s) detected in session — each "
             "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
+        )
+
+
+def _raise_if_combined_session_spans_multiple_datasets(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+) -> None:
+    """Raise ``InvalidArgumentException`` if a ``combine_uploads = True`` wire source's
+    files target more than one dataset.
+
+    A combine-upload session uploads all its files under ONE ``scanId`` (one per
+    wire source). Downstream, the diagnostics warehouse keys a scan by ``scan_id`` and
+    links ``check_results`` / diagnostics to it by ``scan_id`` alone, assuming one scan
+    maps to exactly one dataset. Letting a single ``scanId`` span multiple datasets would
+    write multiple ``scans`` rows sharing that ``scan_id`` and fan out those joins. Data
+    standards run one dataset per scan (e.g. ``data-standard verify --dataset <DQN>``); a
+    multi-dataset combined session (e.g. ``-c`` files declaring different ``dataset:``) is
+    rejected here rather than silently corrupting the warehouse. Non-combine subtypes
+    (contracts) are exempt — each file is its own scan. Stubs/results missing a qualified
+    dataset name are skipped.
+    """
+    datasets_by_wire_source: dict[str, set[str]] = {}
+    for impl, impl_class, _construct_exc, _yaml_source in constructed:
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        dataset = getattr(impl, "soda_qualified_dataset_name", None)
+        if not dataset:
+            continue
+        datasets_by_wire_source.setdefault(impl_class.wire_source, set()).add(dataset)
+
+    offenders = {ws: sorted(ds) for ws, ds in datasets_by_wire_source.items() if len(ds) > 1}
+    if offenders:
+        detail = "\n".join(f"  - {ws}: {ds}" for ws, ds in offenders.items())
+        raise InvalidArgumentException(
+            "A combined (combine_uploads) session must target a single dataset — its files share "
+            "one scanId and the diagnostics warehouse assumes one scan maps to one dataset. "
+            "Multiple datasets found in a single wire source:\n" + detail + "\n"
+            "Run one dataset per verify (e.g. data-standard verify --dataset <DQN>)."
         )
