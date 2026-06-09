@@ -60,11 +60,24 @@ MEMRAY_ENABLE_ENV = "SODA_MEMTEST_MEMRAY"
 # compute the same schema name — required for ensure_test_table's dedup to
 # recognise the table that __prepare_outside__ created.
 FIXED_SCHEMA_ENV = "SODA_MEMTEST_FIXED_SCHEMA"
+# Shared schema name memory tests always land in. Every memory test's
+# host helper + in-container helper computes the same value via
+# FIXED_SCHEMA_ENV, so unique-table names dedup across runs and stale
+# tables can be cleaned up by a separate sweep. The lowercase, no-prefix
+# name keeps it identifiable for postgres / sqlserver / bigquery /
+# snowflake / databricks alike.
+MEMORY_TEST_SCHEMA_NAME = "dev_memory_testing"
 # Set by the plugin (alongside FIXED_SCHEMA_ENV) when setup_outside=True, to
 # prevent the in-container DataSourceTestHelper from dropping the schema the
 # host has just populated via __prepare_outside__ (the helper's CI-mode
 # `start_test_session_ensure_schema` would otherwise drop it).
 SKIP_SCHEMA_DROP_ENV = "SODA_MEMTEST_SKIP_SCHEMA_DROP"
+# Read by ``DataSourceTestHelper._drop_test_table``. When set, every table-
+# level DROP is suppressed (session-end cleanup, obsolete-table eviction
+# inside ensure_test_table, per-test ``__finalize_outside__`` hooks). The
+# plugin turns this on for every memory test so the dev_memory_testing
+# schema's expensive fixture tables persist for the next run.
+KEEP_TABLES_ENV = "SODA_MEMTEST_KEEP_TABLES"
 # Set by the plugin after __prepare_outside__ runs, when setup_outside=True.
 # Carries a JSON list of the unique_names of every test table the host helper
 # ensured during prepare. The in-container test code reads this and builds a
@@ -329,6 +342,28 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
         )
         return True
 
+    # All memory tests share a single schema (``dev_memory_testing``). Both
+    # the host and the in-container helper read this same env var, so they
+    # land in the same schema and unique-table dedup just works. Stale
+    # tables are expected to be cleaned up by an external sweep.
+    prev_fixed_schema = os.environ.get(FIXED_SCHEMA_ENV)
+    os.environ[FIXED_SCHEMA_ENV] = MEMORY_TEST_SCHEMA_NAME
+
+    # Memory test fixtures are huge (hundreds of MB). The whole point of the
+    # shared ``dev_memory_testing`` schema is "create once, reuse forever" —
+    # rebuilding tables every run would burn minutes per test and hammer the
+    # source DB. SKIP_SCHEMA_DROP_ENV suppresses both the CI-mode drop at
+    # session start (``start_test_session_ensure_schema``) AND the session-
+    # end drop (``end_test_session_drop_schema``). KEEP_TABLES_ENV neuters
+    # ``_drop_test_table`` so per-test ``__finalize_outside__`` hooks and
+    # the obsolete-table sweep inside ``ensure_test_table`` also leave the
+    # cached fixtures alone. Both set at protocol level so they apply to
+    # every memory test, with or without setup_outside.
+    prev_skip_drop = os.environ.get(SKIP_SCHEMA_DROP_ENV)
+    os.environ[SKIP_SCHEMA_DROP_ENV] = "1"
+    prev_keep_tables = os.environ.get(KEEP_TABLES_ENV)
+    os.environ[KEEP_TABLES_ENV] = "1"
+
     # Optional "setup outside the container" hook: heavy fixture work (creating
     # large test tables, populating data) runs on the host before docker
     # dispatch and is NOT included in the capped memory measurement. The test
@@ -348,6 +383,9 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
                     f"{type(exc).__name__}: {exc}\n\n{_tb.format_exc()}"
                 ),
             )
+            _restore_env(FIXED_SCHEMA_ENV, prev_fixed_schema)
+            _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
+            _restore_env(KEEP_TABLES_ENV, prev_keep_tables)
             return True
 
     try:
@@ -355,6 +393,9 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
     finally:
         if setup_outside_state is not None:
             _run_finalize_outside(item, setup_outside_state)
+        _restore_env(FIXED_SCHEMA_ENV, prev_fixed_schema)
+        _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
+        _restore_env(KEEP_TABLES_ENV, prev_keep_tables)
     return True
 
 
@@ -387,34 +428,36 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
 
     # Create the host-side helper using the SAME constructor and lifecycle as
     # the `data_source_test_helper_session` fixture in helpers/test_fixtures.py.
-    # Don't pre-set FIXED_SCHEMA_ENV here — we want the helper to compute its
-    # NATURAL schema name from USER / GITHUB_*_REF / etc. (the same name a
-    # normal test would land in).
+    # FIXED_SCHEMA_ENV is set by the caller (pytest_runtest_protocol) so the
+    # helper's cached `_base_schema_name` picks up ``dev_memory_testing``.
     from helpers.data_source_test_helper import DataSourceTestHelper
     test_datasource = os.environ.get("TEST_DATASOURCE", "postgres")
     helper = DataSourceTestHelper.create(test_datasource, name="primary_datasource")
     helper.start_test_session()
 
-    # Capture the helper's chosen schema name and propagate it to the
-    # container so its in-container helper produces the same name. The
-    # attribute is cached on the helper as `_base_schema_name`; calling the
-    # method returns the cached value (no recomputation).
     schema_name = helper._create_schema_name()
-    prev_schema = os.environ.get(FIXED_SCHEMA_ENV)
-    os.environ[FIXED_SCHEMA_ENV] = schema_name
 
-    # Suppress the in-container helper's CI-mode schema drop. Without this,
-    # when `GITHUB_ACTIONS=true` is set, the container helper's
-    # start_test_session_ensure_schema would drop the schema the host just
-    # populated via __prepare_outside__, deleting the source table and
-    # forcing the container to recreate it (defeating the whole point).
-    prev_skip_drop = os.environ.get(SKIP_SCHEMA_DROP_ENV)
-    os.environ[SKIP_SCHEMA_DROP_ENV] = "1"
+    # SKIP_SCHEMA_DROP_ENV is set by the protocol-level handler so the
+    # dev_memory_testing schema + tables persist across runs for both the
+    # host helper and the in-container helper. Nothing to do here.
 
     prev_forced_names = os.environ.get(FORCED_TABLE_NAMES_ENV)
+
+    # Memory tests build huge fixture tables (hundreds of MB of payload).
+    # Activate the registered bulk-inserter so table data is loaded via the
+    # adapter's native optimised path (COPY / fast_executemany / load jobs)
+    # instead of inline SQL — the inline path trips cloud adapter request
+    # limits at these sizes. The flag is reset right after prepare_fn so no
+    # other fixture flow ever sees it on.
+    from helpers.data_source_test_helper import (
+        activate_fixture_bulk_inserter,
+        deactivate_fixture_bulk_inserter,
+    )
+    bulk_prev = activate_fixture_bulk_inserter()
     try:
         prepare_fn(helper, **parametrize_kwargs)
     except Exception:
+        deactivate_fixture_bulk_inserter(bulk_prev)
         # Tear down the helper on prepare failure so we don't leak the session.
         try:
             helper.end_test_session(exception=None)
@@ -428,10 +471,9 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
             )
             logger.warning(msg)
             print(msg, file=sys.stderr)
-        # Restore env to the state before prepare ran.
-        _restore_env(FIXED_SCHEMA_ENV, prev_schema)
-        _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
         raise
+    else:
+        deactivate_fixture_bulk_inserter(bulk_prev)
 
     # Capture every table the host helper ensured during prepare, so the
     # container can skip rebuilding their (potentially huge) row payloads.
@@ -443,8 +485,6 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
         "finalize_fn": finalize_fn,
         "params": parametrize_kwargs,
         "schema_name": schema_name,
-        "prev_schema_env": prev_schema,
-        "prev_skip_drop_env": prev_skip_drop,
         "prev_forced_names_env": prev_forced_names,
     }
 
@@ -466,8 +506,6 @@ def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
     helper = state["helper"]
     finalize_fn = state["finalize_fn"]
     params = state["params"]
-    prev_schema = state["prev_schema_env"]
-    prev_skip_drop = state["prev_skip_drop_env"]
     prev_forced_names = state.get("prev_forced_names_env")
 
     try:
@@ -491,9 +529,9 @@ def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
             )
             logger.warning(msg)
             print(msg, file=sys.stderr)
-        # Restore env so subsequent unrelated tests don't see a stale schema.
-        _restore_env(FIXED_SCHEMA_ENV, prev_schema)
-        _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
+        # Restore env so subsequent unrelated tests don't see stale state.
+        # FIXED_SCHEMA_ENV and SKIP_SCHEMA_DROP_ENV are restored by the
+        # protocol-level handler.
         _restore_env(FORCED_TABLE_NAMES_ENV, prev_forced_names)
 
 

@@ -9,7 +9,7 @@ import re
 import string
 from copy import deepcopy
 from textwrap import dedent
-from typing import Optional
+from typing import Callable, Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -63,6 +63,63 @@ from soda_core.contracts.contract_verification import (
 logger = logging.getLogger(__name__)
 
 SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
+
+
+# Plugin hook for fixture row inserts. soda-core itself doesn't depend
+# on soda-extensions, but soda-extensions's conftest can register a
+# bulk-insert function here at session start so fixture tables get
+# created via the adapter's optimised path (load jobs / COPY /
+# fast_executemany / write_pandas) instead of inline SQL — which has
+# strict per-statement size limits on cloud adapters (BigQuery 413,
+# sqlserver TDS).
+#
+# Signature: ``fn(data_source_impl, test_table) -> None``. The hook
+# is responsible for taking ``test_table.row_values`` and writing them
+# into the already-created ``test_table.qualified_name``. The table
+# itself is created by the test helper before the hook is called.
+#
+# Activation: the hook is ONLY invoked when ``_fixture_bulk_inserter_active``
+# is True. The memory_container plugin flips this flag on around the
+# ``__prepare_outside__`` host setup so memory tests get the bulk path.
+# All other fixture flows keep using the long-standing inline-SQL path
+# (proven to work for every adapter), so this hook can never destabilise
+# non-memory tests.
+_fixture_bulk_inserter: Optional[
+    "Callable[[DataSourceImpl, TestTable], None]"
+] = None
+_fixture_bulk_inserter_active: bool = False
+
+
+def register_fixture_bulk_inserter(fn: "Callable[[DataSourceImpl, TestTable], None]") -> None:
+    """Register a fixture-side bulk-insert hook. Replaces any prior
+    registration. Pass ``None`` to unregister (rarely needed).
+
+    Called by soda-extensions's tests/conftest.py at session start to
+    plug in ``DataSourceExtension.do_bulk_insert``. Registration alone
+    does NOT enable the hook — activate it via
+    ``activate_fixture_bulk_inserter()`` (the memory_container plugin
+    handles this for memory-measurement tests)."""
+    global _fixture_bulk_inserter
+    _fixture_bulk_inserter = fn
+
+
+def activate_fixture_bulk_inserter() -> bool:
+    """Turn the registered bulk inserter on. Returns the prior active
+    state so callers can restore it (paired with
+    ``deactivate_fixture_bulk_inserter``). Safe to call when no hook is
+    registered — has no effect until one is."""
+    global _fixture_bulk_inserter_active
+    prev = _fixture_bulk_inserter_active
+    _fixture_bulk_inserter_active = True
+    return prev
+
+
+def deactivate_fixture_bulk_inserter(prev_state: bool = False) -> None:
+    """Restore the active flag to ``prev_state`` (defaults to off).
+    Pair with ``activate_fixture_bulk_inserter`` to scope bulk-insert
+    behaviour to a specific phase of a test run."""
+    global _fixture_bulk_inserter_active
+    _fixture_bulk_inserter_active = prev_state
 
 
 def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
@@ -882,22 +939,36 @@ class DataSourceTestHelper:
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
         self._create_test_table(test_table)
-        # Pick the INSERT path based on whether any column is unbounded
-        # (column_unbounded_text → "max" sentinel for length). Standard
-        # short-row fixtures stay on the original single-statement path
-        # that historically all existing tests depend on. Fat-row test
-        # fixtures use the chunked path so they don't build one giant
-        # INSERT SQL string that overflows the driver's per-batch limit
-        # (e.g. sqlserver's TDS / pyodbc TCP buffer rejects single
-        # statements approaching ~64 MB).
-        if self._spec_has_unbounded_column(test_table):
+        # Three INSERT paths, picked in order:
+        #
+        # 1. If a fixture bulk-inserter has been registered AND is
+        #    currently active (memory_container plugin flips the flag
+        #    for memory tests only), route through the adapter's native
+        #    optimised insert. Avoids inline-SQL size limits on cloud
+        #    adapters (BigQuery 413, sqlserver TDS) for the huge tables
+        #    that memory tests build.
+        #
+        # 2. Else, if the spec has a column marked unbounded (text /
+        #    string / varchar(MAX)), use the dialect-aware chunked
+        #    inline-SQL path. Bounded by ``get_max_sql_statement_length``;
+        #    splits a single INSERT into multiple statements to avoid
+        #    the driver-level overflow (e.g. sqlserver TDS at ~64 MB).
+        #
+        # 3. Else, the historical single-statement path. Works for the
+        #    typical short-row fixture; every soda-core test depends on
+        #    its exact behaviour.
+        if _fixture_bulk_inserter is not None and _fixture_bulk_inserter_active:
+            _fixture_bulk_inserter(self.data_source_impl, test_table)
+        elif self._spec_has_unbounded_column(test_table):
             self._insert_test_table_rows_chunked(test_table)
-            # Verify that the MIN length we read back from each
-            # unbounded column matches the MIN we wrote. Catches
-            # silent driver/collation truncations of "unbounded" data.
-            self._verify_unbounded_columns_data_length(test_table)
         else:
             self._insert_test_table_rows(test_table)
+        # Data-length verification only runs for explicitly-unbounded
+        # columns — the test-side defence against silent driver /
+        # collation truncations. Cheap when the spec has no such
+        # columns (the function iterates and returns immediately).
+        if self._spec_has_unbounded_column(test_table):
+            self._verify_unbounded_columns_data_length(test_table)
 
     def _string_length_sql_function(self) -> str:
         """SQL function name that returns the character length of a string
@@ -1069,6 +1140,16 @@ class DataSourceTestHelper:
             return insert_into_sql
 
     def _drop_test_table(self, table_name: str) -> None:
+        # Memory tests opt into "create once, reuse forever" — the
+        # dev_memory_testing schema's tables are huge (hundreds of MB) and
+        # rebuilding them every run wastes minutes per test. The memory_
+        # container plugin sets SODA_MEMTEST_KEEP_TABLES=1 around the whole
+        # test protocol so every drop call (session-end drops, obsolete-
+        # table cleanup, ``__finalize_outside__`` hooks) becomes a no-op.
+        # External sweep is responsible for evicting truly stale tables.
+        if os.getenv("SODA_MEMTEST_KEEP_TABLES", "").lower() in ("1", "true", "yes", "on"):
+            logger.debug(f"SODA_MEMTEST_KEEP_TABLES set — skipping drop of {table_name}")
+            return
         # Note, this is not a fully qualified table name, it's just the table name.
         # So we need to qualify it ourselves.
         fully_qualified_table_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
