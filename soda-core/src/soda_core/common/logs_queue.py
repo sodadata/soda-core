@@ -35,11 +35,26 @@ def _to_jsonl(batch: list[LogRecord]) -> str:
 
 
 class LogsQueue(LogsBase):
-    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_reference: str, dataset: str):
+    def __init__(
+        self,
+        soda_cloud: SodaCloud,
+        stage: str,
+        scan_reference: Optional[str] = None,
+        dataset: str = "",
+        scan_id: Optional[str] = None,
+    ):
         super().__init__()
         self.index = 0
         self.soda_cloud = soda_cloud
+        # When scan_id is set, logs are uploaded via the scan-id-keyed batchV4 endpoint;
+        # otherwise we fall back to the scan-reference-keyed batchV3 endpoint that existing
+        # library consumers rely on.
         self.scan_reference = scan_reference
+        self.scan_id = scan_id
+        if not scan_id and not scan_reference:
+            # Without an identifier the flush would POST to /logs/None/batchV3, silently
+            # discarding logs server-side and making failures hard to diagnose.
+            raise ValueError("LogsQueue requires either scan_id (batchV4) or scan_reference (batchV3)")
         self.stage = stage
         self.thread = str(uuid.uuid4())
         self.dataset = dataset
@@ -138,7 +153,10 @@ class LogsQueue(LogsBase):
                     if self.verbose:
                         print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
 
-                    response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
+                    if self.scan_id:
+                        response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
+                    else:
+                        response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
 
                     if self.verbose:
                         print(

@@ -323,7 +323,7 @@ class DataSourceTestHelper:
         self._ensured_test_tables: dict[str, TestTable] = {}
 
         self.soda_cloud: Optional[SodaCloud] = None
-        self.use_agent: bool = False
+        self.use_runner: bool = False
 
         # Session-level metadata cache (only active in record mode).
         # Tracks the metadata query SQL and a mutable QueryResult that is kept
@@ -1068,7 +1068,7 @@ class DataSourceTestHelper:
             variables=variables,
             data_source_impls=[self.data_source_impl],
             soda_cloud_impl=self.soda_cloud,
-            soda_cloud_use_agent=self.use_agent,
+            soda_cloud_use_runner=self.use_runner,
             soda_cloud_publish_results=True,
         )
 
@@ -1197,7 +1197,7 @@ class DataSourceTestHelper:
             variables=variables,
             data_source_impls=[self.data_source_impl, *extra_data_source_impls],
             soda_cloud_impl=self.soda_cloud,
-            soda_cloud_use_agent=self.use_agent,
+            soda_cloud_use_runner=self.use_runner,
             soda_cloud_publish_results=publish_results,
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_paths=check_paths,
@@ -1218,10 +1218,19 @@ class DataSourceTestHelper:
         dqn: str = "/".join(dqn_parts)
         return dqn
 
+    @property
+    def use_agent(self) -> bool:
+        # Deprecated alias for backwards compatibility with existing tests.
+        return self.use_runner
+
+    @use_agent.setter
+    def use_agent(self, value: bool) -> None:
+        self.use_runner = value
+
     def test_method_ended(self) -> None:
         # self.data_source_impl.data_source_connection.rollback() #TODO: this was originally done to theoretically speed up tests, but needs some datasource-specific work.
         self.soda_cloud = None
-        self.use_agent = False
+        self.use_runner = False
         if self._snapshot_mode != "off":
             # Reset the table name cache so the next test re-queries existing tables.
             # This makes each test's snapshot self-contained (always starts with the

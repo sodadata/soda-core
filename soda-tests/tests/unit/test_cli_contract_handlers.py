@@ -53,7 +53,7 @@ def test_handle_verify_contract_exit_codes(
         variables={},
         publish=True,
         verbose=False,
-        use_agent=False,
+        use_runner=False,
         blocking_timeout_in_minutes=10,
         check_paths=None,
         check_selectors=[],
@@ -61,6 +61,38 @@ def test_handle_verify_contract_exit_codes(
     )
 
     assert exit_code == expected_exit_code
+
+
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_use_agent_kwarg_deprecated(mock_execute, mock_cloud_client):
+    """Backwards-compat: the legacy ``use_agent`` kwarg still works and emits a DeprecationWarning."""
+    mock_contract_result = MagicMock()
+    mock_contract_result.sending_results_to_soda_cloud_failed = False
+    mock_result = MagicMock()
+    type(mock_result).has_errors = PropertyMock(return_value=False)
+    type(mock_result).is_failed = PropertyMock(return_value=False)
+    type(mock_result).is_warned = PropertyMock(return_value=False)
+    mock_result.contract_verification_results = [mock_contract_result]
+    mock_execute.return_value = mock_result
+
+    with pytest.warns(DeprecationWarning, match="use_agent"):
+        exit_code = handle_verify_contract(
+            contract_file_path="contract.yaml",
+            dataset_identifier=None,
+            data_source_file_paths=["ds.yaml"],
+            soda_cloud_file_path="sc.yaml",
+            variables={},
+            publish=True,
+            verbose=False,
+            use_agent=False,
+            blocking_timeout_in_minutes=10,
+            check_paths=None,
+            check_selectors=[],
+            diagnostics_warehouse_file_path=None,
+        )
+
+    assert exit_code == ExitCode.OK
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,7 @@ from datetime import timezone, tzinfo
 from typing import Literal, Optional, Union
 
 import pyathena
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
@@ -21,10 +21,12 @@ logger: logging.Logger = soda_logger
 DEFAULT_CATALOG = "awsdatacatalog"
 
 
-# Currently the only supported authentication method.
 class AthenaConnectionProperties(DataSourceConnectionProperties, ABC):
-    access_key_id: str = Field(..., description="AWS access key ID")
-    secret_access_key: SecretStr = Field(..., description="AWS secret access key")
+    # Static AWS credentials are optional. When omitted, the AWS SDK resolves
+    # credentials from its default provider chain (e.g. IAM Roles for Service
+    # Accounts / web identity federation, instance profiles, profile_name).
+    access_key_id: Optional[str] = Field(None, description="AWS access key ID")
+    secret_access_key: Optional[SecretStr] = Field(None, description="AWS secret access key")
     region_name: str = Field(..., description="AWS region name")
     staging_dir: str = Field(..., description="S3 staging directory")
 
@@ -35,6 +37,19 @@ class AthenaConnectionProperties(DataSourceConnectionProperties, ABC):
     work_group: Optional[str] = Field(None, description="Athena work group name")
     session_token: Optional[str] = Field(None, description="AWS session token")
     profile_name: Optional[str] = Field(None, description="AWS profile name")
+
+    @model_validator(mode="after")
+    def _validate_credentials(self) -> "AthenaConnectionProperties":
+        # access_key_id and secret_access_key must be provided together. Providing
+        # only one is almost always a misconfiguration rather than an intentional
+        # fall-through to the AWS default credential provider chain.
+        if bool(self.access_key_id) != bool(self.secret_access_key):
+            raise ValueError(
+                "access_key_id and secret_access_key must be provided together. "
+                "Omit both to use the AWS default credential provider chain "
+                "(e.g. IAM Roles for Service Accounts / web identity federation)."
+            )
+        return self
 
 
 class AthenaDataSource(DataSourceBase, ABC):
@@ -58,7 +73,7 @@ class AthenaDataSourceConnection(DataSourceConnection):
         self.work_group = config.work_group
         self.aws_credentials = AwsCredentials(
             access_key_id=config.access_key_id,
-            secret_access_key=config.secret_access_key.get_secret_value(),
+            secret_access_key=(config.secret_access_key.get_secret_value() if config.secret_access_key else None),
             role_arn=config.role_arn,
             session_token=config.session_token,
             region_name=config.region_name,

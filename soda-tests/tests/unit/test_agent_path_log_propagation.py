@@ -68,7 +68,7 @@ def test_execute_on_agent_propagates_impl_init_logs_to_result(monkeypatch):
             log_records=[],
         )
 
-    monkeypatch.setattr(ContractImpl, "verify_on_agent", fake_verify_on_agent)
+    monkeypatch.setattr(ContractImpl, "verify_on_runner", fake_verify_on_agent)
 
     yaml_str = "dataset: ds/db/schema/orders\ncolumns:\n  - name: id\n"
     session_result = ContractVerificationSession.execute(
@@ -114,7 +114,7 @@ def test_execute_on_agent_does_not_leak_impl_logs_to_root_logger_across_items(mo
             log_records=[],
         )
 
-    monkeypatch.setattr(ContractImpl, "verify_on_agent", fake_verify_on_agent)
+    monkeypatch.setattr(ContractImpl, "verify_on_runner", fake_verify_on_agent)
 
     yaml_str = "dataset: ds/db/schema/orders\ncolumns:\n  - name: id\n"
     ContractVerificationSession.execute(

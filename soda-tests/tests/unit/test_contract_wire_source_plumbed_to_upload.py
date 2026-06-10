@@ -1,10 +1,13 @@
 """Lock the ``wire_source`` plumbing from the impl class to the Cloud payload.
 
 Asserts that ``ContractImpl.wire_source`` ("soda-contract") flows through
-``send_contract_result`` → ``_build_contract_result_json_dict`` →
-``_build_check_result_cloud_dict`` to the emitted check dict's ``"source"``
-field. Any future subtype declaring its own ``wire_source`` flows through
-the same path without engine changes.
+``send_check_collection_results`` → ``_build_check_collection_results_json_dict``
+→ ``_build_check_result_cloud_dict`` to the emitted check dict's
+``"source"`` field. Any future subtype declaring its own ``wire_source``
+flows through the same path without engine changes.
+
+Doubles as the single-result wire test for the unified builder — the
+combined/multi-result shape is covered in ``test_combined_results_wire.py``.
 """
 
 from __future__ import annotations
@@ -12,9 +15,9 @@ from __future__ import annotations
 from soda_core.check_collections.base import CheckCollectionImpl
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import (
+    _build_check_collection_results_json_dict,
     _build_check_result_cloud_dict,
     _build_check_results_cloud_json_dicts,
-    _build_contract_result_json_dict,
 )
 from soda_core.contracts.contract_verification import (
     Check,
@@ -80,7 +83,7 @@ def test_build_check_result_cloud_dict_uses_supplied_wire_source():
 
     The contract a future non-contract subtype relies on — its
     ``wire_source`` class attribute will flow through ``verify()`` →
-    ``send_contract_result`` → ``_build_check_result_cloud_dict`` to the
+    ``send_check_collection_results`` → ``_build_check_result_cloud_dict`` to the
     payload without engine changes.
     """
     emitted_default = _build_check_result_cloud_dict(contract=_make_contract(), check_result=_make_check_result())
@@ -103,7 +106,7 @@ def test_build_check_result_cloud_dict_uses_supplied_wire_source():
     assert emitted_future["source"] == "other-subtype"
 
 
-def test_build_contract_result_json_dict_threads_wire_source_through_to_checks():
+def test_build_check_collection_results_json_dict_threads_wire_source_through_to_checks():
     """End-to-end (in-memory): wire_source on the outer call lands on every check."""
     from datetime import datetime, timezone
 
@@ -122,7 +125,7 @@ def test_build_contract_result_json_dict_threads_wire_source_through_to_checks()
         post_processing_stages=[],
     )
 
-    payload = _build_contract_result_json_dict(verification_result, wire_source="other-subtype")
+    payload = _build_check_collection_results_json_dict([verification_result], wire_source="other-subtype")
     assert payload["checks"], "Expected check dicts in the upload payload"
     for check_dict in payload["checks"]:
         assert check_dict["source"] == "other-subtype"
@@ -173,7 +176,7 @@ def _make_verification_result_for_definition_name():
 def test_build_contract_result_definition_name_defaults_to_qualified_name():
     """N4: with no ``scan_definition_suffix``, the scan-def name is the
     dataset's qualified name verbatim — matching the contract default."""
-    payload = _build_contract_result_json_dict(_make_verification_result_for_definition_name())
+    payload = _build_check_collection_results_json_dict([_make_verification_result_for_definition_name()])
     assert payload["definitionName"] == "test_ds/some/schema/CUSTOMERS"
 
 
@@ -181,8 +184,8 @@ def test_build_contract_result_definition_name_applies_subtype_suffix():
     """A non-empty ``scan_definition_suffix`` appends ``_<suffix>`` to the
     qualified name; subtypes opt in by declaring the attribute on their
     impl class."""
-    payload = _build_contract_result_json_dict(
-        _make_verification_result_for_definition_name(),
+    payload = _build_check_collection_results_json_dict(
+        [_make_verification_result_for_definition_name()],
         scan_definition_suffix="other_subtype_scan",
     )
     assert payload["definitionName"] == "test_ds/some/schema/CUSTOMERS_other_subtype_scan"
@@ -203,8 +206,8 @@ def test_build_scan_definition_name_does_not_branch_on_wire_source():
     non-contract ``wire_source`` value passed without a suffix must
     yield the bare qualified name — subtypes drive scan-def naming
     via ``scan_definition_suffix``, not via wire_source literals."""
-    payload = _build_contract_result_json_dict(
-        _make_verification_result_for_definition_name(),
+    payload = _build_check_collection_results_json_dict(
+        [_make_verification_result_for_definition_name()],
         wire_source="other-subtype",
     )
     assert payload["definitionName"] == "test_ds/some/schema/CUSTOMERS", (

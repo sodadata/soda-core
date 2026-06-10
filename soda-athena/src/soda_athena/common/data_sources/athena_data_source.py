@@ -301,8 +301,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             column_sql = f'"{column.name}"'
         else:
             column_sql = self.build_expression_sql(column.name)
-        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
-        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
+        return f"{table_alias_sql}{column_sql}"
 
     def literal_datetime(self, datetime: datetime):
         return f"From_iso8601_timestamp('{datetime.isoformat()}')"

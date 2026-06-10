@@ -8,10 +8,9 @@ from soda_core.common.exceptions import (
     YamlParserException,
 )
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
-    _create_datasource_yamls,
     all_none_or_empty,
     verify_contract,
 )
@@ -86,10 +85,31 @@ def test_handle_verify_contract_raises_exception_when_using_dataset_names_withou
             soda_cloud_file_path=None,
             variables={},
             publish=False,
-            use_agent=False,
+            use_runner=False,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
+
+
+def test_handle_verify_contract_raises_exception_when_using_dataset_names_without_cloud_configuration_agent_deprecated():
+    """Deprecated alias: verifies the legacy ``use_agent`` kwarg still works and emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="use_agent"):
+        with pytest.raises(
+            InvalidArgumentException,
+            match="A Soda Cloud configuration file is required to use the -d/--dataset argument."
+            "Please provide the '--soda-cloud' argument with a valid configuration file path.",
+        ):
+            _ = verify_contract(
+                contract_file_path=None,
+                dataset_identifier="some_dataset",
+                data_source_file_path="ds.yaml",
+                soda_cloud_file_path=None,
+                variables={},
+                publish=False,
+                use_agent=False,
+                verbose=False,
+                blocking_timeout_in_minutes=10,
+            )
 
 
 def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_cloud_configuration():
@@ -105,10 +125,30 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
             soda_cloud_file_path=None,
             variables={},
             publish=True,
-            use_agent=False,
+            use_runner=False,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
+
+
+def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_cloud_configuration_agent_deprecated():
+    with pytest.warns(DeprecationWarning, match="use_agent"):
+        with pytest.raises(
+            InvalidArgumentException,
+            match="A Soda Cloud configuration file is required to use the -p/--publish argument. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path.",
+        ):
+            _ = verify_contract(
+                contract_file_path=None,
+                dataset_identifier="some_dataset",
+                data_source_file_path="ds.yaml",
+                soda_cloud_file_path=None,
+                variables={},
+                publish=True,
+                use_agent=False,
+                verbose=False,
+                blocking_timeout_in_minutes=10,
+            )
 
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
@@ -125,7 +165,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
             soda_cloud_file_path="sc.yaml",
             variables={},
             publish=True,
-            use_agent=False,
+            use_runner=False,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
@@ -145,7 +185,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
             soda_cloud_file_path="sc.yaml",
             variables={},
             publish=True,
-            use_agent=False,
+            use_runner=False,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
@@ -166,7 +206,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
             soda_cloud_file_path="sc.yaml",
             variables={},
             publish=True,
-            use_agent=True,
+            use_runner=True,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
@@ -187,7 +227,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
         soda_cloud_file_path="sc.yaml",
         variables={},
         publish=True,
-        use_agent=False,
+        use_runner=False,
         verbose=False,
         blocking_timeout_in_minutes=10,
     )
@@ -208,7 +248,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
         soda_cloud_file_path="sc.yaml",
         variables={},
         publish=True,
-        use_agent=False,
+        use_runner=False,
         verbose=False,
         blocking_timeout_in_minutes=10,
     )
@@ -218,7 +258,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
 
 def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     """
-    In the local flow (use_agent=False), _create_datasource_yamls
+    In the local flow (use_runner=False), build_data_source_yaml_sources
     should NOT call fetch_data_source_configuration_for_dataset on the
     SodaCloud client. Fetching datasource configs from Cloud in the local
     flow is a security risk — it can expose host/connection info to users
@@ -228,9 +268,9 @@ def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     raise an error instead of fetching from Cloud.
     """
     with pytest.raises(InvalidDataSourceConfigurationException):
-        _create_datasource_yamls(
+        build_data_source_yaml_sources(
             data_source_file_paths=[],
-            use_agent=False,
+            use_runner=False,
         )
 
 
@@ -242,23 +282,23 @@ def test_local_flow_with_dataset_identifier_uses_local_datasource_config(tmp_pat
     ds_file = tmp_path / "ds.yml"
     ds_file.write_text("type: duckdb\npath: test.db")
 
-    result = _create_datasource_yamls(
+    result = build_data_source_yaml_sources(
         data_source_file_paths=[str(ds_file)],
-        use_agent=False,
+        use_runner=False,
     )
 
     assert len(result) == 1
 
 
-def test_agent_flow_without_local_datasource_returns_none():
+def test_runner_flow_without_local_datasource_returns_none():
     """
-    In agent flow (use_agent=True), when no local data source files
-    are provided, return None (agent provides its own config). Should NOT
+    In runner flow (use_runner=True), when no local data source files
+    are provided, return None (runner provides its own config). Should NOT
     fetch from Cloud.
     """
-    result = _create_datasource_yamls(
+    result = build_data_source_yaml_sources(
         data_source_file_paths=[],
-        use_agent=True,
+        use_runner=True,
     )
 
     assert result is None
@@ -278,7 +318,112 @@ def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_clien
             soda_cloud_file_path="sc.yaml",
             variables={},
             publish=False,
-            use_agent=False,
+            use_runner=False,
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
+
+
+# Backwards-compat smoke tests for the deprecated public API names.
+
+
+def test_verify_contract_on_agent_alias_emits_deprecation_warning(monkeypatch):
+    """The legacy public ``verify_contract_on_agent`` function emits a DeprecationWarning
+    and delegates to ``verify_contract_on_runner``."""
+    from soda_core.contracts.api.verify_api import verify_contract_on_agent
+
+    called = {}
+
+    def fake_runner(**kwargs):
+        called.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(
+        "soda_core.contracts.api.verify_api.verify_contract_on_runner",
+        fake_runner,
+    )
+
+    with pytest.warns(DeprecationWarning, match="verify_contract_on_agent"):
+        result = verify_contract_on_agent(soda_cloud_file_path="sc.yaml", contract_file_path="c.yaml")
+
+    assert result == "ok"
+    assert called["soda_cloud_file_path"] == "sc.yaml"
+
+
+def test_verify_contracts_on_agent_alias_emits_deprecation_warning(monkeypatch):
+    """The legacy plural ``verify_contracts_on_agent`` delegates straight to the canonical
+    singular ``verify_contract_on_runner`` and emits exactly one DeprecationWarning (from the
+    ``@deprecated`` decorator)."""
+    from soda_core.contracts.api.verify_api import verify_contracts_on_agent
+
+    called = {}
+
+    def fake_singular(**kwargs):
+        called.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(
+        "soda_core.contracts.api.verify_api.verify_contract_on_runner",
+        fake_singular,
+    )
+
+    with pytest.warns(DeprecationWarning, match="verify_contract_on_runner") as records:
+        result = verify_contracts_on_agent(
+            soda_cloud_file_path="sc.yaml",
+            contract_file_paths=["c.yaml"],
+            dataset_identifiers=None,
+        )
+
+    # Exactly one DeprecationWarning fires (from the @deprecated decorator). The previous
+    # implementation fired three: decorator + explicit warn + decorator-on-delegate.
+    assert len(records) == 1, f"expected one DeprecationWarning, got {len(records)}"
+    assert result == "ok"
+    assert called["contract_file_path"] == "c.yaml"
+    assert called["soda_cloud_file_path"] == "sc.yaml"
+
+
+# Direct ContractVerificationSession.execute backwards-compat tests for the legacy kwargs.
+# These exercise the code path that previously raised TypeError on `soda_cloud_use_agent=...`
+# because of a bug in `_deprecation.deprecated_kwarg`.
+
+
+def test_contract_verification_session_execute_accepts_legacy_soda_cloud_use_agent():
+    """``ContractVerificationSession.execute(soda_cloud_use_agent=True)`` must not raise and must
+    emit exactly one DeprecationWarning for the legacy kwarg."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=True,
+        )
+    assert result is not None
+
+
+def test_contract_verification_session_execute_accepts_legacy_blocking_timeout():
+    """The legacy ``soda_cloud_use_agent_blocking_timeout_in_minutes`` kwarg must not raise either."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent_blocking_timeout_in_minutes"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent_blocking_timeout_in_minutes=42,
+        )
+    assert result is not None
+
+
+def test_contract_verification_session_execute_rejects_conflicting_legacy_and_canonical_kwargs():
+    """If a caller passes both the legacy and canonical kwargs with conflicting values, raise."""
+    with pytest.raises(TypeError, match="Cannot pass both soda_cloud_use_agent"):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=True,
+            soda_cloud_use_runner=False,
+        )
+
+
+def test_contract_verification_session_execute_accepts_matching_legacy_and_canonical_kwargs():
+    """If legacy and canonical kwargs match, no error — the helper is permissive here."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=False,
+            soda_cloud_use_runner=False,
+        )
+    assert result is not None

@@ -48,6 +48,7 @@ from soda_core.common.logs import Logs
                 None,
                 [],
                 None,
+                None,
             ],
         ),
         (
@@ -82,6 +83,7 @@ from soda_core.common.logs import Logs
                 None,
                 [],
                 None,
+                None,
             ],
         ),
         (
@@ -96,7 +98,7 @@ from soda_core.common.logs import Logs
                 "-sc",
                 "cloud.yaml",
             ],
-            [None, "some-dataset", ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, [], None],
+            [None, "some-dataset", ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, [], None, None],
         ),
         (
             [
@@ -125,6 +127,39 @@ from soda_core.common.logs import Logs
                 None,
                 [],
                 "diagnostics_warehouse.yaml",
+                None,
+            ],
+        ),
+        (
+            [
+                "soda",
+                "contract",
+                "verify",
+                "-d",
+                "some-dataset",
+                "-ds",
+                "ds.yaml",
+                "-sc",
+                "cloud.yaml",
+                "-dw",
+                "diagnostics_warehouse.yaml",
+                "-mdw",
+                "metadata_diagnostics_warehouse.yaml",
+            ],
+            [
+                None,
+                "some-dataset",
+                ["ds.yaml"],
+                "cloud.yaml",
+                {},
+                False,
+                False,
+                False,
+                60,
+                None,
+                [],
+                "diagnostics_warehouse.yaml",
+                "metadata_diagnostics_warehouse.yaml",
             ],
         ),
         (
@@ -154,6 +189,7 @@ from soda_core.common.logs import Logs
                 60,
                 ["check.path.one", "check.path.two"],
                 [],
+                None,
                 None,
             ],
         ),
@@ -353,7 +389,31 @@ def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with("ds.yaml")
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path=None)
+
+
+@patch("soda_core.cli.cli.handle_test_data_source")
+def test_cli_argument_mapping_for_data_source_test_command_with_soda_cloud(mock_handler):
+    mock_handler.return_value = ExitCode.OK.value
+    sys.argv = [
+        "soda",
+        "data-source",
+        "test",
+        "-ds",
+        "ds.yaml",
+        "-sc",
+        "sc.yaml",
+    ]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == 0
+
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path="sc.yaml")
 
 
 @patch("soda_core.cli.cli.handle_create_soda_cloud")

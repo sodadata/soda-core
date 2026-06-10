@@ -137,6 +137,6 @@ def validate_contract(yaml_str: str, variables: Optional[dict[str, str | int | f
         only_validate_without_execute=True,
         variables=variables,
         soda_cloud_publish_results=False,
-        soda_cloud_use_agent=False,
+        soda_cloud_use_runner=False,
     )
     return result

@@ -1,20 +1,24 @@
 import logging
 from typing import Dict, Optional, Union
 
+from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import (
-    InvalidArgumentException,
-    InvalidDataSourceConfigurationException,
-    SodaCloudException,
-)
+from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.common.yaml import (
+    ContractYamlSource,
+    DataSourceYamlSource,
+    build_data_source_yaml_sources,
+)
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 
@@ -37,7 +41,7 @@ def verify_contracts_locally(
     data_timestamp: Optional[str] = None,
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     if not contract_file_paths and not dataset_identifiers:
@@ -91,7 +95,7 @@ def verify_contract_locally(
     data_timestamp: Optional[str] = None,
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     """
@@ -110,15 +114,15 @@ def verify_contract_locally(
         variables=variables,
         data_timestamp=data_timestamp,
         publish=publish,
-        use_agent=False,
+        use_runner=False,
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
         check_selectors=check_selectors,
     )
 
 
-@deprecated("Use verify_contract_on_agent instead")
-def verify_contracts_on_agent(
+@deprecated("Use verify_contract_on_runner instead")
+def verify_contracts_on_runner(
     soda_cloud_file_path: str,
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
@@ -148,12 +152,13 @@ def verify_contracts_on_agent(
             "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
         )
 
-    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
-
+    # ``__attempt_pick_first_element`` handles None safely; no list-type
+    # assertion needed (an earlier assert here tripped on the common
+    # ``dataset_identifiers=None`` call shape).
     contract_file_path = __attempt_pick_first_element(contract_file_paths)
     dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
 
-    return verify_contract_on_agent(
+    return verify_contract_on_runner(
         soda_cloud_file_path=soda_cloud_file_path,
         contract_file_path=contract_file_path,
         dataset_identifier=dataset_identifier,
@@ -166,7 +171,49 @@ def verify_contracts_on_agent(
     )
 
 
-def verify_contract_on_agent(
+@deprecated("Use verify_contract_on_runner instead")
+def verify_contracts_on_agent(
+    soda_cloud_file_path: str,
+    contract_file_paths: Optional[Union[str, list[str]]] = None,
+    dataset_identifiers: Optional[list[str]] = None,
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    variables: Optional[Dict[str, str]] = None,
+    publish: bool = False,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+) -> ContractVerificationSessionResult:
+    # Don't route through ``verify_contracts_on_runner`` — that path is itself deprecated and
+    # would emit a second redundant warning. Apply the same first-element-pick that the plural
+    # variant did and delegate straight to the canonical singular function.
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+    if contract_file_paths and len(contract_file_paths) > 1:
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+    contract_file_path = contract_file_paths[0] if contract_file_paths else None
+    dataset_identifier = dataset_identifiers[0] if dataset_identifiers else None
+    return verify_contract_on_runner(
+        soda_cloud_file_path=soda_cloud_file_path,
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+    )
+
+
+def verify_contract_on_runner(
     soda_cloud_file_path: str,
     contract_file_path: Optional[str] = None,
     dataset_identifier: Optional[str] = None,
@@ -178,7 +225,7 @@ def verify_contract_on_agent(
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
     """
-    Verifies the contract on an agent.
+    Verifies the contract on a Soda Runner (formerly Soda Agent).
     """
     return verify_contract(
         contract_file_path=contract_file_path,
@@ -189,9 +236,15 @@ def verify_contract_on_agent(
         variables=variables,
         publish=publish,
         verbose=verbose,
-        use_agent=True,
+        use_runner=True,
         blocking_timeout_in_minutes=blocking_timeout_in_minutes,
     )
+
+
+def verify_contract_on_agent(*args, **kwargs) -> ContractVerificationSessionResult:
+    """Deprecated alias for verify_contract_on_runner. Kept for backwards compatibility."""
+    warn_deprecated("verify_contract_on_agent", "verify_contract_on_runner")
+    return verify_contract_on_runner(*args, **kwargs)
 
 
 def verify_contract(
@@ -200,7 +253,7 @@ def verify_contract(
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
     publish: bool,
-    use_agent: bool,
+    use_runner: Optional[bool] = None,
     variables: Optional[Dict[str, str]] = None,
     data_timestamp: Optional[str] = None,
     verbose: bool = False,
@@ -208,9 +261,15 @@ def verify_contract(
     data_sources: Optional[list[DataSourceImpl]] = None,
     data_source_file_paths: Optional[list[str]] = None,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
+    **kwargs,
 ) -> ContractVerificationSessionResult:
+    use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
+    if kwargs:
+        raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+    if use_runner is None:
+        use_runner = False
     if not data_source_file_paths:
         data_source_file_paths = []
 
@@ -243,7 +302,7 @@ def verify_contract(
             data_source_file_paths,
             data_sources,
             publish,
-            use_agent,
+            use_runner,
             soda_cloud_client,
         )
 
@@ -256,10 +315,7 @@ def verify_contract(
         data_source_yaml_sources: list[DataSourceYamlSource] = []
         if data_source_file_paths:
             data_source_yaml_sources.extend(
-                _create_datasource_yamls(
-                    data_source_file_paths,
-                    use_agent,
-                )
+                build_data_source_yaml_sources(data_source_file_paths, use_runner=use_runner)
             )
 
         contract_verification_result = ContractVerificationSession.execute(
@@ -271,9 +327,9 @@ def verify_contract(
             data_timestamp=data_timestamp,
             only_validate_without_execute=False,
             soda_cloud_publish_results=publish,
-            soda_cloud_use_agent=use_agent,
+            soda_cloud_use_runner=use_runner,
             soda_cloud_verbose=verbose,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            soda_cloud_use_runner_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
             check_selectors=check_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
@@ -297,7 +353,7 @@ def validate_verify_arguments(
     data_source_file_paths: Optional[list[str]],
     data_sources: Optional[list[DataSourceImpl]],
     publish: bool,
-    use_agent: bool,
+    use_runner: bool,
     soda_cloud_client: Optional[SodaCloud],
 ) -> None:
     if publish and not soda_cloud_client:
@@ -306,9 +362,9 @@ def validate_verify_arguments(
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
-    if use_agent and not soda_cloud_client:
+    if use_runner and not soda_cloud_client:
         raise InvalidArgumentException(
-            "A Soda Cloud configuration file is required to use the -a/--agent argument. "
+            "A Soda Cloud configuration file is required to use the -r/--runner argument. "
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
@@ -321,7 +377,7 @@ def validate_verify_arguments(
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
-    if not data_source_file_paths and not use_agent and not data_sources:
+    if not data_source_file_paths and not use_runner and not data_sources:
         raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
 
 
@@ -366,31 +422,6 @@ def _create_contract_yamls(
         return []
 
     return contract_yaml_sources
-
-
-def _create_datasource_yamls(
-    data_source_file_paths: Optional[list[str]],
-    use_agent: bool,
-) -> Optional[DataSourceYamlSource]:
-    data_source_yamls: list[DataSourceYamlSource] = []
-
-    if data_source_file_paths:
-        for data_source_file_path in data_source_file_paths:
-            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
-            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
-
-    if data_source_yamls:
-        return data_source_yamls
-
-    # By this point, we can only progress if we are using an agent.
-    # Then the agent will provide the data source config.
-    if use_agent:
-        return None
-
-    raise InvalidDataSourceConfigurationException(
-        "No data source configuration provided. "
-        "Please provide a data source configuration file using the -ds/--data-source argument."
-    )
 
 
 def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:

@@ -4,13 +4,16 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from numbers import Number
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -28,8 +31,8 @@ class ContractVerificationSession:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud runner (formerly agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud runner.
     """
 
     @classmethod
@@ -43,21 +46,44 @@ class ContractVerificationSession:
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
         soda_cloud_publish_results: bool = False,
-        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_paths: Optional[list[str]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
+        **kwargs,
     ) -> ContractVerificationSessionResult:
+        from soda_core.common._deprecation import deprecated_kwarg
         from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
         )
 
+        soda_cloud_use_runner = deprecated_kwarg(
+            kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
+        )
+        soda_cloud_use_runner_blocking_timeout_in_minutes = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            soda_cloud_use_runner_blocking_timeout_in_minutes,
+        )
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+        if soda_cloud_use_runner is None:
+            soda_cloud_use_runner = False
+        if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
+            soda_cloud_use_runner_blocking_timeout_in_minutes = 60
+
         # Merge check_paths into check_selectors for backward compatibility
         merged_selectors = list(check_selectors) if check_selectors else []
         merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
+
+        # Accept a legacy string (primary-only) or the bundled DiagnosticsWarehouseFiles.
+        # Internal layers only see the normalized form, so a bare string keeps the exact
+        # pre-existing single-connection behavior.
+        dwh_files = DiagnosticsWarehouseFiles.normalize(dwh_data_source_file_path)
 
         return ContractVerificationSessionImpl.execute(
             contract_yaml_sources=contract_yaml_sources,
@@ -68,11 +94,11 @@ class ContractVerificationSession:
             data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
             soda_cloud_publish_results=soda_cloud_publish_results,
-            soda_cloud_use_agent=soda_cloud_use_agent,
+            soda_cloud_use_runner=soda_cloud_use_runner,
             soda_cloud_verbose=soda_cloud_verbose,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
             check_selectors=merged_selectors,
-            dwh_data_source_file_path=dwh_data_source_file_path,
+            dwh_files=dwh_files,
         )
 
 
