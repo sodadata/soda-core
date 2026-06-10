@@ -137,6 +137,24 @@ class TestTableSpecificationBuilder:
                 soda_data_type_name=SodaDataTypeName.VARCHAR,
                 character_maximum_length="max",  # type: ignore[arg-type]
             )
+        if test_ds == "snowflake":
+            # Snowflake's default VARCHAR / TEXT max is still 16 MB —
+            # tests with payloads > 16 MB hit the legacy column limit
+            # (e.g. memory_container fat-row variants at 100 MB / cell).
+            # BCR 2025_03 (rolling out Q1 2025) raised the cap to 128 MB
+            # for VARCHAR / VARIANT / ARRAY / OBJECT, but the larger size
+            # is only used if it's declared explicitly on the column.
+            # 134_217_728 = 128 * 1024 * 1024. Verified empirically that
+            # the test account has BCR 2025_03 active and can round-trip
+            # a 100 MB value end-to-end (CREATE TABLE → write_pandas →
+            # SELECT *). Sentinel string "max" is unsafe here because
+            # Snowflake's SQL grammar accepts an int length, not the
+            # SqlServer "max" sentinel.
+            return self.column(
+                name=name,
+                soda_data_type_name=SodaDataTypeName.VARCHAR,
+                character_maximum_length=134_217_728,
+            )
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.TEXT)
 
     def column_smallint(self, name) -> TestTableSpecificationBuilder:
