@@ -1165,6 +1165,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return False
         if self._real is None:
             return False
+        # Roll back any uncommitted transaction the wrapper's record/replay path
+        # may have left open on the real connection during the failed first
+        # attempt. Without this, the rerun's setup operations (DROP/CREATE
+        # TABLE during ``force_recreate=True``, schema cleanup, etc.) can
+        # deadlock forever on locks held by the leftover transaction — most
+        # visible in shared-connection setups (``DWH_USE_IN_SOURCE_TRANSFER``)
+        # where source and DWH share the same underlying postgres connection.
+        # Rollback is a no-op when no transaction is in progress, so it's safe
+        # to always run. Failure to roll back must not block the swap — we'd
+        # rather attempt the rerun and surface a clear error than hang.
+        try:
+            self._real.rollback()
+        except Exception as exc:
+            logger.warning(f"SNAPSHOT: rerun swap — rollback on real connection failed (continuing): {exc!r}")
         # Drop any partial replay state so we don't leak it on restore.
         self._replay_data = None
         self._replay_index = 0

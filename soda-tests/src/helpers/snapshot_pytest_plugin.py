@@ -104,31 +104,6 @@ def _swap_all_wrappers_to_real(test_id: str) -> list:
     """
     all_wrappers = list(get_live_snapshot_wrappers())
     logger.info(f"SNAPSHOT: rerun swap for {test_id} — {len(all_wrappers)} live wrapper(s) to consider")
-
-    # Pre-pass: roll back every live real connection to release locks the failed
-    # first attempt may have left held. Without this, the rerun's setup
-    # operations (DROP TABLE during force_recreate=True, schema cleanup, etc.)
-    # can deadlock forever on locks held by the leftover transaction. The
-    # secondary wrappers ``swap_to_real_for_rerun`` skips (no back-ref, etc.)
-    # still own real postgres connections with open transactions — we have to
-    # roll those back too, not just the primary's. Dedupe by ``id(real)`` so a
-    # connection shared across multiple wrappers (e.g. DWH_USE_IN_SOURCE_TRANSFER)
-    # is rolled back exactly once. rollback() is a no-op when no transaction is
-    # in progress.
-    seen_real_ids: set[int] = set()
-    for wrapper in all_wrappers:
-        real = wrapper.__dict__.get("_real")
-        if real is None or id(real) in seen_real_ids:
-            continue
-        seen_real_ids.add(id(real))
-        try:
-            real.rollback()
-        except Exception as exc:
-            logger.warning(
-                f"SNAPSHOT: rerun swap — pre-swap rollback on real connection id={id(real)} "
-                f"failed (continuing): {exc!r}"
-            )
-
     swapped: list = []
     for wrapper in all_wrappers:
         try:
