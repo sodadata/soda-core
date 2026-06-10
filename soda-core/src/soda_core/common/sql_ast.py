@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from dataclasses import dataclass
 from numbers import Number
 from typing import Any, Optional
@@ -13,18 +14,26 @@ logger: logging.Logger = soda_logger
 
 
 class BaseSqlExpression:
-    # Initialize this outside of __init__ to avoid super().__init__() in child dataclasses
-    parent_node: Optional[BaseSqlExpression] = None
+    # The child→parent back-reference must be weak. Otherwise INSERT_INTO,
+    # VALUES_ROW, COLUMN form a refcount cycle (parent strong→child,
+    # child strong→parent) that only Python's cycle-detecting gc.collect()
+    # can break. For fat-row workloads (100 MB+ per row) the gc threshold
+    # is allocation-count based and doesn't fire between rows, so each
+    # processed VALUES_ROW pins its 100 MB string alive until the suite
+    # ends — peak grows monotonically. Weakref breaks the cycle so plain
+    # refcount cleanup releases each row as soon as it leaves scope.
+    _parent_node_ref: Optional["weakref.ref[BaseSqlExpression]"] = None
 
-    def __init__(self):  # Technically not needed, but it's here for clarity
-        self.parent_node = None
+    def __init__(self):
+        self._parent_node_ref = None
 
-    # Create __post_init__ to avoid errors when using super().__post_init__() in child dataclasses
     def __post_init__(self):
         pass
 
     def get_parent_node(self) -> Optional[BaseSqlExpression]:
-        return self.parent_node
+        if self._parent_node_ref is None:
+            return None
+        return self._parent_node_ref()
 
     def get_parent_nodes(self) -> list[BaseSqlExpression]:
         parent_node = self.get_parent_node()
@@ -33,7 +42,15 @@ class BaseSqlExpression:
         return [parent_node] + parent_node.get_parent_nodes()
 
     def set_parent_node(self, parent_node: BaseSqlExpression):
-        self.parent_node = parent_node
+        self._parent_node_ref = weakref.ref(parent_node) if parent_node is not None else None
+
+    @property
+    def parent_node(self) -> Optional[BaseSqlExpression]:
+        return self.get_parent_node()
+
+    @parent_node.setter
+    def parent_node(self, value: Optional[BaseSqlExpression]) -> None:
+        self.set_parent_node(value)
 
     def handle_parent_node_update(self, expression: SqlExpression | str | list[SqlExpression | str] | None):
         if expression is None:
