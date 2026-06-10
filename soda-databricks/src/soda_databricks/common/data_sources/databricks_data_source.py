@@ -98,6 +98,8 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
 class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     DEFAULT_QUOTE_CHAR = "`"
+    # Databricks SQL rejects ``DROP TABLE ... CASCADE`` with a PARSE_SYNTAX_ERROR.
+    SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
