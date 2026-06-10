@@ -77,7 +77,7 @@ class ContractVerificationHandlerRegistry(ABC):
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
-                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+                logger.warning(f"Overriding existing verification handler for post-processing stage {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
 
 
@@ -352,7 +352,7 @@ class ContractVerificationSessionImpl:
                     yaml=contract_yaml,
                     only_validate_without_execute=True,
                 )
-                init_log_records = contract_impl.logs.pop_log_records()
+                init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
 
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(

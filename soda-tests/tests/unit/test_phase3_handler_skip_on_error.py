@@ -23,6 +23,7 @@ from soda_core.check_collections.base import (
     CheckCollectionYaml,
 )
 from soda_core.check_collections.session import execute_check_collections
+from soda_core.common.logs import Logs
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
@@ -86,6 +87,7 @@ class _StubImpl(CheckCollectionImpl):
         # Skip the heavy base ``__init__``; the executor only needs the
         # yaml + a reachable run_post_processing_handlers method.
         self.yaml = yaml
+        self.logs = Logs()
 
     @property
     def collection_id(self) -> Optional[str]:

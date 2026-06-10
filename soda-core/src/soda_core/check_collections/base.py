@@ -821,7 +821,9 @@ class CheckCollectionImpl:
             for line in log_lines:
                 logger.info(line)
 
-        log_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
+        # The gatherer's live list: records emitted after this point (upload,
+        # post-processing handlers) still surface on the held result.
+        log_records: Optional[list[LogRecord]] = self.logs.get_log_records()
 
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
@@ -829,7 +831,9 @@ class CheckCollectionImpl:
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(yaml_source_str_original)
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
+                yaml_source_str_original, file_label=self.display_name
+            )
 
         post_processing_stages: list[PostProcessingStage] = []
         for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
@@ -1068,7 +1072,7 @@ class CheckCollectionImpl:
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
+        summary_lines.append(f"\n### {self.display_name.capitalize()} results for {soda_qualified_dataset_name}")
         summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
@@ -1145,10 +1149,9 @@ class CheckCollectionImpl:
         if not offending:
             return True
 
-        # ``Logs`` is the per-collection log buffer; we also push directly
-        # via ``logger.error`` so the records are queryable through the
-        # normal ``LogRecord`` stream (so launchers see them via
-        # ``result.get_errors()``).
+        # These records land on ``verification_result.log_records`` directly:
+        # that list is the live gatherer list, so launchers see them via
+        # ``result.get_errors()`` with no re-collection.
         for check_result in offending:
             logger.error(
                 f"Source mismatch — check '{check_result.check.full_path}' has "
@@ -1156,14 +1159,6 @@ class CheckCollectionImpl:
                 f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
                 f"a backend-side source-mismatch failure on the whole batch."
             )
-
-        # Re-collect the log records we just emitted so they land on the
-        # verification result the launcher inspects.
-        new_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
-        if new_records:
-            if verification_result.log_records is None:
-                verification_result.log_records = []
-            verification_result.log_records.extend(new_records)
 
         verification_result.sending_results_to_soda_cloud_failed = True
         return False

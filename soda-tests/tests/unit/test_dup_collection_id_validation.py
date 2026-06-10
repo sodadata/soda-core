@@ -24,6 +24,7 @@ from soda_core.check_collections.base import (
 )
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.exceptions import InvalidArgumentException
+from soda_core.common.logs import Logs
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
@@ -88,6 +89,7 @@ class _StubImpl(CheckCollectionImpl):
     def __init__(self, yaml, **kwargs):
         # Skip the heavy base ``__init__``; tests control state directly.
         self.yaml = yaml
+        self.logs = Logs()
         self._collection_id = getattr(yaml.yaml_source, "collection_id_override", None)
         # Track verify() invocations so tests can assert it didn't run.
         type(self).verify_call_count = getattr(type(self), "verify_call_count", 0)

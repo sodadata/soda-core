@@ -12,7 +12,6 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
-from contextlib import nullcontext
 from datetime import datetime
 from typing import Optional, Union
 
@@ -34,14 +33,6 @@ from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
     DiagnosticsWarehouseFiles,
 )
-
-
-def _capturing(impl: CheckCollectionImpl):
-    """Activate this impl's ``Logs`` for a block so its verify()/handler records
-    land in (and are labelled for) the right collection. No-op for lightweight
-    test doubles that carry no ``Logs``."""
-    impl_logs = getattr(impl, "logs", None)
-    return impl_logs.activate(impl.thread_label) if impl_logs is not None else nullcontext()
 
 
 # Each owned impl's Logs activates on construction and is never individually
@@ -138,12 +129,10 @@ def execute_check_collections(
 
     results: list[CheckCollectionResult] = []
 
-    # Each impl's ``Logs`` becomes active as it is constructed, capturing its
-    # construction logs; phase 2/3 re-activate it around verify()/handlers via
-    # ``_capturing(impl)``. Only one gatherer is ever active, so siblings can't
-    # cross-capture.
-
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
+    # Each impl's ``Logs`` becomes active as it is constructed, capturing its
+    # construction logs; phase 2/3 re-activate it around verify()/handlers.
+    # Only one gatherer is ever active, so siblings can't cross-capture.
     # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
     # ``(None, impl_class_or_None, exc, yaml_source)`` on failure. The
     # ``yaml_source`` slot lets phase 1.5 filter ``constructed`` without
@@ -240,7 +229,7 @@ def execute_check_collections(
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
         # Capture this verify()'s records into this collection's gatherer.
-        with _capturing(impl):
+        with impl.logs.activate(impl.thread_label):
             try:
                 results.append(impl.verify())
             except Exception as exc:
@@ -346,7 +335,7 @@ def execute_check_collections(
         )
         # Handlers run after verify() returned; re-activate so their records are
         # captured for this collection.
-        with _capturing(impl):
+        with impl.logs.activate(impl.thread_label):
             impl.run_post_processing_handlers(result, response_for_file)
 
     return CheckCollectionSessionResult(results)

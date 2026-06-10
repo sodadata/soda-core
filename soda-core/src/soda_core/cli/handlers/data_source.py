@@ -54,9 +54,10 @@ def handle_test_data_source(
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
 
-    # Attach the uploader before parsing so logs emitted while loading/validating the data
-    # source YAML — often the most relevant when a connection test fails early — are captured.
-    log_uploader: Optional["_TestConnectionLogUploader"] = _build_log_uploader(
+    # Build the upload Logs before parsing so logs emitted while loading/validating the
+    # data source YAML — often the most relevant when a connection test fails early — are
+    # captured and streamed to Soda Cloud.
+    upload_logs: Optional[Logs] = _build_log_uploader(
         soda_cloud_file_path=soda_cloud_file_path,
     )
 
@@ -81,27 +82,17 @@ def handle_test_data_source(
             )
             return ExitCode.OK
     finally:
-        if log_uploader is not None:
-            log_uploader.close()
-
-
-class _TestConnectionLogUploader:
-    """Wires Soda Cloud log upload around the test-connection flow.
-
-    Holds a ``Logs`` backed by a ``LogsQueue`` bound to the given scan_id, so
-    root-logger records during the test stream to Cloud. Must be closed to flush
-    the final batch."""
-
-    def __init__(self, logs: Logs):
-        self._logs = logs
-
-    def close(self) -> None:
-        self._logs.close()
+        if upload_logs is not None:
+            upload_logs.close()
 
 
 def _build_log_uploader(
     soda_cloud_file_path: Optional[str],
-) -> Optional[_TestConnectionLogUploader]:
+) -> Optional[Logs]:
+    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
+    root-logger records during the test stream to Soda Cloud — or None when
+    there is no scan id / cloud config. Must be closed to flush the final batch.
+    """
     # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
     # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
@@ -130,4 +121,4 @@ def _build_log_uploader(
         scan_id=scan_id,
         dataset="",
     )
-    return _TestConnectionLogUploader(logs=Logs(gatherer=logs_queue))
+    return Logs(gatherer=logs_queue)

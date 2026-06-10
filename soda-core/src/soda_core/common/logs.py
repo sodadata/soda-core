@@ -1,3 +1,18 @@
+"""Log capture for soda-core.
+
+The model, in one read: ONE permanent handler on the root logger
+(``_RootCapturer``, re-attached if something like ``logging.basicConfig(force=
+True)`` clears the root handlers) routes every record to the *active* ``Logs``
+selected by a ContextVar. CONSTRUCTING a ``Logs`` makes it active — capture
+needs no extra ceremony and cannot be silently forgotten. ``activate(label)``
+re-arms a ``Logs`` for a ``with`` block (the executor brackets each
+collection's verify/post-processing with it); ``close()`` flushes the gatherer
+and releases the active slot only if this ``Logs`` still holds it. The var is
+per-thread, so worker threads that never set it are not captured. Each captured
+record's ``thread`` is stamped with the active ``label`` — the per-collection
+key Soda Cloud exposes as a log filter.
+"""
+
 from __future__ import annotations
 
 import contextvars
@@ -29,19 +44,15 @@ class Location:
         return {"file_path": self.file_path, "line": self.line, "column": self.column}
 
 
-# The capture target for the current context. A ``Logs`` becomes active when it
-# is constructed and (re)activated via ``Logs.activate()``. Contextvars are
-# per-thread, so a thread that never sets it simply isn't captured.
 _active_logs: contextvars.ContextVar[Optional["Logs"]] = contextvars.ContextVar("soda_active_logs", default=None)
 
 
 class _RootCapturer(Handler):
-    """The single root-logger handler. While a labelled ``Logs`` is active it
-    routes every record reaching the root logger to that Logs' gatherer and
-    stamps the Logs' ``label`` on ``record.thread`` (the Cloud per-collection
-    grouping key); with no active Logs, records go to the console handler only.
-    (When soda-core is embedded, a host's records reaching root during an active
-    scope are captured/re-stamped too — same scope the engine has always had.)"""
+    """Routes records to the active ``Logs`` and stamps its ``label`` on
+    ``record.thread``. With no active Logs, records pass through to the console
+    handler only. (When soda-core is embedded, a host's records reaching root
+    during an active scope are captured/re-stamped too — same scope the engine
+    has always had.)"""
 
     def emit(self, record: LogRecord) -> None:
         active: Optional[Logs] = _active_logs.get()
@@ -55,15 +66,10 @@ class _RootCapturer(Handler):
             self.handleError(record)
 
 
-_root_capturer: Optional[_RootCapturer] = None
-
-
 def _ensure_root_capturer() -> None:
-    """Install the single root capturer once."""
-    global _root_capturer
-    if _root_capturer is None:
-        _root_capturer = _RootCapturer()
-        logging.root.addHandler(_root_capturer)
+    """Install the root capturer if it is not currently attached."""
+    if not any(isinstance(handler, _RootCapturer) for handler in logging.root.handlers):
+        logging.root.addHandler(_RootCapturer())
 
 
 @contextmanager
@@ -72,38 +78,11 @@ def preserve_active_logs():
     a block that constructs Logs (which activate on construction) so it doesn't
     leave one dangling as the active target afterwards — used by the executor,
     whose per-collection Logs are activated but never individually closed."""
-    token = _active_logs.set(_active_logs.get())
+    prev: Optional[Logs] = _active_logs.get()
     try:
         yield
     finally:
-        try:
-            _active_logs.reset(token)
-        except (ValueError, LookupError):
-            _active_logs.set(None)
-
-
-class _Activation:
-    """Context manager returned by ``Logs.activate()``: makes ``logs`` the
-    active target for the block and restores the previous one on exit."""
-
-    def __init__(self, logs: "Logs", label: Optional[str]):
-        self._logs = logs
-        self._label = label
-        self._token: Optional[contextvars.Token] = None
-
-    def __enter__(self) -> "Logs":
-        if self._label is not None:
-            self._logs.label = self._label
-        self._token = _active_logs.set(self._logs)
-        return self._logs
-
-    def __exit__(self, *exc) -> None:
-        if self._token is not None:
-            try:
-                _active_logs.reset(self._token)
-            except (ValueError, LookupError):
-                _active_logs.set(None)
-            self._token = None
+        _active_logs.set(prev)
 
 
 class Logs:
@@ -111,22 +90,31 @@ class Logs:
 
     Constructing a ``Logs`` makes it the active capture target, so
     ``logs = Logs(); logger.info(...)`` captures with no extra ceremony. The
-    optional ``label`` is stamped on each captured record's ``thread`` at emit
+    ``label`` attribute is stamped on each captured record's ``thread`` at emit
     time (combined Cloud uploads group records per collection by it).
     """
 
-    def __init__(self, gatherer: Optional[LogsBase] = None, label: Optional[str] = None):
+    def __init__(self, gatherer: Optional[LogsBase] = None):
         self.gatherer: LogsBase = gatherer if gatherer is not None else LogsCollector()
-        self.label: Optional[str] = label
+        self.label: Optional[str] = None
         _ensure_root_capturer()
-        self._token: Optional[contextvars.Token] = _active_logs.set(self)
+        self._prev: Optional[Logs] = _active_logs.get()
+        _active_logs.set(self)
 
-    def activate(self, label: Optional[str] = None) -> _Activation:
+    @contextmanager
+    def activate(self, label: Optional[str] = None):
         """Re-arm this Logs as the active target for a ``with`` block, optionally
         (re)setting its label. The executor uses this to bracket a collection's
         verify() and post-processing after the up-front construction phase has
         moved the active target on to later collections."""
-        return _Activation(self, label)
+        if label is not None:
+            self.label = label
+        prev: Optional[Logs] = _active_logs.get()
+        _active_logs.set(self)
+        try:
+            yield self
+        finally:
+            _active_logs.set(prev)
 
     def __str__(self) -> str:
         return self.get_logs_str()
@@ -150,24 +138,11 @@ class Logs:
     def has_errors(self) -> bool:
         return len(self.get_errors()) > 0
 
-    def pop_log_records(self) -> list[LogRecord]:
-        # Returns the gatherer's live list (LogsCollector.close is a no-op), so
-        # records appended after the pop — e.g. post-processing handler emissions —
-        # still surface on the held result. Intentional, not a true "pop".
-        log_records: list[LogRecord] = self.get_log_records()
-        self.gatherer.close()
-        return log_records
-
     def close(self) -> None:
         """Stop being the active capture target and close the gatherer (flushing
-        it for streaming gatherers). Assumes this Logs is the current active
-        target — the construct/verify flows keep activations LIFO. ``reset`` is
-        guarded so a stray cross-context/out-of-order close degrades to a no-op
-        rather than raising; logging must never crash the caller."""
-        if self._token is not None:
-            try:
-                _active_logs.reset(self._token)
-            except (ValueError, LookupError):
-                _active_logs.set(None)
-            self._token = None
+        it for streaming gatherers). Releases the active slot only when this
+        Logs still holds it, so an out-of-order close (e.g. on a shared
+        session-level Logs) leaves a newer active Logs untouched."""
+        if _active_logs.get() is self:
+            _active_logs.set(self._prev)
         self.gatherer.close()

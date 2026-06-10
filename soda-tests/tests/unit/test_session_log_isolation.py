@@ -144,7 +144,7 @@ class _LoggingImpl(CheckCollectionImpl):
 
     def verify(self) -> _FakeResult:
         soda_logger.info(f"verify-{self._label}")
-        return _make_result(self._label, self.logs.pop_log_records())
+        return _make_result(self._label, self.logs.get_log_records())
 
 
 class _RaisingConstructImpl(CheckCollectionImpl):
@@ -269,6 +269,10 @@ def test_failed_construction_leaves_capture_intact_for_siblings(_isolate_logging
     """A construction that raises must not break capture for the other
     collections or accumulate handlers on the root logger (there is one
     process-permanent root capturer; a failed construct adds none)."""
+    # Install the process-wide capturer before sampling so the count is not
+    # order-dependent (running this test alone would otherwise install it
+    # mid-run and legitimately grow the count by one).
+    logs_module._ensure_root_capturer()
     handler_count_before = len(logging.root.handlers)
 
     sources = [
