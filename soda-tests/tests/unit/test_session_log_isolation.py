@@ -7,8 +7,9 @@ that collection, with no duplicates in the combined upload payload.
 Capture is routed through a single root-logger handler to the *active* ``Logs``
 (a contextvar), and a ``Logs`` becomes active the moment it is constructed, so
 each impl's construction logs are captured by its own gatherer; the executor
-re-activates each impl's ``Logs`` around its verify() and post-processing
-handlers. Each record's ``thread`` is stamped at emit time (via the active
+re-activates each impl's ``Logs`` around its verify(), and the default per-item
+``handle_session`` does the same around post-processing handlers. Each record's
+``thread`` is stamped at emit time (via the active
 Logs' ``label``) with the per-collection value ``{wire_source}.{collection_id}``,
 so there is no after-the-fact relabel and only one gatherer is ever active
 (siblings cannot cross-capture).

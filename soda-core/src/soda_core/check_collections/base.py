@@ -319,6 +319,12 @@ class CheckCollectionImpl:
     # When True, N files of this subtype in one session combine into one
     # ``sodaCoreInsertScanResults`` upload. Default False keeps the
     # per-file upload path (byte-identical wire output) intact.
+    #
+    # Contract for combine_uploads=True subtypes: all files of one session must target a
+    # single dataset (they share one scanId, and a scan is assumed to map to one dataset).
+    # The executor enforces this via ``_raise_if_combined_session_spans_multiple_datasets``,
+    # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
+    # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
@@ -913,9 +919,10 @@ class CheckCollectionImpl:
         # Post-processing handlers. For combine-upload subtypes, defer to
         # the session executor — handlers need the scan_id and
         # response_json from the *combined* upload, which hasn't happened
-        # yet at this point in verify(). The executor calls
-        # ``run_post_processing_handlers`` per file after the session-level
-        # ``send_check_collection_results`` returns.
+        # yet at this point in verify(). The executor dispatches
+        # ``ContractVerificationHandler.handle_session`` once per wire-source
+        # group after the session-level ``send_check_collection_results``
+        # returns.
         if not self.combine_uploads:
             self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
 
@@ -928,14 +935,15 @@ class CheckCollectionImpl:
     ) -> None:
         """Invoke every registered ``ContractVerificationHandler`` for this file.
 
-        Called inline from ``verify()`` for non-combine subtypes; for
-        combine-upload subtypes the session executor calls this per file
-        after ``send_check_collection_results`` returns so handlers see the shared
-        ``scan_id`` and ``response_json``. Files that were skipped from the
-        combined upload (alignment guard, missing file_id, send failure)
-        still get handlers invoked with ``response_json=None`` to match
-        the per-file path's "run handlers regardless of upload success"
-        semantics.
+        Called inline from ``verify()`` for non-combine subtypes only.
+        Combine-upload subtypes are post-processed by the session executor
+        instead, which dispatches ``handle_session`` once per wire-source
+        group after the combined ``send_check_collection_results`` returns
+        so handlers see the shared ``scan_id`` and ``response_json``. Files
+        that were skipped from the combined upload (alignment guard, missing
+        file_id, send failure) are still post-processed there with
+        ``response_json=None`` to match this path's "run handlers regardless
+        of upload success" semantics.
         """
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationHandlerRegistry,

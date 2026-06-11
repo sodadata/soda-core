@@ -1,19 +1,24 @@
-"""Phase 3 of execute_check_collections: post-processing handler skip on ERROR.
+"""Phase 3 of execute_check_collections: session-level post-processing dispatch.
 
-When ``impl.verify()`` raises in phase 2 the executor builds an ERROR
-placeholder via ``build_error_result``. In the non-combine path, handlers
-live INSIDE ``verify()`` so an exception bypasses them entirely. The
-combine-upload path's phase-3 handler loop runs OUTSIDE verify(), so it
-must mirror the non-combine semantics by skipping results whose
-``error is not None``.
+Combine-upload subtypes are post-processed AFTER the single combined upload, in
+phase 3 of ``execute_check_collections`` (outside ``verify()``). Handlers run
+ONCE per wire-source group via ``ContractVerificationHandler.handle_session``
+(not once per file), so a session-scoped handler can fetch config once per
+dataset, reuse one connection, and post a single aggregated stage update.
 
-This regression test locks that behaviour: when one of two files raises,
-``run_post_processing_handlers`` is called for the surviving file ONLY,
-not for the ERROR-placeholder file.
+These tests lock the dispatch contract:
+- ERROR placeholders (a file whose ``verify()`` raised) are excluded from the
+  session items, mirroring the non-combine path where an exception in verify()
+  bypasses handler invocation.
+- ``handle_session`` is called ONCE per wire source with all surviving files.
+- The default ``handle_session`` falls back to per-file ``handle`` calls.
+- A handler raising in ``handle_session`` is isolated: other handlers still run
+  and the session completes normally.
 """
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -23,14 +28,48 @@ from soda_core.check_collections.base import (
     CheckCollectionYaml,
 )
 from soda_core.check_collections.session import execute_check_collections
+from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
+    ContractVerificationResult,
+    PostProcessingStage,
     YamlFileContentInfo,
+)
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractImpl,
+    ContractVerificationHandler,
+    ContractVerificationHandlerRegistry,
+    PostProcessingSessionItem,
+)
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
 )
 
 _HANDLER_SKIP_KIND = "phase3-handler-skip-stub"
+
+
+@contextmanager
+def _registered(*handlers: ContractVerificationHandler):
+    """Register handlers for the duration of the block, then restore the
+    global registry — so handler registration never leaks across tests."""
+    reg = ContractVerificationHandlerRegistry
+    saved_handlers = list(reg.contract_verification_handlers)
+    saved_stages = dict(reg.post_processing_stages)
+    try:
+        # Start from a clean slate so handlers leaked by other test modules (some register
+        # without cleanup) don't run during this block and break per-handler assertions.
+        reg.contract_verification_handlers = []
+        reg.post_processing_stages = {}
+        for handler in handlers:
+            reg.register(handler)
+        yield
+    finally:
+        reg.contract_verification_handlers = saved_handlers
+        reg.post_processing_stages = saved_stages
 
 
 class _StubYaml(CheckCollectionYaml):
@@ -43,7 +82,7 @@ class _StubResult(CheckCollectionResult):
     pass
 
 
-def _make_passed_result(label: str) -> _StubResult:
+def _make_passed_result(label: str, log_records: Optional[list] = None) -> _StubResult:
     now = datetime.now(tz=timezone.utc)
     return _StubResult(
         check_collection=Contract(
@@ -61,18 +100,14 @@ def _make_passed_result(label: str) -> _StubResult:
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
-        log_records=[],
+        log_records=log_records if log_records is not None else [],
         post_processing_stages=[],
     )
 
 
 class _StubImpl(CheckCollectionImpl):
-    """Combine-upload stub that records every call to
-    ``run_post_processing_handlers``.
-
-    ``verify()`` raises iff the yaml source label is ``"broken"`` so we
-    can force an ERROR placeholder for one file in the session.
-    """
+    """Combine-upload stub. ``verify()`` raises iff the yaml source label is
+    ``"broken"`` so we can force an ERROR placeholder for one file."""
 
     kind = _HANDLER_SKIP_KIND
     wire_source = "stub-handler-wire"
@@ -81,13 +116,13 @@ class _StubImpl(CheckCollectionImpl):
     combine_uploads = True
     requires_collection_id = False
 
-    handler_calls: list[str] = []
-
     def __init__(self, yaml, **kwargs):
-        # Skip the heavy base ``__init__``; the executor only needs the
-        # yaml + a reachable run_post_processing_handlers method.
+        # Skip the heavy base ``__init__``; the executor only needs the yaml,
+        # a ``data_source_impl`` attribute (read when building session items),
+        # and a ``Logs`` the executor / default ``handle_session`` can activate.
         self.yaml = yaml
         self.logs = Logs()
+        self.data_source_impl = None
 
     @property
     def collection_id(self) -> Optional[str]:
@@ -97,13 +132,74 @@ class _StubImpl(CheckCollectionImpl):
         label = getattr(self.yaml.yaml_source, "_label", "anon")
         if label == "broken":
             raise RuntimeError("yaml unhappy")
-        return _make_passed_result(label=label)
+        # The live gatherer list, like the real verify(): records emitted later
+        # (post-processing handlers) still surface on the held result.
+        return _make_passed_result(label=label, log_records=self.logs.get_log_records())
 
-    def run_post_processing_handlers(self, result, response_json) -> None:
-        # Tag by the result's dataset_name so the test can assert which
-        # files got handlers (and which didn't).
-        label = result.check_collection.dataset_name if result.check_collection else "<no-dataset>"
-        type(self).handler_calls.append(label)
+
+class _RecordingHandler(ContractVerificationHandler):
+    """Overrides ``handle_session`` to record, per call, the file labels it
+    received and the shared group response_json."""
+
+    def __init__(self) -> None:
+        self.session_calls: list[tuple[list[Optional[str]], Optional[dict]]] = []
+
+    def handle(self, *args, **kwargs):  # required abstract; unused (we override handle_session)
+        raise AssertionError("handle() should not be called when handle_session is overridden")
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        return []
+
+    def handle_session(
+        self,
+        items: list[PostProcessingSessionItem],
+        soda_cloud: Optional[SodaCloud],
+        soda_cloud_send_results_response_json: Optional[dict] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+    ) -> None:
+        labels: list[Optional[str]] = [
+            item.verification_result.check_collection.dataset_name
+            if item.verification_result.check_collection
+            else None
+            for item in items
+        ]
+        self.session_calls.append((labels, soda_cloud_send_results_response_json))
+
+
+class _DefaultPathHandler(ContractVerificationHandler):
+    """Does NOT override ``handle_session`` — exercises the default per-file
+    fallback by recording each ``handle`` call."""
+
+    def __init__(self) -> None:
+        self.handle_labels: list[Optional[str]] = []
+
+    def handle(
+        self,
+        contract_impl: ContractImpl,
+        data_source_impl: Optional[DataSourceImpl],
+        contract_verification_result: ContractVerificationResult,
+        soda_cloud: Optional[SodaCloud],
+        soda_cloud_send_results_response_json: Optional[dict],
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+    ):
+        cc = contract_verification_result.check_collection
+        self.handle_labels.append(cc.dataset_name if cc else None)
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        return []
+
+
+class _ExplodingHandler(ContractVerificationHandler):
+    """Raises inside ``handle_session`` to verify session-level isolation."""
+
+    def handle(self, *args, **kwargs):
+        raise AssertionError("unused")
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        return []
+
+    def handle_session(self, *args, **kwargs) -> None:
+        raise RuntimeError("handler boom")
 
 
 class _StubYamlObject:
@@ -126,22 +222,153 @@ class _StubSource:
         return _StubYamlObject(kind=_HANDLER_SKIP_KIND)
 
 
-def test_phase3_handlers_skipped_for_error_placeholder():
-    """One yaml's verify() raises → phase-3 handlers run for the surviving
-    file ONLY. The ERROR placeholder must NOT invoke handlers, matching
-    the non-combine path where an exception in verify() bypasses
-    handler invocation."""
-    _StubImpl.handler_calls = []
-
+def test_handle_session_called_once_with_surviving_files_only():
+    """One yaml's verify() raises → ``handle_session`` is invoked ONCE for the
+    wire source, with the two PASSED files only (ERROR placeholder excluded)."""
+    handler = _RecordingHandler()
     sources = [_StubSource("alpha"), _StubSource("broken"), _StubSource("gamma")]
-    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    with _registered(handler):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
 
     # Sanity: three results, one of which is the ERROR placeholder.
     assert len(session_result.results) == 3
-    labels_by_status = {
-        r.status: r.check_collection.dataset_name if r.check_collection else None for r in session_result.results
-    }
-    assert CheckCollectionStatus.ERROR in labels_by_status
+    assert any(r.status == CheckCollectionStatus.ERROR for r in session_result.results)
 
-    # Handlers ran only for the two PASSED files.
-    assert _StubImpl.handler_calls == ["alpha", "gamma"]
+    # handle_session called exactly once (per wire source), with alpha+gamma only.
+    assert len(handler.session_calls) == 1
+    labels, group_response = handler.session_calls[0]
+    assert labels == ["alpha", "gamma"]
+    assert group_response is None  # no cloud / no publish in this test
+
+
+def test_default_handle_session_falls_back_to_per_file_handle():
+    """A handler that does NOT override handle_session gets ``handle`` called
+    once per surviving file via the default fallback."""
+    handler = _DefaultPathHandler()
+    sources = [_StubSource("alpha"), _StubSource("broken"), _StubSource("gamma")]
+
+    with _registered(handler):
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert handler.handle_labels == ["alpha", "gamma"]
+
+
+def test_handler_exception_in_handle_session_is_isolated():
+    """A handler raising in handle_session must not break sibling handlers nor
+    the session — execute_check_collections still returns all results."""
+    exploding = _ExplodingHandler()
+    recording = _RecordingHandler()
+    sources = [_StubSource("alpha"), _StubSource("gamma")]
+
+    with _registered(exploding, recording):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    # Session completed and the surviving handler still ran with both files.
+    assert len(session_result.results) == 2
+    assert len(recording.session_calls) == 1
+    assert recording.session_calls[0][0] == ["alpha", "gamma"]
+
+
+def test_handle_session_crash_triggers_post_processing_failure_backstop(monkeypatch):
+    """If an overridden handle_session escapes, the executor marks that handler's stages FAILED
+    per surviving file (via _handle_post_processing_failure) — mirroring the per-file path, so a
+    crashing session handler never leaves a post-processing stage stuck/unreported."""
+    backstop_calls: list[tuple[str, str]] = []
+
+    def spy(self, *, scan_id, exc, contract_verification_handler):
+        backstop_calls.append(
+            (getattr(self.yaml.yaml_source, "_label", "anon"), type(contract_verification_handler).__name__)
+        )
+
+    monkeypatch.setattr(_StubImpl, "_handle_post_processing_failure", spy)
+
+    exploding = _ExplodingHandler()
+    sources = [_StubSource("alpha"), _StubSource("gamma")]
+    with _registered(exploding):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert len(session_result.results) == 2
+    assert backstop_calls == [("alpha", "_ExplodingHandler"), ("gamma", "_ExplodingHandler")]
+
+
+def test_default_handle_session_isolates_per_item_handle_failure():
+    """The default handle_session must isolate a per-item ``handle`` failure: a raise on one
+    file does not stop ``handle`` running for the others, and the session still completes."""
+
+    class _FailingDefaultHandler(ContractVerificationHandler):
+        def __init__(self) -> None:
+            self.labels: list[Optional[str]] = []
+
+        def handle(
+            self,
+            contract_impl,
+            data_source_impl,
+            contract_verification_result,
+            soda_cloud,
+            soda_cloud_send_results_response_json,
+            dwh_files=None,
+        ):
+            cc = contract_verification_result.check_collection
+            label = cc.dataset_name if cc else None
+            self.labels.append(label)
+            if label == "boom_in_handle":
+                raise RuntimeError("handle exploded")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    handler = _FailingDefaultHandler()
+    # "boom_in_handle" verifies fine (verify() only raises on label "broken"); its handle() raises.
+    sources = [_StubSource("alpha"), _StubSource("boom_in_handle"), _StubSource("gamma")]
+
+    with _registered(handler):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    # handle() ran for all three surviving files; the raise on the middle one was isolated.
+    assert handler.labels == ["alpha", "boom_in_handle", "gamma"]
+    assert len(session_result.results) == 3
+
+
+def test_default_handle_session_attributes_handler_emissions_to_the_emitting_file():
+    """Handler emissions during the default per-item ``handle`` land in the emitting
+    file's own log buffer, ``thread``-labelled at emit time by that item's activated
+    ``Logs`` — never in a sibling's. (This replaces the old after-the-fact relabel
+    pass that combine subtypes used to get after session handlers ran.)"""
+
+    class _EmittingHandler(ContractVerificationHandler):
+        def handle(
+            self,
+            contract_impl,
+            data_source_impl,
+            contract_verification_result,
+            soda_cloud,
+            soda_cloud_send_results_response_json,
+            dwh_files=None,
+        ):
+            cc = contract_verification_result.check_collection
+            soda_logger.warning(f"handled-{cc.dataset_name}")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    handler = _EmittingHandler()
+    sources = [_StubSource("alpha"), _StubSource("broken"), _StubSource("gamma")]
+    with _registered(handler):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    by_label = {
+        r.check_collection.dataset_name: [rec.getMessage() for rec in (r.log_records or [])]
+        for r in session_result.results
+        if r.status == CheckCollectionStatus.PASSED
+    }
+    assert "handled-alpha" in by_label["alpha"]
+    assert "handled-gamma" not in by_label["alpha"]
+    assert "handled-gamma" in by_label["gamma"]
+    assert "handled-alpha" not in by_label["gamma"]
+    # Stamped at emit with the per-collection thread label (the stub has no
+    # collection_id, so the label is the bare wire_source).
+    for result in session_result.results:
+        if result.status == CheckCollectionStatus.PASSED:
+            threads = {rec.thread for rec in result.log_records if rec.getMessage().startswith("handled-")}
+            assert threads == {"stub-handler-wire"}
