@@ -425,6 +425,14 @@ class CheckCollectionImpl:
         ``collection_id``). Soda Cloud surfaces it as a per-scan log filter."""
         return f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
 
+    @property
+    def source_description(self) -> str:
+        """Human identifier for this collection's yaml source in console lines:
+        the file path when the yaml came from a local file, else the collection
+        id (e.g. a Cloud-fetched data standard's DQN, where there is no path),
+        else the yaml source's generic description — never ``None``."""
+        return self.yaml.yaml_source.file_path or self.collection_id or self.yaml.yaml_source.description
+
     def __init__(
         self,
         yaml: CheckCollectionYaml,
@@ -754,7 +762,7 @@ class CheckCollectionImpl:
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
             f"{verb} {self.display_name} {Emoticons.SCROLL} "
-            f"{self.yaml.yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{self.source_description} {Emoticons.FINGERS_CROSSED}"
         )
 
         if self.data_source_impl:

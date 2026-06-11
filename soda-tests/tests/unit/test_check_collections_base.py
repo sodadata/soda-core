@@ -20,6 +20,7 @@ from soda_core.check_collections.base import (
 )
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.logs import Logs
+from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
@@ -337,3 +338,38 @@ def test_verify_raises_when_wire_source_is_empty():
 
     with pytest.raises(ValueError, match="wire_source"):
         _NoWireSourceImpl().verify()
+
+
+class _FakeImplWithCollectionId(_FakeImpl):
+    """Sentinel with a collection id, like a data standard's DQN."""
+
+    kind = _FAKE_KIND + "-with-id"
+
+    @property
+    def collection_id(self) -> Optional[str]:
+        return "dqn://fake/standard-1"
+
+
+def test_source_description_prefers_the_file_path():
+    """A file-sourced collection is identified by its path in console lines —
+    even when a collection id is also available."""
+    source = CheckCollectionYamlSource.from_str("kind: data_standard", file_path="/path/to/standard.yml")
+    impl = _FakeImplWithCollectionId(yaml=_FakeYaml(yaml_source=source))
+    assert impl.source_description == "/path/to/standard.yml"
+
+
+def test_source_description_falls_back_to_collection_id_for_string_sources():
+    """A Cloud-fetched yaml has no file path; console lines must show the
+    collection id (e.g. a data standard's DQN) instead of 'None'."""
+    source = CheckCollectionYamlSource.from_str("kind: data_standard")
+    impl = _FakeImplWithCollectionId(yaml=_FakeYaml(yaml_source=source))
+    assert impl.source_description == "dqn://fake/standard-1"
+
+
+def test_source_description_last_resort_is_the_yaml_source_description():
+    """No file path and no collection id (e.g. a contract string on the agent
+    path) still yields a human-readable identifier, never 'None'."""
+    source = CheckCollectionYamlSource.from_str("kind: contract")
+    impl = _FakeImpl(yaml=_FakeYaml(yaml_source=source))  # collection_id is None
+    assert impl.source_description == source.description
+    assert "None" not in impl.source_description
