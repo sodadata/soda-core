@@ -89,6 +89,9 @@ class _StubImpl(CheckCollectionImpl):
         # Skip the heavy base ``__init__``; tests control state directly.
         self.yaml = yaml
         self._collection_id = getattr(yaml.yaml_source, "collection_id_override", None)
+        # Optional per-source dataset, used by the single-dataset-per-combined-session guard.
+        # Sources that don't set it leave this None, so that guard skips them.
+        self.soda_qualified_dataset_name = getattr(yaml.yaml_source, "dataset_override", None)
         # Track verify() invocations so tests can assert it didn't run.
         type(self).verify_call_count = getattr(type(self), "verify_call_count", 0)
 
@@ -116,10 +119,17 @@ class _StubYamlObject:
 class _StubSource:
     """Stand-in for ``CheckCollectionYamlSource``."""
 
-    def __init__(self, label: str, collection_id_override: Optional[str], kind: str = _DUP_KIND):
+    def __init__(
+        self,
+        label: str,
+        collection_id_override: Optional[str],
+        kind: str = _DUP_KIND,
+        dataset_override: Optional[str] = None,
+    ):
         self._label = label
         self.collection_id_override = collection_id_override
         self._kind = kind
+        self.dataset_override = dataset_override
         self.file_path = f"/fake/{label}.yml"
         self.yaml_str_original = f"# {label}"
 
@@ -319,3 +329,44 @@ def test_phase_2_isolation_preserved_when_no_dups():
     assert session_result.results[1].status is CheckCollectionStatus.ERROR
     assert isinstance(session_result.results[1].error, RuntimeError)
     assert session_result.results[2].status is CheckCollectionStatus.PASSED
+
+
+def test_combined_session_rejects_multiple_datasets():
+    """A combine-upload wire source whose files target >1 dataset is rejected before any
+    verify() runs — one scanId must map to one dataset (the DWH keys a scan by scan_id and
+    links check_results to it by scan_id alone)."""
+    _StubImpl.verify_call_count = 0
+    sources = [
+        _StubSource(label="a", collection_id_override="id_a", dataset_override="ds.alpha"),
+        _StubSource(label="b", collection_id_override="id_b", dataset_override="ds.beta"),
+    ]
+    with pytest.raises(InvalidArgumentException, match="single dataset") as excinfo:
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+    assert _StubImpl.verify_call_count == 0  # rejected at the session boundary, before verify
+    # The error points at the offending files (per-file actionable, like the dup-id guard).
+    assert "/fake/a.yml" in str(excinfo.value)
+    assert "/fake/b.yml" in str(excinfo.value)
+
+
+def test_combined_session_allows_single_dataset():
+    """All files of a combine-upload session targeting ONE dataset verify normally."""
+    sources = [
+        _StubSource(label="a", collection_id_override="id_a", dataset_override="ds.same"),
+        _StubSource(label="b", collection_id_override="id_b", dataset_override="ds.same"),
+    ]
+    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+    assert len(session_result.results) == 2
+    assert all(r.status is CheckCollectionStatus.PASSED for r in session_result.results)
+
+
+def test_non_combine_session_allows_multiple_datasets():
+    """The single-dataset guard is scoped to combine-upload subtypes. A non-combine session
+    (each file its own scan) may target different datasets — it must NOT be rejected."""
+    _StubImplNoCombine.verify_call_count = 0
+    sources = [
+        _StubSource(label="a", collection_id_override="id_a", kind=_NO_COMBINE_KIND, dataset_override="ds.alpha"),
+        _StubSource(label="b", collection_id_override="id_b", kind=_NO_COMBINE_KIND, dataset_override="ds.beta"),
+    ]
+    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+    assert len(session_result.results) == 2
+    assert _StubImplNoCombine.verify_call_count == 2  # not rejected; both files verified
