@@ -16,6 +16,7 @@ from soda_core.cli.handlers.contract import (
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
+    handle_load_fixtures,
     handle_test_data_source,
 )
 from soda_core.cli.handlers.request import (
@@ -399,6 +400,30 @@ def _setup_data_source_resource(resource_parsers) -> None:
 
     _setup_data_source_create_command(data_source_subparsers)
     _setup_data_source_test_command(data_source_subparsers)
+    _setup_data_source_load_fixtures_command(data_source_subparsers)
+
+
+def _setup_data_source_load_fixtures_command(data_source_parsers) -> None:
+    load_parser = data_source_parsers.add_parser(
+        name="load-fixtures", help="Load a curated test fixture into a sandbox schema (test/debug only)"
+    )
+    load_parser.add_argument("fixture", type=str, help="Fixture name (e.g. synthetic)")
+    load_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
+    load_parser.add_argument(
+        "--schema", type=str, default="_soda_test", help="Sandbox schema to load into (default: _soda_test)"
+    )
+    load_parser.add_argument(
+        "--table-prefix", type=str, default="st_", help="Prefix for created tables (default: st_)"
+    )
+    load_parser.add_argument(
+        "-v", "--verbose", const=True, action="store_const", default=False, help="Show more detailed logs."
+    )
+
+    def handle(args):
+        exit_code = handle_load_fixtures(args.fixture, args.data_source, args.schema, args.table_prefix)
+        exit_with_code(exit_code)
+
+    load_parser.set_defaults(handler_func=handle)
 
 
 def _setup_data_source_create_command(data_source_parsers) -> None:

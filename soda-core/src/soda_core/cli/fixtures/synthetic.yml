@@ -1,0 +1,18 @@
+# Fixture manifest — declares table name, source CSV, and column types so the
+# loader never has to infer types (per-dialect inference + quoting is fragile).
+# Optional onboarding intent (time_partition) is used by callers to onboard the
+# seeded table for monitoring/anomaly testing.
+table: synthetic
+csv: synthetic.csv
+time_partition: event_ts
+columns:
+  - {name: id,        type: integer}
+  - {name: event_ts,  type: timestamp}
+  - {name: region,    type: varchar, length: 50}
+  - {name: product,   type: varchar, length: 50}
+  - {name: amount,    type: decimal}
+  - {name: quantity,  type: integer}
+  - {name: status,    type: varchar, length: 20}
+  - {name: email,     type: varchar, length: 120}
+  - {name: notes,     type: varchar, length: 200}
+  - {name: dup_group, type: varchar, length: 20}
