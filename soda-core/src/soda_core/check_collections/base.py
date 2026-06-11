@@ -761,8 +761,7 @@ class CheckCollectionImpl:
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"{verb} {self.display_name} {Emoticons.SCROLL} "
-            f"{self.source_description} {Emoticons.FINGERS_CROSSED}"
+            f"{verb} {self.display_name} {Emoticons.SCROLL} " f"{self.source_description} {Emoticons.FINGERS_CROSSED}"
         )
 
         if self.data_source_impl:
