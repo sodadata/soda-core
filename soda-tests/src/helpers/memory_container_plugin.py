@@ -326,6 +326,22 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
     if os.environ.get(INNER_ENV_VAR) == "1":
         return None  # Inside the container — let the default protocol invoke the body.
 
+    # Honor skip/skipif markers BEFORE dispatching to docker. This hook takes
+    # over the protocol before pytest's skipping plugin evaluates them;
+    # without this, a skipif'd memory test was dispatched anyway — the inner
+    # pytest (same env) skipped it and exited 0, and the plugin reported a
+    # phantom "pass" whose peak was just the container's ~150 MB import
+    # floor (observed: all 13 test_scaling_profiling_only variants).
+    try:
+        from _pytest.skipping import evaluate_skip_marks
+
+        skip_result = evaluate_skip_marks(item)
+    except ImportError:  # pytest internals moved — fall back to dispatching
+        skip_result = None
+    if skip_result is not None:
+        _emit_skipped(item, skip_result.reason)
+        return True
+
     if os.environ.get(ACTIVATION_ENV, "").lower() not in _TRUTHY:
         _emit_skipped(item, f"set {ACTIVATION_ENV}=true to enable memory_container tests")
         return True
@@ -615,6 +631,20 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         memray_enabled = False
     memray_bin_path = artifact_dir / "memray.bin"
 
+    # Full DEBUG log of everything the in-container test does, written
+    # incrementally to the artifact dir REGARDLESS of outcome. Without this,
+    # pytest only prints captured log records on failure — passing runs left
+    # no SQL/transfer trace, which made post-hoc diagnosis (e.g. the dead
+    # FRQ check, the silent AST insert skip) require re-running to failure.
+    inner_debug_log_path = artifact_dir / "inner_debug.log"
+    _pytest_args = [
+        "--no-header", "-p", "no:cacheprovider", "--tb=short",
+        "-o", f"log_file={inner_debug_log_path}",
+        "-o", "log_file_level=DEBUG",
+        "-o", "log_file_format=%(asctime)s %(levelname)-7s %(name)s %(message)s",
+        item.nodeid,
+    ]
+
     inner_cmd: list[str]
     if memray_enabled:
         inner_cmd = [
@@ -622,14 +652,12 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
             "--force",  # overwrite existing .bin if present
             "-o", str(memray_bin_path),
             "-m", "pytest",
-            "--no-header", "-p", "no:cacheprovider", "--tb=short",
-            item.nodeid,
+            *_pytest_args,
         ]
     else:
         inner_cmd = [
             "python", "-m", "pytest",
-            "--no-header", "-p", "no:cacheprovider", "--tb=short",
-            item.nodeid,
+            *_pytest_args,
         ]
 
     cmd = [

@@ -854,6 +854,23 @@ class DataSourceTestHelper:
                 or not self.verify_test_table_row_count(test_table_specification)
                 or force_recreate
             ):
+                # Inside a memory container, a host-prepared (forced) table
+                # must NEVER be recreated here: the in-container spec is a
+                # stub whose row_values are [None] placeholders — recreating
+                # from it would replace the real fixture payload with NULL
+                # rows that pass the next run's row-count check. Fail loudly
+                # instead; the host-side __prepare_outside__ is the only
+                # legitimate (re)creator of these tables.
+                from helpers.memory_container_stub import in_memory_container, lookup_forced_table_name
+
+                if in_memory_container() and lookup_forced_table_name(test_table_specification.unique_name):
+                    raise AssertionError(
+                        f"Host-prepared fixture table {test_table_specification.unique_name} is missing or "
+                        f"has the wrong row count inside the memory container. Refusing to recreate it from "
+                        f"a stub spec (that would replace the fixture payload with NULL placeholder rows). "
+                        f"The host-side preparation likely failed or was interrupted — drop the table and "
+                        f"re-run so __prepare_outside__ rebuilds it."
+                    )
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
@@ -862,7 +879,12 @@ class DataSourceTestHelper:
                 if obsolete_table_names:
                     for obsolete_table_name in obsolete_table_names:
                         logger.debug(f"Test table {obsolete_table_name} has changed and will be recreated")
-                        self._drop_test_table(table_name=obsolete_table_name)
+                        # The table we are about to (re)create must really be
+                        # dropped even under SODA_MEMTEST_KEEP_TABLES (it
+                        # failed verification / changed); other same-purpose
+                        # variants remain convenience drops.
+                        is_current_table = obsolete_table_name.lower() == test_table_specification.unique_name.lower()
+                        self._drop_test_table(table_name=obsolete_table_name, force=is_current_table)
                         self.existing_test_table_names.remove(obsolete_table_name)
                         self._update_metadata_cache(obsolete_table_name, added=False)
 
@@ -896,15 +918,25 @@ class DataSourceTestHelper:
         row_count = self.data_source_impl.execute_query(row_count_sql)
         try:
             row_count_int = int(row_count.rows[0][0])
-        except ValueError:
-            row_count_int = None
+        except (ValueError, TypeError, IndexError):
+            # An unverifiable count must NOT pass as valid — a pre-existing
+            # but empty/partial fixture (e.g. an interrupted population on a
+            # cloud adapter) would then silently feed every subsequent run.
+            logger.error(
+                f"Could not parse row count for test table {test_table_specification.unique_name} "
+                f"(got {row_count.rows!r}); treating the table as invalid so it gets recreated."
+            )
+            return False
 
-        if row_count_int is not None and row_count_int != len(expected_row_values):
+        if row_count_int != len(expected_row_values):
             logger.warning(
                 f"Test table {test_table_specification.unique_name} has {row_count_int} rows, expected {len(expected_row_values)}"
             )
             logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
             return False
+        logger.debug(
+            f"Test table {test_table_specification.unique_name} row count verified: {row_count_int} rows"
+        )
         return True
 
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
@@ -1139,7 +1171,7 @@ class DataSourceTestHelper:
             )
             return insert_into_sql
 
-    def _drop_test_table(self, table_name: str) -> None:
+    def _drop_test_table(self, table_name: str, force: bool = False) -> None:
         # Memory tests opt into "create once, reuse forever" — the
         # dev_memory_testing schema's tables are huge (hundreds of MB) and
         # rebuilding them every run wastes minutes per test. The memory_
@@ -1147,7 +1179,12 @@ class DataSourceTestHelper:
         # test protocol so every drop call (session-end drops, obsolete-
         # table cleanup, ``__finalize_outside__`` hooks) becomes a no-op.
         # External sweep is responsible for evicting truly stale tables.
-        if os.getenv("SODA_MEMTEST_KEEP_TABLES", "").lower() in ("1", "true", "yes", "on"):
+        #
+        # ``force=True`` is for CORRECTNESS drops — a table that failed
+        # row-count verification must actually be dropped or the recreate's
+        # CREATE TABLE hits DuplicateTable and the broken fixture is wedged
+        # forever (every subsequent memory run errors at prepare).
+        if not force and os.getenv("SODA_MEMTEST_KEEP_TABLES", "").lower() in ("1", "true", "yes", "on"):
             logger.debug(f"SODA_MEMTEST_KEEP_TABLES set — skipping drop of {table_name}")
             return
         # Note, this is not a fully qualified table name, it's just the table name.
