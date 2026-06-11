@@ -636,9 +636,17 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     # pytest only prints captured log records on failure — passing runs left
     # no SQL/transfer trace, which made post-hoc diagnosis (e.g. the dead
     # FRQ check, the silent AST insert skip) require re-running to failure.
+    # ``-s`` (capture off) is what actually delivers it: soda emits its logs
+    # through a dedicated stdout handler (no propagation), so they bypass
+    # pytest's log_file; with capture disabled they stream live into
+    # inner_pytest_stdout.log on every run instead of being buffered
+    # in-container and replayed only on failure. (That buffering was itself
+    # a measurement artifact — pytest held ~80 MB of captured records on a
+    # log-heavy run.) log_file stays as a net for third-party records that
+    # do propagate to the root logger.
     inner_debug_log_path = artifact_dir / "inner_debug.log"
     _pytest_args = [
-        "--no-header", "-p", "no:cacheprovider", "--tb=short",
+        "--no-header", "-p", "no:cacheprovider", "--tb=short", "-s",
         "-o", f"log_file={inner_debug_log_path}",
         "-o", "log_file_level=DEBUG",
         "-o", "log_file_format=%(asctime)s %(levelname)-7s %(name)s %(message)s",
