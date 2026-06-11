@@ -124,6 +124,25 @@ class PostgresDataSourceConnection(DataSourceConnection):
         log_query: bool = True,
         row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
+        # Pre-memory-work behavior, restored: the buffered base
+        # implementation with postgres's rollback-on-error wrapper. Callers
+        # that stream large result sets use
+        # execute_query_one_by_one_memory_optimized instead.
+        try:
+            return super().execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
+        except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
+            logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
+            logger.debug("Rolling back transaction")
+            self.rollback()
+            raise e
+
+    def execute_query_one_by_one_memory_optimized(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
         """Postgres override: server-side (named) cursor that streams ONE row
         at a time from the backend instead of buffering the whole result.
 
@@ -160,19 +179,13 @@ class PostgresDataSourceConnection(DataSourceConnection):
         if getattr(self.connection, "autocommit", False):
             # Server-side cursors can't be created in autocommit mode — fall
             # back to the buffered base implementation rather than fail.
+            # self.execute_query_one_by_one is the restored postgres wrapper,
+            # so the rollback-on-error semantics are preserved.
             logger.debug(
-                "execute_query_one_by_one: connection is in autocommit mode, "
+                "execute_query_one_by_one_memory_optimized: connection is in autocommit mode, "
                 "falling back to buffered client-side cursor"
             )
-            try:
-                return super().execute_query_one_by_one(
-                    sql, row_callback, log_query=log_query, row_limit=row_limit
-                )
-            except psycopg.errors.Error as e:
-                logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
-                logger.debug("Rolling back transaction")
-                self.rollback()
-                raise e
+            return self.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
 
         cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
         if log_query:
