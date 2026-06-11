@@ -418,6 +418,21 @@ class CheckCollectionImpl:
         """
         return None
 
+    @property
+    def thread_label(self) -> str:
+        """Per-collection ``thread`` value stamped on each captured record:
+        ``"{wire_source}.{collection_id}"`` (or the bare ``wire_source`` without a
+        ``collection_id``). Soda Cloud surfaces it as a per-scan log filter."""
+        return f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
+
+    @property
+    def source_description(self) -> str:
+        """Human identifier for this collection's yaml source in console lines:
+        the file path when the yaml came from a local file, else the collection
+        id (e.g. a Cloud-fetched data standard's DQN, where there is no path),
+        else the yaml source's generic description — never ``None``."""
+        return self.yaml.yaml_source.file_path or self.collection_id or self.yaml.yaml_source.description
+
     def __init__(
         self,
         yaml: CheckCollectionYaml,
@@ -442,6 +457,8 @@ class CheckCollectionImpl:
         self.logs: Logs = logs if logs is not None else Logs()
         self.yaml: CheckCollectionYaml = yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
+        # Stamp this collection's ``thread`` label on every record it emits.
+        self.logs.label = self.thread_label
         self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
@@ -744,8 +761,7 @@ class CheckCollectionImpl:
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"{verb} {self.display_name} {Emoticons.SCROLL} "
-            f"{self.yaml.yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{verb} {self.display_name} {Emoticons.SCROLL} " f"{self.source_description} {Emoticons.FINGERS_CROSSED}"
         )
 
         if self.data_source_impl:
@@ -818,7 +834,9 @@ class CheckCollectionImpl:
             for line in log_lines:
                 logger.info(line)
 
-        log_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
+        # The gatherer's live list: records emitted after this point (upload,
+        # post-processing handlers) still surface on the held result.
+        log_records: Optional[list[LogRecord]] = self.logs.get_log_records()
 
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
@@ -826,7 +844,9 @@ class CheckCollectionImpl:
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(yaml_source_str_original)
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
+                yaml_source_str_original, file_label=self.display_name
+            )
 
         post_processing_stages: list[PostProcessingStage] = []
         for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
@@ -906,19 +926,12 @@ class CheckCollectionImpl:
         # Post-processing handlers. For combine-upload subtypes, defer to
         # the session executor — handlers need the scan_id and
         # response_json from the *combined* upload, which hasn't happened
-        # yet at this point in verify(). The executor calls
-        # ``run_post_processing_handlers`` per file after the session-level
-        # ``send_check_collection_results`` returns.
+        # yet at this point in verify(). The executor dispatches
+        # ``ContractVerificationHandler.handle_session`` once per wire-source
+        # group after the session-level ``send_check_collection_results``
+        # returns.
         if not self.combine_uploads:
             self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
-
-        # Stamp per-file thread label on log records (covers query/upload/
-        # in-verify-handler emissions). Combine subtypes get a second
-        # relabel pass at the end of ``run_post_processing_handlers``
-        # because phase 3 invokes that AFTER verify() returns and any
-        # logs the handlers emit then would otherwise carry raw OS thread
-        # ids and break the Cloud-side per-file grouping.
-        self._apply_thread_label_to_log_records(log_records)
 
         return verification_result
 
@@ -929,14 +942,15 @@ class CheckCollectionImpl:
     ) -> None:
         """Invoke every registered ``ContractVerificationHandler`` for this file.
 
-        Called inline from ``verify()`` for non-combine subtypes; for
-        combine-upload subtypes the session executor calls this per file
-        after ``send_check_collection_results`` returns so handlers see the shared
-        ``scan_id`` and ``response_json``. Files that were skipped from the
-        combined upload (alignment guard, missing file_id, send failure)
-        still get handlers invoked with ``response_json=None`` to match
-        the per-file path's "run handlers regardless of upload success"
-        semantics.
+        Called inline from ``verify()`` for non-combine subtypes only.
+        Combine-upload subtypes are post-processed by the session executor
+        instead, which dispatches ``handle_session`` once per wire-source
+        group after the combined ``send_check_collection_results`` returns
+        so handlers see the shared ``scan_id`` and ``response_json``. Files
+        that were skipped from the combined upload (alignment guard, missing
+        file_id, send failure) are still post-processed there with
+        ``response_json=None`` to match this path's "run handlers regardless
+        of upload success" semantics.
         """
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationHandlerRegistry,
@@ -956,30 +970,6 @@ class CheckCollectionImpl:
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
-
-        # Re-stamp the per-file thread label on any records appended by
-        # the handler loop above. Non-combine path: verify() relabels
-        # again right after returning from here, so this is idempotent.
-        # Combine path: handlers run in phase 3 AFTER verify() already
-        # relabelled, so without this pass the handler-emitted records
-        # would carry raw OS thread ids — the Cloud-side wire grouping
-        # by ``thread`` field would then misbucket them.
-        self._apply_thread_label_to_log_records(verification_result.log_records)
-
-    def _apply_thread_label_to_log_records(self, log_records: Optional[list[LogRecord]]) -> None:
-        """Stamp the per-file label on every log record so combined uploads
-        group records by file via the wire's ``thread`` field.
-
-        Idempotent — safe to call multiple times as more records get
-        appended to the same list (the gatherer's live list is shared
-        across emit sites, including the post-pop YAML upload + handler
-        emissions).
-        """
-        if not log_records:
-            return
-        thread_label = f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
-        for record in log_records:
-            record.thread = thread_label
 
     def verify_on_runner(
         self,
@@ -1097,7 +1087,7 @@ class CheckCollectionImpl:
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
+        summary_lines.append(f"\n### {self.display_name.capitalize()} results for {soda_qualified_dataset_name}")
         summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
@@ -1174,10 +1164,9 @@ class CheckCollectionImpl:
         if not offending:
             return True
 
-        # ``Logs`` is the per-collection log buffer; we also push directly
-        # via ``logger.error`` so the records are queryable through the
-        # normal ``LogRecord`` stream (so launchers see them via
-        # ``result.get_errors()``).
+        # These records land on ``verification_result.log_records`` directly:
+        # that list is the live gatherer list, so launchers see them via
+        # ``result.get_errors()`` with no re-collection.
         for check_result in offending:
             logger.error(
                 f"Source mismatch — check '{check_result.check.full_path}' has "
@@ -1185,14 +1174,6 @@ class CheckCollectionImpl:
                 f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
                 f"a backend-side source-mismatch failure on the whole batch."
             )
-
-        # Re-collect the log records we just emitted so they land on the
-        # verification result the launcher inspects.
-        new_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
-        if new_records:
-            if verification_result.log_records is None:
-                verification_result.log_records = []
-            verification_result.log_records.extend(new_records)
 
         verification_result.sending_results_to_soda_cloud_failed = True
         return False

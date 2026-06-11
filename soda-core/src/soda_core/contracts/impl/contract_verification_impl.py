@@ -113,29 +113,38 @@ class ContractVerificationHandler(ABC):
 
         Contract for overriders: (1) isolate each item — one file's failure must
         not abort the rest; (2) ALWAYS post a terminal post-processing stage state
-        (in a ``finally``), even when every item fails, so a stage never hangs.
+        (in a ``finally``), even when every item fails, so a stage never hangs;
+        (3) log records an override emits are not attributed to any single file —
+        bracket per-item work with
+        ``item.contract_impl.logs.activate(item.contract_impl.thread_label)``
+        when per-file log attribution matters.
         If the override itself raises, the executor marks the handler's stages
         FAILED as a backstop.
         """
         for item in items:
-            try:
-                self.handle(
-                    contract_impl=item.contract_impl,
-                    data_source_impl=item.contract_impl.data_source_impl,
-                    contract_verification_result=item.verification_result,
-                    soda_cloud=soda_cloud,
-                    soda_cloud_send_results_response_json=item.soda_cloud_send_results_response_json,
-                    dwh_files=dwh_files,
-                )
-            except Exception as e:
-                # Same message shape as the per-file path (run_post_processing_handlers) so log
-                # parsing / monitoring stays consistent across the combine and non-combine paths.
-                logger.error(f"Error in {item.contract_impl.display_name} verification handler: {e}", exc_info=True)
-                item.contract_impl._handle_post_processing_failure(
-                    scan_id=item.verification_result.scan_id,
-                    exc=e,
-                    contract_verification_handler=self,
-                )
+            # Capture this item's handler emissions (incl. the failure path) into
+            # its own collection's gatherer, thread-labelled at emit time — they
+            # would otherwise land in whichever Logs happens to be active after
+            # phase 2.
+            with item.contract_impl.logs.activate(item.contract_impl.thread_label):
+                try:
+                    self.handle(
+                        contract_impl=item.contract_impl,
+                        data_source_impl=item.contract_impl.data_source_impl,
+                        contract_verification_result=item.verification_result,
+                        soda_cloud=soda_cloud,
+                        soda_cloud_send_results_response_json=item.soda_cloud_send_results_response_json,
+                        dwh_files=dwh_files,
+                    )
+                except Exception as e:
+                    # Same message shape as the per-file path (run_post_processing_handlers) so log
+                    # parsing / monitoring stays consistent across the combine and non-combine paths.
+                    logger.error(f"Error in {item.contract_impl.display_name} verification handler: {e}", exc_info=True)
+                    item.contract_impl._handle_post_processing_failure(
+                        scan_id=item.verification_result.scan_id,
+                        exc=e,
+                        contract_verification_handler=self,
+                    )
 
 
 class ContractVerificationHandlerRegistry(ABC):
@@ -148,7 +157,7 @@ class ContractVerificationHandlerRegistry(ABC):
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
-                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+                logger.warning(f"Overriding existing verification handler for post-processing stage {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
 
 
@@ -423,8 +432,8 @@ class ContractVerificationSessionImpl:
                     yaml=contract_yaml,
                     only_validate_without_execute=True,
                 )
-                init_log_records = contract_impl.logs.pop_log_records()
-                contract_impl.logs.remove_from_root_logger()
+                init_log_records = contract_impl.logs.get_log_records()
+                contract_impl.logs.close()
 
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,

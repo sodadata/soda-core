@@ -28,7 +28,7 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
@@ -38,6 +38,10 @@ from soda_core.contracts.impl.diagnostics_warehouse_files import (
 logger = soda_logger
 
 
+# Each owned impl's Logs activates on construction and is never individually
+# closed, so restore the active capture target to its pre-call value on exit
+# (no Logs left dangling as active after the session).
+@preserve_active_logs()
 def execute_check_collections(
     yaml_sources: list[CheckCollectionYamlSource],
     data_source_impl: Optional[DataSourceImpl],
@@ -129,6 +133,9 @@ def execute_check_collections(
     results: list[CheckCollectionResult] = []
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
+    # Each impl's ``Logs`` becomes active as it is constructed, capturing its
+    # construction logs; phase 2/3 re-activate it around verify()/handlers.
+    # Only one gatherer is ever active, so siblings can't cross-capture.
     # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
     # ``(None, impl_class_or_None, exc, yaml_source)`` on failure. The
     # ``yaml_source`` slot lets phase 1.5 filter ``constructed`` without
@@ -225,12 +232,14 @@ def execute_check_collections(
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
-        try:
-            results.append(impl.verify())
-        except Exception as exc:
-            if abort_on_first_error:
-                raise
-            results.append(impl_class.build_error_result(yaml_source, exc))
+        # Capture this verify()'s records into this collection's gatherer.
+        with impl.logs.activate(impl.thread_label):
+            try:
+                results.append(impl.verify())
+            except Exception as exc:
+                if abort_on_first_error:
+                    raise
+                results.append(impl_class.build_error_result(yaml_source, exc))
 
     # ---- Phase 3: combined upload (cloud-gated) + post-processing handlers (always). ----
     # ``constructed`` is positionally aligned with ``results``, so we iterate
@@ -324,6 +333,10 @@ def execute_check_collections(
     # in verify() bypasses handlers). Each item carries the shared response when it
     # was part of the upload, else None, so the default per-item ``handle_session``
     # preserves the old "run handlers regardless of upload success" semantics.
+    # Log attribution: the default per-item ``handle_session`` activates each
+    # item's ``Logs``, so handler emissions are captured for — and ``thread``-
+    # labelled as — the emitting file at emit time. A session-scoped override's
+    # emissions span files and are not attributed to any single one.
     from soda_core.contracts.impl.contract_verification_impl import (
         ContractVerificationHandlerRegistry,
         PostProcessingSessionItem,
@@ -381,12 +394,6 @@ def execute_check_collections(
                         exc=e,
                         contract_verification_handler=handler,
                     )
-        # Re-stamp the per-file thread label on log records (incl. handler
-        # emissions) — mirrors run_post_processing_handlers' final relabel pass,
-        # now done once per file after all session handlers have run, so the
-        # Cloud-side wire grouping by ``thread`` stays correct.
-        for item in session_items:
-            item.contract_impl._apply_thread_label_to_log_records(item.verification_result.log_records)
 
     return CheckCollectionSessionResult(results)
 

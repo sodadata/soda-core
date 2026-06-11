@@ -23,6 +23,7 @@ from soda_core.check_collections.base import (
 )
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.exceptions import InvalidArgumentException
+from soda_core.common.logs import Logs
 
 _KIND_A = "expected-kinds-stub-a"
 _KIND_B = "expected-kinds-stub-b"
@@ -50,6 +51,7 @@ class _StubImplA(CheckCollectionImpl):
 
     def __init__(self, yaml, **kwargs):
         self.yaml = yaml
+        self.logs = Logs()
         type(self).verify_call_count = getattr(type(self), "verify_call_count", 0)
 
     def verify(self) -> _StubResultA:

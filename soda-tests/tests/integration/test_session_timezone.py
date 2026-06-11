@@ -105,7 +105,7 @@ def test_fetch_session_timezone_emits_no_errors(data_source_test_helper: DataSou
     try:
         result = connection._fetch_session_timezone()
     finally:
-        captured_logs.remove_from_root_logger()
+        captured_logs.close()
 
     assert isinstance(result, tzinfo), (
         f"_fetch_session_timezone() returned {result!r} (type {type(result).__name__}); " "expected a tzinfo instance"

@@ -29,6 +29,8 @@ from soda_core.check_collections.base import (
 )
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
@@ -80,7 +82,7 @@ class _StubResult(CheckCollectionResult):
     pass
 
 
-def _make_passed_result(label: str) -> _StubResult:
+def _make_passed_result(label: str, log_records: Optional[list] = None) -> _StubResult:
     now = datetime.now(tz=timezone.utc)
     return _StubResult(
         check_collection=Contract(
@@ -98,7 +100,7 @@ def _make_passed_result(label: str) -> _StubResult:
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
-        log_records=[],
+        log_records=log_records if log_records is not None else [],
         post_processing_stages=[],
     )
 
@@ -117,8 +119,9 @@ class _StubImpl(CheckCollectionImpl):
     def __init__(self, yaml, **kwargs):
         # Skip the heavy base ``__init__``; the executor only needs the yaml,
         # a ``data_source_impl`` attribute (read when building session items),
-        # and a reachable ``_apply_thread_label_to_log_records``.
+        # and a ``Logs`` the executor / default ``handle_session`` can activate.
         self.yaml = yaml
+        self.logs = Logs()
         self.data_source_impl = None
 
     @property
@@ -129,7 +132,9 @@ class _StubImpl(CheckCollectionImpl):
         label = getattr(self.yaml.yaml_source, "_label", "anon")
         if label == "broken":
             raise RuntimeError("yaml unhappy")
-        return _make_passed_result(label=label)
+        # The live gatherer list, like the real verify(): records emitted later
+        # (post-processing handlers) still surface on the held result.
+        return _make_passed_result(label=label, log_records=self.logs.get_log_records())
 
 
 class _RecordingHandler(ContractVerificationHandler):
@@ -325,21 +330,45 @@ def test_default_handle_session_isolates_per_item_handle_failure():
     assert len(session_result.results) == 3
 
 
-def test_session_relabels_thread_labels_once_per_surviving_file(monkeypatch):
-    """The executor re-stamps per-file thread labels after session handlers run — once per
-    surviving (non-ERROR) file, mirroring run_post_processing_handlers' final relabel pass."""
-    relabelled: list[str] = []
-    original = _StubImpl._apply_thread_label_to_log_records
+def test_default_handle_session_attributes_handler_emissions_to_the_emitting_file():
+    """Handler emissions during the default per-item ``handle`` land in the emitting
+    file's own log buffer, ``thread``-labelled at emit time by that item's activated
+    ``Logs`` — never in a sibling's. (This replaces the old after-the-fact relabel
+    pass that combine subtypes used to get after session handlers ran.)"""
 
-    def counting(self, log_records):
-        relabelled.append(getattr(self.yaml.yaml_source, "_label", "anon"))
-        return original(self, log_records)
+    class _EmittingHandler(ContractVerificationHandler):
+        def handle(
+            self,
+            contract_impl,
+            data_source_impl,
+            contract_verification_result,
+            soda_cloud,
+            soda_cloud_send_results_response_json,
+            dwh_files=None,
+        ):
+            cc = contract_verification_result.check_collection
+            soda_logger.warning(f"handled-{cc.dataset_name}")
 
-    monkeypatch.setattr(_StubImpl, "_apply_thread_label_to_log_records", counting)
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
 
-    handler = _RecordingHandler()
+    handler = _EmittingHandler()
     sources = [_StubSource("alpha"), _StubSource("broken"), _StubSource("gamma")]
     with _registered(handler):
-        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
 
-    assert relabelled == ["alpha", "gamma"]  # once per surviving file, never the ERROR placeholder
+    by_label = {
+        r.check_collection.dataset_name: [rec.getMessage() for rec in (r.log_records or [])]
+        for r in session_result.results
+        if r.status == CheckCollectionStatus.PASSED
+    }
+    assert "handled-alpha" in by_label["alpha"]
+    assert "handled-gamma" not in by_label["alpha"]
+    assert "handled-gamma" in by_label["gamma"]
+    assert "handled-alpha" not in by_label["gamma"]
+    # Stamped at emit with the per-collection thread label (the stub has no
+    # collection_id, so the label is the bare wire_source).
+    for result in session_result.results:
+        if result.status == CheckCollectionStatus.PASSED:
+            threads = {rec.thread for rec in result.log_records if rec.getMessage().startswith("handled-")}
+            assert threads == {"stub-handler-wire"}
