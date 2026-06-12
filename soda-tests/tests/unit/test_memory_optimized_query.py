@@ -54,7 +54,8 @@ def _make_postgres_connection(autocommit: bool) -> PostgresDataSourceConnection:
 def _make_plain_cursor(description=(("col",),)):
     cursor = MagicMock()
     cursor.description = description
-    cursor.fetchone.return_value = None  # empty result set ends the loop
+    cursor.fetchone.return_value = None  # empty result set ends the loop (buffered base path)
+    cursor.fetchmany.return_value = []  # empty result set ends the loop (streaming path)
     return cursor
 
 
@@ -94,3 +95,113 @@ class TestPostgresMemoryOptimized:
 
         assert pg.connection.cursor.call_args.kwargs == {}  # no named cursor
         assert rows_seen == []
+
+
+class _FakeStreamCursor:
+    """Records the size of every fetchmany() call against a canned row list."""
+
+    def __init__(self, rows, description=(("col",),)):
+        self._rows = list(rows)
+        self.description = description
+        self.fetch_sizes = []
+
+    def execute(self, sql):
+        pass
+
+    def fetchmany(self, n):
+        self.fetch_sizes.append(n)
+        batch, self._rows = self._rows[:n], self._rows[n:]
+        return batch
+
+
+def _stream_rows(rows, row_limit=None):
+    """Run the postgres memory-optimized path over a fake server-side cursor."""
+    pg = _make_postgres_connection(autocommit=False)
+    fake_cursor = _FakeStreamCursor(rows)
+    pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
+
+    seen = []
+    pg.execute_query_one_by_one_memory_optimized(
+        "SELECT 1", lambda row, description: seen.append(row), row_limit=row_limit
+    )
+    return fake_cursor.fetch_sizes, seen
+
+
+class TestByteBudgetedFetchBatching:
+    def test_thin_rows_batch_up_to_row_cap(self):
+        from soda_postgres.common.data_sources.postgres_data_source_connection import (
+            STREAM_FETCH_MAX_BATCH_ROWS,
+        )
+
+        rows = [("x",)] * 2500
+        fetch_sizes, seen = _stream_rows(rows)
+
+        # Probe row first, then full row-cap batches: tiny rows hit the
+        # 1000-row clamp, never the byte budget.
+        assert fetch_sizes[0] == 1
+        assert all(size == STREAM_FETCH_MAX_BATCH_ROWS for size in fetch_sizes[1:-1])
+        assert len(seen) == 2500
+
+    def test_fat_rows_stay_at_batch_size_one(self):
+        # 10 MB strings exceed the 8 MB budget — every fetch must stay 1.
+        rows = [("x" * (10 * 1024 * 1024),)] * 4
+        fetch_sizes, seen = _stream_rows(rows)
+
+        assert fetch_sizes[:4] == [1, 1, 1, 1]
+        assert len(seen) == 4
+
+    def test_late_fat_row_shrinks_batch_permanently(self):
+        from soda_postgres.common.data_sources.postgres_data_source_connection import (
+            STREAM_FETCH_MAX_BATCH_ROWS,
+        )
+
+        # 1500 thin rows, then a fat one, then more thin rows. The widest
+        # row seen is monotonic, so once the fat row lands the batch size
+        # drops to 1 and stays there.
+        rows = [("x",)] * 1500 + [("y" * (10 * 1024 * 1024),)] + [("z",)] * 5
+        fetch_sizes, seen = _stream_rows(rows)
+
+        assert len(seen) == 1506
+        fat_batch_index = next(
+            i for i, size in enumerate(fetch_sizes) if sum(fetch_sizes[:i]) < 1501 <= sum(fetch_sizes[: i + 1])
+        )
+        assert all(size == 1 for size in fetch_sizes[fat_batch_index + 1 :])
+        assert STREAM_FETCH_MAX_BATCH_ROWS in fetch_sizes  # thin rows did batch up first
+
+    def test_row_limit_clamps_fetch_size(self):
+        rows = [("x",)] * 100
+        fetch_sizes, seen = _stream_rows(rows, row_limit=5)
+
+        # Probe of 1, then the remainder clamped to the limit — never over-fetch.
+        assert fetch_sizes == [1, 4]
+        assert len(seen) == 5
+
+
+class TestHeldCursorCloseAfterRollback:
+    def test_close_issued_after_stream_error(self):
+        import psycopg
+
+        pg = _make_postgres_connection(autocommit=False)
+        named_cursor = MagicMock()
+        named_cursor.execute.side_effect = psycopg.errors.QueryCanceled("boom")
+        close_cursor = MagicMock()
+
+        # First cursor(name=..., withhold=True) → failing named cursor;
+        # second plain cursor() → the best-effort CLOSE executor.
+        def cursor_factory(*args, **kwargs):
+            ctx = MagicMock()
+            ctx.__enter__.return_value = named_cursor if kwargs.get("name") else close_cursor
+            return ctx
+
+        pg.connection.cursor.side_effect = cursor_factory
+
+        try:
+            pg.execute_query_one_by_one_memory_optimized("SELECT 1", lambda r, d: None)
+            raise AssertionError("expected the stream error to propagate")
+        except psycopg.errors.QueryCanceled:
+            pass
+
+        close_statements = [call.args[0] for call in close_cursor.execute.call_args_list]
+        assert len(close_statements) == 1
+        assert close_statements[0].startswith('CLOSE "soda_stream_')
+        pg.connection.rollback.assert_called()  # transaction cleaned before the CLOSE

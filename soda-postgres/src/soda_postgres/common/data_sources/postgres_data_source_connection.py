@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
@@ -21,6 +22,17 @@ from soda_core.model.data_source.data_source_connection_properties import (
 )
 
 logger: logging.Logger = soda_logger
+
+# Client-side buffer budget for the streaming (named-cursor) fetch path.
+# Batch size adapts to the widest row seen so far: rows at or above the
+# budget fetch one at a time; thin rows amortise FETCH round-trips up to
+# the row cap instead of paying one round-trip per row.
+STREAM_FETCH_BUDGET_BYTES: int = 8 * 1024 * 1024
+STREAM_FETCH_MAX_BATCH_ROWS: int = 1000
+
+
+def _estimate_row_bytes(row: tuple) -> int:
+    return sum(sys.getsizeof(value) for value in row)
 
 
 class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -143,8 +155,8 @@ class PostgresDataSourceConnection(DataSourceConnection):
         log_query: bool = True,
         row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
-        """Postgres override: server-side (named) cursor that streams ONE row
-        at a time from the backend instead of buffering the whole result.
+        """Postgres override: server-side (named) cursor that streams rows
+        in byte-budgeted batches instead of buffering the whole result.
 
         The base ``DataSourceConnection.execute_query_one_by_one`` uses
         ``self.connection.cursor()`` without a name. For psycopg3 that's a
@@ -153,10 +165,14 @@ class PostgresDataSourceConnection(DataSourceConnection):
         On large result sets this drove peak RSS to ~5× the source bytes
         and OOM-killed K8s pods (see memory_management/MEMORY_ANALYSIS.md).
 
-        Strategy: open a named (server-side) cursor and `fetchone()` per
-        row. Memory footprint is bounded by the size of the single largest
-        row plus libpq's per-fetch frame, regardless of result-set size.
-        Throughput is intentionally traded for memory predictability.
+        Strategy: open a named (server-side) cursor and fetch in adaptive
+        batches. The first fetch is a single probe row; after that the
+        batch size is ``STREAM_FETCH_BUDGET_BYTES`` divided by the widest
+        row observed so far, clamped to [1, STREAM_FETCH_MAX_BATCH_ROWS].
+        Fat rows (>= budget) therefore stream one at a time, while thin
+        rows amortise FETCH round-trips. Memory footprint is bounded by
+        roughly one batch (~the budget) plus the single largest row,
+        regardless of result-set size.
 
         Caveats:
           * Server-side cursors require an open transaction. If the
@@ -175,6 +191,13 @@ class PostgresDataSourceConnection(DataSourceConnection):
             does not exist``. Postgres materialises the cursor's
             remaining unfetched rows server-side at commit time; the
             client-side memory footprint stays bounded.
+          * INVARIANT: the streaming connection must not be shared with
+            writers that may ROLL BACK before this cursor's first commit —
+            a rollback in that window destroys the not-yet-held cursor
+            (``InvalidCursorName`` on the next fetch). Today this holds by
+            construction: between-source DWH flows always use a separate
+            DWH connection, and reuse_data_source forces in-source SQL
+            transfer (no Python stream at all). Keep it that way.
         """
         if getattr(self.connection, "autocommit", False):
             # Server-side cursors can't be created in autocommit mode — fall
@@ -191,27 +214,54 @@ class PostgresDataSourceConnection(DataSourceConnection):
         if log_query:
             logger.debug(
                 f"SQL query one-by-one (server-side cursor {cursor_name}, "
-                f"fetchone per row — minimise memory):\n{sql}"
+                f"byte-budgeted fetchmany — minimise memory):\n{sql}"
             )
 
         try:
             with self.connection.cursor(name=cursor_name, withhold=True) as cursor:
-                cursor.itersize = 1
                 cursor.execute(sql)
                 description: tuple[tuple] = cursor.description
                 rows_processed: int = 0
+                batch_size: int = 1  # single probe row first, to size subsequent batches
+                max_row_bytes: int = 1
                 while True:
                     if row_limit is not None and rows_processed >= row_limit:
                         break
-                    row = cursor.fetchone()
-                    if row is None:
+                    fetch_count: int = batch_size
+                    if row_limit is not None:
+                        fetch_count = min(fetch_count, row_limit - rows_processed)
+                    rows = cursor.fetchmany(fetch_count)
+                    if not rows:
                         break
-                    row_callback(row, description)
-                    rows_processed += 1
+                    for row in rows:
+                        row_callback(row, description)
+                        rows_processed += 1
+                    # Size against the widest row seen so far (monotonic), so a
+                    # late fat row permanently shrinks the batch back down.
+                    max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
+                    batch_size = max(1, min(STREAM_FETCH_MAX_BATCH_ROWS, STREAM_FETCH_BUDGET_BYTES // max_row_bytes))
             return description
         except psycopg.errors.Error as e:
             logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
+            # Best-effort CLOSE of the named cursor. When the failure left
+            # the transaction in error state, psycopg's ServerCursor.close()
+            # (in the `with` exit above) skips issuing CLOSE — and a held
+            # (post-commit) portal survives the rollback, materialized
+            # server-side until the connection closes, which for DWH
+            # connections is the whole scan. After the rollback the
+            # transaction is clean, so an explicit CLOSE works; if the
+            # portal is already gone (never held), it errors harmlessly.
+            try:
+                with self.connection.cursor() as close_cursor:
+                    close_cursor.execute(f'CLOSE "{cursor_name}"')
+                self.connection.commit()
+            except psycopg.errors.Error as close_error:
+                logger.debug(f"Best-effort CLOSE of held cursor {cursor_name} failed (harmless): {close_error}")
+                try:
+                    self.rollback()
+                except psycopg.errors.Error:
+                    pass
             raise e
 
