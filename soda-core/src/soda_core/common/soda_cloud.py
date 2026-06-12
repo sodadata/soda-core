@@ -1292,7 +1292,11 @@ class SodaCloud:
         return self.token
 
     def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
-        print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
+        logger.warning(
+            "Skipping failed rows diagnostics upload for scan '%s': feature not implemented yet (%d diagnostic entries).",
+            scan_id,
+            len(failed_rows_diagnostics),
+        )
 
     def migration_create(self, v4_datasource_name: str, v3_dataset_ids: list[str]) -> str:
         logger.info(
