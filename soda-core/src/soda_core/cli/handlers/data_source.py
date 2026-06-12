@@ -192,7 +192,31 @@ def handle_load_fixtures(
         table = f"{table_prefix}{manifest['table']}"
         fq = dialect.qualify_dataset_name(prefix, table)
 
-        # 3. Recreate the table (drop is scoped to the prefixed name only)
+        # 3. Refuse to clobber a foreign table. Only drop if the target either does not exist
+        #    or its columns exactly match this fixture (i.e. it's a prior load-fixtures run). A
+        #    real table that happens to collide on name will have different columns -> we refuse,
+        #    so this command can never silently overwrite data it did not create.
+        try:
+            existing = data_source_impl.get_columns_metadata(dataset_prefixes=prefix, dataset_name=table)
+        except Exception as introspect_error:
+            # Fail closed: if we can't confirm what's there, do not drop it.
+            soda_logger.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Could not introspect {fq} before overwriting it "
+                f"({introspect_error}); refusing to drop. Re-run with -v for details."
+            )
+            return ExitCode.LOG_ERRORS
+        if existing:
+            existing_names = {c.column_name.lower() for c in existing}
+            expected_names = {c["name"].lower() for c in manifest["columns"]}
+            if existing_names != expected_names:
+                soda_logger.error(
+                    f"{Emoticons.POLICE_CAR_LIGHT} Refusing to overwrite {fq}: its columns "
+                    f"{sorted(existing_names)} do not match fixture '{fixture_name}' "
+                    f"({sorted(expected_names)}). This table was not created by load-fixtures; not dropping it."
+                )
+                return ExitCode.LOG_ERRORS
+
+        # 4. Recreate the table (drop scoped to the prefixed name + verified non-foreign above).
         data_source_impl.execute_update(dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=fq)))
         data_source_impl.execute_update(
             dialect.build_create_table_sql(CREATE_TABLE_IF_NOT_EXISTS(fully_qualified_table_name=fq, columns=columns))
