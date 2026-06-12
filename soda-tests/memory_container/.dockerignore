@@ -47,3 +47,11 @@ memory_management/artifacts/
 
 # Antlr generated dirs
 **/.antlr/
+
+# Credentials — NEVER bake these into image layers. Both repo roots carry a
+# real .env; without these rules they were
+# COPY'd into soda-memtest:latest.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
