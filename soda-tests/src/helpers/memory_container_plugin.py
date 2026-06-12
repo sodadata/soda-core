@@ -39,6 +39,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -109,6 +110,15 @@ BASELINES_FILENAME = "memory_baselines.json"
 
 # Env values that count as "on" for opt-in flags.
 _TRUTHY = {"1", "true", "yes", "on", "y", "t"}
+
+
+def _running_in_ci() -> bool:
+    """True on CI runners (GitHub Actions sets both; CI is the de-facto
+    cross-provider convention). Memory tests are local-only by policy."""
+    return (
+        os.environ.get("CI", "").lower() in _TRUTHY
+        or os.environ.get("GITHUB_ACTIONS", "").lower() in _TRUTHY
+    )
 
 ENV_DENYLIST = {
     "PATH", "HOME", "USER", "PWD", "OLDPWD", "SHELL", "SHLVL", "_",
@@ -195,6 +205,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
 _INNER_POLLER: Optional["_CgroupPoller"] = None
 
+# Rename detection for the baseline gate: a renamed test silently loses its
+# memory_baselines.json entry (the gate fails open). Dispatched test keys and
+# consulted manifests are tracked so the session can flag manifest entries
+# whose test function no longer exists in a file that DID run.
+_DISPATCHED_MEMORY_KEYS: set[str] = set()
+_CONSULTED_MANIFESTS: dict[Path, str] = {}
+
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     global _INNER_POLLER
@@ -212,6 +229,39 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if _INNER_POLLER is not None:
         _INNER_POLLER.stop_and_flush()
+    _warn_stale_baseline_keys()
+
+
+def _warn_stale_baseline_keys() -> None:
+    """Flag baseline entries whose test function vanished from a file that ran.
+
+    Heuristic: an entry is stale when its FILE had at least one dispatched
+    test this session but NO dispatched test shares the entry's function
+    base (file.py::test_name). Selecting single params with -k keeps the
+    base matched, so partial selections don't false-positive; renaming or
+    deleting the function does trip it — that rename otherwise silently
+    un-gates the test (the gate fails open on unknown keys).
+    """
+    if not _DISPATCHED_MEMORY_KEYS or not _CONSULTED_MANIFESTS:
+        return
+    dispatched_files = {key.split("::", 1)[0] for key in _DISPATCHED_MEMORY_KEYS}
+    dispatched_bases = {key.split("[", 1)[0] for key in _DISPATCHED_MEMORY_KEYS}
+    for manifest_path, datasource in _CONSULTED_MANIFESTS.items():
+        try:
+            per_datasource = json.loads(manifest_path.read_text()).get(datasource) or {}
+        except (OSError, json.JSONDecodeError):
+            continue
+        stale = [
+            key
+            for key in per_datasource
+            if key.split("::", 1)[0] in dispatched_files and key.split("[", 1)[0] not in dispatched_bases
+        ]
+        if stale:
+            print(
+                f"\n[memory_container] WARNING: {manifest_path} has '{datasource}' baseline entries "
+                f"whose test no longer exists in a file that ran this session — those tests are now "
+                f"silently UNGATED (renamed or deleted?): {stale}"
+            )
 
 
 class _CgroupPoller(threading.Thread):
@@ -347,6 +397,14 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
         _emit_skipped(item, skip_result.reason)
         return True
 
+    # Memory tests are LOCAL-ONLY by policy: they need the docker memtest
+    # image, developer credentials, and a machine whose memory the
+    # measurements assume to own. Refuse to run in CI even if someone sets
+    # the activation env var there — checked BEFORE activation on purpose.
+    if _running_in_ci():
+        _emit_skipped(item, "memory_container tests are local-only — refusing to run in CI")
+        return True
+
     if os.environ.get(ACTIVATION_ENV, "").lower() not in _TRUTHY:
         _emit_skipped(item, f"set {ACTIVATION_ENV}=true to enable memory_container tests")
         return True
@@ -409,6 +467,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
             _restore_env(KEEP_TABLES_ENV, prev_keep_tables)
             return True
 
+    _DISPATCHED_MEMORY_KEYS.add(f"{Path(str(item.fspath)).name}::{item.name}")
     try:
         _dispatch_and_emit_reports(item, limit_mb)
     finally:
@@ -679,6 +738,7 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
             *_pytest_args,
         ]
 
+    env_args, env_file_path = _build_env_args(artifact_dir)
     cmd = [
         "docker", "run", "--rm",
         f"--cidfile={cidfile}",
@@ -692,7 +752,7 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         "-v", f"{artifact_dir}:{artifact_dir}:rw",
         *_build_credential_mount_args(bind_root),
         "-w", rootdir,
-        *_build_env_args(artifact_dir),
+        *env_args,
         image,
         *inner_cmd,
     ]
@@ -724,6 +784,18 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
             f"memory_container test exceeded SODA_MEMTEST_CONTAINER_TIMEOUT={container_timeout_s}s "
             f"and was killed. Partial output tail:\n{(stdout or '')[-2000:]}"
         )
+    except BaseException:
+        # Ctrl-C (or any other interruption) used to leave the container
+        # running detached — kill it before propagating.
+        _kill_container(cidfile)
+        proc.kill()
+        raise
+    finally:
+        if env_file_path is not None:
+            try:
+                env_file_path.unlink()
+            except OSError:
+                pass
     rc = proc.returncode
 
     host_poller.stop()
@@ -941,7 +1013,11 @@ def _lookup_peak_baseline(item: pytest.Item) -> Optional[tuple[float, float]]:
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Ignoring unreadable %s: %s", manifest_path, exc)
         return None
-    per_datasource = manifest.get(os.environ.get("TEST_DATASOURCE", ""))
+    # Same default as DataSourceTestHelper.create(): an unset TEST_DATASOURCE
+    # runs postgres, so the postgres baselines must gate it.
+    datasource = os.environ.get("TEST_DATASOURCE", "postgres")
+    _CONSULTED_MANIFESTS[manifest_path] = datasource  # rename detection, see _warn_stale_baseline_keys
+    per_datasource = manifest.get(datasource)
     if not isinstance(per_datasource, dict):
         return None
     entry = per_datasource.get(f"{Path(str(item.fspath)).name}::{item.name}")
@@ -1278,8 +1354,16 @@ def _build_report(
     )
 
 
-def _build_env_args(artifact_dir: Path) -> list[str]:
+def _build_env_args(artifact_dir: Path) -> tuple[list[str], Optional[Path]]:
+    """Returns (docker args, env-file path to delete after the run).
+
+    Propagated env vars (including DB passwords) ride an --env-file with
+    0600 permissions instead of ``-e KEY=VALUE`` argv — argv is world-visible
+    in ``ps`` and ``docker inspect``. docker's env-file format cannot carry
+    newlines in values; those rare entries fall back to ``-e``.
+    """
     args: list[str] = []
+    env_file_lines: list[str] = []
     propagated_keys: set[str] = set()
     for key, value in os.environ.items():
         if key in ENV_DENYLIST:
@@ -1288,8 +1372,19 @@ def _build_env_args(artifact_dir: Path) -> list[str]:
             continue
         if key.endswith("_HOST") and _LOCALHOST_RE.match(value):
             value = _LOCALHOST_RE.sub(r"host.docker.internal\2", value)
-        args.extend(["-e", f"{key}={value}"])
+        if "\n" in value or "\n" in key:
+            args.extend(["-e", f"{key}={value}"])
+        else:
+            env_file_lines.append(f"{key}={value}")
         propagated_keys.add(key)
+
+    env_file_path: Optional[Path] = None
+    if env_file_lines:
+        fd, tmp_name = tempfile.mkstemp(prefix="soda_memtest_env_", text=True)
+        with os.fdopen(fd, "w") as env_file:  # mkstemp creates it 0600
+            env_file.write("\n".join(env_file_lines) + "\n")
+        env_file_path = Path(tmp_name)
+        args.extend(["--env-file", str(env_file_path)])
 
     # Special-case SQLSERVER_HOST. The SqlServer test helper defaults to
     # "localhost" when the env var is unset (see SqlServerDataSourceTestHelper).
@@ -1315,7 +1410,7 @@ def _build_env_args(artifact_dir: Path) -> list[str]:
     # Source is bind-mounted :ro — without this the import system tries to
     # write .pyc files next to the .py sources and EROFS-fails.
     args.extend(["-e", "PYTHONDONTWRITEBYTECODE=1"])
-    return args
+    return args, env_file_path
 
 
 def _build_credential_mount_args(bind_root: str) -> list[str]:
