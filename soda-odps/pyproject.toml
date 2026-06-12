@@ -1,0 +1,27 @@
+[project]
+name = "soda-odps"
+version = "4.7.1rc0"
+description = "Soda ODPS (MaxCompute) V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.7.1rc0",
+    "pyodps>=0.4.0",
+    "setuptools>=60",
+]
+
+[project.entry-points."soda.plugins.data_source.odps"]
+OdpsDataSourceImpl = "soda_odps.common.data_sources.odps_data_source:OdpsDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
