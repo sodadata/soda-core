@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
@@ -16,6 +15,7 @@ from soda_core.common.data_source_connection import (
 )
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.value_size import estimate_value_size
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
@@ -29,10 +29,18 @@ logger: logging.Logger = soda_logger
 # the row cap instead of paying one round-trip per row.
 STREAM_FETCH_BUDGET_BYTES: int = 8 * 1024 * 1024
 STREAM_FETCH_MAX_BATCH_ROWS: int = 1000
+# Batches may grow at most 4x per fetch. Without the ramp, one thin probe
+# row (NULL-heavy, no ORDER BY correlation) jumps the batch straight to the
+# row cap before any fat row has been seen — 1000 x 0.5 MB rows is a 500 MB
+# fetchmany. With it, overshoot is bounded by ~4x the previous batch.
+STREAM_FETCH_GROWTH_FACTOR: int = 4
 
 
 def _estimate_row_bytes(row: tuple) -> int:
-    return sum(sys.getsizeof(value) for value in row)
+    # estimate_value_size recurses into container values (psycopg3 returns
+    # jsonb as parsed dicts/lists) — shallow getsizeof counted a 10 MB json
+    # document as ~hundreds of bytes, pinning the batch at the row cap.
+    return sum(estimate_value_size(value) for value in row)
 
 
 class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -238,11 +246,26 @@ class PostgresDataSourceConnection(DataSourceConnection):
                         rows_processed += 1
                     # Size against the widest row seen so far (monotonic), so a
                     # late fat row permanently shrinks the batch back down.
+                    # Growth is ramped: shrinking applies immediately, but the
+                    # batch may only grow STREAM_FETCH_GROWTH_FACTOR x per
+                    # fetch (thin-probe overshoot bound).
                     max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
-                    batch_size = max(1, min(STREAM_FETCH_MAX_BATCH_ROWS, STREAM_FETCH_BUDGET_BYTES // max_row_bytes))
+                    batch_size = max(
+                        1,
+                        min(
+                            STREAM_FETCH_MAX_BATCH_ROWS,
+                            STREAM_FETCH_BUDGET_BYTES // max_row_bytes,
+                            batch_size * STREAM_FETCH_GROWTH_FACTOR,
+                        ),
+                    )
             return description
         except psycopg.errors.Error as e:
-            logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
+            # The error may come from the stream itself OR from a row_callback
+            # that hit the database (the DWH pump writes from inside the
+            # callback) — don't blame the SELECT. And honor log_query=False:
+            # callers suppress it because the query can embed MB-scale VALUES.
+            sql_blurb = f"\n{sql}" if log_query else " (query suppressed, log_query=False)"
+            logger.warning(f"Streaming query (or its row callback) failed:{sql_blurb}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
             # Best-effort CLOSE of the named cursor. When the failure left

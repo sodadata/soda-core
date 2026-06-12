@@ -128,7 +128,7 @@ def _stream_rows(rows, row_limit=None):
 
 
 class TestByteBudgetedFetchBatching:
-    def test_thin_rows_batch_up_to_row_cap(self):
+    def test_thin_rows_ramp_up_to_row_cap(self):
         from soda_postgres.common.data_sources.postgres_data_source_connection import (
             STREAM_FETCH_MAX_BATCH_ROWS,
         )
@@ -136,11 +136,21 @@ class TestByteBudgetedFetchBatching:
         rows = [("x",)] * 2500
         fetch_sizes, seen = _stream_rows(rows)
 
-        # Probe row first, then full row-cap batches: tiny rows hit the
-        # 1000-row clamp, never the byte budget.
-        assert fetch_sizes[0] == 1
-        assert all(size == STREAM_FETCH_MAX_BATCH_ROWS for size in fetch_sizes[1:-1])
+        # Probe row first, then 4x growth per fetch until the 1000-row clamp:
+        # tiny rows never hit the byte budget, but they also never jump
+        # straight to the cap (thin-probe overshoot bound).
+        assert fetch_sizes[:6] == [1, 4, 16, 64, 256, STREAM_FETCH_MAX_BATCH_ROWS]
+        assert all(size == STREAM_FETCH_MAX_BATCH_ROWS for size in fetch_sizes[6:])
         assert len(seen) == 2500
+
+    def test_fat_container_value_keeps_batch_at_one(self):
+        # psycopg3 returns jsonb as parsed dicts — the sizer must see the
+        # payload through the container, not just the dict header.
+        rows = [({"payload": "x" * (10 * 1024 * 1024)},)] * 4
+        fetch_sizes, seen = _stream_rows(rows)
+
+        assert fetch_sizes[:4] == [1, 1, 1, 1]
+        assert len(seen) == 4
 
     def test_fat_rows_stay_at_batch_size_one(self):
         # 10 MB strings exceed the 8 MB budget — every fetch must stay 1.

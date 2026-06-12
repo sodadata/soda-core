@@ -371,11 +371,11 @@ class DataSourceConnection(ABC):
         with a bounded buffer — the diagnostics-warehouse failed-rows
         flows — call this instead of the base method. Data sources with a
         low-memory fetch strategy override it (e.g. postgres opens a
-        server-side named cursor and fetches one row at a time, trading
-        throughput for a peak bounded by the largest single row instead of
-        the whole result set). The default delegates to the base method,
-        so adapters without (or not needing) an optimized fetch keep the
-        proven buffered behavior.
+        server-side named cursor and fetches byte-budgeted batches, trading
+        throughput for a peak bounded by roughly one batch plus the largest
+        single row instead of the whole result set). The default delegates
+        to the base method, so adapters without (or not needing) an
+        optimized fetch keep the proven buffered behavior.
         """
         return self.execute_query_one_by_one(
             sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
