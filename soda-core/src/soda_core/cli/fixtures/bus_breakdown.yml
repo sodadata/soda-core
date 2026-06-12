@@ -1,0 +1,25 @@
+table: bus_breakdown
+csv: bus_breakdown.csv
+time_partition: occurred_on
+columns:
+  - {name: school_year, type: varchar, length: 20}
+  - {name: busbreakdown_id, type: integer}
+  - {name: run_type, type: varchar, length: 50}
+  - {name: bus_no, type: varchar, length: 20}
+  - {name: route_number, type: varchar, length: 20}
+  - {name: reason, type: varchar, length: 50}
+  - {name: schools_serviced, type: varchar, length: 100}
+  - {name: occurred_on, type: timestamp}
+  - {name: created_on, type: timestamp}
+  - {name: boro, type: varchar, length: 20}
+  - {name: bus_company_name, type: varchar, length: 50}
+  - {name: how_long_delayed, type: varchar, length: 20}
+  - {name: number_of_students_on_the_bus, type: integer}
+  - {name: has_contractor_notified_schools, type: varchar, length: 20}
+  - {name: has_contractor_notified_parents, type: varchar, length: 20}
+  - {name: have_you_alerted_opt, type: varchar, length: 20}
+  - {name: informed_on, type: timestamp}
+  - {name: incident_number, type: varchar, length: 20}
+  - {name: last_updated_on, type: timestamp}
+  - {name: breakdown_or_running_late, type: varchar, length: 20}
+  - {name: school_age_or_prek, type: varchar, length: 20}
