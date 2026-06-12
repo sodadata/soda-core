@@ -57,7 +57,7 @@ def handle_test_data_source(
     # Build the upload Logs before parsing so logs emitted while loading/validating the
     # data source YAML — often the most relevant when a connection test fails early — are
     # captured and streamed to Soda Cloud.
-    upload_logs: Optional[Logs] = _build_log_uploader(
+    upload_logs: Optional[Logs] = build_test_connection_log_uploader(
         soda_cloud_file_path=soda_cloud_file_path,
     )
 
@@ -86,12 +86,16 @@ def handle_test_data_source(
             upload_logs.close()
 
 
-def _build_log_uploader(
+def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
     """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
     root-logger records during the test stream to Soda Cloud — or None when
     there is no scan id / cloud config. Must be closed to flush the final batch.
+
+    Public because connection-test commands outside soda-core (e.g. the
+    soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
+    their logs to the same scan-id-keyed endpoint.
     """
     # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
     # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
