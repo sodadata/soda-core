@@ -69,6 +69,12 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
         string_literal = string_literal.replace("'", "''")
         return string_literal
 
+    def get_max_sql_statement_length(self) -> int:
+        # Redshift's documented maximum SQL statement size is 16 MB — far
+        # below the 63 MB generic default. Reserve 1 MB because we count
+        # characters while the server limit is bytes (multi-byte UTF-8).
+        return 15 * 1024 * 1024
+
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {
             SodaDataTypeName.CHAR: "char",
