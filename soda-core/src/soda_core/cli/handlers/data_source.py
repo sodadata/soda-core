@@ -120,19 +120,24 @@ def handle_load_fixtures(
     """Load a curated test fixture (CSV shipped with soda-core) into a sandbox
     schema of a data source, via CREATE TABLE + INSERT through the SQL AST.
 
-    Safety: writes ONLY into `schema`, and only ever drops `<table_prefix>*`
-    tables. Intended for an isolated sandbox schema (e.g. _soda_test)."""
+    Non-destructive by contract: this NEVER drops or deletes tables/rows. The target
+    table is named `<table_prefix><fixture>_v<soda_core_version>`, so a fixture for a
+    new soda-core version lands in a new table rather than overwriting an old one. A
+    re-load of the same version is idempotent (skipped if already present); a table
+    whose columns don't match the fixture is left untouched. Intended for an isolated
+    sandbox schema (e.g. _soda_test)."""
     import csv as _csv
+    import re as _re
     from pathlib import Path
 
     from ruamel.yaml import YAML
 
+    from soda_core.__version__ import SODA_CORE_VERSION
     from soda_core.common.data_source_impl import DataSourceImpl
     from soda_core.common.metadata_types import SqlDataType
     from soda_core.common.sql_ast import (
         CREATE_TABLE_COLUMN,
         CREATE_TABLE_IF_NOT_EXISTS,
-        DROP_TABLE_IF_EXISTS,
         INSERT_INTO,
         LITERAL,
         VALUES_ROW,
@@ -189,46 +194,62 @@ def handle_load_fixtures(
                     nullable=True,
                 )
             )
-        table = f"{table_prefix}{manifest['table']}"
+        # Version-suffix the table name so a fixture for a new soda-core version lands in a NEW
+        # table instead of needing to overwrite an old one. Soda never drops user tables.
+        version_suffix = "_v" + _re.sub(r"[^a-z0-9]", "_", SODA_CORE_VERSION.lower())
+        table = f"{table_prefix}{manifest['table']}{version_suffix}"
         fq = dialect.qualify_dataset_name(prefix, table)
 
-        # 3. Refuse to clobber a foreign table. Only drop if the target either does not exist
-        #    or its columns exactly match this fixture (i.e. it's a prior load-fixtures run). A
-        #    real table that happens to collide on name will have different columns -> we refuse,
-        #    so this command can never silently overwrite data it did not create.
-        try:
-            existing = data_source_impl.get_columns_metadata(dataset_prefixes=prefix, dataset_name=table)
-        except Exception as introspect_error:
-            # Fail closed: if we can't confirm what's there, do not drop it.
-            soda_logger.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Could not introspect {fq} before overwriting it "
-                f"({introspect_error}); refusing to drop. Re-run with -v for details."
-            )
-            return ExitCode.LOG_ERRORS
-        if existing:
-            existing_names = {c.column_name.lower() for c in existing}
-            expected_names = {c["name"].lower() for c in manifest["columns"]}
-            if existing_names != expected_names:
-                soda_logger.error(
-                    f"{Emoticons.POLICE_CAR_LIGHT} Refusing to overwrite {fq}: its columns "
-                    f"{sorted(existing_names)} do not match fixture '{fixture_name}' "
-                    f"({sorted(expected_names)}). This table was not created by load-fixtures; not dropping it."
-                )
-                return ExitCode.LOG_ERRORS
-
-        # 4. Recreate the table (drop scoped to the prefixed name + verified non-foreign above).
-        data_source_impl.execute_update(dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=fq)))
-        data_source_impl.execute_update(
-            dialect.build_create_table_sql(CREATE_TABLE_IF_NOT_EXISTS(fully_qualified_table_name=fq, columns=columns))
-        )
-
-        # 4. Read CSV -> VALUES_ROWs (column order from the manifest)
+        # 3. Read CSV -> VALUES_ROWs (column order from the manifest)
         order = [c["name"] for c in manifest["columns"]]
         std_columns = [c.convert_to_standard_column() for c in columns]
         values_rows = []
         with open(csv_path, newline="") as f:
             for r in _csv.DictReader(f):
                 values_rows.append(VALUES_ROW([LITERAL(_coerce(r[name], soda_types[name])) for name in order]))
+        expected_rows = len(values_rows)
+
+        # 4. Non-destructive, idempotent load. We NEVER drop or delete. For an existing table:
+        #      - columns differ            -> refuse (a table we did not create)
+        #      - our columns, already full -> skip (idempotent re-load)
+        #      - our columns, empty        -> insert (finish a prior partial load)
+        #      - absent                    -> create + insert
+        try:
+            existing = data_source_impl.get_columns_metadata(dataset_prefixes=prefix, dataset_name=table)
+        except Exception as introspect_error:
+            soda_logger.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Could not introspect {fq} ({introspect_error}); aborting. Re-run with -v."
+            )
+            return ExitCode.LOG_ERRORS
+
+        if existing:
+            existing_names = {c.column_name.lower() for c in existing}
+            expected_names = {c["name"].lower() for c in manifest["columns"]}
+            if existing_names != expected_names:
+                soda_logger.error(
+                    f"{Emoticons.POLICE_CAR_LIGHT} Refusing to use {fq}: its columns {sorted(existing_names)} "
+                    f"do not match fixture '{fixture_name}' ({sorted(expected_names)}); not a load-fixtures table."
+                )
+                return ExitCode.LOG_ERRORS
+            current = data_source_impl.execute_query(f"SELECT COUNT(*) FROM {fq}")
+            row_count = current.rows[0][0] if getattr(current, "rows", None) else 0
+            if row_count == expected_rows:
+                soda_logger.info(
+                    f"{Emoticons.WHITE_CHECK_MARK} Fixture '{fixture_name}' already present in {fq} "
+                    f"({row_count} rows); nothing to do."
+                )
+                return ExitCode.OK
+            if row_count != 0:
+                soda_logger.error(
+                    f"{Emoticons.POLICE_CAR_LIGHT} {fq} exists with {row_count} rows (expected {expected_rows}); "
+                    f"refusing to modify it. Load with a different --table-prefix or investigate."
+                )
+                return ExitCode.LOG_ERRORS
+            # empty table -> fall through and insert into it
+        else:
+            data_source_impl.execute_update(
+                dialect.build_create_table_sql(CREATE_TABLE_IF_NOT_EXISTS(fully_qualified_table_name=fq, columns=columns))
+            )
 
         # 5. Batch INSERT
         batch = 5000
