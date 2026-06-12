@@ -1,0 +1,22 @@
+# Every supported column type, with profiling-relevant variety (nulls, negatives,
+# large values, low/high cardinality). For schema-check + profiling-stat fidelity.
+table: types_wide
+csv: types_wide.csv
+time_partition: ts_col
+columns:
+  - {name: id,            type: integer}
+  - {name: small_int_col, type: smallint}
+  - {name: big_int_col,   type: bigint}
+  - {name: decimal_col,   type: decimal, precision: 12, scale: 2}
+  - {name: numeric_col,   type: numeric, precision: 10, scale: 4}
+  - {name: double_col,    type: double}
+  - {name: float_col,     type: float}
+  - {name: bool_col,      type: boolean}
+  - {name: char_col,      type: char, length: 5}
+  - {name: varchar_col,   type: varchar, length: 50}
+  - {name: text_col,      type: text}
+  - {name: date_col,      type: date}
+  - {name: time_col,      type: time}
+  - {name: ts_col,        type: timestamp}
+  - {name: ts_tz_col,     type: timestamp_tz}
+  - {name: nullable_col,  type: varchar, length: 20}

@@ -72,13 +72,19 @@ def _soda_type(name: str):
 
     return {
         "integer": SodaDataTypeName.INTEGER,
+        "smallint": SodaDataTypeName.SMALLINT,
+        "bigint": SodaDataTypeName.BIGINT,
         "varchar": SodaDataTypeName.VARCHAR,
+        "char": SodaDataTypeName.CHAR,
         "text": SodaDataTypeName.TEXT,
         "decimal": SodaDataTypeName.DECIMAL,
+        "numeric": SodaDataTypeName.NUMERIC,
         "double": SodaDataTypeName.DOUBLE,
+        "float": SodaDataTypeName.FLOAT,
         "timestamp": SodaDataTypeName.TIMESTAMP,
         "timestamp_tz": SodaDataTypeName.TIMESTAMP_TZ,
         "date": SodaDataTypeName.DATE,
+        "time": SodaDataTypeName.TIME,
         "boolean": SodaDataTypeName.BOOLEAN,
     }[name]
 
@@ -90,14 +96,16 @@ def _coerce(raw, soda_type):
 
     if raw is None or raw == "":
         return None
-    if soda_type == SodaDataTypeName.INTEGER:
+    if soda_type in (SodaDataTypeName.INTEGER, SodaDataTypeName.SMALLINT, SodaDataTypeName.BIGINT):
         return int(raw)
-    if soda_type in (SodaDataTypeName.DECIMAL, SodaDataTypeName.DOUBLE):
+    if soda_type in (SodaDataTypeName.DECIMAL, SodaDataTypeName.NUMERIC, SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT):
         return float(raw)
     if soda_type in (SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ):
         return _dt.datetime.fromisoformat(raw)
     if soda_type == SodaDataTypeName.DATE:
         return _dt.date.fromisoformat(raw)
+    if soda_type == SodaDataTypeName.TIME:
+        return _dt.time.fromisoformat(raw)
     if soda_type == SodaDataTypeName.BOOLEAN:
         return str(raw).strip().lower() in ("true", "1", "yes", "t")
     return str(raw)
@@ -171,7 +179,13 @@ def handle_load_fixtures(
             columns.append(
                 CREATE_TABLE_COLUMN(
                     name=c["name"],
-                    type=SqlDataType(name=type_name_by_soda[st], character_maximum_length=c.get("length")),
+                    type=SqlDataType(
+                        name=type_name_by_soda[st],
+                        character_maximum_length=c.get("length"),
+                        numeric_precision=c.get("precision"),
+                        numeric_scale=c.get("scale"),
+                        datetime_precision=c.get("datetime_precision"),
+                    ),
                     nullable=True,
                 )
             )
