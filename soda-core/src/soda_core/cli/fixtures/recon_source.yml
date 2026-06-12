@@ -1,0 +1,13 @@
+# Reconciliation source table — pairs with recon_target.
+# Known deltas (target vs source): 50 rows dropped (id 951-1000), 30 target-only (id 1001-1030),
+# 40 matching rows changed (id 1-40: amount +100, status='changed'); row_count_diff=20.
+table: recon_source
+csv: recon_source.csv
+time_partition: updated_at
+columns:
+  - {name: id,         type: integer}
+  - {name: category,   type: varchar, length: 20}
+  - {name: amount,     type: decimal}
+  - {name: quantity,   type: integer}
+  - {name: status,     type: varchar, length: 20}
+  - {name: updated_at, type: timestamp}
