@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -11,11 +13,17 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
         Called in _create_data_source_impl to initialized self.data_source_impl
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
+        # The DB file must live somewhere writable both on the host and
+        # inside the memory_container (the repo bind mount is read-only
+        # there). A bare relative path used to land in the pytest rootdir —
+        # i.e. inside the repo.
+        database_dir = os.getenv("DUCKDB_TEST_DATABASE_DIR", tempfile.gettempdir())
+        database_path = os.path.join(database_dir, f"{self.name}.db")
         return f"""
             type: duckdb
             name: {self.name}
             connection:
-                database: "{self.name}.db"
+                database: "{database_path}"
                 schema: main
         """
 
