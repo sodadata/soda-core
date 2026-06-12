@@ -12,19 +12,27 @@ Verify the plugin's peak reporting is honest:
 
 If these two numbers don't agree with the math, the FRQ multiplier numbers
 need a second look before drawing conclusions about libpq buffering.
+
+The expect_peak_mb bands make the sanity check self-enforcing: the plugin
+FAILS the test when the reported peak falls outside the band, in either
+direction. Below-band means the measurement missed the allocation (a dead
+pipeline used to report these as ~floor-only passes); above-band means
+double-counting or a bloated import floor. Bands assume the all-adapter
+image floor of ~150-175 MB (postgres/sqlserver ~150, snowflake ~174) —
+if the image floor legitimately changes, update the bands deliberately.
 """
 
 import pytest
 
 
-@pytest.mark.memory_container(limit_mb=256)
+@pytest.mark.memory_container(limit_mb=256, expect_peak_mb=(100, 230))
 def test_baseline_no_alloc():
     # Minimal body. Reported peak is the "soda + pytest startup floor" we
     # subtract from data-driven peaks elsewhere.
     assert True
 
 
-@pytest.mark.memory_container(limit_mb=512)
+@pytest.mark.memory_container(limit_mb=512, expect_peak_mb=(220, 330))
 def test_allocate_100mb_baseline():
     payload = bytearray(100 * 1024 * 1024)  # 100 MB exactly
     # Touch every page so the OS actually maps it (lazy allocation otherwise).
@@ -33,7 +41,7 @@ def test_allocate_100mb_baseline():
     assert len(payload) == 100 * 1024 * 1024
 
 
-@pytest.mark.memory_container(limit_mb=512)
+@pytest.mark.memory_container(limit_mb=512, expect_peak_mb=(320, 430))
 def test_allocate_200mb_baseline():
     payload = bytearray(200 * 1024 * 1024)
     for i in range(0, len(payload), 4096):

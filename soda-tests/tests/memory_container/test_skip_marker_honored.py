@@ -19,7 +19,7 @@ legitimately run in either scenario.
 import pytest
 
 
-@pytest.mark.memory_container(limit_mb=128)
+@pytest.mark.memory_container(limit_mb=256)
 @pytest.mark.skipif(True, reason="always-skip: validates skip markers are honored before docker dispatch")
 @pytest.mark.xfail(
     strict=True,

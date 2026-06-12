@@ -102,6 +102,11 @@ assert (REPO_PARENT / "soda-core").is_dir(), (
 # (gitignored). Override with SODA_MEMTEST_ARTIFACTS_ROOT for a custom location.
 ARTIFACTS_SUBDIR = ".memory_test_artifacts"
 
+# Per-datasource peak baselines, looked up next to the test file. A test whose
+# peak exceeds its recorded baseline + tolerance FAILS even though it stayed
+# under the cgroup cap — the cap is an OOM guard, not a regression gate.
+BASELINES_FILENAME = "memory_baselines.json"
+
 # Env values that count as "on" for opt-in flags.
 _TRUTHY = {"1", "true", "yes", "on", "y", "t"}
 
@@ -562,7 +567,13 @@ def _dispatch_and_emit_reports(item: pytest.Item, limit_mb: int) -> None:
     # Bypassing the default protocol means pytest's own xfail handling
     # (in _pytest/skipping.py) doesn't fire. Apply it ourselves so that
     # @pytest.mark.xfail tests display correctly (XFAIL / XPASS).
-    outcome, longrepr, wasxfail = _apply_xfail(item, outcome, longrepr)
+    if outcome == "skipped":
+        # Runtime pytest.skip() inside the container: render as a proper
+        # skip (tuple longrepr) and bypass xfail handling — skip wins.
+        longrepr = (str(item.fspath), 0, longrepr or "skipped inside memory container")
+        wasxfail = None
+    else:
+        outcome, longrepr, wasxfail = _apply_xfail(item, outcome, longrepr)
     call_report = _build_report(item, when="call", outcome=outcome, longrepr=longrepr, duration=duration)
     if wasxfail is not None:
         call_report.wasxfail = wasxfail
@@ -698,7 +709,21 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     stdout_log = artifact_dir / "inner_pytest_stdout.log"
     stderr_log = artifact_dir / "inner_pytest_stderr.log"
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    stdout, stderr = proc.communicate()
+    # A hung inner test (deadlocked DB connection, infinite loop) previously
+    # hung the host suite forever — communicate() had no timeout.
+    container_timeout_s = int(os.environ.get("SODA_MEMTEST_CONTAINER_TIMEOUT", "1800"))
+    try:
+        stdout, stderr = proc.communicate(timeout=container_timeout_s)
+    except subprocess.TimeoutExpired:
+        _kill_container(cidfile)
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        host_poller.stop()
+        host_poller.join(timeout=2.0)
+        return "failed", (
+            f"memory_container test exceeded SODA_MEMTEST_CONTAINER_TIMEOUT={container_timeout_s}s "
+            f"and was killed. Partial output tail:\n{(stdout or '')[-2000:]}"
+        )
     rc = proc.returncode
 
     host_poller.stop()
@@ -783,6 +808,25 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         )
         return "failed", msg
 
+    if _inner_run_skipped(stdout):
+        # The body called pytest.skip() at runtime (the static-marker check
+        # before dispatch can't see those): the inner pytest exits 0 with
+        # '1 skipped' and no test actually ran — the peak is just the
+        # container import floor. Report SKIPPED, not a phantom pass.
+        # Checked BEFORE measurement integrity: a near-instant skipped run
+        # legitimately produces no measurement.
+        return "skipped", "inner pytest reported the test as skipped (runtime pytest.skip)"
+
+    if peak_source == "none":
+        # Every measurement source degraded (cgroup-v1 host, kernel without
+        # memory.peak, poller never started, docker-stats died). A "pass"
+        # whose peak is 0.0 MB is not a measurement — fail loudly instead of
+        # silently reporting a dead pipeline as green.
+        return "failed", (
+            f"No memory measurement was captured (all sources degraded) — the test ran but the "
+            f"measurement pipeline is dead. Refusing to report an unmeasured pass. {artifacts_hint}"
+        )
+
     # Surface silently-swallowed verification handler exceptions. soda catches
     # post-processing handler errors in check_collections/base.py and logs via
     # logger.error without propagating — the inner test passes (assertions
@@ -799,6 +843,14 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
             f"{handler_error}"
         )
 
+    # Regression gate: the cgroup cap only guards against OOM — a test can
+    # silently grow from 230 MB to 900 MB and still "pass" under a 1024 MB
+    # cap. Check the peak against an explicit expect_peak_mb marker band or
+    # the per-datasource baseline manifest next to the test file.
+    gate_failure = _peak_gate_failure(item, peak_mb)
+    if gate_failure is not None:
+        return "failed", f"{gate_failure}\n{artifacts_hint}{_memray_paths_blurb()}"
+
     # Pass — log the peak so it's visible in pytest output.
     print(
         f"[memory_container] {item.nodeid}: "
@@ -810,6 +862,98 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         for label, path in memray_reports_produced.items():
             print(f"[memory_container]   memray {label}: {path}")
     return "passed", None
+
+
+def _peak_gate_failure(item: pytest.Item, peak_mb: float) -> Optional[str]:
+    """Regression gate for a clean, measured pass.
+
+    Precedence: an explicit ``expect_peak_mb=(min_mb, max_mb)`` marker kwarg
+    (both bounds enforced — below-band means the workload or the measurement
+    is not doing what the test assumes), else the per-datasource baseline in
+    ``memory_baselines.json`` next to the test file (upper bound enforced;
+    well-below is only logged so improvements never fail). Returns a failure
+    message, or None when the peak is acceptable.
+    """
+    marker = item.get_closest_marker("memory_container")
+    band = marker.kwargs.get("expect_peak_mb") if marker else None
+    if band is not None:
+        if (
+            not isinstance(band, (tuple, list))
+            or len(band) != 2
+            or not all(isinstance(bound, (int, float)) and not isinstance(bound, bool) for bound in band)
+            or band[0] > band[1]
+        ):
+            return (
+                f"@pytest.mark.memory_container expect_peak_mb must be a (min_mb, max_mb) pair "
+                f"with min <= max. Got {band!r}."
+            )
+        low, high = band
+        if not (low <= peak_mb <= high):
+            return (
+                f"Peak {peak_mb:.1f} MB is outside the expected band [{low}, {high}] MB "
+                f"(expect_peak_mb marker). Above-band is a memory regression; below-band means "
+                f"the measurement or the workload is not doing what this test assumes."
+            )
+        return None
+
+    baseline = _lookup_peak_baseline(item)
+    if baseline is None:
+        return None
+    baseline_mb, tolerance_pct = baseline
+    ceiling_mb = baseline_mb * (1 + tolerance_pct / 100)
+    if peak_mb > ceiling_mb:
+        return (
+            f"Peak {peak_mb:.1f} MB exceeds the recorded baseline {baseline_mb:g} MB "
+            f"+{tolerance_pct:g}% tolerance (ceiling {ceiling_mb:.1f} MB) for "
+            f"TEST_DATASOURCE={os.environ.get('TEST_DATASOURCE')!r} in {BASELINES_FILENAME}. "
+            f"The test stayed under its cgroup cap, but this is a memory regression. "
+            f"If the increase is intentional, update the baseline."
+        )
+    floor_mb = baseline_mb * (1 - tolerance_pct / 100)
+    if peak_mb < floor_mb:
+        print(
+            f"[memory_container] {item.nodeid}: peak {peak_mb:.1f} MB is well below the "
+            f"recorded baseline {baseline_mb:g} MB — consider tightening {BASELINES_FILENAME}."
+        )
+    return None
+
+
+def _lookup_peak_baseline(item: pytest.Item) -> Optional[tuple[float, float]]:
+    """Return (baseline_mb, tolerance_pct) for this test on the active
+    TEST_DATASOURCE, or None when no manifest / no entry applies.
+
+    Manifest shape (lives next to the test file, keyed by file name + test
+    name so it is invocation-directory independent)::
+
+        {
+          "defaults": {"tolerance_pct": 20},
+          "postgres": {
+            "test_dwh_frq_fat_rows.py::test_dwh_frq_fat_rows[10x10M]": 275,
+            "test_x.py::test_y": {"peak_mb": 540, "tolerance_pct": 10}
+          }
+        }
+    """
+    manifest_path = Path(str(item.fspath)).parent / BASELINES_FILENAME
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Ignoring unreadable %s: %s", manifest_path, exc)
+        return None
+    per_datasource = manifest.get(os.environ.get("TEST_DATASOURCE", ""))
+    if not isinstance(per_datasource, dict):
+        return None
+    entry = per_datasource.get(f"{Path(str(item.fspath)).name}::{item.name}")
+    if entry is None:
+        return None
+    default_tolerance = manifest.get("defaults", {}).get("tolerance_pct", 20)
+    if isinstance(entry, (int, float)) and not isinstance(entry, bool):
+        return float(entry), float(default_tolerance)
+    if isinstance(entry, dict) and isinstance(entry.get("peak_mb"), (int, float)):
+        return float(entry["peak_mb"]), float(entry.get("tolerance_pct", default_tolerance))
+    logger.warning("Ignoring malformed baseline entry %r in %s", entry, manifest_path)
+    return None
 
 
 def _resolve_peak(artifact_dir: Path, host_peak_bytes: int) -> tuple[int, str]:
@@ -1069,6 +1213,34 @@ def _format_failure(rc: int, limit_mb: int, image: str, stderr: str) -> str:
     return head
 
 
+def _kill_container(cidfile: Path) -> None:
+    """Best-effort docker kill of the test container via its cidfile.
+    Used when the container exceeds SODA_MEMTEST_CONTAINER_TIMEOUT — the
+    --rm flag then cleans the container up after the kill."""
+    try:
+        cid = cidfile.read_text().strip()
+        if cid:
+            subprocess.run(["docker", "kill", cid], capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as e:
+        logging.getLogger(__name__).debug(f"Best-effort container kill failed: {e}")
+
+
+_INNER_SUMMARY_RE = re.compile(r"=+ (?P<body>[^=]+?) in [0-9.]+s")
+
+
+def _inner_run_skipped(stdout: str) -> bool:
+    """True when the inner pytest's final summary line reports ONLY skips
+    (e.g. '==== 1 skipped in 0.01s ===='). Runtime pytest.skip() calls exit
+    with rc=0 and are invisible to the static-marker check that runs before
+    docker dispatch."""
+    for line in reversed(stdout.splitlines()):
+        match = _INNER_SUMMARY_RE.search(line)
+        if match:
+            body = match.group("body")
+            return "skipped" in body and "passed" not in body and "failed" not in body and "error" not in body
+    return False
+
+
 def _emit_skipped(item: pytest.Item, message: str) -> None:
     item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
     longrepr = (str(item.fspath), 0, message)
@@ -1131,6 +1303,12 @@ def _build_env_args(artifact_dir: Path) -> list[str]:
     # var themselves (e.g. to point at a non-localhost server).
     if "SQLSERVER_HOST" not in propagated_keys:
         args.extend(["-e", "SQLSERVER_HOST=host.docker.internal"])
+    # Same fall-through exists for postgres: the helper defaults
+    # POSTGRES_HOST to "localhost" when unset, which inside the container
+    # resolves to the container itself. Inject the docker-bridge hostname
+    # so an unset var reaches the host's postgres, mirroring SQLSERVER_HOST.
+    if "POSTGRES_HOST" not in propagated_keys:
+        args.extend(["-e", "POSTGRES_HOST=host.docker.internal"])
 
     args.extend(["-e", f"{INNER_ENV_VAR}=1"])
     args.extend(["-e", f"{ARTIFACT_DIR_ENV}={artifact_dir}"])
