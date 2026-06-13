@@ -34,7 +34,9 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
     log_lines = contract_verification_result.get_logs()
 
     expected = [
-        "Verifying contract 📜 None 🤞",
+        # A string-sourced contract (no local file path, no collection id) falls
+        # back to the yaml source's description instead of printing 'None'.
+        "Verifying contract 📜 Contract YAML string 🤞",
         # some (many) non-deterministic log lines are skipped, we just need to make sure table is correctly split over multiple lines
         "+-----------------+------------------------------------+-------------+-----------+--------------+------------+------------------------+",
         "| Column          | Check                              | Threshold   | Outcome   | Check Type   | Identity   | Diagnostics            |",

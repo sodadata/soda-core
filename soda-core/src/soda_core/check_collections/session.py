@@ -27,14 +27,21 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
-from soda_core.common.logs import Logs
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
     DiagnosticsWarehouseFiles,
 )
 
+logger = soda_logger
 
+
+# Each owned impl's Logs activates on construction and is never individually
+# closed, so restore the active capture target to its pre-call value on exit
+# (no Logs left dangling as active after the session).
+@preserve_active_logs()
 def execute_check_collections(
     yaml_sources: list[CheckCollectionYamlSource],
     data_source_impl: Optional[DataSourceImpl],
@@ -126,6 +133,9 @@ def execute_check_collections(
     results: list[CheckCollectionResult] = []
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
+    # Each impl's ``Logs`` becomes active as it is constructed, capturing its
+    # construction logs; phase 2/3 re-activate it around verify()/handlers.
+    # Only one gatherer is ever active, so siblings can't cross-capture.
     # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
     # ``(None, impl_class_or_None, exc, yaml_source)`` on failure. The
     # ``yaml_source`` slot lets phase 1.5 filter ``constructed`` without
@@ -199,6 +209,7 @@ def execute_check_collections(
     # ignore ``abort_on_first_error`` (which gates per-file engine errors).
     _raise_if_kind_offenders(kind_offenders, expected_kinds)
     _raise_if_duplicate_collection_ids(constructed)
+    _raise_if_combined_session_spans_multiple_datasets(constructed)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -221,12 +232,14 @@ def execute_check_collections(
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
-        try:
-            results.append(impl.verify())
-        except Exception as exc:
-            if abort_on_first_error:
-                raise
-            results.append(impl_class.build_error_result(yaml_source, exc))
+        # Capture this verify()'s records into this collection's gatherer.
+        with impl.logs.activate(impl.thread_label):
+            try:
+                results.append(impl.verify())
+            except Exception as exc:
+                if abort_on_first_error:
+                    raise
+                results.append(impl_class.build_error_result(yaml_source, exc))
 
     # ---- Phase 3: combined upload (cloud-gated) + post-processing handlers (always). ----
     # ``constructed`` is positionally aligned with ``results``, so we iterate
@@ -309,13 +322,27 @@ def execute_check_collections(
                 exc=errored_without_results_result.error,
             )
 
-    # Post-processing handlers — run for every successfully-VERIFIED
-    # combine-upload impl. The non-combine path runs handlers at the end
-    # of ``verify()`` only when verify() returned normally (an exception
-    # bypasses everything below the failing line); this loop is the
-    # combine-upload equivalent and must skip ERROR placeholders for
-    # parity. ``result.error`` is set exclusively by ``build_error_result``
-    # on the executor's exception branches, so it's a reliable signal.
+    # Post-processing handlers — combine-upload subtypes. The non-combine path
+    # runs handlers inline per file inside ``verify()``; combine-upload results are
+    # post-processed HERE, after the single combined upload, so handlers see the
+    # shared scan_id / response_json. Handlers run ONCE per wire-source group via
+    # ``handle_session`` (not once per file): this lets a session-scoped handler
+    # do session-level work once (e.g. resolve shared config, reuse one connection,
+    # post a single aggregated stage update) instead of repeating it per file. ERROR
+    # placeholders are skipped for parity with the non-combine path (an exception
+    # in verify() bypasses handlers). Each item carries the shared response when it
+    # was part of the upload, else None, so the default per-item ``handle_session``
+    # preserves the old "run handlers regardless of upload success" semantics.
+    # Log attribution: the default per-item ``handle_session`` activates each
+    # item's ``Logs``, so handler emissions are captured for — and ``thread``-
+    # labelled as — the emitting file at emit time. A session-scoped override's
+    # emissions span files and are not attributed to any single one.
+    from soda_core.contracts.impl.contract_verification_impl import (
+        ContractVerificationHandlerRegistry,
+        PostProcessingSessionItem,
+    )
+
+    session_items_by_wire_source: dict[str, list[PostProcessingSessionItem]] = {}
     for (impl, impl_class, _, _), result in zip(constructed, results):
         if impl is None or impl_class is None or not impl_class.combine_uploads:
             continue
@@ -324,7 +351,49 @@ def execute_check_collections(
         response_for_file = (
             response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None
         )
-        impl.run_post_processing_handlers(result, response_for_file)
+        session_items_by_wire_source.setdefault(impl_class.wire_source, []).append(
+            PostProcessingSessionItem(
+                contract_impl=impl,
+                verification_result=result,
+                soda_cloud_send_results_response_json=response_for_file,
+            )
+        )
+
+    for wire_source, session_items in session_items_by_wire_source.items():
+        group_response_json = response_json_by_wire_source.get(wire_source)
+        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+            try:
+                handler.handle_session(
+                    items=session_items,
+                    soda_cloud=soda_cloud_impl,
+                    soda_cloud_send_results_response_json=group_response_json,
+                    dwh_files=dwh_files,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error in session post-processing handler {type(handler).__name__}: {e}",
+                    exc_info=True,
+                )
+                # Backstop: a well-behaved handle_session isolates per item and posts its own
+                # terminal stage state (the documented overrider contract). If the override
+                # escapes anyway, mark this handler's stages FAILED per file — mirroring the
+                # per-file path's run_post_processing_handlers, so a crashing session handler
+                # never leaves a post-processing stage stuck/unreported. (No-ops when
+                # scan_id/cloud is absent.)
+                #
+                # Intentionally conservative: this fires only on a contract violation (an
+                # escaping override). If such an override had already posted COMPLETED for some
+                # items before raising, those get re-marked FAILED here. We accept over-reporting
+                # FAILED over leaving a stage hung — the alternative (tracking which items already
+                # reached a terminal stage) lives inside the handler, not the executor. An override
+                # that honors the documented contract (isolate per item; always post a terminal
+                # stage in ``finally``) never escapes, so this path is unreached in practice.
+                for item in session_items:
+                    item.contract_impl._handle_post_processing_failure(
+                        scan_id=item.verification_result.scan_id,
+                        exc=e,
+                        contract_verification_handler=handler,
+                    )
 
     return CheckCollectionSessionResult(results)
 
@@ -405,4 +474,53 @@ def _raise_if_duplicate_collection_ids(
         raise InvalidArgumentException(
             "Duplicate collection identifier(s) detected in session — each "
             "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
+        )
+
+
+def _raise_if_combined_session_spans_multiple_datasets(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+) -> None:
+    """Raise ``InvalidArgumentException`` if a ``combine_uploads = True`` wire source's
+    files target more than one dataset.
+
+    A combine-upload session uploads all its files under ONE ``scanId`` (one per wire
+    source). Downstream consumers key a scan by ``scan_id`` and link per-check results to
+    it by ``scan_id`` alone, assuming one scan maps to exactly one dataset. Letting a single
+    ``scanId`` span multiple datasets would break that 1:1 link (e.g. multiple scan rows
+    sharing one ``scan_id``, fanned-out joins). A combine-upload subtype is therefore expected
+    to cover a single dataset per session; a multi-dataset combined session is rejected here
+    rather than producing an incoherent scan. Non-combine subtypes are exempt — each file is
+    its own scan. Impls missing a qualified dataset name are skipped.
+    """
+    # wire_source -> dataset -> [file path], so the error can point at the offending files
+    # (mirrors _raise_if_duplicate_collection_ids).
+    files_by_dataset: dict[str, dict[str, list[str]]] = {}
+    for impl, impl_class, _construct_exc, yaml_source in constructed:
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        dataset = getattr(impl, "soda_qualified_dataset_name", None)
+        if not dataset:
+            continue
+        path = getattr(yaml_source, "file_path", None) or repr(yaml_source)
+        files_by_dataset.setdefault(impl_class.wire_source, {}).setdefault(dataset, []).append(path)
+
+    offenders = {ws: by_ds for ws, by_ds in files_by_dataset.items() if len(by_ds) > 1}
+    if offenders:
+        lines: list[str] = []
+        for wire_source, by_ds in offenders.items():
+            lines.append(f"  - {wire_source}:")
+            for dataset, paths in sorted(by_ds.items()):
+                lines.append(f"      {dataset}: {', '.join(paths)}")
+        raise InvalidArgumentException(
+            "A combined (combine_uploads) session must target a single dataset — its files share "
+            "one scanId, and a scan is assumed to map to exactly one dataset. "
+            "Multiple datasets found in a single wire source:\n" + "\n".join(lines) + "\n"
+            "Run one dataset per combined session."
         )

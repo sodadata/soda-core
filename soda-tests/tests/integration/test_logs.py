@@ -13,7 +13,7 @@ def test_catch_args_in_logs_messages():
     logging.debug("This is a test message 1")
     logging.warning("This is a test %s", "message 2")
     logging.error("This is a test %s", "message 3")
-    l.remove_from_root_logger()
+    l.close()
     logs = l.get_logs()
     assert len(logs) == 3, f"Expected 3 error log, got {len(logs)}"
     assert "This is a test message 1" in logs
@@ -53,7 +53,7 @@ def test_avoid_empty_string(caplog):
     logging.debug("This is a test message 1")
     logging.warning("This is a test %s", "message 2")
     logging.error("This is a test message 3", exc_info=Exception("This is a test message exception"))
-    l.remove_from_root_logger()
+    l.close()
     logs = l.get_logs()
     assert len(logs) == 3, f"Expected 3 error log, got {len(logs)}"
     assert "This is a test message 1" in logs
@@ -89,7 +89,7 @@ def test_mask_values_in_logs_messages(caplog):
     logging.debug("This is a test message 1")
     logging.warning("This is a test %s", "message 2")
     logging.error("This is a test message 3", exc_info=Exception("This is a test message exception"))
-    l.remove_from_root_logger()
+    l.close()
     logs = l.get_logs()
     assert len(logs) == 3, f"Expected 3 error log, got {len(logs)}"
     assert "This is a test *** 1" in logs

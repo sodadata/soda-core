@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from typing import Protocol
@@ -49,6 +50,26 @@ from soda_core.contracts.impl.diagnostics_warehouse_files import (
 logger: logging.Logger = soda_logger
 
 
+@dataclass
+class PostProcessingSessionItem:
+    """One successfully-verified file participating in session post-processing.
+
+    Bundles what a ``ContractVerificationHandler`` needs to post-process a
+    single file of a combined (``combine_uploads = True``) session:
+      - ``contract_impl`` / ``verification_result`` — the per-file objects the
+        handler operates on (the data source is read from
+        ``contract_impl.data_source_impl`` only when a handler actually runs);
+      - ``soda_cloud_send_results_response_json`` — the per-file Cloud response:
+        the shared combined-upload response when this file was part of the
+        upload, else ``None`` (mirrors the ``response_json`` the non-combined
+        path passes to ``handle`` for files skipped from the upload).
+    """
+
+    contract_impl: ContractImpl
+    verification_result: ContractVerificationResult
+    soda_cloud_send_results_response_json: Optional[dict]
+
+
 class ContractVerificationHandler(ABC):
     @abstractmethod
     def handle(
@@ -56,8 +77,10 @@ class ContractVerificationHandler(ABC):
         contract_impl: ContractImpl,
         data_source_impl: Optional[DataSourceImpl],
         contract_verification_result: ContractVerificationResult,
-        soda_cloud: SodaCloud,
-        soda_cloud_send_results_response_json: dict,
+        # Optional: None in local/no-cloud runs and when publish_results is False.
+        soda_cloud: Optional[SodaCloud],
+        # Optional: a file skipped from the combined upload is post-processed with response None.
+        soda_cloud_send_results_response_json: Optional[dict],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         pass
@@ -65,6 +88,63 @@ class ContractVerificationHandler(ABC):
     @abstractmethod
     def provides_post_processing_stages(self) -> list[PostProcessingStage]:
         pass
+
+    def handle_session(
+        self,
+        items: list[PostProcessingSessionItem],
+        soda_cloud: Optional[SodaCloud],
+        soda_cloud_send_results_response_json: Optional[dict] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+    ) -> None:
+        """Post-process a whole combined session in one call (default: per file).
+
+        The session executor calls this ONCE per wire-source group after the
+        single combined upload, passing every successfully-verified file of the
+        group. ``soda_cloud_send_results_response_json`` is the shared group
+        response (the one ``scanId``); per-file responses live on each item.
+        ``soda_cloud`` may be ``None`` (local/no-cloud or publish_results=False).
+
+        The default preserves the historical per-file behavior: invoke ``handle``
+        for each item with that item's own response_json, isolating per-file
+        failures via ``_handle_post_processing_failure`` exactly as the per-file
+        path did. Subtypes needing true session scope (e.g. resolve shared config
+        once, reuse one connection, post one aggregated stage update for the whole
+        session) override this method.
+
+        Contract for overriders: (1) isolate each item — one file's failure must
+        not abort the rest; (2) ALWAYS post a terminal post-processing stage state
+        (in a ``finally``), even when every item fails, so a stage never hangs;
+        (3) log records an override emits are not attributed to any single file —
+        bracket per-item work with
+        ``item.contract_impl.logs.activate(item.contract_impl.thread_label)``
+        when per-file log attribution matters.
+        If the override itself raises, the executor marks the handler's stages
+        FAILED as a backstop.
+        """
+        for item in items:
+            # Capture this item's handler emissions (incl. the failure path) into
+            # its own collection's gatherer, thread-labelled at emit time — they
+            # would otherwise land in whichever Logs happens to be active after
+            # phase 2.
+            with item.contract_impl.logs.activate(item.contract_impl.thread_label):
+                try:
+                    self.handle(
+                        contract_impl=item.contract_impl,
+                        data_source_impl=item.contract_impl.data_source_impl,
+                        contract_verification_result=item.verification_result,
+                        soda_cloud=soda_cloud,
+                        soda_cloud_send_results_response_json=item.soda_cloud_send_results_response_json,
+                        dwh_files=dwh_files,
+                    )
+                except Exception as e:
+                    # Same message shape as the per-file path (run_post_processing_handlers) so log
+                    # parsing / monitoring stays consistent across the combine and non-combine paths.
+                    logger.error(f"Error in {item.contract_impl.display_name} verification handler: {e}", exc_info=True)
+                    item.contract_impl._handle_post_processing_failure(
+                        scan_id=item.verification_result.scan_id,
+                        exc=e,
+                        contract_verification_handler=self,
+                    )
 
 
 class ContractVerificationHandlerRegistry(ABC):
@@ -77,7 +157,7 @@ class ContractVerificationHandlerRegistry(ABC):
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
-                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+                logger.warning(f"Overriding existing verification handler for post-processing stage {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
 
 
@@ -352,8 +432,8 @@ class ContractVerificationSessionImpl:
                     yaml=contract_yaml,
                     only_validate_without_execute=True,
                 )
-                init_log_records = contract_impl.logs.pop_log_records()
-                contract_impl.logs.remove_from_root_logger()
+                init_log_records = contract_impl.logs.get_log_records()
+                contract_impl.logs.close()
 
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,

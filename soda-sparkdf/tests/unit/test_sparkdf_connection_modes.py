@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 from soda_sparkdf.common.data_sources.sparkdf_data_source import (
     SparkDataFrameDataSourceConnection,
+    SparkDataFrameDataSourceImpl,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameActiveSessionProperties,
@@ -80,6 +81,50 @@ def test_remote_session_token_is_masked_in_repr_and_str():
     assert "**********" in repr(props)
     # The actual value must still be retrievable inside the adapter when building URIs.
     assert props.token.get_secret_value() == "dapi_some_real_looking_secret"
+
+
+def test_catalog_field_defaults_to_none_and_routes_to_each_mode():
+    # All four connection modes inherit the shared base, so the field must be optional
+    # everywhere — present on the model, defaulting to None when the YAML omits it.
+    active = _build_model({"use_active_session": True, "use_catalog": True})
+    assert active.connection_properties.catalog is None
+
+    remote = _build_model(
+        {
+            "host": "dbc-x.cloud.databricks.com",
+            "token": "secret",
+            "cluster_id": "0000-000000-aaaa",
+            "use_catalog": True,
+            "catalog": "my_catalog",
+        }
+    )
+    assert remote.connection_properties.catalog == "my_catalog"
+
+
+def test_from_existing_session_propagates_catalog_into_connection_properties():
+    # Pure Pythonic build (no SparkSession at the cluster level) — we only care that
+    # ``catalog`` lands in ``connection_properties`` so downstream consumers
+    # (soda-extensions) can read it without round-tripping through YAML.
+    fake_session = object()  # Treated as opaque by the dict path; never .sql()'d.
+    impl = SparkDataFrameDataSourceImpl.from_existing_session(
+        session=fake_session,
+        name="my_source",
+        use_catalog=True,
+        catalog="my_catalog",
+    )
+    props = impl.data_source_connection.connection_properties
+    assert props["catalog"] == "my_catalog"
+    assert props["use_catalog"] is True
+
+
+def test_from_existing_session_catalog_defaults_to_none():
+    fake_session = object()
+    impl = SparkDataFrameDataSourceImpl.from_existing_session(
+        session=fake_session,
+        name="my_source",
+        use_catalog=True,
+    )
+    assert impl.data_source_connection.connection_properties["catalog"] is None
 
 
 def test_active_session_mode_raises_when_no_active_session(monkeypatch: pytest.MonkeyPatch):
