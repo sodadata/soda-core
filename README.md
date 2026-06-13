@@ -25,8 +25,8 @@ This repository hosts the open source Soda Core packages which are installable u
 ### Requirements
 To use Soda, you must have installed the following on your system.
 
-* **Python 3.10+ (3.10, 3.11, or 3.12)** <br>
-To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.  **Note:** While Python 3.12 is the highest officially validated version, there are no known issues preventing use of Python 3.13+.
+* **Python 3.9, 3.10, 3.11, or 3.12** <br>
+To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.  **Note:** While Python 3.12 is the highest officially supported version, there are no known issues preventing use of Python 3.13+.
 
 * **UV (recommended) or Pip 21.0 or greater** <br>
 We recommend using [UV](https://docs.astral.sh/uv/) for faster and more reliable package management. To install UV, see the [UV installation guide](https://docs.astral.sh/uv/getting-started/installation/). Alternatively, you can use pip (version 21.0+). To check your pip version: `pip --version` 
