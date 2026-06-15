@@ -23,7 +23,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from helpers import data_source_test_helper as helper_module
 from helpers import memory_container_plugin
 from helpers.data_source_test_helper import (
@@ -38,7 +37,6 @@ from helpers.memory_container_plugin import (
     MEMORY_TEST_SCHEMA_NAME,
     SKIP_SCHEMA_DROP_ENV,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixture isolation
@@ -72,8 +70,8 @@ def fake_helper():
     helper._spec_has_unbounded_column = MagicMock(return_value=False)
     helper._verify_unbounded_columns_data_length = MagicMock()
     # Bind the real method we want to exercise to the mock instance.
-    helper._create_and_insert_test_table = (
-        DataSourceTestHelper._create_and_insert_test_table.__get__(helper, DataSourceTestHelper)
+    helper._create_and_insert_test_table = DataSourceTestHelper._create_and_insert_test_table.__get__(
+        helper, DataSourceTestHelper
     )
     return helper
 
@@ -336,9 +334,7 @@ class TestDropTestTableGate:
         helper.data_source_impl = MagicMock()
         helper._cascade_drop_table = MagicMock(return_value=True)
         helper.dataset_prefix = ["soda", "dev"]
-        helper._drop_test_table = (
-            DataSourceTestHelper._drop_test_table.__get__(helper, DataSourceTestHelper)
-        )
+        helper._drop_test_table = DataSourceTestHelper._drop_test_table.__get__(helper, DataSourceTestHelper)
         return helper
 
     def test_drop_skipped_when_keep_tables_set(self, monkeypatch):

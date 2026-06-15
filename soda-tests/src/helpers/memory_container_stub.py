@@ -25,7 +25,6 @@ import json
 import os
 from typing import Optional
 
-
 _INNER_ENV_VAR = "SODA_IN_MEMORY_CONTAINER"
 _FORCED_TABLE_NAMES_ENV = "SODA_MEMTEST_FORCED_TABLE_NAMES"
 

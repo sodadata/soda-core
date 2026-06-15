@@ -84,9 +84,7 @@ SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
 # All other fixture flows keep using the long-standing inline-SQL path
 # (proven to work for every adapter), so this hook can never destabilise
 # non-memory tests.
-_fixture_bulk_inserter: Optional[
-    "Callable[[DataSourceImpl, TestTable], None]"
-] = None
+_fixture_bulk_inserter: Optional["Callable[[DataSourceImpl, TestTable], None]"] = None
 _fixture_bulk_inserter_active: bool = False
 
 
@@ -861,7 +859,10 @@ class DataSourceTestHelper:
                 # rows that pass the next run's row-count check. Fail loudly
                 # instead; the host-side __prepare_outside__ is the only
                 # legitimate (re)creator of these tables.
-                from helpers.memory_container_stub import in_memory_container, lookup_forced_table_name
+                from helpers.memory_container_stub import (
+                    in_memory_container,
+                    lookup_forced_table_name,
+                )
 
                 if in_memory_container() and lookup_forced_table_name(test_table_specification.unique_name):
                     raise AssertionError(
@@ -934,9 +935,7 @@ class DataSourceTestHelper:
             )
             logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
             return False
-        logger.debug(
-            f"Test table {test_table_specification.unique_name} row count verified: {row_count_int} rows"
-        )
+        logger.debug(f"Test table {test_table_specification.unique_name} row count verified: {row_count_int} rows")
         return True
 
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
@@ -1136,10 +1135,7 @@ class DataSourceTestHelper:
         # payloads, simple ints), `repr(value)` is close enough. We aim
         # for a chunk SQL of ~half the dialect max to leave headroom for
         # INSERT INTO header + escape overhead.
-        per_row_bytes = max(
-            sum(len(repr(v)) + 2 for v in row) + len(row) * 2 + 4
-            for row in rows[: min(8, len(rows))]
-        )
+        per_row_bytes = max(sum(len(repr(v)) + 2 for v in row) + len(row) * 2 + 4 for row in rows[: min(8, len(rows))])
         chunk_size = max(1, (max_len // 2) // max(1, per_row_bytes))
         chunk_size = min(chunk_size, len(rows))
 

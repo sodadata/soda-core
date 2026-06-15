@@ -33,8 +33,8 @@ from __future__ import annotations
 
 import datetime
 import hashlib
-import logging
 import json
+import logging
 import os
 import re
 import subprocess
@@ -115,17 +115,31 @@ _TRUTHY = {"1", "true", "yes", "on", "y", "t"}
 def _running_in_ci() -> bool:
     """True on CI runners (GitHub Actions sets both; CI is the de-facto
     cross-provider convention). Memory tests are local-only by policy."""
-    return (
-        os.environ.get("CI", "").lower() in _TRUTHY
-        or os.environ.get("GITHUB_ACTIONS", "").lower() in _TRUTHY
-    )
+    return os.environ.get("CI", "").lower() in _TRUTHY or os.environ.get("GITHUB_ACTIONS", "").lower() in _TRUTHY
+
 
 ENV_DENYLIST = {
-    "PATH", "HOME", "USER", "PWD", "OLDPWD", "SHELL", "SHLVL", "_",
-    "TMPDIR", "TMP", "TEMP", "LANG", "TERM", "COLORTERM",
-    "VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME", "PYTHONBREAKPOINT",
+    "PATH",
+    "HOME",
+    "USER",
+    "PWD",
+    "OLDPWD",
+    "SHELL",
+    "SHLVL",
+    "_",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "TERM",
+    "COLORTERM",
+    "VIRTUAL_ENV",
+    "PYTHONPATH",
+    "PYTHONHOME",
+    "PYTHONBREAKPOINT",
     "COMMAND_MODE",
-    "PYTEST_CURRENT_TEST", "PYTEST_VERSION",
+    "PYTEST_CURRENT_TEST",
+    "PYTEST_VERSION",
 }
 ENV_DENYLIST_PREFIXES = ("DYLD_", "LC_", "XPC_", "__CF", "PYTEST_XDIST_")
 
@@ -136,18 +150,20 @@ _LOCALHOST_RE = re.compile(r"^(localhost|127\.0\.0\.1)(:\d+)?$")
 # read-only into the container at the same path so the inner test resolves it
 # transparently.
 _CREDENTIAL_ENV_SUFFIXES = ("_PATH", "_CREDENTIALS", "_KEYFILE", "_KEY_FILE")
-_CREDENTIAL_ENV_EXACT = frozenset({
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    "AWS_SHARED_CREDENTIALS_FILE",
-    "AWS_CONFIG_FILE",
-    "AWS_WEB_IDENTITY_TOKEN_FILE",
-    "BOTO_CONFIG",
-    "KUBECONFIG",
-    "SSL_CERT_FILE",
-    "REQUESTS_CA_BUNDLE",
-    "CURL_CA_BUNDLE",
-    "SNOWFLAKE_CONNECTIONS_FILE",
-})
+_CREDENTIAL_ENV_EXACT = frozenset(
+    {
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "AWS_SHARED_CREDENTIALS_FILE",
+        "AWS_CONFIG_FILE",
+        "AWS_WEB_IDENTITY_TOKEN_FILE",
+        "BOTO_CONFIG",
+        "KUBECONFIG",
+        "SSL_CERT_FILE",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "SNOWFLAKE_CONNECTIONS_FILE",
+    }
+)
 
 # Well-known credential directories — auto-mounted RO if they exist on the host.
 _WELL_KNOWN_CREDENTIAL_DIRS = ("~/.aws", "~/.config/gcloud", "~/.azure")
@@ -454,6 +470,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
             setup_outside_state = _run_prepare_outside(item)
         except Exception as exc:
             import traceback as _tb
+
             _emit_failed(
                 item,
                 when="setup",
@@ -496,8 +513,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     prepare_fn = getattr(test_module, "__prepare_outside__", None)
     if prepare_fn is None:
         raise ValueError(
-            f"memory_container(setup_outside=True) requires "
-            f"__prepare_outside__ in {test_module.__name__}"
+            f"memory_container(setup_outside=True) requires " f"__prepare_outside__ in {test_module.__name__}"
         )
     finalize_fn = getattr(test_module, "__finalize_outside__", None)
 
@@ -511,6 +527,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     # FIXED_SCHEMA_ENV is set by the caller (pytest_runtest_protocol) so the
     # helper's cached `_base_schema_name` picks up ``dev_memory_testing``.
     from helpers.data_source_test_helper import DataSourceTestHelper
+
     test_datasource = os.environ.get("TEST_DATASOURCE", "postgres")
     helper = DataSourceTestHelper.create(test_datasource, name="primary_datasource")
     helper.start_test_session()
@@ -533,6 +550,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
         activate_fixture_bulk_inserter,
         deactivate_fixture_bulk_inserter,
     )
+
     bulk_prev = activate_fixture_bulk_inserter()
     try:
         prepare_fn(helper, **parametrize_kwargs)
@@ -641,9 +659,7 @@ def _dispatch_and_emit_reports(item: pytest.Item, limit_mb: int) -> None:
     item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 
 
-def _apply_xfail(
-    item: pytest.Item, outcome: str, longrepr: Optional[str]
-) -> tuple[str, Optional[str], Optional[str]]:
+def _apply_xfail(item: pytest.Item, outcome: str, longrepr: Optional[str]) -> tuple[str, Optional[str], Optional[str]]:
     """Best-effort xfail support for our protocol-replacement hook.
 
     Limitation: only ``reason=`` and ``strict=`` kwargs are honored. ``condition``,
@@ -666,8 +682,7 @@ def _apply_xfail(
     if xfail.args:
         # Positional condition (e.g. xfail(sys.platform == 'win32', reason=...))
         raise ValueError(
-            "memory_container does not support xfail(condition, ...). Use "
-            "@pytest.mark.skipif for conditional skips."
+            "memory_container does not support xfail(condition, ...). Use " "@pytest.mark.skipif for conditional skips."
         )
     reason = xfail.kwargs.get("reason", "") or "expected to fail"
     strict = bool(xfail.kwargs.get("strict", False))
@@ -716,31 +731,47 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     # do propagate to the root logger.
     inner_debug_log_path = artifact_dir / "inner_debug.log"
     _pytest_args = [
-        "--no-header", "-p", "no:cacheprovider", "--tb=short", "-s",
-        "-o", f"log_file={inner_debug_log_path}",
-        "-o", "log_file_level=DEBUG",
-        "-o", "log_file_format=%(asctime)s %(levelname)-7s %(name)s %(message)s",
+        "--no-header",
+        "-p",
+        "no:cacheprovider",
+        "--tb=short",
+        "-s",
+        "-o",
+        f"log_file={inner_debug_log_path}",
+        "-o",
+        "log_file_level=DEBUG",
+        "-o",
+        "log_file_format=%(asctime)s %(levelname)-7s %(name)s %(message)s",
         item.nodeid,
     ]
 
     inner_cmd: list[str]
     if memray_enabled:
         inner_cmd = [
-            "python", "-m", "memray", "run",
+            "python",
+            "-m",
+            "memray",
+            "run",
             "--force",  # overwrite existing .bin if present
-            "-o", str(memray_bin_path),
-            "-m", "pytest",
+            "-o",
+            str(memray_bin_path),
+            "-m",
+            "pytest",
             *_pytest_args,
         ]
     else:
         inner_cmd = [
-            "python", "-m", "pytest",
+            "python",
+            "-m",
+            "pytest",
             *_pytest_args,
         ]
 
     env_args, env_file_path = _build_env_args(artifact_dir)
     cmd = [
-        "docker", "run", "--rm",
+        "docker",
+        "run",
+        "--rm",
         f"--cidfile={cidfile}",
         f"--memory={limit_mb}m",
         f"--memory-swap={limit_mb}m",
@@ -748,10 +779,13 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         # Broad mount is read-only so a misbehaving test can't write to the
         # host repo or scribble on credential files. Artifact subdir is
         # overlaid as :rw so the inner poller and memray can write outputs.
-        "-v", f"{bind_root}:{bind_root}:ro",
-        "-v", f"{artifact_dir}:{artifact_dir}:rw",
+        "-v",
+        f"{bind_root}:{bind_root}:ro",
+        "-v",
+        f"{artifact_dir}:{artifact_dir}:rw",
         *_build_credential_mount_args(bind_root),
-        "-w", rootdir,
+        "-w",
+        rootdir,
         *env_args,
         image,
         *inner_cmd,
@@ -868,8 +902,7 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
 
     if rc != 0:
         return "failed", (
-            _format_failure(rc, limit_mb, image, stderr)
-            + f"\n{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
+            _format_failure(rc, limit_mb, image, stderr) + f"\n{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
         )
 
     if peak_bytes > limit_bytes:
@@ -1224,9 +1257,13 @@ def _generate_memray_reports(image: str, artifact_dir: Path, bin_path: Path) -> 
 
     def _run_memray_subcmd(label: str, subcmd: list[str], output_path: Path, capture_stdout: bool) -> None:
         cmd = [
-            "docker", "run", "--rm",
-            "-v", f"{artifact_str}:{artifact_str}",
-            "-w", artifact_str,
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{artifact_str}:{artifact_str}",
+            "-w",
+            artifact_str,
             image,
             *subcmd,
         ]
@@ -1274,10 +1311,7 @@ def _format_failure(rc: int, limit_mb: int, image: str, stderr: str) -> str:
             f"or the Docker daemon is not running."
         )
     elif rc == 127:
-        head = (
-            "`docker` not found on PATH (exit 127). Install Docker / Docker Desktop "
-            "and ensure it's on PATH."
-        )
+        head = "`docker` not found on PATH (exit 127). Install Docker / Docker Desktop " "and ensure it's on PATH."
     else:
         head = f"Container pytest exited {rc}."
 
@@ -1320,17 +1354,13 @@ def _inner_run_skipped(stdout: str) -> bool:
 def _emit_skipped(item: pytest.Item, message: str) -> None:
     item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
     longrepr = (str(item.fspath), 0, message)
-    item.ihook.pytest_runtest_logreport(
-        report=_build_report(item, when="setup", outcome="skipped", longrepr=longrepr)
-    )
+    item.ihook.pytest_runtest_logreport(report=_build_report(item, when="setup", outcome="skipped", longrepr=longrepr))
     item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 
 
 def _emit_failed(item: pytest.Item, when: str, longrepr: str) -> None:
     item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
-    item.ihook.pytest_runtest_logreport(
-        report=_build_report(item, when=when, outcome="failed", longrepr=longrepr)
-    )
+    item.ihook.pytest_runtest_logreport(report=_build_report(item, when=when, outcome="failed", longrepr=longrepr))
     item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 
 
@@ -1447,7 +1477,8 @@ def _build_credential_mount_args(bind_root: str) -> list[str]:
                     "memory_container: skipping credential auto-mount of %s — "
                     "matches denylist entry %s. Set the value manually inside "
                     "the container if you really need it.",
-                    resolved_str, forbidden,
+                    resolved_str,
+                    forbidden,
                 )
                 return
         mounted.add(resolved_str)

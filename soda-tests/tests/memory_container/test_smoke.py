@@ -33,6 +33,7 @@ def test_dense_timeseries_when_gil_releases():
     holds the GIL and starves the poller). Verifies the timeseries CSV has
     meaningful resolution for real DWH workloads where DB I/O releases the GIL."""
     import time
+
     chunks = []
     for _ in range(80):
         chunks.append(b"x" * (1024 * 1024))  # 1 MB
@@ -64,6 +65,7 @@ def test_broad_mount_is_readonly():
     the host workspace (which would clobber source code or, worse, credentials)."""
     import errno
     import os
+
     # CWD is the pytest rootpath inside the container (same as on host).
     write_target = os.path.join(os.getcwd(), "_memory_container_ro_probe.tmp")
     try:
@@ -72,8 +74,7 @@ def test_broad_mount_is_readonly():
     except OSError as e:
         # Different Docker storage drivers may surface this as EROFS, EACCES,
         # or EPERM — all indicate "you can't write here", which is what we want.
-        assert e.errno in (errno.EROFS, errno.EACCES, errno.EPERM), \
-            f"Unexpected OSError errno={e.errno!r}: {e!r}"
+        assert e.errno in (errno.EROFS, errno.EACCES, errno.EPERM), f"Unexpected OSError errno={e.errno!r}: {e!r}"
         return
     # If we got here, the write actually succeeded — clean up and fail loudly.
     try:
@@ -86,6 +87,7 @@ def test_broad_mount_is_readonly():
 def test_artifact_dir_is_writable():
     """The artifact subdir must be :rw so the inner poller and memray can write."""
     import os
+
     artifact_dir = os.environ["SODA_MEMTEST_ARTIFACT_DIR"]
     probe = os.path.join(artifact_dir, "_rw_probe.tmp")
     with open(probe, "w") as f:
@@ -108,6 +110,7 @@ def test_host_docker_internal_reaches_host():
     locally per project conventions). Skip if the host isn't running postgres.
     """
     import socket
+
     addr = socket.gethostbyname("host.docker.internal")
     assert addr, "host.docker.internal didn't resolve"
     # TCP-level reach. 5432 is the canonical postgres port per soda-core's
@@ -121,8 +124,10 @@ def test_host_docker_internal_reaches_host():
         except (ConnectionRefusedError, TimeoutError, OSError) as e:
             # Postgres might not be up; that's not a Phase-3 failure. Just
             # don't assert anything stronger than DNS in that case.
-            print(f"[memory_container] info: TCP connect to host:5432 didn't succeed ({e!r}); "
-                  "DNS resolution + add-host already validated.")
+            print(
+                f"[memory_container] info: TCP connect to host:5432 didn't succeed ({e!r}); "
+                "DNS resolution + add-host already validated."
+            )
 
 
 @pytest.mark.memory_container(limit_mb=128)
@@ -134,6 +139,7 @@ def test_host_env_vars_propagate(monkeypatch):
     # so the value should propagate to the inner pytest.
     monkeypatch.setenv("SODA_MEMTEST_HOST_PROBE", "round-trip-marker-xyz-789")
     import os
+
     assert os.environ.get("SODA_MEMTEST_HOST_PROBE") == "round-trip-marker-xyz-789", (
         "Host-set env var did not propagate into the container. The denylist "
         "may be over-broad or _build_env_args is broken."

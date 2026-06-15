@@ -298,4 +298,3 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 except psycopg.errors.Error:
                     pass
             raise e
-

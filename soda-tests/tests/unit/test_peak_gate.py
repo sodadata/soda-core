@@ -105,7 +105,10 @@ class TestBaselineManifestGate:
         monkeypatch.setenv("TEST_DATASOURCE", "postgres")
         _write_manifest(
             tmp_path,
-            {"defaults": {"tolerance_pct": 20}, "postgres": {"test_x.py::test_y": {"peak_mb": 200, "tolerance_pct": 5}}},
+            {
+                "defaults": {"tolerance_pct": 20},
+                "postgres": {"test_x.py::test_y": {"peak_mb": 200, "tolerance_pct": 5}},
+            },
         )
         item = _FakeItem(tmp_path / "test_x.py", "test_y")
         assert _lookup_peak_baseline(item) == (200.0, 5.0)

@@ -31,8 +31,7 @@ _IS_SQLSERVER_FAMILY = test_datasource in {"sqlserver", "fabric", "synapse"}
 
 if test_datasource not in _SUPPORTED_DATASOURCES:
     pytest.skip(
-        f"unbounded_text_column tests are scoped to {_SUPPORTED_DATASOURCES}; "
-        f"skipping on {test_datasource}.",
+        f"unbounded_text_column tests are scoped to {_SUPPORTED_DATASOURCES}; " f"skipping on {test_datasource}.",
         allow_module_level=True,
     )
 
@@ -70,10 +69,7 @@ def test_unbounded_text_small_payload_round_trip(
     # the verification step queried the right column on the right table.
     qcol = data_source_test_helper.data_source_impl.sql_dialect.quote_default("payload")
     length_fn = data_source_test_helper._string_length_sql_function()
-    sql = (
-        f"SELECT MIN({length_fn}({qcol})), MAX({length_fn}({qcol})) "
-        f"FROM {test_table.qualified_name}"
-    )
+    sql = f"SELECT MIN({length_fn}({qcol})), MAX({length_fn}({qcol})) " f"FROM {test_table.qualified_name}"
     result = data_source_test_helper.data_source_impl.execute_query(sql)
     actual_min, actual_max = int(result.rows[0][0]), int(result.rows[0][1])
     assert actual_min == 1024, f"expected MIN=1024, got {actual_min}"
@@ -130,7 +126,7 @@ def test_verify_raises_when_actual_data_is_truncated(
     msg = str(exc_info.value)
     assert "payload" in msg
     assert "1000" in msg  # expected MIN
-    assert "4" in msg     # actual MIN (the truncated value)
+    assert "4" in msg  # actual MIN (the truncated value)
 
 
 # ---------------------------------------------------------------------------
@@ -222,10 +218,7 @@ def test_unbounded_text_100mb_round_trip(
     # also reads MAX, so a partial truncation wouldn't sneak through).
     qcol = data_source_test_helper.data_source_impl.sql_dialect.quote_default("payload")
     length_fn = data_source_test_helper._string_length_sql_function()
-    sql = (
-        f"SELECT MIN({length_fn}({qcol})), MAX({length_fn}({qcol})) "
-        f"FROM {test_table.qualified_name}"
-    )
+    sql = f"SELECT MIN({length_fn}({qcol})), MAX({length_fn}({qcol})) " f"FROM {test_table.qualified_name}"
     result = data_source_test_helper.data_source_impl.execute_query(sql)
     actual_min, actual_max = int(result.rows[0][0]), int(result.rows[0][1])
     expected = 100 * 1024 * 1024
