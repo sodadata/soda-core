@@ -108,6 +108,12 @@ COPY soda-extensions ${REPO_PARENT}/soda-extensions
 # Editable installs so entry points register. --no-deps because Python deps
 # are already installed above; let the editables just register without
 # re-resolving (which would otherwise complain about version pins).
+#
+# soda-groupby / soda-reconciliation register the group_by and rows_diff
+# (reconciliation) check types via their own entry points. Without them the
+# corresponding memory tests run a contract that errors with "Invalid check
+# type" and silently measures nothing — so they belong in the canonical image
+# alongside the main `soda` extension.
 RUN pip install --no-cache-dir --no-deps \
         -e ${REPO_PARENT}/soda-core/soda-core \
         -e ${REPO_PARENT}/soda-core/soda-tests \
@@ -116,6 +122,8 @@ RUN pip install --no-cache-dir --no-deps \
         -e ${REPO_PARENT}/soda-core/soda-snowflake \
         -e ${REPO_PARENT}/soda-core/soda-bigquery \
         -e ${REPO_PARENT}/soda-core/soda-databricks \
-        -e ${REPO_PARENT}/soda-extensions/soda
+        -e ${REPO_PARENT}/soda-extensions/soda \
+        -e ${REPO_PARENT}/soda-extensions/soda-groupby \
+        -e ${REPO_PARENT}/soda-extensions/soda-reconciliation
 
 # WORKDIR is set at runtime via `docker run -w` to mirror the host rootdir.
