@@ -71,3 +71,63 @@ class TestBudgetAndExtrapolation:
     def test_empty_containers(self):
         assert estimate_value_size([]) == sys.getsizeof([])
         assert estimate_value_size({}) == sys.getsizeof({})
+
+    def test_custom_node_budget_extrapolates_from_small_sample(self):
+        # node_budget is a real knob; a small budget still estimates near the
+        # true size for uniform elements by extrapolating the visited sample.
+        element = "x" * 1000
+        value = [element] * 1000
+        true_content = 1000 * sys.getsizeof(element)
+        estimate = estimate_value_size(value, node_budget=10)
+        assert 0.8 * true_content < estimate < 1.5 * (true_content + sys.getsizeof(value))
+
+
+class TestSkewedExtrapolation:
+    """Extrapolation assumes uniform elements. These pin the known skew
+    behaviour: it is exact-ish for uniform data, can UNDER-count a fat tail
+    that sits beyond the node budget, and over-counts (safe) when the fat
+    elements fall within the visited sample. Downstream this is bounded —
+    the read-side fetch growth ramp caps a bad estimate to one batch and the
+    write side re-checks against the dialect max — so we characterise rather
+    than pay for exact measurement."""
+
+    def test_fat_tail_beyond_budget_is_undercounted(self):
+        thin = ["x"] * 2000  # cheap prefix fills the node budget
+        fat = ["y" * _MB] * 10  # 10 MB tail, never visited
+        value = thin + fat
+        # Known limitation: the fat tail alone is ~10 MB but the estimate,
+        # extrapolated from the thin prefix, stays far below it.
+        assert estimate_value_size(value) < 10 * _MB
+
+    def test_fat_prefix_within_budget_is_counted(self):
+        fat = ["y" * _MB] * 10  # visited first — counted in full
+        thin = ["x"] * 2000
+        value = fat + thin
+        assert estimate_value_size(value) > 10 * _MB
+
+
+class TestExoticLeaves:
+    def test_memoryview_counts_referenced_buffer(self):
+        # Regression: a memoryview's getsizeof is just the view header; the
+        # walker must count the buffer it references (large bytea shape).
+        buffer = b"z" * _MB
+        assert estimate_value_size(memoryview(buffer)) > _MB
+
+    def test_bytearray_counts_its_buffer(self):
+        # bytearray owns its buffer, so plain getsizeof already covers it.
+        assert estimate_value_size(bytearray(_MB)) > _MB
+
+    def test_tuple_set_frozenset_walked_like_list(self):
+        assert estimate_value_size(("x" * _MB,)) > _MB
+        assert estimate_value_size({"x" * _MB}) > _MB
+        assert estimate_value_size(frozenset(("x" * _MB,))) > _MB
+
+    def test_decimal_and_datetime_are_exact_leaves(self):
+        from datetime import datetime
+        from decimal import Decimal
+
+        # Small fixed-size objects: no recursion, getsizeof is exact.
+        dec = Decimal("3.14159")
+        assert estimate_value_size(dec) == sys.getsizeof(dec)
+        dt = datetime(2026, 6, 15, 12, 30, 0)
+        assert estimate_value_size(dt) == sys.getsizeof(dt)

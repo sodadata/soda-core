@@ -35,6 +35,12 @@ def estimate_value_size(value, node_budget: int = NODE_BUDGET_DEFAULT) -> int:
 def _walk(value, remaining: list[int], depth: int) -> int:
     if value is None:
         return _NONE_SIZE
+    if isinstance(value, memoryview):
+        # getsizeof reports only the view header, not the buffer it points at.
+        # A large bytea read as a memoryview would otherwise count as ~tiny and
+        # slip past every byte budget — count the referenced bytes instead.
+        # (bytearray/bytes own their buffer, so getsizeof is already exact.)
+        return sys.getsizeof(value) + value.nbytes
     size: int = sys.getsizeof(value)
     if isinstance(value, dict):
         n_children = 2 * len(value)
