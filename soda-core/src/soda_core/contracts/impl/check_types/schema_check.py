@@ -92,7 +92,7 @@ class SchemaCheckImpl(CheckImpl):
             check_yaml=check_yaml,
         )
 
-        logger.info(f"Found {len(contract_impl.column_impls)} columns in contract.")
+        logger.info(f"Found {len(contract_impl.column_impls)} columns in {contract_impl.display_name}.")
 
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
@@ -111,7 +111,7 @@ class SchemaCheckImpl(CheckImpl):
             )
             for column_impl in contract_impl.column_impls
         ]
-        logger.info(f"Built {len(self.expected_columns)} expected columns from contract.")
+        logger.info(f"Built {len(self.expected_columns)} expected columns from {contract_impl.display_name}.")
         self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
         self.allow_other_column_order: bool = bool(check_yaml.allow_other_column_order)
 

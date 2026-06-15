@@ -268,3 +268,160 @@ def test_schema_evaluate_schema_events_count():
     assert result.outcome == CheckOutcome.FAILED
     assert result.diagnostic_metric_values == {"schema_events_count": 2}
     assert result.threshold_value == 2
+
+
+def test_schema_evaluate_fails_when_column_missing_and_extra_columns_allowed():
+    """allow_extra_columns only tolerates extra actual columns — a contract
+    column missing from the actual schema must still fail."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: account_status
+    checks:
+      - schema:
+          allow_extra_columns: true
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="integer")),
+        ColumnMetadata(column_name="extra_col", sql_data_type=SqlDataType(name="text")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.expected_column_names_not_actual == ["account_status"]
+    assert result.actual_column_names_not_expected == []
+
+
+def test_schema_evaluate_rename_reports_missing_and_extra():
+    """A renamed column surfaces as old-name-missing plus new-name-extra."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: account_status
+    checks:
+      - schema:
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="integer")),
+        ColumnMetadata(column_name="account_status_new", sql_data_type=SqlDataType(name="integer")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.expected_column_names_not_actual == ["account_status"]
+    assert result.actual_column_names_not_expected == ["account_status_new"]
+    assert result.diagnostic_metric_values == {"schema_events_count": 2}
+
+
+def test_schema_evaluate_rename_fails_even_with_allow_extra_columns():
+    """With allow_extra_columns the new name is tolerated, but the rename still
+    fails because the old name is missing."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: account_status
+    checks:
+      - schema:
+          allow_extra_columns: true
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="integer")),
+        ColumnMetadata(column_name="account_status_new", sql_data_type=SqlDataType(name="integer")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.expected_column_names_not_actual == ["account_status"]
+    assert result.actual_column_names_not_expected == []
+
+
+def test_schema_evaluate_column_name_matching_is_case_sensitive():
+    """Characterization: column names are matched case-sensitively. A lowercase
+    contract against uppercase metadata (e.g. Snowflake unquoted identifiers)
+    reports every column as both missing and extra."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: name
+    checks:
+      - schema:
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="ID", sql_data_type=SqlDataType(name="integer")),
+        ColumnMetadata(column_name="NAME", sql_data_type=SqlDataType(name="text")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.expected_column_names_not_actual == ["id", "name"]
+    assert result.actual_column_names_not_expected == ["ID", "NAME"]
+
+
+def test_schema_evaluate_out_of_order_fails_with_zero_schema_events():
+    """Characterization: out-of-order columns fail the check but do not count
+    as schema events — outcome is FAILED while the threshold value stays 0."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: name
+    checks:
+      - schema:
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="name", sql_data_type=SqlDataType(name="text")),
+        ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="integer")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.are_columns_out_of_order is True
+    assert result.threshold_value == 0
+    assert result.diagnostic_metric_values == {"schema_events_count": 0}
+
+
+def test_schema_evaluate_out_of_order_with_extra_column_present():
+    """Order detection only considers expected columns — an interleaved extra
+    column does not mask a real order violation."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: id
+      - name: name
+    checks:
+      - schema:
+          allow_extra_columns: true
+    """
+    contract_impl = build_contract_impl(contract_yaml)
+    check = contract_impl.all_check_impls[0]
+
+    actual_columns = [
+        ColumnMetadata(column_name="name", sql_data_type=SqlDataType(name="text")),
+        ColumnMetadata(column_name="extra_col", sql_data_type=SqlDataType(name="text")),
+        ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="integer")),
+    ]
+    mv = _build_schema_measurement_values(check, actual_columns)
+    result = check.evaluate(mv)
+    assert result.outcome == CheckOutcome.FAILED
+    assert result.are_columns_out_of_order is True
+    assert result.expected_column_names_not_actual == []
+    assert result.actual_column_names_not_expected == []

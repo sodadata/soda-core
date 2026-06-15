@@ -146,6 +146,9 @@ def test_alignment_guard_skips_upload_on_source_mismatch():
             _make_check_result(source="soda-contract"),  # MISMATCH — parent is "data-standard"
         ]
     )
+    # Model production: ``verify()`` builds the result from the impl's live
+    # gatherer list, so guard-emitted errors land on it directly.
+    result.log_records = impl.logs.get_log_records()
     assert impl._verify_check_sources_aligned(result) is False
     assert result.sending_results_to_soda_cloud_failed is True
     # An error log record was appended so the launcher can surface the issue.
@@ -168,6 +171,7 @@ def test_alignment_guard_reports_every_offending_check():
             _make_check_result(source="some-other-future-source"),
         ]
     )
+    result.log_records = impl.logs.get_log_records()
     assert impl._verify_check_sources_aligned(result) is False
     error_messages = [r.getMessage() for r in result.log_records if r.levelno >= 40]
     assert len(error_messages) == 3, f"Expected 3 mismatch errors; got: {error_messages}"

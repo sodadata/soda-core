@@ -59,7 +59,7 @@ def logs() -> Logs:
     try:
         yield logs
     finally:
-        logs.remove_from_root_logger()
+        logs.close()
 
 
 @pytest.fixture(scope="session")

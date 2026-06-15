@@ -6,7 +6,7 @@ from typing import Optional
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.logs import LogCapturer
+from soda_core.common.logs import Logs
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
@@ -54,9 +54,10 @@ def handle_test_data_source(
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
 
-    # Attach the uploader before parsing so logs emitted while loading/validating the data
-    # source YAML — often the most relevant when a connection test fails early — are captured.
-    log_uploader: Optional["_TestConnectionLogUploader"] = _build_log_uploader(
+    # Build the upload Logs before parsing so logs emitted while loading/validating the
+    # data source YAML — often the most relevant when a connection test fails early — are
+    # captured and streamed to Soda Cloud.
+    upload_logs: Optional[Logs] = build_test_connection_log_uploader(
         soda_cloud_file_path=soda_cloud_file_path,
     )
 
@@ -81,31 +82,21 @@ def handle_test_data_source(
             )
             return ExitCode.OK
     finally:
-        if log_uploader is not None:
-            log_uploader.close()
+        if upload_logs is not None:
+            upload_logs.close()
 
 
-class _TestConnectionLogUploader:
-    """Wires Soda Cloud log upload around the test-connection flow.
-
-    Holds a LogsQueue bound to the given scan_id and a LogCapturer that
-    forwards root-logger records to it. Must be closed to flush the final batch.
-    """
-
-    def __init__(self, logs_queue, log_capturer):
-        self._logs_queue = logs_queue
-        self._log_capturer = log_capturer
-
-    def close(self) -> None:
-        try:
-            self._log_capturer.remove_from_root_logger()
-        finally:
-            self._logs_queue.close()
-
-
-def _build_log_uploader(
+def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
-) -> Optional[_TestConnectionLogUploader]:
+) -> Optional[Logs]:
+    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
+    root-logger records during the test stream to Soda Cloud — or None when
+    there is no scan id / cloud config. Must be closed to flush the final batch.
+
+    Public because connection-test commands outside soda-core (e.g. the
+    soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
+    their logs to the same scan-id-keyed endpoint.
+    """
     # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
     # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
@@ -134,5 +125,4 @@ def _build_log_uploader(
         scan_id=scan_id,
         dataset="",
     )
-    log_capturer = LogCapturer(logs_queue)
-    return _TestConnectionLogUploader(logs_queue=logs_queue, log_capturer=log_capturer)
+    return Logs(gatherer=logs_queue)

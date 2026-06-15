@@ -55,6 +55,13 @@ def configure_logging(
         handlers=[SodaConsoleHandler()],
     )
 
+    # force=True just cleared every root handler, including the capture router.
+    # Re-attach it so any live ``Logs`` keeps capturing. Function-local import:
+    # ``logs`` imports (via logs_collector) from this module.
+    from soda_core.common.logs import _ensure_root_capturer
+
+    _ensure_root_capturer()
+
 
 _masked_values = set()
 

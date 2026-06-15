@@ -433,9 +433,13 @@ class SodaCloud:
 
             logger.debug(f"Response from Soda Cloud: {response.json()}")
 
-    def _upload_contract_yaml_file(self, contract_yaml: str) -> Optional[str]:
+    def _upload_contract_yaml_file(self, contract_yaml: str, file_label: str = "contract") -> Optional[str]:
         """
         Returns a Soda Cloud fileId or None if something is wrong.
+
+        ``file_label`` is the user-facing word for the uploaded file in error
+        logs — the upload serves every check-collection subtype (contracts,
+        data standards, ...), so callers pass their ``display_name``.
         """
         try:
             upload_contract_command: dict = {
@@ -453,7 +457,7 @@ class SodaCloud:
                 return None
         except Exception as e:
             logger.critical(
-                msg=f"Soda cloud error: Could not upload contract file to Soda Cloud: {e}",
+                msg=f"Soda cloud error: Could not upload {file_label} file to Soda Cloud: {e}",
                 exc_info=True,
             )
             return None
@@ -756,7 +760,7 @@ class SodaCloud:
         if contract_dataset_cloud_url:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
-        logs.remove_from_root_logger()
+        logs.close()
         verification_result.log_records = logs.get_log_records()
 
         return verification_result

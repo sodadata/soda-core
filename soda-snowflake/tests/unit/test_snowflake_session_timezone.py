@@ -72,7 +72,7 @@ class TestSnowflakeSessionTimezoneNoValueColumn:
         try:
             result = instance._fetch_session_timezone()
         finally:
-            captured.remove_from_root_logger()
+            captured.close()
 
         assert result is timezone.utc
         warnings = [r for r in captured.get_log_records() if r.levelno >= logging.WARNING]

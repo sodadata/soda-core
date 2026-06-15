@@ -304,7 +304,7 @@ class DataSourceTestHelper:
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
-        logs.remove_from_root_logger()
+        logs.close()
         if logs.has_errors:
             raise RuntimeError(f"Couldn't create DataSource: {logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
@@ -588,7 +588,7 @@ class DataSourceTestHelper:
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
         self.data_source_impl.open_connection()
-        logs.remove_from_root_logger()
+        logs.close()
         if logs.has_errors:
             raise AssertionError(f"Connection creation has errors. See logs.")
 
