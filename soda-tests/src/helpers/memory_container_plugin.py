@@ -518,7 +518,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     prepare_fn = getattr(test_module, "__prepare_outside__", None)
     if prepare_fn is None:
         raise ValueError(
-            f"memory_container(setup_outside=True) requires " f"__prepare_outside__ in {test_module.__name__}"
+            f"memory_container(setup_outside=True) requires __prepare_outside__ in {test_module.__name__}"
         )
     finalize_fn = getattr(test_module, "__finalize_outside__", None)
 
@@ -1330,13 +1330,19 @@ def _format_failure(rc: int, image: str, stderr: str) -> str:
     return head
 
 
+# A docker container ID is 12–64 lowercase hex chars. Validate the value read
+# from the cidfile before it becomes a `docker kill` argument, so unexpected
+# file content can never turn into an arbitrary command argument (S6350).
+_DOCKER_CID_RE = re.compile(r"[0-9a-f]{12,64}")
+
+
 def _kill_container(cidfile: Path) -> None:
     """Best-effort docker kill of the test container via its cidfile.
     Used when the container exceeds SODA_MEMTEST_CONTAINER_TIMEOUT — the
     --rm flag then cleans the container up after the kill."""
     try:
         cid = cidfile.read_text().strip()
-        if cid:
+        if cid and _DOCKER_CID_RE.fullmatch(cid):
             subprocess.run(["docker", "kill", cid], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as e:
         logging.getLogger(__name__).debug(f"Best-effort container kill failed: {e}")
