@@ -199,13 +199,24 @@ class PostgresDataSourceConnection(DataSourceConnection):
             does not exist``. Postgres materialises the cursor's
             remaining unfetched rows server-side at commit time; the
             client-side memory footprint stays bounded.
-          * INVARIANT: the streaming connection must not be shared with
-            writers that may ROLL BACK before this cursor's first commit —
-            a rollback in that window destroys the not-yet-held cursor
-            (``InvalidCursorName`` on the next fetch). Today this holds by
-            construction: between-source DWH flows always use a separate
-            DWH connection, and reuse_data_source forces in-source SQL
-            transfer (no Python stream at all). Keep it that way.
+          * KNOWN LIMITATION: this cursor is only safe from a writer
+            ROLLBACK once it has been "held" — postgres materialises a
+            ``withhold=True`` cursor at the first ``commit()`` on its
+            connection. Before that first commit, a rollback on the same
+            connection destroys the not-yet-held cursor (``InvalidCursorName``
+            on the next fetch). The between-source DWH pump shares this
+            connection with its bulk-insert writer (postgres uses the base
+            ``get_connection_for_dwh``, which returns the same connection —
+            only SqlServer overrides it to a separate one). In practice the
+            window is narrow: the FIRST ``_optimized_insert`` flush commits
+            (line ``connection.commit()``) and holds the cursor, so every
+            later flush's failure/rollback is safe. The only exposed case is
+            a COPY that fails at *setup* on the very first flush — before any
+            commit — after which ``do_bulk_insert`` rolls back to retry via
+            AST and trips this cursor. That surfaces as a FAILED diagnostics
+            stage (the pump caller records the error), never silent row loss
+            or a dangling stage. reuse_data_source forces in-source SQL
+            transfer (no Python stream at all), so it is unaffected.
         """
         if getattr(self.connection, "autocommit", False):
             # Server-side cursors can't be created in autocommit mode — fall
