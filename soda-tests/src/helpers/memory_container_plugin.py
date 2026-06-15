@@ -1346,23 +1346,29 @@ def _kill_container(cidfile: Path) -> None:
         logging.getLogger(__name__).debug(f"Best-effort container kill failed: {e}")
 
 
-# Bounded quantifiers keep this matcher linear-time (no polynomial backtracking):
-# it runs over container stdout of unbounded length, while a real pytest summary
-# body and duration are short — so the {1,N} caps never truncate a genuine line
-# but remove the ambiguous unbounded-overlap that a ReDoS scanner flags.
-_INNER_SUMMARY_RE = re.compile(r"=+ (?P<body>[^=]{1,500}?) in [0-9.]{1,32}s")
-
-
 def _inner_run_skipped(stdout: str) -> bool:
     """True when the inner pytest's final summary line reports ONLY skips
     (e.g. '==== 1 skipped in 0.01s ===='). Runtime pytest.skip() calls exit
     with rc=0 and are invisible to the static-marker check that runs before
-    docker dispatch."""
+    docker dispatch.
+
+    Parsed with plain string ops rather than a regex: a pytest summary line is a
+    run of '=', then '<body> in <duration>s', then another '=' run. Avoiding a
+    regex here sidesteps the ReDoS class entirely — there's no backtracking to
+    reason about, and it runs over container stdout of unbounded length."""
     for line in reversed(stdout.splitlines()):
-        match = _INNER_SUMMARY_RE.search(line)
-        if match:
-            body = match.group("body")
-            return "skipped" in body and "passed" not in body and "failed" not in body and "error" not in body
+        stripped = line.strip()
+        if not stripped.startswith("="):
+            continue
+        # Strip the surrounding '=' bars, leaving "<body> in <duration>s".
+        inner = stripped.strip("=").strip()
+        body, separator, tail = inner.rpartition(" in ")
+        if not separator or not tail.endswith("s"):
+            continue
+        duration = tail[:-1]  # drop the trailing 's'
+        if not duration or any(char not in "0123456789." for char in duration):
+            continue
+        return "skipped" in body and "passed" not in body and "failed" not in body and "error" not in body
     return False
 
 
