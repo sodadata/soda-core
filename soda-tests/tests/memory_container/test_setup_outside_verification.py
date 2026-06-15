@@ -26,9 +26,11 @@ respected without external plugins.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.memory_container_plugin import FIXED_SCHEMA_ENV, MEMORY_TEST_SCHEMA_NAME
 from helpers.test_table import TestTableSpecification
 
 _TABLE_PURPOSE = "memtest_setup_outside_verification"
@@ -56,14 +58,47 @@ def _table_qualified_name(dsh: DataSourceTestHelper) -> str:
     return table.qualified_name
 
 
+def _forced_schema() -> str:
+    """The schema the verification table actually lives in.
+
+    The memory_container plugin forces every memory test into
+    ``MEMORY_TEST_SCHEMA_NAME`` via ``FIXED_SCHEMA_ENV`` (set on the host
+    during the prepare/finalize hooks and propagated into the container).
+    The precondition/postcondition tests, however, are plain (unmarked)
+    tests: the env var is NOT set while they run, so their fixture helper's
+    cached ``_base_schema_name`` is the natural ``dev_<user>`` — the WRONG
+    schema. Checking that would make every assertion vacuous (the table is
+    never there). Resolve the forced schema explicitly instead, applying the
+    same normalisation the helper uses (see _create_schema_name)."""
+    raw = os.environ.get(FIXED_SCHEMA_ENV) or MEMORY_TEST_SCHEMA_NAME
+    return re.sub("[^0-9a-zA-Z]+", "_", raw).lower()
+
+
 def _table_exists(dsh: DataSourceTestHelper) -> bool:
-    schema = dsh._base_schema_name
+    schema = _forced_schema()
     table_lower = _table_unique_name(dsh).lower()
     sql = (
         f"SELECT EXISTS (SELECT 1 FROM information_schema.tables "
         f"WHERE table_schema = '{schema}' AND lower(table_name) = '{table_lower}')"
     )
     return bool(dsh.data_source_impl.execute_query(sql).rows[0][0])
+
+
+def _drop_in_forced_schema(dsh: DataSourceTestHelper) -> None:
+    """Best-effort drop of the verification table from the forced schema.
+
+    ``_drop_test_table`` qualifies via the helper's cached dataset_prefix
+    (``dev_<user>``), so it can't reach ``dev_memory_testing`` from an
+    unmarked test. Resolve the real (case-preserved) table name from the
+    catalog and drop it directly."""
+    schema = _forced_schema()
+    table_lower = _table_unique_name(dsh).lower()
+    rows = dsh.data_source_impl.execute_query(
+        f"SELECT table_name FROM information_schema.tables "
+        f"WHERE table_schema = '{schema}' AND lower(table_name) = '{table_lower}'"
+    ).rows
+    for (real_name,) in rows:
+        dsh.data_source_impl.execute_update(f'DROP TABLE IF EXISTS "{schema}"."{real_name}" CASCADE')
 
 
 def _table_row_count(dsh: DataSourceTestHelper) -> int:
@@ -109,12 +144,19 @@ def __prepare_outside__(data_source_test_helper: DataSourceTestHelper) -> None:
 
 def __finalize_outside__(data_source_test_helper: DataSourceTestHelper) -> None:
     """Plugin invokes this on the HOST after docker dispatch. Drop the table
-    and assert it was actually dropped."""
+    and assert it was actually dropped.
+
+    ``force=True`` is required: the plugin keeps SODA_MEMTEST_KEEP_TABLES=1
+    set throughout finalize (it is restored only AFTER this hook returns), so
+    a plain ``_drop_test_table`` is a no-op and the table leaks. This is a
+    throwaway verification table, not a reused fixture, so forcing the drop is
+    correct. (An assertion raised here is only logged by the plugin, never
+    failed — ``test_zzz`` is the real gate.)"""
     table_name = _table_unique_name(data_source_test_helper)
-    data_source_test_helper._drop_test_table(table_name=table_name)
+    data_source_test_helper._drop_test_table(table_name=table_name, force=True)
     assert not _table_exists(data_source_test_helper), (
         f"__finalize_outside__: table {table_name} still exists in schema "
-        f"{data_source_test_helper._base_schema_name} after _drop_test_table"
+        f"{_forced_schema()} after _drop_test_table(force=True)"
     )
 
 
@@ -130,11 +172,14 @@ def test_aaa_precondition_table_absent(data_source_test_helper: DataSourceTestHe
     exist. If a previous run left debris, drop it now so the main test starts
     from a clean slate."""
     table_name = _table_unique_name(data_source_test_helper)
-    # Defensive: drop leftover from a previously-crashed run, if any.
+    # Defensive: drop leftover from a previously-crashed run, if any. Target
+    # the forced schema (dev_memory_testing) where the table actually lives —
+    # _drop_test_table would aim at the helper's natural dev_<user> schema.
     if _table_exists(data_source_test_helper):
-        data_source_test_helper._drop_test_table(table_name=table_name)
+        _drop_in_forced_schema(data_source_test_helper)
     assert not _table_exists(data_source_test_helper), (
-        f"Precondition failed: table {table_name} still exists after defensive drop. "
+        f"Precondition failed: table {table_name} still exists in schema "
+        f"{_forced_schema()} after defensive drop. "
         "Investigate manually before re-running this suite."
     )
 
@@ -210,12 +255,12 @@ def test_zzz_postcondition_table_dropped(data_source_test_helper: DataSourceTest
         # Clean up the leak (so subsequent runs of this suite start clean)
         # before failing the test.
         try:
-            data_source_test_helper._drop_test_table(table_name=table_name)
+            _drop_in_forced_schema(data_source_test_helper)
         finally:
             pytest.fail(
                 f"Postcondition failed: table {table_name} still exists in "
-                f"schema {data_source_test_helper._base_schema_name} after "
-                f"__finalize_outside__ should have dropped it. The memory_container "
-                f"plugin's finalize hook is not firing correctly (or "
-                f"__finalize_outside__'s drop silently failed)."
+                f"schema {_forced_schema()} after __finalize_outside__ should "
+                f"have dropped it. The memory_container plugin's finalize hook "
+                f"is not firing correctly (or __finalize_outside__'s drop "
+                f"silently failed — e.g. missing force=True under KEEP_TABLES)."
             )
