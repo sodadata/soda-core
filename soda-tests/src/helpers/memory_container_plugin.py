@@ -1153,7 +1153,9 @@ def _make_artifact_dir(item: pytest.Item) -> Path:
         root = Path(item.config.rootpath) / ARTIFACTS_SUBDIR
     sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", item.nodeid).strip("_")[:120]
     # Disambiguate truncated nodeids and avoid stomping prior runs.
-    short_hash = hashlib.sha1(item.nodeid.encode()).hexdigest()[:8]
+    # Non-cryptographic use: just a short, stable disambiguator for the artifact
+    # dir name. sha256 (over sha1) keeps weak-hash scanners quiet at no cost.
+    short_hash = hashlib.sha256(item.nodeid.encode()).hexdigest()[:8]
     timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     artifact_dir = root / sanitized / f"{timestamp}_{short_hash}"
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -1340,7 +1342,11 @@ def _kill_container(cidfile: Path) -> None:
         logging.getLogger(__name__).debug(f"Best-effort container kill failed: {e}")
 
 
-_INNER_SUMMARY_RE = re.compile(r"=+ (?P<body>[^=]+?) in [0-9.]+s")
+# Bounded quantifiers keep this matcher linear-time (no polynomial backtracking):
+# it runs over container stdout of unbounded length, while a real pytest summary
+# body and duration are short — so the {1,N} caps never truncate a genuine line
+# but remove the ambiguous unbounded-overlap that a ReDoS scanner flags.
+_INNER_SUMMARY_RE = re.compile(r"=+ (?P<body>[^=]{1,500}?) in [0-9.]{1,32}s")
 
 
 def _inner_run_skipped(stdout: str) -> bool:
