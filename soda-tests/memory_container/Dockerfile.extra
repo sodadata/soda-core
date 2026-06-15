@@ -19,14 +19,12 @@ ARG REPO_PARENT=/Users/niels/Repositories/soda_claude
 # Java runtime for sparkdf — pyspark drives a local JVM inside the
 # container (its heap is part of the cgroup measurement, intentionally).
 # procps: spark launch scripts use `ps`.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        openjdk-21-jre-headless procps \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
 # Oracle Instant Client (basiclite): soda-oracle forces python-oracledb
 # THICK mode (init_oracle_client, raises without a client lib — needed for
-# timezone preservation). libaio1 is its runtime dependency.
-RUN apt-get update && apt-get install -y --no-install-recommends libaio1t64 unzip \
+# timezone preservation). libaio1 is its runtime dependency. Installed in the
+# same layer as the JRE to avoid a redundant apt-get update / cache layer.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-21-jre-headless procps libaio1t64 unzip \
     && curl -fsSL -o /tmp/instantclient.zip \
         https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linux-arm64.zip \
     && unzip -q /tmp/instantclient.zip -d /opt/oracle \
@@ -42,9 +40,8 @@ RUN pip install --no-cache-dir \
         "PyAthena>=2.2.0,<3.0" \
         "setuptools>=60" \
         "oracledb>=2.4.1" \
-        "pyspark>=3.5.0"
-
-RUN pip install --no-cache-dir --no-deps \
+        "pyspark>=3.5.0" \
+    && pip install --no-cache-dir --no-deps \
         -e ${REPO_PARENT}/soda-core/soda-duckdb \
         -e ${REPO_PARENT}/soda-core/soda-redshift \
         -e ${REPO_PARENT}/soda-core/soda-synapse \

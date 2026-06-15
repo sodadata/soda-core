@@ -355,4 +355,4 @@ class TestDropTestTableGate:
             monkeypatch.setenv(KEEP_TABLES_ENV, value)
             helper.data_source_impl.execute_update.reset_mock()
             helper._drop_test_table("SODATEST_x")
-            helper.data_source_impl.execute_update.assert_not_called(), value
+            assert not helper.data_source_impl.execute_update.called, value

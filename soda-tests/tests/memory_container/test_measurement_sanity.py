@@ -28,8 +28,9 @@ import pytest
 @pytest.mark.memory_container(limit_mb=256, expect_peak_mb=(100, 230))
 def test_baseline_no_alloc():
     # Minimal body. Reported peak is the "soda + pytest startup floor" we
-    # subtract from data-driven peaks elsewhere.
-    assert True
+    # subtract from data-driven peaks elsewhere. The real assertion is the
+    # expect_peak_mb band, enforced out-of-process by the memory_container plugin.
+    pass
 
 
 @pytest.mark.memory_container(limit_mb=512, expect_peak_mb=(220, 330))

@@ -229,7 +229,7 @@ _DISPATCHED_MEMORY_KEYS: set[str] = set()
 _CONSULTED_MANIFESTS: dict[Path, str] = {}
 
 
-def pytest_sessionstart(session: pytest.Session) -> None:
+def pytest_sessionstart() -> None:
     global _INNER_POLLER
     if os.environ.get(INNER_ENV_VAR) != "1":
         return
@@ -242,7 +242,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     _INNER_POLLER.start()
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+def pytest_sessionfinish() -> None:
     if _INNER_POLLER is not None:
         _INNER_POLLER.stop_and_flush()
     _warn_stale_baseline_keys()
@@ -280,6 +280,11 @@ def _warn_stale_baseline_keys() -> None:
             )
 
 
+# Filename (under each test's artifact dir) holding the peak-bytes integer the
+# in-container poller writes and the host-side reconciliation reads.
+_PEAK_FILENAME = "peak.txt"
+
+
 class _CgroupPoller(threading.Thread):
     """Reads /sys/fs/cgroup/memory.current at ~200 Hz and writes peak + timeseries."""
 
@@ -290,7 +295,7 @@ class _CgroupPoller(threading.Thread):
         self._peak = 0
         self._memory_current = _CGROUP_DIR / "memory.current"
         self._memory_peak = _CGROUP_DIR / "memory.peak"
-        self.peak_path = artifact_dir / "peak.txt"
+        self.peak_path = artifact_dir / _PEAK_FILENAME
         self.timeseries_path = artifact_dir / "rss_timeseries.csv"
         self.cgroup_peak_path = artifact_dir / "cgroup_peak.txt"
         # Pre-create files so they exist even if the poller never runs.
@@ -489,7 +494,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
         _dispatch_and_emit_reports(item, limit_mb)
     finally:
         if setup_outside_state is not None:
-            _run_finalize_outside(item, setup_outside_state)
+            _run_finalize_outside(setup_outside_state)
         _restore_env(FIXED_SCHEMA_ENV, prev_fixed_schema)
         _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
         _restore_env(KEEP_TABLES_ENV, prev_keep_tables)
@@ -596,7 +601,7 @@ def _restore_env(name: str, prev_value: Optional[str]) -> None:
         os.environ[name] = prev_value
 
 
-def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
+def _run_finalize_outside(state: dict) -> None:
     """Call the test module's ``__finalize_outside__`` on the host after the
     main container has finished. Best-effort — swallow exceptions so a
     cleanup failure doesn't mask the test's reported outcome, but log them.
@@ -682,7 +687,7 @@ def _apply_xfail(item: pytest.Item, outcome: str, longrepr: Optional[str]) -> tu
     if xfail.args:
         # Positional condition (e.g. xfail(sys.platform == 'win32', reason=...))
         raise ValueError(
-            "memory_container does not support xfail(condition, ...). Use " "@pytest.mark.skipif for conditional skips."
+            "memory_container does not support xfail(condition, ...). Use @pytest.mark.skipif for conditional skips."
         )
     reason = xfail.kwargs.get("reason", "") or "expected to fail"
     strict = bool(xfail.kwargs.get("strict", False))
@@ -902,7 +907,7 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
 
     if rc != 0:
         return "failed", (
-            _format_failure(rc, limit_mb, image, stderr) + f"\n{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
+            _format_failure(rc, image, stderr) + f"\n{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
         )
 
     if peak_bytes > limit_bytes:
@@ -1068,7 +1073,7 @@ def _lookup_peak_baseline(item: pytest.Item) -> Optional[tuple[float, float]]:
 def _resolve_peak(artifact_dir: Path, host_peak_bytes: int) -> tuple[int, str]:
     """Return (peak_bytes, source_label) using the best available signal."""
     cgroup_peak = _read_int(artifact_dir / "cgroup_peak.txt")
-    inner_peak = _read_int(artifact_dir / "peak.txt")
+    inner_peak = _read_int(artifact_dir / _PEAK_FILENAME)
 
     sources: list[tuple[int, str]] = []
     if cgroup_peak:
@@ -1155,7 +1160,7 @@ def _make_artifact_dir(item: pytest.Item) -> Path:
     # Pre-create inner-poller output files on the host so they exist even if
     # the container OOM-kills before the inner poller writes anything. Lets us
     # distinguish "this source produced 0" from "this source vanished".
-    (artifact_dir / "peak.txt").write_text("0\n")
+    (artifact_dir / _PEAK_FILENAME).write_text("0\n")
     (artifact_dir / "rss_timeseries.csv").write_text("timestamp_ns,rss_bytes\n")
     return artifact_dir
 
@@ -1302,7 +1307,7 @@ def _generate_memray_reports(image: str, artifact_dir: Path, bin_path: Path) -> 
     return produced
 
 
-def _format_failure(rc: int, limit_mb: int, image: str, stderr: str) -> str:
+def _format_failure(rc: int, image: str, stderr: str) -> str:
     if rc == 125:
         head = (
             f"Docker daemon rejected the run (exit 125). Likely causes: image "
@@ -1311,7 +1316,7 @@ def _format_failure(rc: int, limit_mb: int, image: str, stderr: str) -> str:
             f"or the Docker daemon is not running."
         )
     elif rc == 127:
-        head = "`docker` not found on PATH (exit 127). Install Docker / Docker Desktop " "and ensure it's on PATH."
+        head = "`docker` not found on PATH (exit 127). Install Docker / Docker Desktop and ensure it's on PATH."
     else:
         head = f"Container pytest exited {rc}."
 
@@ -1374,7 +1379,7 @@ def _build_report(
     return TestReport(
         nodeid=item.nodeid,
         location=item.location,
-        keywords={k: 1 for k in item.keywords},
+        keywords=dict.fromkeys(item.keywords, 1),
         outcome=outcome,
         longrepr=longrepr,
         when=when,

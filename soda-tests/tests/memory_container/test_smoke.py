@@ -121,7 +121,7 @@ def test_host_docker_internal_reaches_host():
         sock.settimeout(2.0)
         try:
             sock.connect((addr, 5432))
-        except (ConnectionRefusedError, TimeoutError, OSError) as e:
+        except OSError as e:
             # Postgres might not be up; that's not a Phase-3 failure. Just
             # don't assert anything stronger than DNS in that case.
             print(

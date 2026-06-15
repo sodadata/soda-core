@@ -1021,7 +1021,6 @@ class DataSourceTestHelper:
         rows = test_table.row_values
         if not rows:
             return
-        column_names = list(spec_columns.keys())
         length_fn = self._string_length_sql_function()
         dialect = self.data_source_impl.sql_dialect
 

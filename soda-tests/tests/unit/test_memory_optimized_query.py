@@ -106,7 +106,7 @@ class _FakeStreamCursor:
         self.fetch_sizes = []
 
     def execute(self, sql):
-        pass
+        """No-op stub: rows are served by fetchmany(), not execute()."""
 
     def fetchmany(self, n):
         self.fetch_sizes.append(n)
