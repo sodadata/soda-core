@@ -28,7 +28,7 @@ class BaseSqlExpression:
         self._parent_node_ref = None
 
     def __post_init__(self):
-        pass
+        """Base of the dataclass __post_init__ super() chain; intentionally a no-op."""
 
     def get_parent_node(self) -> Optional[BaseSqlExpression]:
         if self._parent_node_ref is None:

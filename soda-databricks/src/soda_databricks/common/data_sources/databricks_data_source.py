@@ -98,9 +98,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
 class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     DEFAULT_QUOTE_CHAR = "`"
-    # Databricks SQL rejects ``DROP TABLE ... CASCADE`` with a PARSE_SYNTAX_ERROR.
-    SUPPORTS_DROP_TABLE_CASCADE: bool = False
-
     # Databricks SQL rejects DROP TABLE ... CASCADE with PARSE_SYNTAX_ERROR
     # (CASCADE is valid on DROP SCHEMA only) — same as sparkdf/trino/athena.
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
