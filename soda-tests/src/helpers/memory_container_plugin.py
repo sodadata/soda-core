@@ -517,9 +517,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     test_module = item.module
     prepare_fn = getattr(test_module, "__prepare_outside__", None)
     if prepare_fn is None:
-        raise ValueError(
-            f"memory_container(setup_outside=True) requires __prepare_outside__ in {test_module.__name__}"
-        )
+        raise ValueError(f"memory_container(setup_outside=True) requires __prepare_outside__ in {test_module.__name__}")
     finalize_fn = getattr(test_module, "__finalize_outside__", None)
 
     # Extract parametrize values to forward as kwargs.
