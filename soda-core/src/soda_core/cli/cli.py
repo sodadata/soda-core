@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import sys
 import traceback
@@ -56,12 +57,22 @@ LEGACY_V3_COMMANDS = frozenset(
 soda_telemetry = SodaTelemetry()
 
 
+def _print_banner() -> None:
+    """The ASCII logo is a cosmetic, interactive-only nicety. It must NEVER touch
+    stdout — machine consumers pipe `--json`/redirect stdout — and should not pollute
+    redirected logs either, so it goes to stderr only when that is a real terminal.
+    Set SODA_NO_BANNER=1 to silence it entirely."""
+    if os.environ.get("SODA_NO_BANNER") or not sys.stderr.isatty():
+        return
+    print(r"  __|  _ \|  \   \\", file=sys.stderr)
+    print(r"\__ \ (   |   | _ \\", file=sys.stderr)
+    print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION, file=sys.stderr)
+
+
 @soda_trace
 def execute() -> None:
     try:
-        print(r"  __|  _ \|  \   \\")
-        print(r"\__ \ (   |   | _ \\")
-        print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION)
+        _print_banner()
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
 
