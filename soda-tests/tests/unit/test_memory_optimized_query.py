@@ -13,7 +13,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
