@@ -23,6 +23,14 @@ _FAT_INDEX = 12
 _FAT_BYTES = 2 * 1024 * 1024  # exceeds nothing fatal, but shrinks the fetch batch
 
 
+@pytest.fixture(autouse=True)
+def _enable_server_side_streaming_cursor(monkeypatch):
+    """The postgres server-side streaming cursor is DISABLED by default in
+    production (perf — env-gated via PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED).
+    This file verifies that implementation, so enable it per-test."""
+    monkeypatch.setenv("PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED", "true")
+
+
 def _streaming_spec() -> TestTableSpecification:
     rows = []
     for i in range(_N_ROWS):

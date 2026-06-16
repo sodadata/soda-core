@@ -12,10 +12,20 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
+
+
+@pytest.fixture(autouse=True)
+def _enable_server_side_streaming_cursor(monkeypatch):
+    """The postgres server-side streaming cursor is DISABLED by default in
+    production (perf — env-gated via PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED).
+    These tests cover that implementation, so enable it per-test."""
+    monkeypatch.setenv("PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED", "true")
 
 
 class _StubConnection(DataSourceConnection):
@@ -48,6 +58,14 @@ def _make_postgres_connection(autocommit: bool) -> PostgresDataSourceConnection:
     pg = PostgresDataSourceConnection.__new__(PostgresDataSourceConnection)
     pg.connection = MagicMock()
     pg.connection.autocommit = autocommit
+    # Safeguard against runaway loops: the buffered base fetch loops on
+    # `while cursor.fetchone()`, and a bare MagicMock.fetchone() returns a
+    # truthy Mock endlessly. Bound the DEFAULT (non-context-manager) cursor's
+    # fetches to None/[] so any buffered path terminates immediately. Tests that
+    # need rows override these, or feed the server-side path via __enter__.
+    default_cursor = pg.connection.cursor.return_value
+    default_cursor.fetchone.return_value = None
+    default_cursor.fetchmany.return_value = []
     return pg
 
 
@@ -112,6 +130,14 @@ class _FakeStreamCursor:
         self.fetch_sizes.append(n)
         batch, self._rows = self._rows[:n], self._rows[n:]
         return batch
+
+    def fetchone(self):
+        # Safeguard: drains the same finite canned list so the buffered base
+        # path (if ever taken with this cursor) terminates instead of looping.
+        if not self._rows:
+            return None
+        row, self._rows = self._rows[0], self._rows[1:]
+        return row
 
 
 def _stream_rows(rows, row_limit=None):
