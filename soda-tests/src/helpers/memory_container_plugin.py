@@ -42,6 +42,7 @@ import sys
 import tempfile
 import threading
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
@@ -741,12 +742,21 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     # log-heavy run.) log_file stays as a net for third-party records that
     # do propagate to the root logger.
     inner_debug_log_path = artifact_dir / "inner_debug.log"
+    # Machine-readable per-test outcome. With ``-s`` the inner pytest's stdout
+    # interleaves the test body's own prints, so scraping the summary line for the
+    # runtime-skip signal is fragile (a body that prints a fake "1 skipped" bar line
+    # could be misread). The JUnit XML is written by pytest itself from the real
+    # report objects and is immune to stdout pollution; we prefer it and fall back to
+    # stdout scraping only if it's missing/unparseable.
+    junit_path = artifact_dir / "inner_junit.xml"
     _pytest_args = [
         "--no-header",
         "-p",
         "no:cacheprovider",
         "--tb=short",
         "-s",
+        "--junitxml",
+        str(junit_path),
         "-o",
         f"log_file={inner_debug_log_path}",
         "-o",
@@ -830,9 +840,14 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         )
     except BaseException:
         # Ctrl-C (or any other interruption) used to leave the container
-        # running detached — kill it before propagating.
+        # running detached — kill it before propagating. Also stop the host
+        # stats poller (a daemon thread, but on a long interrupt it would keep
+        # spawning `docker stats` subprocesses until joined) — mirrors the
+        # timeout branch above so no interruption leaves it running.
         _kill_container(cidfile)
         proc.kill()
+        host_poller.stop()
+        host_poller.join(timeout=2.0)
         raise
     finally:
         if env_file_path is not None:
@@ -923,7 +938,11 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         )
         return "failed", msg
 
-    if _inner_run_skipped(stdout):
+    # Prefer the structured JUnit outcome (immune to -s stdout pollution); fall back to
+    # scraping the summary line only when the XML is missing/unparseable.
+    junit_outcome = _inner_outcome_from_junit(junit_path)
+    inner_skipped = junit_outcome == "skipped" if junit_outcome is not None else _inner_run_skipped(stdout)
+    if inner_skipped:
         # The body called pytest.skip() at runtime (the static-marker check
         # before dispatch can't see those): the inner pytest exits 0 with
         # '1 skipped' and no test actually ran — the peak is just the
@@ -1351,6 +1370,48 @@ def _kill_container(cidfile: Path) -> None:
             subprocess.run(["docker", "kill", cid], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as e:
         logging.getLogger(__name__).debug(f"Best-effort container kill failed: {e}")
+
+
+def _inner_outcome_from_junit(junit_path: Path) -> Optional[str]:
+    """Outcome of the single dispatched inner test, read from pytest's JUnit XML —
+    the structured, stdout-pollution-immune signal. Returns 'skipped' / 'failed' /
+    'error' / 'passed', or None when the file is missing/unparseable or no test ran
+    (the caller then falls back to stdout scraping).
+
+    Exactly one nodeid is dispatched, so the testsuite holds one testcase; we trust
+    the machine-readable counts rather than scraping ``-s`` stdout, where the test
+    body's own prints interleave with pytest's summary."""
+    try:
+        text = junit_path.read_text()
+    except OSError:
+        return None
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return None
+    # pytest emits <testsuites><testsuite .../></testsuites>; older configs a bare
+    # <testsuite>. Handle both.
+    suite = root if root.tag == "testsuite" else root.find("testsuite")
+    if suite is None:
+        return None
+
+    def _count(attr: str) -> int:
+        try:
+            return int(suite.get(attr, "0"))
+        except (TypeError, ValueError):
+            return 0
+
+    tests = _count("tests")
+    if tests == 0:
+        return None  # nothing ran — let rc / other gates decide
+    if _count("errors"):
+        return "error"
+    if _count("failures"):
+        return "failed"
+    skipped = _count("skipped")
+    if skipped and skipped == tests:
+        return "skipped"
+    return "passed"
 
 
 def _inner_run_skipped(stdout: str) -> bool:

@@ -20,7 +20,14 @@ from __future__ import annotations
 import sys
 
 NODE_BUDGET_DEFAULT: int = 1000
-# Recursion guard for adversarial nesting; the node budget governs cost.
+# Recursion guard for adversarial (or accidentally cyclic) nesting; the node
+# budget governs cost. A container nested deeper than this stops being walked
+# and counts as its header only, so a fat leaf buried beyond _MAX_DEPTH is
+# UNDER-counted (the unsafe direction — it could let a larger batch through).
+# This is an accepted trade-off: realistic query results (jsonb / arrays /
+# structs) are far shallower than 32 levels, and the read/insert byte budgets
+# that consume this estimate are themselves bounded by row-count caps and a
+# growth ramp, so any single under-count cannot blow the memory ceiling.
 _MAX_DEPTH: int = 32
 
 # Read the actual singleton size off the running interpreter rather than
