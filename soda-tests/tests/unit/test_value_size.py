@@ -20,8 +20,8 @@ class TestLeaves:
         for value in ("x" * 1000, b"y" * 1000, 42, 3.14, True):
             assert estimate_value_size(value) == sys.getsizeof(value)
 
-    def test_none_is_pointer_size(self):
-        assert estimate_value_size(None) == 16
+    def test_none_matches_getsizeof(self):
+        assert estimate_value_size(None) == sys.getsizeof(None)
 
 
 class TestNestedContainers:

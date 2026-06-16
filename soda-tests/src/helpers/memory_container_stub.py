@@ -38,9 +38,11 @@ def lookup_forced_table_name(table_purpose: str) -> Optional[str]:
     """Look up the host-built unique_name for the given table purpose.
 
     Returns None when not in a memory container, when the env var is absent,
-    or when no ensured table matches the purpose. Matching is by case-insensitive
-    substring on the unique_name (host names are formatted as
-    ``SODATEST_<purpose>_<hash>``).
+    or when no ensured table matches the purpose. Host names are formatted as
+    ``SODATEST_<purpose>_<hash>``; matching is on the ``<purpose>`` segment as a
+    ``_``-delimited, case-insensitive token. A bare substring match would let a
+    short purpose like ``"frq"`` spuriously resolve to a longer table's
+    ``"frq_fat"`` name; bounding by the surrounding underscores prevents that.
     """
     if not in_memory_container():
         return None
@@ -51,9 +53,12 @@ def lookup_forced_table_name(table_purpose: str) -> Optional[str]:
         names = json.loads(raw)
     except (ValueError, TypeError):
         return None
-    purpose_lower = table_purpose.lower()
+    purpose_token = f"_{table_purpose.lower()}_"
     for name in names:
-        if purpose_lower in name.lower():
+        # Pad the name with delimiters so the purpose matches whether it sits at
+        # the start, middle, or end of the unique_name (it's the middle segment
+        # in the SODATEST_<purpose>_<hash> format, but stay tolerant).
+        if purpose_token in f"_{name.lower()}_":
             return name
     return None
 

@@ -1152,6 +1152,15 @@ class DataSourceTestHelper:
                 # Estimate was too loose (extreme escaping). Halve and retry.
                 chunk_size = max(1, chunk_size // 2)
                 continue
+            # When chunk_size == 1 we deliberately fall through and attempt the
+            # statement even if it exceeds max_len. The fat-row fixtures
+            # (scaling[1x100M], frq_fat[1x100M], the 100 MB unbounded-text
+            # round-trip) push single rows whose INSERT is ~105 MB — above the
+            # generic 63 MB cap — and the drivers accept them (postgres allows
+            # ~1 GB statements). A single row can't be split, so there is
+            # nothing left to shrink. If a driver DOES reject it, execute_update
+            # lets the error propagate and fails fixture setup loudly — exactly
+            # the signal we want, never a silent skip.
             self.data_source_impl.execute_update(chunk_sql)
             i += chunk_size
 

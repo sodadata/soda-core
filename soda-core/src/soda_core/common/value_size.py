@@ -23,7 +23,11 @@ NODE_BUDGET_DEFAULT: int = 1000
 # Recursion guard for adversarial nesting; the node budget governs cost.
 _MAX_DEPTH: int = 32
 
-_NONE_SIZE: int = 16  # pointer size
+# Read the actual singleton size off the running interpreter rather than
+# hard-coding it: it's 16 on CPython 64-bit (where Soda runs) but is
+# build/architecture dependent, and this keeps the estimate — and the test
+# that pins it — accurate everywhere.
+_NONE_SIZE: int = sys.getsizeof(None)
 
 
 def estimate_value_size(value, node_budget: int = NODE_BUDGET_DEFAULT) -> int:

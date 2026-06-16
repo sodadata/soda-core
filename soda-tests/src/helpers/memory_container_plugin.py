@@ -702,7 +702,15 @@ def _apply_xfail(item: pytest.Item, outcome: str, longrepr: Optional[str]) -> tu
 
 def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[str]]:
     image = os.environ.get("SODA_MEMTEST_IMAGE", DEFAULT_IMAGE_TAG)
-    bind_root = str(REPO_PARENT)
+    # Mount only the project repos, NOT the whole REPO_PARENT tree: the parent
+    # also holds unrelated sibling content (scratch dirs, other checkouts,
+    # local notes) the container has no reason to see. Both repos are required
+    # because the memtest image's editable installs span them (soda-core +
+    # soda-extensions adapters/extensions) and their .pth entries reference
+    # these host absolute paths — mounting each repo at its own host path keeps
+    # those resolvable while dropping everything else in the parent.
+    bind_dirs = [d for d in (REPO_PARENT / "soda-core", REPO_PARENT / "soda-extensions") if d.is_dir()]
+    repo_mount_args = [arg for d in bind_dirs for arg in ("-v", f"{d}:{d}:ro")]
     rootdir = str(item.config.rootpath)
 
     artifact_dir = _make_artifact_dir(item)
@@ -779,14 +787,13 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         f"--memory={limit_mb}m",
         f"--memory-swap={limit_mb}m",
         "--add-host=host.docker.internal:host-gateway",
-        # Broad mount is read-only so a misbehaving test can't write to the
-        # host repo or scribble on credential files. Artifact subdir is
+        # Repo mounts are read-only so a misbehaving test can't write to the
+        # host repos or scribble on credential files. Artifact subdir is
         # overlaid as :rw so the inner poller and memray can write outputs.
-        "-v",
-        f"{bind_root}:{bind_root}:ro",
+        *repo_mount_args,
         "-v",
         f"{artifact_dir}:{artifact_dir}:rw",
-        *_build_credential_mount_args(bind_root),
+        *_build_credential_mount_args([str(d) for d in bind_dirs]),
         "-w",
         rootdir,
         *env_args,
@@ -1464,7 +1471,7 @@ def _build_env_args(artifact_dir: Path) -> tuple[list[str], Optional[Path]]:
     return args, env_file_path
 
 
-def _build_credential_mount_args(bind_root: str) -> list[str]:
+def _build_credential_mount_args(bind_roots: list[str]) -> list[str]:
     """Bind-mount credential paths into the container read-only.
 
     Sources:
@@ -1472,12 +1479,12 @@ def _build_credential_mount_args(bind_root: str) -> list[str]:
          whose value is an absolute path that exists on the host.
       2. Well-known dirs: ~/.aws, ~/.config/gcloud, ~/.azure.
 
-    Skips anything already under bind_root (already mounted RO via the broad mount)
+    Skips anything already under one of the repo bind roots (already mounted RO)
     or duplicates. Mount target == source path so env values resolve transparently.
     """
     args: list[str] = []
     mounted: set[str] = set()
-    bind_root_resolved = str(Path(bind_root).resolve())
+    bind_roots_resolved = [str(Path(b).resolve()) for b in bind_roots]
 
     def _add(host_path: Path) -> None:
         try:
@@ -1487,8 +1494,8 @@ def _build_credential_mount_args(bind_root: str) -> list[str]:
         resolved_str = str(resolved)
         if resolved_str in mounted:
             return
-        # Already covered by the broad RO mount.
-        if resolved_str == bind_root_resolved or resolved_str.startswith(bind_root_resolved + os.sep):
+        # Already covered by one of the repo RO mounts.
+        if any(resolved_str == br or resolved_str.startswith(br + os.sep) for br in bind_roots_resolved):
             return
         # Denylisted: don't auto-mount sensitive subtrees regardless of how the
         # env var was named (e.g. a `FOO_PATH=~/.ssh/id_rsa` should NOT leak).
