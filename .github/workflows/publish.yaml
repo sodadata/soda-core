@@ -16,18 +16,25 @@ name: Publish to PyPI
 # creates releases.
 #
 # Triggers:
-#   release: published   -> standard path. Fires automatically when a GitHub
-#                           Release is created (e.g. by release-buddy), so new
-#                           releases reach public PyPI without a manual step.
-#   workflow_dispatch    -> backfill / recovery. Publish a specific existing
-#                           tag (e.g. v4.14.0, or the 4.8.0-4.13.0 backlog).
+#   push: tags (v*)      -> standard path. The release tag is the canonical
+#                           "this version exists" signal and is always pushed
+#                           by release-buddy, so we key off the tag directly.
+#                           (A GitHub Release is best-effort — release-buddy
+#                           tolerates `gh release create` failing — so keying
+#                           off `release: published` could silently skip a
+#                           publish, the very gap this closes. A tag can't be
+#                           missed.)
+#   workflow_dispatch    -> backfill / recovery for an already-existing tag
+#                           (e.g. v4.14.0, or the 4.8.0-4.13.0 backlog); a tag
+#                           pushed before this workflow existed won't re-fire.
 #
 # twine runs with --skip-existing, so re-runs are safe and the automatic path
 # does not fail when a registry already has the version (e.g. Soda PyPI).
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -41,7 +48,7 @@ on:
         default: false
 
 concurrency:
-  group: publish-${{ github.event.release.tag_name || inputs.tag }}
+  group: publish-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -56,7 +63,7 @@ jobs:
       - name: Resolve tag
         id: ref
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           if [ -z "$TAG" ]; then
             echo "::error::No tag provided."; exit 1
           fi
