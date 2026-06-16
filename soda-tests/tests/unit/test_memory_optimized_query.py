@@ -20,11 +20,12 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
 
 
 @pytest.fixture(autouse=True)
-def _enable_server_side_streaming_cursor(monkeypatch):
-    """The postgres server-side streaming cursor is DISABLED by default in
-    production (perf — env-gated via PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED).
-    These tests cover that implementation, so enable it per-test."""
-    monkeypatch.setenv("PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED", "true")
+def _enable_memory_optimized_driver(monkeypatch):
+    """The memory-optimized fetch driver (e.g. postgres' server-side streaming
+    cursor) is DISABLED by default in production (perf — env-gated via
+    MEMORY_OPTIMIZED_DRIVER_ENABLED). These tests cover that implementation, so
+    enable it per-test."""
+    monkeypatch.setenv("MEMORY_OPTIMIZED_DRIVER_ENABLED", "true")
 
 
 class _StubConnection(DataSourceConnection):

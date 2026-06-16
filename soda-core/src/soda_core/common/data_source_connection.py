@@ -17,6 +17,27 @@ logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
 
+# General toggle for the memory-optimized fetch driver across ALL data source
+# connections. Env-gated and disabled by default.
+MEMORY_OPTIMIZED_DRIVER_ENABLED_ENV: str = "MEMORY_OPTIMIZED_DRIVER_ENABLED"
+
+
+def is_memory_optimized_driver_enabled() -> bool:
+    """Whether the memory-optimized fetch driver is enabled for data source
+    connections. Env-gated (``MEMORY_OPTIMIZED_DRIVER_ENABLED``) and DISABLED by
+    default.
+
+    When disabled, every connection's ``execute_query_one_by_one_memory_optimized``
+    uses the buffered base fetch. When enabled, connections that implement a
+    low-memory fetch (e.g. postgres' server-side streaming cursor, via
+    ``_execute_query_one_by_one_memory_optimized_impl``) use it. Disabled by
+    default because the memory-optimized path trades throughput for bounded peak
+    memory and regresses DWH runtime on fast / low-latency sources. Read at call
+    time so it can be toggled per-process (or per-test via monkeypatch.setenv).
+    """
+    return os.getenv(MEMORY_OPTIMIZED_DRIVER_ENABLED_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 # IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
 # of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
 # whether the driver reports the literal string ``"UTC"`` or one of the IANA aliases
@@ -367,16 +388,38 @@ class DataSourceConnection(ABC):
     ) -> tuple[tuple]:
         """Memory-optimized variant of ``execute_query_one_by_one``.
 
-        Callers that stream potentially large result sets through Python
-        with a bounded buffer — the diagnostics-warehouse failed-rows
-        flows — call this instead of the base method. Data sources with a
-        low-memory fetch strategy override it (e.g. postgres opens a
-        server-side named cursor and fetches byte-budgeted batches, trading
-        throughput for a peak bounded by roughly one batch plus the largest
-        single row instead of the whole result set). The default delegates
-        to the base method, so adapters without (or not needing) an
-        optimized fetch keep the proven buffered behavior.
+        Callers that stream potentially large result sets through Python with a
+        bounded buffer — the diagnostics-warehouse failed-rows flows — call this
+        instead of the base method.
+
+        Gated by the general ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env toggle
+        (disabled by default). When disabled, every connection uses the buffered
+        base fetch. When enabled, the call is dispatched to
+        ``_execute_query_one_by_one_memory_optimized_impl``, which data sources
+        with a low-memory fetch strategy override (e.g. postgres opens a
+        server-side named cursor and fetches byte-budgeted batches, bounding peak
+        memory to ~one batch plus the largest single row). Adapters without an
+        override keep the proven buffered behavior even when enabled.
         """
+        if is_memory_optimized_driver_enabled():
+            return self._execute_query_one_by_one_memory_optimized_impl(
+                sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+            )
+        return self.execute_query_one_by_one(
+            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+        )
+
+    def _execute_query_one_by_one_memory_optimized_impl(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        """Memory-optimized fetch implementation, invoked only when the
+        ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` toggle is on. The base default is the
+        buffered fetch; adapters with a real low-memory fetch (e.g. postgres'
+        server-side streaming cursor) override this."""
         return self.execute_query_one_by_one(
             sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
@@ -35,26 +34,6 @@ STREAM_FETCH_MAX_BATCH_ROWS: int = 1000
 # row cap before any fat row has been seen — 1000 x 0.5 MB rows is a 500 MB
 # fetchmany. With it, overshoot is bounded by ~4x the previous batch.
 STREAM_FETCH_GROWTH_FACTOR: int = 4
-
-# Perf toggle (env var). The postgres server-side streaming cursor in
-# execute_query_one_by_one_memory_optimized bounds peak memory but adds
-# per-batch FETCH round-trips that regress DWH failed-rows runtime on postgres
-# between-source (~+18% at scale; confirmed via branch-vs-main A/B plus a
-# buffered-path toggle that recovered parity). DISABLED by default: the method
-# falls back to the buffered base fetch. Set PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED
-# to a truthy value (1/true/yes/on) to re-enable. The server-side implementation
-# is kept intact below and runs when enabled. A future conditional re-enable can
-# restrict the streaming cursor to large/unbounded result sets.
-PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED_ENV: str = "PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED"
-
-
-def is_server_side_streaming_cursor_enabled() -> bool:
-    """Whether the postgres server-side streaming cursor is enabled.
-
-    Env-gated and disabled by default. Read at call time so it can be toggled
-    per-process (or per-test via monkeypatch.setenv) without reimport.
-    """
-    return os.getenv(PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _estimate_row_bytes(row: tuple) -> int:
@@ -177,7 +156,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
             self.rollback()
             raise e
 
-    def execute_query_one_by_one_memory_optimized(
+    def _execute_query_one_by_one_memory_optimized_impl(
         self,
         sql: str,
         row_callback: Callable[[tuple, tuple[tuple]], None],
@@ -186,6 +165,10 @@ class PostgresDataSourceConnection(DataSourceConnection):
     ) -> tuple[tuple]:
         """Postgres override: server-side (named) cursor that streams rows
         in byte-budgeted batches instead of buffering the whole result.
+
+        Invoked only when the general MEMORY_OPTIMIZED_DRIVER_ENABLED toggle is
+        on (the base ``execute_query_one_by_one_memory_optimized`` gates and
+        dispatches here). Disabled by default.
 
         The base ``DataSourceConnection.execute_query_one_by_one`` uses
         ``self.connection.cursor()`` without a name. For psycopg3 that's a
@@ -239,13 +222,6 @@ class PostgresDataSourceConnection(DataSourceConnection):
             or a dangling stage. reuse_data_source forces in-source SQL
             transfer (no Python stream at all), so it is unaffected.
         """
-        if not is_server_side_streaming_cursor_enabled():
-            # Disabled by default (set PG_SERVER_SIDE_STREAMING_CURSOR_ENABLED=true
-            # to re-enable): fall back to the buffered base fetch to avoid the
-            # DWH-runtime regression. The server-side implementation below is
-            # intentionally kept intact and runs when the env toggle is enabled.
-            return self.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
-
         if getattr(self.connection, "autocommit", False):
             # Server-side cursors can't be created in autocommit mode — fall
             # back to the buffered base implementation rather than fail.
