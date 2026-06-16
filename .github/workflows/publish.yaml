@@ -28,8 +28,17 @@ name: Publish to PyPI
 #                           (e.g. v4.14.0, or the 4.8.0-4.13.0 backlog); a tag
 #                           pushed before this workflow existed won't re-fire.
 #
-# twine runs with --skip-existing, so re-runs are safe and the automatic path
-# does not fail when a registry already has the version (e.g. Soda PyPI).
+# Idempotency (re-runs / backfills must not fail on an already-published
+# version) is handled per-registry, because the two indexes differ:
+#   public PyPI        -> supports `twine upload --skip-existing`.
+#   pypi.cloud.soda.io -> devpi index; does NOT support --skip-existing
+#                         (`UnsupportedConfiguration: ... --skip-existing`).
+#                         So we upload plain and treat an "already exists"
+#                         rejection as success.
+#
+# Approval: only the `approve` job references the production-release
+# environment, so reviewers get ONE approval request per run rather than one
+# per matrix leg.
 
 on:
   push:
@@ -85,11 +94,22 @@ jobs:
         id: modules
         run: echo "modules=$(bash scripts/release_matrix.sh)" >> "$GITHUB_OUTPUT"
 
-  publish:
-    name: Publish ${{ matrix.module }}
+  # Single approval gate for the whole run. Only this job carries the
+  # production-release environment, so reviewers approve ONCE per run instead
+  # of once per matrix leg (one email, not 14). Secrets are repo-level, so the
+  # publish matrix below still has access without referencing the environment.
+  approve:
+    name: Approve publish
     needs: [resolve]
     runs-on: ubuntu-24.04
     environment: production-release
+    steps:
+      - run: echo "Publishing ${{ needs.resolve.outputs.tag }} approved."
+
+  publish:
+    name: Publish ${{ matrix.module }}
+    needs: [resolve, approve]
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -157,10 +177,19 @@ jobs:
           TWINE_PASSWORD: ${{ env.PYPI_PASSWORD }}
         run: |
           source .venv/bin/activate
+          # pypi.cloud.soda.io (devpi) does NOT support --skip-existing, so we
+          # upload plain and treat an "already exists" rejection as success to
+          # keep re-runs / backfills idempotent.
           RESULT="failure"
           for attempt in 1 2 3; do
-            if twine upload --skip-existing "${{ matrix.module }}"/dist/*; then
-              RESULT="success"; echo "Soda PyPI upload succeeded on attempt $attempt"; break
+            OUT="$(twine upload "${{ matrix.module }}"/dist/* 2>&1)" && {
+              echo "$OUT"; RESULT="success"
+              echo "Soda PyPI upload succeeded on attempt $attempt"; break
+            }
+            echo "$OUT"
+            if echo "$OUT" | grep -qiE "already (exists|been uploaded)|this filename has already been used|409 (conflict|client error)"; then
+              RESULT="success"
+              echo "Soda PyPI already has this version — treating as success."; break
             fi
             if [ "$attempt" -lt 3 ]; then
               DELAY=$((attempt * 15))
