@@ -21,11 +21,33 @@ from tabulate import tabulate
 # connections. Env-gated and disabled by default.
 MEMORY_OPTIMIZED_DRIVER_ENABLED_ENV: str = "MEMORY_OPTIMIZED_DRIVER_ENABLED"
 
+# Process-level override set from the Soda Cloud diagnostics-warehouse config
+# (the `use_memory_optimized` feature flag, plumbed in by soda-extensions). ORed
+# with the env toggle: either source can turn the driver on.
+_memory_optimized_override: bool = False
+
+# One-off guard so the "driver active" line is logged once per process, not per query.
+_memory_optimized_logged: bool = False
+
+
+def set_memory_optimized_override(enabled: Optional[bool]) -> None:
+    """Enable the memory-optimized fetch driver from outside the env toggle.
+
+    Called by soda-extensions when Soda Cloud sends ``use_memory_optimized`` with
+    the diagnostics-warehouse configuration. ORed with
+    ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` in ``is_memory_optimized_driver_enabled``,
+    so the backend flag can turn the driver on regardless of the env var. A falsy
+    value leaves the env var as the sole control.
+    """
+    global _memory_optimized_override
+    _memory_optimized_override = bool(enabled)
+
 
 def is_memory_optimized_driver_enabled() -> bool:
     """Whether the memory-optimized fetch driver is enabled for data source
-    connections. Env-gated (``MEMORY_OPTIMIZED_DRIVER_ENABLED``) and DISABLED by
-    default.
+    connections. Enabled when EITHER the Soda Cloud override
+    (``set_memory_optimized_override``) OR the env var
+    (``MEMORY_OPTIMIZED_DRIVER_ENABLED``) is on; DISABLED by default.
 
     When disabled, every connection's ``execute_query_one_by_one_memory_optimized``
     uses the buffered base fetch. When enabled, connections that implement a
@@ -35,6 +57,8 @@ def is_memory_optimized_driver_enabled() -> bool:
     memory and regresses DWH runtime on fast / low-latency sources. Read at call
     time so it can be toggled per-process (or per-test via monkeypatch.setenv).
     """
+    if _memory_optimized_override:
+        return True
     return os.getenv(MEMORY_OPTIMIZED_DRIVER_ENABLED_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -402,6 +426,10 @@ class DataSourceConnection(ABC):
         override keep the proven buffered behavior even when enabled.
         """
         if is_memory_optimized_driver_enabled():
+            global _memory_optimized_logged
+            if not _memory_optimized_logged:
+                _memory_optimized_logged = True
+                logger.info("Memory-optimized fetch driver active (%s)", type(self).__name__)
             return self._execute_query_one_by_one_memory_optimized_impl(
                 sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
             )
