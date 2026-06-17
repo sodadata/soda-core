@@ -305,6 +305,23 @@ class FreshnessCheckResult(CheckResult):
         self.freshness_in_seconds: Optional[int] = freshness_in_seconds
         self.unit: Optional[str] = unit
 
+    # Seconds per freshness unit, mirroring _convert_freshness_seconds_to_check_unit.
+    _UNIT_SECONDS: dict[str, int] = {"second": 1, "minute": 60, "hour": 60 * 60, "day": 60 * 60 * 24}
+
+    def get_soda_cloud_measure(self) -> Optional[str]:
+        # Freshness is semantically a duration: tag it so Soda Cloud formats the
+        # value as "X days and Y hours" instead of a raw float.
+        return "time"
+
+    def to_soda_cloud_measure_value(self, value: Optional[float | int]) -> Optional[int]:
+        # Soda Cloud's "time" measure expects milliseconds — this is the V3 wire
+        # contract (soda-library FreshnessCheck sent round(total_seconds * 1000)).
+        # The check value and its thresholds are expressed in the configured ``unit``,
+        # so scale unit -> milliseconds.
+        if value is None:
+            return None
+        return round(value * self._UNIT_SECONDS[self.unit] * 1000)
+
     # def log_summary(self, logs: Logs) -> None:
     #     super().log_summary(logs)
     #

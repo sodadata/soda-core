@@ -769,6 +769,55 @@ def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected
     assert not isinstance(diagnostics["value"], bool)
 
 
+def test_build_diagnostics_json_dict_sets_measure_time_for_freshness():
+    # V4 (contract-scan) freshness values rendered as raw floats in the check charts
+    # because soda-core never emitted a unit/type marker. Soda Cloud
+    # reads ``diagnostics.measure`` (BE ``GenericCoreCheckDiagnostics.getMeasure()``);
+    # for freshness it must be ``"time"`` so the value is formatted as a duration.
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckResult,
+    )
+
+    check_result = FreshnessCheckResult(
+        check=mock.MagicMock(),
+        outcome=CheckOutcome.PASSED,
+        threshold_value=1.0,
+        diagnostic_metric_values={
+            "dataset_rows_tested": 6,
+            "check_rows_tested": 6,
+            "freshness_in_hours": 1.0,
+        },
+        max_timestamp=datetime(2025, 1, 4, 9, 0, 0, tzinfo=timezone.utc),
+        max_timestamp_utc=datetime(2025, 1, 4, 9, 0, 0, tzinfo=timezone.utc),
+        data_timestamp=datetime(2025, 1, 4, 10, 0, 0, tzinfo=timezone.utc),
+        data_timestamp_utc=datetime(2025, 1, 4, 10, 0, 0, tzinfo=timezone.utc),
+        freshness="1:00:00",
+        freshness_in_seconds=3600,
+        unit="hour",
+    )
+
+    diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert diagnostics["measure"] == "time"
+    # V3 wire contract (soda-library FreshnessCheck): the "time" measure value is in
+    # milliseconds, scaled from the check's configured `unit`. 1.0 hour -> 3_600_000 ms.
+    assert diagnostics["value"] == 3_600_000
+
+
+def test_build_diagnostics_json_dict_omits_measure_for_non_time_checks():
+    # Non-duration checks (e.g. row_count) carry no measure marker, so the key is
+    # absent and Soda Cloud keeps formatting the value as a plain number.
+    check_result = CheckResult(
+        check=mock.MagicMock(),
+        outcome=CheckOutcome.PASSED,
+        threshold_value=42,
+    )
+
+    diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert "measure" not in diagnostics
+
+
 def test_build_token_usage_dicts_serialization():
     from soda_core.common.soda_cloud import _build_token_usage_dicts
 
