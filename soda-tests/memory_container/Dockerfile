@@ -8,11 +8,11 @@
 # and soda's plugin discovery works.
 #
 # Source is COPYed to the SAME absolute path the runtime bind mount will use
-# (`/Users/niels/Repositories/soda_claude`) so editable `.pth` paths line up
-# with the bind mount. Edits to host source thus take effect WITHOUT a rebuild.
+# (the workspace parent, passed as the REPO_PARENT build-arg) so editable `.pth`
+# paths line up with the bind mount. Edits to host source thus take effect WITHOUT a rebuild.
 # pyproject.toml changes still need a rebuild.
 #
-# Build is driven from the soda_claude/ parent as build context — see Makefile.
+# Build is driven from the workspace parent as build context — see Makefile.
 #
 # ---------------------------------------------------------------------------
 # Analyzing memray.bin files produced by the memory tests
@@ -44,7 +44,7 @@
 # by transients. Use the high-watermark API for peak analysis.
 #
 # Full template and worked example:
-#   soda_claude/memory_management/MEMRAY_DOCKER_ANALYSIS.md
+#   <workspace parent>/memory_management/MEMRAY_DOCKER_ANALYSIS.md
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim
 
@@ -97,9 +97,12 @@ RUN pip install --no-cache-dir \
         "google-cloud-bigquery>=2.25.0" \
         "databricks-sql-connector"
 
-# Workspace source. The bind-mount target path is host-specific (developer
-# machines vary), so it's an ARG. Default matches the canonical dev layout.
-ARG REPO_PARENT=/Users/niels/Repositories/soda_claude
+# Workspace source. The bind-mount target path is host-specific (it must equal the
+# workspace parent's absolute path on the host — the dir holding soda-core/ and
+# soda-extensions/), so it's an ARG. The Makefile derives and passes the real value via
+# --build-arg; this default is only a placeholder for a direct `docker build` and must
+# then be overridden to match the runtime path.
+ARG REPO_PARENT=/soda_testing
 
 RUN mkdir -p ${REPO_PARENT}
 COPY soda-core ${REPO_PARENT}/soda-core

@@ -14,7 +14,10 @@ FROM soda-memtest:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ARG REPO_PARENT=/Users/niels/Repositories/soda_claude
+# Must match the base image's REPO_PARENT (the workspace parent's absolute path on the
+# host). The Makefile passes the real value via --build-arg; this default is only a
+# placeholder for a direct `docker build` and must then be overridden.
+ARG REPO_PARENT=/soda_testing
 
 # Java runtime for sparkdf — pyspark drives a local JVM inside the
 # container (its heap is part of the cgroup measurement, intentionally).
