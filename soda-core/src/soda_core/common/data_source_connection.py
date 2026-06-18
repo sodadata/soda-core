@@ -56,6 +56,12 @@ def is_memory_optimized_driver_enabled() -> bool:
     default because the memory-optimized path trades throughput for bounded peak
     memory and regresses DWH runtime on fast / low-latency sources. Read at call
     time so it can be toggled per-process (or per-test via monkeypatch.setenv).
+
+    Operator guidance: enable this (set ``MEMORY_OPTIMIZED_DRIVER_ENABLED=true``)
+    when reads of very wide source rows run out of memory — without it the source
+    read buffers the whole result client-side. Only postgres sources benefit today
+    (other adapters fall back to the buffered read regardless). Expect a throughput
+    cost (~14% slower @100k rows) in exchange for bounded peak memory.
     """
     if _memory_optimized_override:
         return True
