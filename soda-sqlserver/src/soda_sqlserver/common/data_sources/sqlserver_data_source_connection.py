@@ -163,7 +163,7 @@ class SqlServerDataSourceConnection(DataSourceConnection):
 
         if config.connection_parameters:
             for key, value in config.connection_parameters.items():
-                logger.info(f"Adding connection parameter: {key}={value}")
+                logger.info("Adding connection parameter: %s=<redacted>", key)
                 conn_params.append(f"{key}={value}")
 
         conn_params.append(f"APP=soda-core-fabric/{SODA_CORE_VERSION}")
