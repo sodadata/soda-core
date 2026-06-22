@@ -229,10 +229,21 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
         return id_properties
 
     def sql_expression(self) -> SqlExpression:
-        return COUNT(CASE_WHEN(SqlExpressionStr(self.expression), LITERAL(1)))
+        # Route the count through sql_condition_expression() so the numerator and the failing-rows
+        # condition always carry the same check_filter (they cannot drift). Mirrors
+        # MissingCountMetricImpl / InvalidCountMetricImpl.
+        return COUNT(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
 
     def sql_condition_expression(self) -> SqlExpression:
-        return SqlExpressionStr(self.expression)
+        # Apply the check-level filter, like missing/invalid do. When check_filter is None this
+        # collapses to the bare expression (byte-identical to the previous behaviour), so it is a
+        # no-op for filterless checks and only scopes checks that actually set `filter:`.
+        return AND.optional(
+            [
+                SqlExpressionStr.optional(self.check_filter),
+                SqlExpressionStr(self.expression),
+            ]
+        )
 
     def convert_db_value(self, value) -> any:
         return int(value) if value is not None else 0

@@ -829,11 +829,111 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         sql = _SODA_TEMP_RE.sub(_SODA_TEMP_PLACEHOLDER, sql)
         return sql
 
+    @staticmethod
+    def _canonicalize_yaml_literals(sql: str) -> str:
+        """Replace YAML-formatted single-quoted string literals with canonical JSON.
+
+        Some columns persist structured data as a YAML dump (notably
+        ``check_results.check_definition``). YAML's plain-scalar line-wrap column
+        depends on content length, so the same logical value can serialize to
+        different textual forms across runs when the surrounding content changes
+        length (e.g. a different test-session schema name length shifts the wrap
+        point). Such whitespace-only differences are semantically irrelevant —
+        ``yaml.safe_load`` collapses ``\\n + indent`` to a single space and returns
+        identical Python objects either way.
+
+        For every single-quoted SQL literal that parses as **multi-line**
+        structured YAML (dict or list, with at least one newline in the inner
+        content), substitute its sorted-key JSON canonical form, so that
+        downstream string comparison is insensitive to YAML pretty-print drift.
+
+        Two guards constrain when the rewrite fires:
+
+        - **Multi-line only** (``"\\n" in inner``): a YAML wrap-drift difference
+          can only arise from a YAML dump that's actually wrapped, which means
+          multi-line. Single-line flow-style literals like ``'[1,2,3]'`` or
+          ``'{a: 1}'`` are left untouched so legitimate whitespace/ordering
+          differences in flow-style payloads still surface as mismatches.
+
+        - **JSON-serialisable parsed value**: the YAML loader happily parses
+          bare ISO timestamps into ``datetime`` objects and other tagged YAML
+          types that ``json.dumps`` can't natively encode. Fall back to a
+          string coercion via ``default=str`` so canonicalisation never crashes
+          on these — and tolerate any residual unexpected type by catching
+          ``TypeError``/``ValueError`` and leaving the literal as-is.
+
+        Uses ``ruamel.yaml`` (a declared soda-core dependency) rather than
+        PyYAML, which isn't pulled in transitively by ``soda-tests`` and would
+        be ``ModuleNotFoundError`` in a clean install.
+        """
+        import json
+
+        from ruamel.yaml import YAML as _YAML
+        from ruamel.yaml import YAMLError as _YAMLError
+
+        _yaml_loader = _YAML(typ="safe")
+
+        def _try_yaml_structured(content: str):
+            """Return parsed dict/list if ``content`` is *multi-line* structured YAML.
+
+            Single-line flow-style scalars (``'[1,2,3]'``, ``'{a:1}'``) and bare
+            scalars are explicitly NOT eligible — the wrap-drift bug only
+            manifests on YAML dumps that span multiple lines.
+            """
+            if "\n" not in content:
+                return None
+            try:
+                parsed = _yaml_loader.load(content)
+            except _YAMLError:
+                return None
+            if isinstance(parsed, (dict, list)):
+                return parsed
+            return None
+
+        def _repl(match: "re.Match[str]") -> str:
+            literal = match.group(0)
+            # SQL single-quote escaping: '' inside a literal represents a single '
+            inner = literal[1:-1].replace("''", "'")
+            parsed = _try_yaml_structured(inner)
+            # One-level extra unwrap: some dialects (notably BigQuery's
+            # do_bulk_insert) wrap string values in an extra layer of single-quote
+            # escaping, so the SQL literal carries content like ``'YAML-here'`` —
+            # i.e. the structured YAML wrapped in literal single quotes. YAML
+            # parses such content as a single-quoted SCALAR (folding newlines
+            # into spaces), which loses the structure. Detect this pattern by
+            # checking for inner content that starts AND ends with a single
+            # quote, strip that layer, and retry the structured parse.
+            if parsed is None and len(inner) >= 2 and inner.startswith("'") and inner.endswith("'"):
+                parsed = _try_yaml_structured(inner[1:-1])
+            if parsed is None:
+                return literal
+            try:
+                # ``default=str`` coerces non-JSON-serialisable values (e.g.
+                # ``datetime`` parsed from unquoted ISO timestamps) to their
+                # str() form so canonicalisation produces a stable text.
+                canonical = json.dumps(parsed, sort_keys=True, default=str)
+            except (TypeError, ValueError):
+                return literal
+            return "'" + canonical.replace("'", "''") + "'"
+
+        return re.sub(r"'(?:[^']|'')*'", _repl, sql)
+
     def _sql_matches(self, stored_sql: str, incoming_sql: str) -> bool:
-        """Compare two SQL strings, optionally normalizing dynamic values first."""
+        """Compare two SQL strings, optionally normalizing dynamic values first.
+
+        Strict equality is the fast path. On miss, a YAML-aware fallback
+        canonicalizes any single-quoted literals that embed structured YAML so
+        that cosmetic line-wrap differences (e.g. in the ``check_definition``
+        column) don't trigger spurious mismatches.
+        """
         if self.normalize_timestamps:
-            return self._normalize_dynamic_values(stored_sql) == self._normalize_dynamic_values(incoming_sql)
-        return stored_sql == incoming_sql
+            stored = self._normalize_dynamic_values(stored_sql)
+            incoming = self._normalize_dynamic_values(incoming_sql)
+        else:
+            stored, incoming = stored_sql, incoming_sql
+        if stored == incoming:
+            return True
+        return self._canonicalize_yaml_literals(stored) == self._canonicalize_yaml_literals(incoming)
 
     def _next_replay_entry(self, expected_type: str, expected_sql: str) -> SnapshotEntry:
         """Get the next entry from the replay data and verify it matches.
@@ -863,10 +963,36 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         ):
             # Show denormalized forms in error for readability
             denormalized = self._denormalize_from_snapshot(stored_entry)
+            # Diagnostic dump: write the FULL Expected/Got pair to disk so it can
+            # be captured as a CI artifact (the in-error truncation makes the
+            # actual diff invisible for long INSERT statements).
+            import os as _os
+
+            diag_dir = _os.environ.get("SODA_TEST_SNAPSHOT_DIAG_DIR")
+            if diag_dir:
+                try:
+                    _os.makedirs(diag_dir, exist_ok=True)
+                    safe_test = (self._current_test_id or "unknown").replace("/", "_").replace(":", "_")[:200]
+                    diag_path = _os.path.join(diag_dir, f"{safe_test}_op{self._replay_index}.txt")
+                    with open(diag_path, "w", encoding="utf-8") as _f:
+                        _f.write(f"Test: {self._current_test_id}\n")
+                        _f.write(f"Operation index: {self._replay_index}\n")
+                        _f.write(f"Stored op_type: {stored_entry.op_type}\n")
+                        _f.write(f"Got op_type:    {expected_type}\n\n")
+                        _f.write("=== Expected SQL (denormalized) ===\n")
+                        _f.write(denormalized.sql)
+                        _f.write("\n\n=== Got SQL (current run) ===\n")
+                        _f.write(expected_sql)
+                        _f.write("\n\n=== Stored SQL (normalized — as in snapshot file) ===\n")
+                        _f.write(stored_entry.sql)
+                        _f.write("\n\n=== Incoming SQL (normalized — what comparison sees) ===\n")
+                        _f.write(incoming_normalized.sql)
+                except Exception:
+                    pass  # best-effort diagnostic
             raise SnapshotMismatchError(
                 f"Snapshot mismatch at operation #{self._replay_index} for test {self._current_test_id}.\n"
-                f"  Expected ({denormalized.op_type}): {denormalized.sql[:200]}\n"
-                f"  Got      ({expected_type}): {expected_sql[:200]}\n"
+                f"  Expected ({denormalized.op_type}): {denormalized.sql[:4000]}\n"
+                f"  Got      ({expected_type}): {expected_sql[:4000]}\n"
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
         # Return denormalized entry so callers get usable result data
