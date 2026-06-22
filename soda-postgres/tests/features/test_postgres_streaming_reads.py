@@ -1,4 +1,4 @@
-"""Real-postgres coverage for ``execute_query_one_by_one_memory_optimized``.
+"""Real-postgres coverage for ``execute_query_one_by_one_prefer_streaming``.
 
 The unit tests (soda-tests/tests/unit/test_memory_optimized_query.py) drive
 this path with mocks — they pin the call shape (server-side named cursor,
@@ -62,7 +62,7 @@ def test_streaming_returns_every_row_in_order_for_thin_fat_mix(data_source_test_
     sql = _select_sql(data_source_test_helper, test_table)
 
     seen: list[tuple] = []
-    description = data_source_test_helper.data_source_impl.execute_query_one_by_one_memory_optimized(
+    description = data_source_test_helper.data_source_impl.execute_query_one_by_one_prefer_streaming(
         sql=sql, row_callback=lambda row, desc: seen.append(row)
     )
 
@@ -87,7 +87,7 @@ def test_withhold_cursor_survives_commit_mid_iteration(data_source_test_helper: 
         if len(seen) == 1:
             raw_connection.commit()  # would kill a non-withhold cursor
 
-    data_source_test_helper.data_source_impl.execute_query_one_by_one_memory_optimized(
+    data_source_test_helper.data_source_impl.execute_query_one_by_one_prefer_streaming(
         sql=sql, row_callback=commit_after_first_row
     )
 
@@ -105,7 +105,7 @@ def test_autocommit_connection_falls_back_to_buffered(data_source_test_helper: D
     raw_connection.autocommit = True
     try:
         seen: list[tuple] = []
-        data_source_test_helper.data_source_impl.execute_query_one_by_one_memory_optimized(
+        data_source_test_helper.data_source_impl.execute_query_one_by_one_prefer_streaming(
             sql=sql, row_callback=lambda row, desc: seen.append(row)
         )
         assert {row[0] for row in seen} == set(range(_N_ROWS))
@@ -130,6 +130,6 @@ def test_rollback_before_cursor_held_breaks_the_stream(data_source_test_helper: 
             raw_connection.rollback()  # destroys the not-yet-held cursor
 
     with pytest.raises(psycopg.errors.Error):
-        data_source_test_helper.data_source_impl.execute_query_one_by_one_memory_optimized(
+        data_source_test_helper.data_source_impl.execute_query_one_by_one_prefer_streaming(
             sql=sql, row_callback=rollback_after_first_row
         )
