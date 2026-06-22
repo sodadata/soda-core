@@ -17,6 +17,7 @@ logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
 
+
 class MemoryOptimizedDriverSettings:
     """Process-level enablement for the bounded-memory streaming fetch driver.
 
