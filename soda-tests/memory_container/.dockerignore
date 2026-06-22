@@ -1,0 +1,57 @@
+# Rules relative to the build context root (soda_claude/). Passed via
+# `docker build --ignore-file=...` so the file ships with the Dockerfile
+# even though the build context is the soda_claude parent.
+
+# Python build / cache cruft
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+**/build/
+**/dist/
+
+# Virtualenvs (soda-extensions/.venv alone is ~1 GB)
+**/.venv/
+**/venv/
+**/env/
+
+# Git internals
+**/.git/
+
+# Memory profiling outputs
+**/.memory_test_artifacts/
+
+# Local DB / cache artifacts
+**/.postgres/
+**/.sqlserver/
+**/.db2/
+**/.mysql/
+**/spark-warehouse/
+**/*.db
+**/*.sqlite
+
+# Editor / OS noise
+**/.DS_Store
+**/.vscode/
+**/.idea/
+**/.vim/
+
+# Snapshots (large)
+**/.test_snapshots/
+
+# Prior memory-management work
+memory_management/OLD/
+memory_management/artifacts/
+
+# Antlr generated dirs
+**/.antlr/
+
+# Credentials — NEVER bake these into image layers. Both repo roots carry a
+# real .env; without these rules they were
+# COPY'd into soda-memtest:latest.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

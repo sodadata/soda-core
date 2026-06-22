@@ -160,6 +160,20 @@ class DataSourceImpl(ABC):
             sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )
 
+    def execute_query_one_by_one_memory_optimized(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        # Memory-optimized streaming fetch — see
+        # DataSourceConnection.execute_query_one_by_one_memory_optimized.
+        # Returns the description of the query.
+        return self.data_source_connection.execute_query_one_by_one_memory_optimized(
+            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+        )
+
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
         return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query)
 

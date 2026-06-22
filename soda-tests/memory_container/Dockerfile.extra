@@ -1,0 +1,54 @@
+# Extended memory_container image: soda-memtest:latest + the long-tail
+# adapters (duckdb, redshift, synapse, fabric, athena, sparkdf, oracle).
+#
+# Kept SEPARATE from the canonical image on purpose: soda's plugin
+# discovery imports every registered adapter at session start, so adding
+# adapters raises the in-container import floor for EVERY test — folding
+# these into soda-memtest:latest would shift all recorded baselines in
+# memory_baselines.json and the expect_peak_mb sanity bands. Select this
+# image per run via SODA_MEMTEST_IMAGE=soda-memtest-extra:latest.
+#
+# The workspace source is already inside the base image (and bind-mounted
+# over at runtime); this layer only adds drivers + editable registrations.
+FROM soda-memtest:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Must match the base image's REPO_PARENT (the workspace parent's absolute path on the
+# host). The Makefile passes the real value via --build-arg; this default is only a
+# placeholder for a direct `docker build` and must then be overridden.
+ARG REPO_PARENT=/soda_testing
+
+# Java runtime for sparkdf — pyspark drives a local JVM inside the
+# container (its heap is part of the cgroup measurement, intentionally).
+# procps: spark launch scripts use `ps`.
+# Oracle Instant Client (basiclite): soda-oracle forces python-oracledb
+# THICK mode (init_oracle_client, raises without a client lib — needed for
+# timezone preservation). libaio1 is its runtime dependency. Installed in the
+# same layer as the JRE to avoid a redundant apt-get update / cache layer.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-21-jre-headless procps libaio1t64 unzip \
+    && curl -fsSL -o /tmp/instantclient.zip \
+        https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linux-arm64.zip \
+    && unzip -q /tmp/instantclient.zip -d /opt/oracle \
+    && rm /tmp/instantclient.zip \
+    && ln -s /opt/oracle/instantclient_* /opt/oracle/instantclient \
+    && ln -sf /usr/lib/aarch64-linux-gnu/libaio.so.1t64 /usr/lib/aarch64-linux-gnu/libaio.so.1 \
+    && apt-get purge -y unzip && apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV LD_LIBRARY_PATH=/opt/oracle/instantclient
+
+RUN pip install --no-cache-dir \
+        "duckdb>=1.2.0" \
+        boto3 \
+        "PyAthena>=2.2.0,<3.0" \
+        "setuptools>=60" \
+        "oracledb>=2.4.1" \
+        "pyspark>=3.5.0" \
+    && pip install --no-cache-dir --no-deps \
+        -e ${REPO_PARENT}/soda-core/soda-duckdb \
+        -e ${REPO_PARENT}/soda-core/soda-redshift \
+        -e ${REPO_PARENT}/soda-core/soda-synapse \
+        -e ${REPO_PARENT}/soda-core/soda-fabric \
+        -e ${REPO_PARENT}/soda-core/soda-athena \
+        -e ${REPO_PARENT}/soda-core/soda-sparkdf \
+        -e ${REPO_PARENT}/soda-extensions/soda-oracle

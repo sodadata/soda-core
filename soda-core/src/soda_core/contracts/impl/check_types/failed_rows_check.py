@@ -333,6 +333,13 @@ class FailedRowsCountQuery(Query):
                     nonlocal row_count
                     row_count += 1
 
+                # Deliberately the DEFAULT (buffered) variant, not the
+                # memory-optimized one: this fallback only runs for user
+                # queries that could not be CTE-wrapped, and that same
+                # exotic SQL is what a server-side named cursor is most
+                # likely to reject. Maximum compatibility wins here; the
+                # memory-optimized streaming stays reserved for the
+                # soda-generated DWH transfer queries.
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = row_count
                 if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:

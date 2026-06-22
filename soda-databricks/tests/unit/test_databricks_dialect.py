@@ -87,3 +87,26 @@ class TestTimestampReverseMapping:
             f"{expected_canonical!r}. A regression here would silently dispatch the wrong "
             "DWH value mapper for Databricks-as-source."
         )
+
+
+def test_max_sql_statement_length_respects_databricks_16mib_cap():
+    # Databricks rejects statements over its documented 16 MiB query-text
+    # cap ("Query text size exceeds limit", observed live at ~30 MB on
+    # 2026-06-12); 1 MiB is reserved for chars-vs-bytes skew.
+    from soda_databricks.common.data_sources.databricks_data_source import (
+        DatabricksSqlDialect,
+    )
+
+    sql_dialect = DatabricksSqlDialect()
+    assert sql_dialect.get_max_sql_statement_length() == 15 * 1024 * 1024
+    assert sql_dialect.get_max_sql_statement_length() < 16 * 1024 * 1024
+
+
+def test_drop_table_does_not_emit_cascade():
+    # Databricks SQL: CASCADE is valid on DROP SCHEMA only; DROP TABLE ...
+    # CASCADE fails with PARSE_SYNTAX_ERROR (observed live 2026-06-12).
+    from soda_core.common.sql_ast import DROP_TABLE
+
+    sql_dialect = DatabricksSqlDialect()
+    sql = sql_dialect.build_drop_table_sql(DROP_TABLE(fully_qualified_table_name="`c`.`s`.`t`", cascade=True))
+    assert "CASCADE" not in sql
