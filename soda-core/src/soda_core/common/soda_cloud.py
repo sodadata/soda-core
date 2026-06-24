@@ -1774,14 +1774,25 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
     # if check_result.outcome == CheckOutcome.EXCLUDED:
     # return None
 
-    return {
+    raw_value = (
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
-        "value": int(check_result.threshold_value)
+        int(check_result.threshold_value)
         if isinstance(check_result.threshold_value, bool)
-        else (check_result.threshold_value or 0),
+        else (check_result.threshold_value or 0)
+    )
+    diagnostics: dict = {
+        # ``value`` (and the fail thresholds below) are converted into the measure's
+        # wire unit — identity for plain numbers, milliseconds for "time".
+        "value": check_result.to_soda_cloud_measure_value(raw_value),
         "fail": _build_fail_threshold(check_result),
         "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
+    # Unit/type marker so Soda Cloud can format the value (e.g. freshness as a
+    # duration rather than a raw float). Omitted for plain-number checks.
+    measure: Optional[str] = check_result.get_soda_cloud_measure()
+    if measure is not None:
+        diagnostics["measure"] = measure
+    return diagnostics
 
 
 def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
@@ -1900,11 +1911,15 @@ def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
 def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
     threshold: Threshold = check_result.check.threshold
     if threshold:
+        # Bounds are expressed in the check's native unit; convert into the measure's
+        # wire unit so the chart's threshold line matches the value (ms for "time").
+        # Identity for plain-number checks, so existing payloads are unchanged.
+        convert = check_result.to_soda_cloud_measure_value
         return {
-            "greaterThan": threshold.must_be_less_than_or_equal,
-            "greaterThanOrEqual": threshold.must_be_less_than,
-            "lessThan": threshold.must_be_greater_than_or_equal,
-            "lessThanOrEqual": threshold.must_be_greater_than,
+            "greaterThan": convert(threshold.must_be_less_than_or_equal),
+            "greaterThanOrEqual": convert(threshold.must_be_less_than),
+            "lessThan": convert(threshold.must_be_greater_than_or_equal),
+            "lessThanOrEqual": convert(threshold.must_be_greater_than),
         }
     return None
 

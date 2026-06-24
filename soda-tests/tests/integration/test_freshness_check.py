@@ -69,6 +69,13 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
             "expectedTimestampUtc": "2025-01-04T10:00:00+00:00",
             "datasetRowsTested": 6,
         }
+        # Freshness diagnostics must carry the "time" measure marker, and (matching the
+        # V3 soda-library wire contract) the value + fail threshold must be in
+        # milliseconds so Soda Cloud renders a duration instead of a raw float.
+        assert check_json["diagnostics"]["measure"] == "time"
+        assert check_json["diagnostics"]["value"] == 3_600_000  # 1 hour in ms
+        # threshold "must_be_less_than: 2" (hours) -> fail when >= 2h -> 7_200_000 ms
+        assert check_json["diagnostics"]["fail"]["greaterThanOrEqual"] == 7_200_000
 
 
 def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
