@@ -78,12 +78,19 @@ class FailedRowsCheckImpl(CheckImpl):
                 RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
-        elif self.is_query_check():
+        elif self.is_query_check() or self.is_keys_query_check():
+            # The `query` and `keys_query` forms both count failing rows from a user query. They differ
+            # only downstream: the `query` form's failures land in a per-check table, while the
+            # `keys_query` form's keys are hashed and routed into the shared diagnostics-warehouse
+            # fk_/fr_ tables (handled in soda-extensions). Counting is identical here.
+            active_query: str = self.failed_rows_check_yaml.query or self.failed_rows_check_yaml.keys_query
             self.failed_rows_count_metric_impl = self._resolve_metric(
-                FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                FailedRowsQueryMetricImpl(
+                    contract_impl=contract_impl, column_impl=column_impl, check_impl=self, query=active_query
+                )
             )
 
-            sql = self.failed_rows_check_yaml.query
+            sql = active_query
 
             if contract_impl.should_apply_sampling:
                 sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
@@ -203,6 +210,9 @@ class FailedRowsCheckImpl(CheckImpl):
     def is_query_check(self) -> bool:
         return self.failed_rows_check_yaml.query
 
+    def is_keys_query_check(self) -> bool:
+        return self.failed_rows_check_yaml.keys_query
+
 
 class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
@@ -281,8 +291,11 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        query: Optional[str] = None,
     ):
-        self.query: str = check_impl.check_yaml.query
+        # Carries either the `query` form's SQL or the `keys_query` form's SQL — both count failing
+        # rows the same way. The SQL is part of the metric identity, so the two forms never collide.
+        self.query: str = query if query is not None else check_impl.check_yaml.query
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,

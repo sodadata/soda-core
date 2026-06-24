@@ -475,6 +475,17 @@
                                                                     "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
                                                                     "type": "string"
                                                                 },
+                                                                "keys_query": {
+                                                                    "description": "A custom SQL query whose output key columns are routed into the shared diagnostics-warehouse failed-keys tables (instead of a per-check table). Soda hashes the mapped key columns.",
+                                                                    "type": "string"
+                                                                },
+                                                                "key_column_mapping": {
+                                                                    "description": "Maps each DWH key column name to the query output column that supplies it. Identity (same names) when omitted. Only used with keys_query.",
+                                                                    "type": "object",
+                                                                    "additionalProperties": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
@@ -489,8 +500,17 @@
                                                                         "expression"
                                                                     ],
                                                                     "not": {
-                                                                        "required": [
-                                                                            "query"
+                                                                        "anyOf": [
+                                                                            {
+                                                                                "required": [
+                                                                                    "query"
+                                                                                ]
+                                                                            },
+                                                                            {
+                                                                                "required": [
+                                                                                    "keys_query"
+                                                                                ]
+                                                                            }
                                                                         ]
                                                                     }
                                                                 },
@@ -499,12 +519,50 @@
                                                                         "query"
                                                                     ],
                                                                     "not": {
-                                                                        "required": [
-                                                                            "expression"
+                                                                        "anyOf": [
+                                                                            {
+                                                                                "required": [
+                                                                                    "expression"
+                                                                                ]
+                                                                            },
+                                                                            {
+                                                                                "required": [
+                                                                                    "keys_query"
+                                                                                ]
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "required": [
+                                                                        "keys_query"
+                                                                    ],
+                                                                    "not": {
+                                                                        "anyOf": [
+                                                                            {
+                                                                                "required": [
+                                                                                    "expression"
+                                                                                ]
+                                                                            },
+                                                                            {
+                                                                                "required": [
+                                                                                    "query"
+                                                                                ]
+                                                                            }
                                                                         ]
                                                                     }
                                                                 }
-                                                            ]
+                                                            ],
+                                                            "if": {
+                                                                "required": [
+                                                                    "key_column_mapping"
+                                                                ]
+                                                            },
+                                                            "then": {
+                                                                "required": [
+                                                                    "keys_query"
+                                                                ]
+                                                            }
                                                         }
                                                     ]
                                                 },
@@ -774,6 +832,17 @@
                                                 "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
                                                 "type": "string"
                                             },
+                                            "keys_query": {
+                                                "description": "A custom SQL query whose output key columns are routed into the shared diagnostics-warehouse failed-keys tables (instead of a per-check table). Soda hashes the mapped key columns.",
+                                                "type": "string"
+                                            },
+                                            "key_column_mapping": {
+                                                "description": "Maps each DWH key column name to the query output column that supplies it. Identity (same names) when omitted. Only used with keys_query.",
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                    "type": "string"
+                                                }
+                                            },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
@@ -788,8 +857,17 @@
                                                     "expression"
                                                 ],
                                                 "not": {
-                                                    "required": [
-                                                        "query"
+                                                    "anyOf": [
+                                                        {
+                                                            "required": [
+                                                                "query"
+                                                            ]
+                                                        },
+                                                        {
+                                                            "required": [
+                                                                "keys_query"
+                                                            ]
+                                                        }
                                                     ]
                                                 }
                                             },
@@ -798,12 +876,50 @@
                                                     "query"
                                                 ],
                                                 "not": {
-                                                    "required": [
-                                                        "expression"
+                                                    "anyOf": [
+                                                        {
+                                                            "required": [
+                                                                "expression"
+                                                            ]
+                                                        },
+                                                        {
+                                                            "required": [
+                                                                "keys_query"
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "required": [
+                                                    "keys_query"
+                                                ],
+                                                "not": {
+                                                    "anyOf": [
+                                                        {
+                                                            "required": [
+                                                                "expression"
+                                                            ]
+                                                        },
+                                                        {
+                                                            "required": [
+                                                                "query"
+                                                            ]
+                                                        }
                                                     ]
                                                 }
                                             }
-                                        ]
+                                        ],
+                                        "if": {
+                                            "required": [
+                                                "key_column_mapping"
+                                            ]
+                                        },
+                                        "then": {
+                                            "required": [
+                                                "keys_query"
+                                            ]
+                                        }
                                     }
                                 ]
                             }
