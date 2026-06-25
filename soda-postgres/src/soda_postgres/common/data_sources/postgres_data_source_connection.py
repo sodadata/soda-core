@@ -11,6 +11,7 @@ import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
 from soda_core.common.data_source_connection import (
     DataSourceConnection,
+    memory_optimized_driver_settings,
     parse_session_timezone,
 )
 from soda_core.common.data_source_results import QueryResult
@@ -147,7 +148,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
         # Pre-memory-work behavior, restored: the buffered base
         # implementation with postgres's rollback-on-error wrapper. Callers
         # that stream large result sets use
-        # execute_query_one_by_one_memory_optimized instead.
+        # execute_query_one_by_one_prefer_streaming instead.
         try:
             return super().execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
         except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
@@ -156,7 +157,12 @@ class PostgresDataSourceConnection(DataSourceConnection):
             self.rollback()
             raise e
 
-    def _execute_query_one_by_one_memory_optimized_impl(
+    def supports_streaming_fetch(self) -> bool:
+        # Postgres has a real bounded-memory streaming fetch (server-side cursor),
+        # so it advertises the capability and implements _execute_query_one_by_one_streaming.
+        return True
+
+    def _execute_query_one_by_one_streaming(
         self,
         sql: str,
         row_callback: Callable[[tuple, tuple[tuple]], None],
@@ -167,7 +173,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
         in byte-budgeted batches instead of buffering the whole result.
 
         Invoked only when the general MEMORY_OPTIMIZED_DRIVER_ENABLED toggle is
-        on (the base ``execute_query_one_by_one_memory_optimized`` gates and
+        on (the base ``execute_query_one_by_one_prefer_streaming`` gates and
         dispatches here). Disabled by default.
 
         The base ``DataSourceConnection.execute_query_one_by_one`` uses
@@ -228,10 +234,16 @@ class PostgresDataSourceConnection(DataSourceConnection):
             # self.execute_query_one_by_one is the restored postgres wrapper,
             # so the rollback-on-error semantics are preserved.
             logger.debug(
-                "execute_query_one_by_one_memory_optimized: connection is in autocommit mode, "
+                "_execute_query_one_by_one_streaming: connection is in autocommit mode, "
                 "falling back to buffered client-side cursor"
             )
             return self.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
+
+        # Streaming actually engages from here on — log it once per process. Logged
+        # here (not in the router) so the "driver active" line reflects the path
+        # really taken: the autocommit fallback above keeps the line from firing
+        # when we silently downgrade to the buffered fetch.
+        memory_optimized_driver_settings.log_active_once(type(self).__name__)
 
         cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
         if log_query:

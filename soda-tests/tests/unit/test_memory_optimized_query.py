@@ -1,11 +1,13 @@
-"""Unit tests for the execute_query_one_by_one / _memory_optimized split.
+"""Unit tests for the execute_query_one_by_one / preferring-streaming split.
 
 Contract: the base ``execute_query_one_by_one`` is the proven buffered
-implementation; ``execute_query_one_by_one_memory_optimized`` is what the
-DWH failed-rows flows call, and it DEFAULTS to the base implementation for
-adapters without (or not needing) a low-memory fetch. Postgres overrides
-the optimized variant with the server-side named cursor and keeps its
-pre-existing rollback-on-error wrapper as the base.
+implementation; ``execute_query_one_by_one_prefer_streaming`` is what the
+DWH failed-rows flows call. It dispatches to the streaming impl only when the
+driver is enabled AND the adapter advertises ``supports_streaming_fetch()``;
+otherwise it DEFAULTS to the base buffered fetch (adapters without a low-memory
+fetch). Postgres advertises the capability and overrides
+``_execute_query_one_by_one_streaming`` with the server-side named cursor, keeping
+its pre-existing rollback-on-error wrapper as the base.
 """
 
 from __future__ import annotations
@@ -13,7 +15,10 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    memory_optimized_driver_settings,
+)
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
@@ -41,17 +46,66 @@ class _StubConnection(DataSourceConnection):
         return (("col",),)
 
 
-class TestDefaultDelegation:
-    def test_memory_optimized_defaults_to_base_implementation(self):
+class _CapableButUnimplemented(DataSourceConnection):
+    """Advertises the streaming capability but never overrides the impl — the
+    exact misconfiguration the base ``NotImplementedError`` guards against."""
+
+    def __init__(self):
+        # Bypass DataSourceConnection.__init__ — only the dispatch matters.
+        pass
+
+    def _create_connection(self, config):  # pragma: no cover - never called
+        return MagicMock()
+
+    def supports_streaming_fetch(self):
+        return True
+
+
+class TestDispatchGating:
+    def test_unsupported_adapter_buffers_even_when_driver_enabled(self):
+        # Driver ON (autouse fixture) but the adapter advertises no streaming
+        # capability, so the call must fall through to the buffered base fetch —
+        # and the streaming impl (which would raise) is never reached.
         connection = _StubConnection()
         callback = lambda row, description: None
 
-        description = connection.execute_query_one_by_one_memory_optimized(
+        description = connection.execute_query_one_by_one_prefer_streaming(
             "SELECT 1", callback, log_query=False, row_limit=7
         )
 
         assert connection.calls == [("SELECT 1", callback, False, 7)]
         assert description == (("col",),)
+
+    def test_disabled_driver_buffers_even_for_capable_adapter(self, monkeypatch):
+        # Driver OFF → even postgres (a capable adapter) takes the buffered path
+        # (a plain client-side cursor, no server-side named cursor).
+        monkeypatch.delenv("MEMORY_OPTIMIZED_DRIVER_ENABLED", raising=False)
+        memory_optimized_driver_settings.reset()
+        pg = _make_postgres_connection(autocommit=False)
+        plain_cursor = _make_plain_cursor()
+        pg.connection.cursor.return_value = plain_cursor
+
+        pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
+
+        assert pg.connection.cursor.call_args.kwargs == {}  # no name → buffered
+
+    def test_base_supports_streaming_fetch_is_false(self):
+        assert _StubConnection().supports_streaming_fetch() is False
+
+    def test_postgres_supports_streaming_fetch_is_true(self):
+        assert _make_postgres_connection(autocommit=False).supports_streaming_fetch() is True
+
+    def test_base_streaming_impl_raises_not_implemented(self):
+        # The base impl must fail loudly rather than silently buffer — the buffered
+        # fallback now lives in the router gate, not here.
+        with pytest.raises(NotImplementedError):
+            _StubConnection()._execute_query_one_by_one_streaming("SELECT 1", lambda r, d: None)
+
+    def test_capable_adapter_without_impl_raises(self):
+        # Advertises supports_streaming_fetch() == True but never overrides the impl:
+        # the dispatch must surface the misconfiguration, not quietly buffer.
+        with pytest.raises(NotImplementedError):
+            _CapableButUnimplemented().execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
 
 
 def _make_postgres_connection(autocommit: bool) -> PostgresDataSourceConnection:
@@ -83,7 +137,7 @@ class TestPostgresMemoryOptimized:
         named_cursor = _make_plain_cursor()
         pg.connection.cursor.return_value.__enter__.return_value = named_cursor
 
-        description = pg.execute_query_one_by_one_memory_optimized("SELECT 1", lambda r, d: None)
+        description = pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
 
         cursor_kwargs = pg.connection.cursor.call_args.kwargs
         assert cursor_kwargs.get("name", "").startswith("soda_stream_")
@@ -95,7 +149,7 @@ class TestPostgresMemoryOptimized:
         plain_cursor = _make_plain_cursor()
         pg.connection.cursor.return_value = plain_cursor
 
-        description = pg.execute_query_one_by_one_memory_optimized("SELECT 1", lambda r, d: None)
+        description = pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
 
         # Base path: a plain client-side cursor — no name, no withhold.
         assert pg.connection.cursor.call_args.kwargs == {}
@@ -147,7 +201,7 @@ def _stream_rows(rows, row_limit=None):
     pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
 
     seen = []
-    pg.execute_query_one_by_one_memory_optimized(
+    pg.execute_query_one_by_one_prefer_streaming(
         "SELECT 1", lambda row, description: seen.append(row), row_limit=row_limit
     )
     return fake_cursor.fetch_sizes, seen
@@ -232,7 +286,7 @@ class TestHeldCursorCloseAfterRollback:
         pg.connection.cursor.side_effect = cursor_factory
 
         try:
-            pg.execute_query_one_by_one_memory_optimized("SELECT 1", lambda r, d: None)
+            pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
             raise AssertionError("expected the stream error to propagate")
         except psycopg.errors.QueryCanceled:
             pass

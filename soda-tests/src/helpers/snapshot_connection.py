@@ -1193,14 +1193,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             row_callback(row, description)
         return description
 
-    def execute_query_one_by_one_memory_optimized(
+    def execute_query_one_by_one_prefer_streaming(
         self,
         sql: str,
         row_callback: Callable[[tuple, tuple[tuple]], None],
         log_query: bool = True,
         row_limit: Optional[int] = None,
     ) -> Optional[tuple[tuple]]:
-        # The memory-optimized routing is a real-connection concern; the
+        # The streaming-preference routing is a real-connection concern; the
         # record/replay semantics are identical to the base one-by-one.
         # Without this explicit wrapper, __getattr__ would forward the call
         # straight to the real connection and bypass snapshot capture.
