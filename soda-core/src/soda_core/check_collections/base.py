@@ -364,22 +364,38 @@ class CheckCollectionImpl:
             )
         return CheckCollectionImpl._REGISTRY[kind]
 
-    # Plugin hooks. Extensions register against the concrete subclass that
-    # cares about them; the base initialises its own empty dict so the
-    # engine code can iterate without conditional checks. The classmethod
-    # auto-isolates the dict per concrete subtype so registering on one
-    # subtype doesn't mutate the shared base / sibling-subtype dict via
-    # the MRO.
+    # Plugin hooks. The dict on the ``CheckCollectionImpl`` base is the
+    # *global* registry: extensions registered there apply to every collection
+    # kind (mirroring the already-global YAML-extension layer). A concrete
+    # subtype that needs a kind-specific extension registers it on that
+    # subclass instead; ``register_extension`` auto-isolates the subclass's
+    # own dict so a per-kind registration never mutates the base / sibling
+    # dict via the MRO. ``_resolve_impl_extensions`` merges the two.
     impl_extensions: dict[str, type] = {}
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type) -> None:
-        # Auto-isolate per concrete subtype: without this, ``cls`` may resolve
-        # ``impl_extensions`` to a parent class's dict (the MRO), and mutating
-        # that dict leaks the extension registration to every sibling subtype.
+        # Scope is the class you call this on: ``CheckCollectionImpl`` → global
+        # (all kinds); a subtype → that kind only. Auto-isolate per concrete
+        # subtype: without this, ``cls`` may resolve ``impl_extensions`` to a
+        # parent class's dict (the MRO), and mutating that dict leaks the
+        # registration to every sibling subtype.
         if "impl_extensions" not in cls.__dict__:
             cls.impl_extensions = {}
         cls.impl_extensions[name] = extension_cls
+
+    @classmethod
+    def _resolve_impl_extensions(cls) -> dict[str, type]:
+        """Impl extensions that apply to this collection kind.
+
+        Global extensions (registered on the ``CheckCollectionImpl`` base)
+        apply to every kind; per-subtype extensions (registered on a subclass)
+        apply only to that kind. A subtype registration overrides a global of
+        the same name. Mirrors the already-global YAML-extension layer.
+        """
+        global_exts: dict = CheckCollectionImpl.impl_extensions
+        own_exts: dict = cls.__dict__.get("impl_extensions", {})
+        return {**global_exts, **own_exts}
 
     @property
     def display_name(self) -> str:
@@ -550,7 +566,7 @@ class CheckCollectionImpl:
             )
 
         self.extensions: list = []
-        for extension_cls in type(self).impl_extensions.values():
+        for extension_cls in type(self)._resolve_impl_extensions().values():
             try:
                 extension = extension_cls(self)
                 self.extensions.append(extension)

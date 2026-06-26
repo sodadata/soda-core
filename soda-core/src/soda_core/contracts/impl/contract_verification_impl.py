@@ -473,15 +473,22 @@ class ContractVerificationSessionImpl:
         return cls._execute_on_runner(*args, **kwargs)
 
 
-class ContractImplExtension(Protocol):
-    def __init__(self, contract_impl: ContractImpl):
-        self.contract_impl: ContractImpl = contract_impl
+class CheckCollectionImplExtension(Protocol):
+    def __init__(self, contract_impl: CheckCollectionImpl):
+        self.contract_impl: CheckCollectionImpl = contract_impl
 
-    def parse_checks(self, contract_impl: ContractImpl) -> list[CheckImpl]:
+    def parse_checks(self, contract_impl: CheckCollectionImpl) -> list[CheckImpl]:
         return []
 
-    def build_queries(self, contract_impl: ContractImpl) -> list[Query]:
+    def build_queries(self, contract_impl: CheckCollectionImpl) -> list[Query]:
         return []
+
+
+# Backward-compat alias: the name was contract-specific before the impl
+# extension mechanism went global-by-default (extensions now apply to every
+# check-collection kind unless registered on a specific subtype). Existing
+# imports of ``ContractImplExtension`` keep working.
+ContractImplExtension = CheckCollectionImplExtension
 
 
 class ContractImpl(CheckCollectionImpl):
@@ -501,13 +508,12 @@ class ContractImpl(CheckCollectionImpl):
     # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
     requires_collection_id: bool = False
 
-    # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
-    # ``register_extension`` auto-isolates this dict at registration time, so
-    # registering on ``ContractImpl`` never touches the base dict or any
-    # sibling subtype. The explicit declaration here makes the isolation
-    # visible to static analysis and to anyone inspecting the class for
-    # its extension surface.
-    impl_extensions: dict[str, type[ContractImplExtension]] = {}
+    # Per-kind extension override slot. Global extensions live on the
+    # ``CheckCollectionImpl`` base and apply to every kind; this dict is the
+    # contract-only override (empty today — reconciliation registers globally).
+    # ``register_extension`` auto-isolates it so a contract-specific
+    # registration never touches the base or a sibling subtype.
+    impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     def identity_prefix(self) -> tuple:
         """Contracts emit checks with no identity prefix so per-check
