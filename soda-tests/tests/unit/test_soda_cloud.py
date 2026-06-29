@@ -769,6 +769,71 @@ def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected
     assert not isinstance(diagnostics["value"], bool)
 
 
+def _build_freshness_check_result(unit: str, threshold_value: float) -> "FreshnessCheckResult":
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckResult,
+    )
+
+    return FreshnessCheckResult(
+        check=mock.MagicMock(),
+        outcome=CheckOutcome.PASSED,
+        threshold_value=threshold_value,
+        diagnostic_metric_values={
+            "dataset_rows_tested": 6,
+            "check_rows_tested": 6,
+            f"freshness_in_{unit}s": threshold_value,
+        },
+        max_timestamp=datetime(2025, 1, 4, 9, 0, 0, tzinfo=timezone.utc),
+        max_timestamp_utc=datetime(2025, 1, 4, 9, 0, 0, tzinfo=timezone.utc),
+        data_timestamp=datetime(2025, 1, 4, 10, 0, 0, tzinfo=timezone.utc),
+        data_timestamp_utc=datetime(2025, 1, 4, 10, 0, 0, tzinfo=timezone.utc),
+        freshness="1:00:00",
+        freshness_in_seconds=3600,
+        unit=unit,
+    )
+
+
+def test_build_diagnostics_json_dict_sets_measure_time_for_freshness():
+    # V4 (contract-scan) freshness values rendered as raw floats in the check charts
+    # because soda-core never emitted a unit/type marker. Soda Cloud reads
+    # ``diagnostics.measure`` (BE ``GenericCoreCheckDiagnostics.getMeasure()``);
+    # for freshness it must be ``"time"`` so the value is formatted as a duration.
+    check_result = _build_freshness_check_result(unit="hour", threshold_value=1.0)
+
+    diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert diagnostics["measure"] == "time"
+    # V3 wire contract (soda-library FreshnessCheck): the "time" measure value is in
+    # milliseconds, scaled from the check's configured `unit`. 1.0 hour -> 3_600_000 ms.
+    assert diagnostics["value"] == 3_600_000
+
+
+def test_build_diagnostics_json_dict_scales_freshness_days_to_milliseconds():
+    # Locks the unit -> milliseconds scale table for the largest unit. 1.0 day ->
+    # 86_400_000 ms. This is the float the ticket showed rendered raw ("11.15...").
+    check_result = _build_freshness_check_result(unit="day", threshold_value=1.0)
+
+    diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert diagnostics["measure"] == "time"
+    assert diagnostics["value"] == 86_400_000
+
+
+def test_build_diagnostics_json_dict_omits_measure_for_non_time_checks():
+    # Non-duration checks (e.g. row_count) carry no measure marker, so the key is
+    # absent and Soda Cloud keeps formatting the value as a plain number. This keeps
+    # the existing payload byte-for-byte unchanged for all non-time check types.
+    check_result = CheckResult(
+        check=mock.MagicMock(),
+        outcome=CheckOutcome.PASSED,
+        threshold_value=42,
+    )
+
+    diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert "measure" not in diagnostics
+
+
 def test_build_token_usage_dicts_serialization():
     from soda_core.common.soda_cloud import _build_token_usage_dicts
 
