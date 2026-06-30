@@ -243,10 +243,12 @@ class ContractYaml(CheckCollectionYaml):
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
-            if not column_yaml_objects:
-                raise ContractParserException(
-                    "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
-                )
+            # columns is optional (DES-433): a check collection may declare only
+            # checks and/or a reconciliation block (mirrors the schema rule "at
+            # least one of columns, checks, or reconciliation"). Absent 'columns:'
+            # → no columns, rather than a parse error.
+            if column_yaml_objects is None:
+                return []
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
                 column_locations_by_name: dict[str, list[Optional[Location]]] = {}

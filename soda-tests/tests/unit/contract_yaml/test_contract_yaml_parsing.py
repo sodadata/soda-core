@@ -53,6 +53,21 @@ def _parse_with_dialect(yaml_str: str) -> ContractYaml:
     )
 
 
+def test_contract_without_columns_parses_with_empty_columns():
+    """columns is optional (DES-433): a check collection with no 'columns:' key
+    parses with columns == [] for every kind, instead of raising — so a
+    reconciliation-only / checks-only collection is valid. Mirrors the backend
+    schema ('at least one of columns, checks, or reconciliation')."""
+    logs = Logs()
+    contract_yaml = _parse_with_dialect(
+        """
+        dataset: postgres/db/public/tbl
+        """
+    )
+    assert contract_yaml.columns == []
+    assert not logs.has_errors
+
+
 def test_parse_dataset_qualified_name():
     """Test that a 4-part dataset path is parsed correctly."""
     yaml_str = """
