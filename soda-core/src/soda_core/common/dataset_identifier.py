@@ -32,6 +32,34 @@ class DatasetIdentifier:
 
         return cls(data_source_name, prefixes, dataset_name)
 
+    @classmethod
+    def from_object(cls, data_source_name, sql_dialect, fully_qualified_object_name) -> "DatasetIdentifier":
+        """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName.
+
+        Uses the dialect's prefix-index hooks (the inverse of
+        extract_database_from_prefix / extract_schema_from_prefix): the database
+        component is included only when the dialect has a database tier
+        (get_database_prefix_index() is not None) and the object carries one;
+        the schema component is appended when present. Database always precedes
+        schema across all current dialects.
+        """
+        prefixes: list[str] = []
+        if (
+            sql_dialect.get_database_prefix_index() is not None
+            and fully_qualified_object_name.database_name is not None
+        ):
+            prefixes.append(fully_qualified_object_name.database_name)
+        if (
+            sql_dialect.get_schema_prefix_index() is not None
+            and fully_qualified_object_name.schema_name is not None
+        ):
+            prefixes.append(fully_qualified_object_name.schema_name)
+        return cls(
+            data_source_name=data_source_name,
+            prefixes=prefixes,
+            dataset_name=fully_qualified_object_name.get_object_name(),
+        )
+
     def to_string(self) -> str:
         return "/".join([self.data_source_name] + self.prefixes + [self.dataset_name])
 
