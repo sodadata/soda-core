@@ -1663,7 +1663,17 @@ def _build_check_collection_results_json_dict(
             ingestion_mode = VerificationIngestionMode.PARTIAL
             break
 
-    return to_jsonnable(  # type: ignore
+    # Collect measurement dicts across all results.  Empty when no MM caller
+    # has attached dicts (the contracts-only path) — in that case we must NOT
+    # emit a ``metrics`` key at all so the wire output is byte-identical to the
+    # pre-OBSL-1025 payload.
+    all_measurement_dicts: list[dict] = []
+    for r in results:
+        measurement_dicts = getattr(r, "measurement_dicts", None)
+        if measurement_dicts:
+            all_measurement_dicts.extend(measurement_dicts)
+
+    payload = to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
             "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
@@ -1692,6 +1702,14 @@ def _build_check_collection_results_json_dict(
             "tokenUsage": token_usage,
         }
     )
+
+    # Add ``metrics`` key ONLY when there is at least one measurement dict —
+    # key omission (not null, not empty list) preserves byte-identical wire
+    # output for existing contract-only payloads.
+    if all_measurement_dicts:
+        payload["metrics"] = all_measurement_dicts
+
+    return payload
 
 
 def _build_contract_cloud_json_dict(contract: Contract):
