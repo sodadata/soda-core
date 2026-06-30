@@ -126,3 +126,60 @@ def build_test_connection_log_uploader(
         dataset="",
     )
     return Logs(gatherer=logs_queue)
+
+
+def handle_discover_data_source(
+    data_source_file_path: str,
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
+    scan_definition_name: Optional[str] = None,
+    soda_cloud_file_path: Optional[str] = None,
+) -> ExitCode:
+    from soda_core.common.data_source_impl import DataSourceImpl
+    from soda_core.discovery.discovery_payload import build_discovery_payload, send_discovery_results
+    from soda_core.discovery.discovery_run import DiscoveryRun
+
+    soda_logger.info(f"Discovering datasets for data source configuration file {data_source_file_path}")
+    data_source_impl: Optional[DataSourceImpl] = DataSourceImpl.from_yaml_source(
+        DataSourceYamlSource.from_file_path(data_source_file_path)
+    )
+    if data_source_impl is None:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Data source could not be created. See logs above (or -v).")
+        return ExitCode.LOG_ERRORS
+
+    if not soda_cloud_file_path:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery requires a Soda Cloud configuration (-sc).")
+        return ExitCode.LOG_ERRORS
+    soda_cloud: Optional[SodaCloud] = SodaCloud.from_yaml_source(
+        SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
+        provided_variable_values=None,
+    )
+    if soda_cloud is None:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
+        return ExitCode.LOG_ERRORS
+
+    try:
+        # Scope: discover everything visible to the connection (v3 behaviour); include/exclude narrow it.
+        dqns: list[str] = DiscoveryRun.execute(
+            data_source_impl=data_source_impl,
+            prefixes=[],
+            include=include,
+            exclude=exclude,
+        )
+    except Exception as exc:
+        soda_logger.exception(f"Discovery query failed: {exc}")
+        return ExitCode.LOG_ERRORS
+
+    resolved_scan_definition_name: str = scan_definition_name or f"{data_source_impl.name}_schema_discovery_scan"
+    payload: dict = build_discovery_payload(
+        dqns=dqns,
+        data_source_name=data_source_impl.name,
+        scan_definition_name=resolved_scan_definition_name,
+    )
+    response = send_discovery_results(soda_cloud, payload)
+    if response is None or not response.ok:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+    soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud.")
+    return ExitCode.OK
