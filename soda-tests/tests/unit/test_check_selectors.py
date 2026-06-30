@@ -19,7 +19,7 @@ def _make_check_impl(
     check_impl = MagicMock()
     check_impl.type = type
     check_impl.name = name
-    check_impl.path = path
+    check_impl.relative_path = path
     check_impl.attributes = attributes or {}
 
     if column_name:

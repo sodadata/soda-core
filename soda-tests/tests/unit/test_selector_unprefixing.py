@@ -1,8 +1,8 @@
-"""Lock the separation between ``Check.path`` (selector) and
-``Check.full_path`` (wire).
+"""Lock the separation between ``Check.relative_path`` (selector) and
+``Check.check_path`` (wire).
 
-Selector matching uses the stripped, yaml-internal ``Check.path``. The wire
-path with the collection prefix is wire-only and never affects
+Selector matching uses the stripped, yaml-internal ``Check.relative_path``.
+The wire path with the collection prefix is wire-only and never affects
 ``--check-selector`` resolution. This keeps user-facing CLI behavior
 identical between contracts and data-standard subtypes — a user writing
 ``--check-selector path=columns.email.checks.missing`` matches the check
@@ -19,21 +19,21 @@ from soda_core.contracts.impl.check_selector import CheckSelector
 def _make_check_impl(*, path: str, wire_source: str, collection_id):
     """Build a minimal CheckImpl-shaped stub the selector matchers read.
 
-    The selector code reads ``check_impl.path``, ``check_impl.type``,
+    The selector code reads ``check_impl.relative_path``, ``check_impl.type``,
     ``check_impl.name``, ``check_impl.column_impl``,
     ``check_impl.check_yaml.qualifier``, and ``check_impl.attributes`` —
     we mirror exactly that surface.
     """
     check_impl = MagicMock()
-    check_impl.path = path
+    check_impl.relative_path = path
     check_impl.type = "missing"
     check_impl.name = "No missing values"
     check_impl.column_impl = None
     check_impl.check_yaml = MagicMock()
     check_impl.check_yaml.qualifier = None
     check_impl.attributes = {}
-    # The back-ref the production ``full_path`` property reads — exposed so
-    # this stub can also answer ``full_path`` if a caller needs it.
+    # The back-ref the production ``check_path`` property reads — exposed so
+    # this stub can also answer ``check_path`` if a caller needs it.
     check_impl.contract_impl = MagicMock()
     check_impl.contract_impl.wire_source = wire_source
     check_impl.contract_impl.collection_id = collection_id
@@ -97,11 +97,12 @@ def test_selector_wildcard_matches_stripped_path_for_data_standard():
     assert selector.matches(check)
 
 
-def test_check_selector_supported_fields_does_not_include_full_path():
-    """``full_path`` is wire-only — it must not appear in the public
+def test_check_selector_supported_fields_does_not_include_check_path():
+    """``check_path`` is wire-only — it must not appear in the public
     selector surface. If a future change exposes it, the selector behavior
     pins above start matching wire-prefixed forms, breaking the contract
     that selectors are subtype-agnostic.
     """
+    assert "check_path" not in CheckSelector.SUPPORTED_FIELDS
     assert "full_path" not in CheckSelector.SUPPORTED_FIELDS
     assert "path" in CheckSelector.SUPPORTED_FIELDS

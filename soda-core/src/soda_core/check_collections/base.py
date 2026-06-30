@@ -846,7 +846,7 @@ class CheckCollectionImpl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.path}'")
+                        logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
@@ -1218,7 +1218,7 @@ class CheckCollectionImpl:
         # ``result.get_errors()`` with no re-collection.
         for check_result in offending:
             logger.error(
-                f"Source mismatch — check '{check_result.check.full_path}' has "
+                f"Source mismatch — check '{check_result.check.check_path}' has "
                 f"source={check_result.check.source!r} but parent collection "
                 f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
                 f"a backend-side source-mismatch failure on the whole batch."

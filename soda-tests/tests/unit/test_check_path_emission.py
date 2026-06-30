@@ -4,13 +4,14 @@ The backend's ``CheckCollectionModule.firstSegmentOf(checkPath)`` splits on
 the first ``.`` and matches the first segment verbatim against
 ``DataStandard.name``. The format is therefore pinned at the wire boundary:
 
-- Contracts: ``checkPath`` is the yaml-internal stripped ``Check.path``.
-  Byte-identical to every prior contract verification.
+- Contracts: ``checkPath`` is the yaml-internal stripped
+  ``Check.relative_path``. Byte-identical to every prior contract
+  verification.
 - Non-contract subtypes (e.g. data standards): ``checkPath`` is prefixed
-  with ``"{collection_id}.{path}"`` so the backend filter routes it.
+  with ``"{collection_id}.{relative_path}"`` so the backend filter routes it.
 
 This test exercises ``_build_check_result_cloud_dict`` — the only wire-bound
-site reading ``Check.full_path`` — and the upstream ``Check.full_path``
+site reading ``Check.check_path`` — and the upstream ``Check.check_path``
 property on ``CheckImpl`` for both branches of the wire_source heuristic.
 """
 
@@ -46,8 +47,8 @@ def _make_check(path: str, full_path: str) -> Check:
         type="missing",
         qualifier=None,
         name="No missing values",
-        path=path,
-        full_path=full_path,
+        relative_path=path,
+        check_path=full_path,
         identity="abcd1234",
         definition="missing: ...",
         contract_file_line=1,
@@ -103,12 +104,12 @@ def test_data_standard_check_path_is_prefixed_with_collection_name():
 
 
 class _StubCheckImpl:
-    """Local sentinel that mimics the surface ``CheckImpl.full_path`` reads.
+    """Local sentinel that mimics the surface ``CheckImpl.check_path`` reads.
 
     We don't subclass ``CheckImpl`` because the real ``__init__`` requires a
-    full ``ContractImpl`` (and the real ``path`` property reads
+    full ``ContractImpl`` (and the real ``relative_path`` property reads
     ``column_impl.column_yaml.name``). The property under test only reads
-    ``self.path``, ``self.contract_impl.wire_source``, and
+    ``self.relative_path``, ``self.contract_impl.wire_source``, and
     ``self.contract_impl.collection_id`` — we mirror those exactly.
     """
 
@@ -118,18 +119,18 @@ class _StubCheckImpl:
         CheckImpl as _RealCheckImpl,
     )
 
-    full_path = _RealCheckImpl.full_path
+    check_path = _RealCheckImpl.check_path
 
     def __init__(self, *, wire_source: str, collection_id, path: str):
-        self.path = path
+        self.relative_path = path
         self.contract_impl = MagicMock()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
 
 
 def test_check_full_path_property_for_contract_subtype_returns_bare_path():
-    """``CheckImpl.full_path`` returns ``self.path`` when the parent has
-    ``wire_source == "soda-contract"`` — regardless of any collection_id
+    """``CheckImpl.check_path`` returns ``self.relative_path`` when the parent
+    has ``wire_source == "soda-contract"`` — regardless of any collection_id
     that might be set on the contract.
     """
     stub = _StubCheckImpl(
@@ -137,12 +138,12 @@ def test_check_full_path_property_for_contract_subtype_returns_bare_path():
         collection_id="some_id_we_ignore",
         path="columns.age.checks.missing",
     )
-    assert stub.full_path == "columns.age.checks.missing"
+    assert stub.check_path == "columns.age.checks.missing"
 
 
 def test_check_full_path_property_for_data_standard_subtype_prefixes_with_collection_id():
-    """``CheckImpl.full_path`` returns ``f"{collection_id}.{path}"`` when
-    the parent has ``wire_source != "soda-contract"`` and ``collection_id``
+    """``CheckImpl.check_path`` returns ``f"{collection_id}.{relative_path}"``
+    when the parent has ``wire_source != "soda-contract"`` and ``collection_id``
     is set.
     """
     stub = _StubCheckImpl(
@@ -150,7 +151,7 @@ def test_check_full_path_property_for_data_standard_subtype_prefixes_with_collec
         collection_id="my_pii_standard",
         path="columns.age.checks.missing",
     )
-    assert stub.full_path == "my_pii_standard.columns.age.checks.missing"
+    assert stub.check_path == "my_pii_standard.columns.age.checks.missing"
 
 
 def test_check_full_path_for_hypothetical_third_wire_source_also_prefixes():
@@ -162,23 +163,24 @@ def test_check_full_path_for_hypothetical_third_wire_source_also_prefixes():
         collection_id="my_collection",
         path="checks.row_count",
     )
-    assert stub.full_path == "my_collection.checks.row_count"
+    assert stub.check_path == "my_collection.checks.row_count"
 
 
 def test_check_full_path_falls_back_to_bare_path_when_collection_id_missing():
     """Defensive fallback: if a non-contract impl exposes a Check without
     a ``collection_id`` (the engine guard in ``verify()`` normally prevents
-    this), ``full_path`` falls back to the bare ``path`` rather than emitting
-    a malformed ``"None.<path>"`` string. The engine's ``verify()`` raises
-    before this property is reached during a real run — this fallback only
-    matters for synthetic Check construction paths (e.g. ``build_error_result``).
+    this), ``check_path`` falls back to the bare ``relative_path`` rather than
+    emitting a malformed ``"None.<path>"`` string. The engine's ``verify()``
+    raises before this property is reached during a real run — this fallback
+    only matters for synthetic Check construction paths (e.g.
+    ``build_error_result``).
     """
     stub = _StubCheckImpl(
         wire_source="data-standard",
         collection_id=None,
         path="checks.row_count",
     )
-    assert stub.full_path == "checks.row_count"
+    assert stub.check_path == "checks.row_count"
 
 
 def test_verify_raises_when_non_contract_impl_missing_collection_id():

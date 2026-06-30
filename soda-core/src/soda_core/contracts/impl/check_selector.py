@@ -100,7 +100,7 @@ class CheckSelector:
         elif self.field == "column":
             return check_impl.column_impl.column_yaml.name if check_impl.column_impl else None
         elif self.field == "path":
-            return check_impl.path
+            return check_impl.relative_path
         elif self.field == "qualifier":
             return check_impl.check_yaml.qualifier
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):

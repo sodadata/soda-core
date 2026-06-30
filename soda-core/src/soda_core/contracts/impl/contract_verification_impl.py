@@ -1143,7 +1143,7 @@ class CheckImpl:
     }
 
     @property
-    def path(self) -> str:
+    def relative_path(self) -> str:
         parts: list[str] = []
 
         column_name = self.column_impl.column_yaml.name if self.column_impl else None
@@ -1161,18 +1161,18 @@ class CheckImpl:
         return ".".join(parts)
 
     @property
-    def full_path(self) -> str:
+    def check_path(self) -> str:
         """Wire path emitted to Soda Cloud as ``checkPath``.
 
         For contracts (``wire_source == "soda-contract"``) this is identical
-        to ``self.path`` — byte-identical to today's emission. For
+        to ``self.relative_path`` — byte-identical to today's emission. For
         non-contract subtypes it is prefixed with
-        ``"{collection_id}.{path}"`` so the backend's
+        ``"{collection_id}.{relative_path}"`` so the backend's
         ``firstSegmentOf(checkPath)`` filter can match the subtype's
         identifier.
 
-        Selector matching uses ``self.path`` (not ``full_path``) so the
-        prefix never leaks into ``--check-selector`` matching.
+        Selector matching uses ``self.relative_path`` (not ``check_path``) so
+        the prefix never leaks into ``--check-selector`` matching.
         """
         # ``contract_impl`` is the back-ref to the enclosing
         # ``CheckCollectionImpl`` (name preserved during the rename slice;
@@ -1180,7 +1180,7 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
-            return self.path
+            return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
         # Non-contract subtypes MUST declare collection_id: the
         # ``CheckCollectionImpl.verify()`` guard raises before this property
@@ -1188,8 +1188,8 @@ class CheckImpl:
         # back to the bare path so dataclass-build callers can still
         # instantiate a Check during error paths.
         if not collection_id:
-            return self.path
-        return f"{collection_id}.{self.path}"
+            return self.relative_path
+        return f"{collection_id}.{self.relative_path}"
 
     def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
         if isinstance(check_yaml.name, str):
@@ -1222,8 +1222,8 @@ class CheckImpl:
             type=self.type,
             qualifier=self.check_yaml.qualifier,
             name=self.name,
-            path=self.path,
-            full_path=self.full_path,
+            relative_path=self.relative_path,
+            check_path=self.check_path,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,

@@ -306,15 +306,15 @@ class Check:
 
     i.e. "after" CheckImpl has been executed and check result is being created.
 
-    ``path`` is the YAML-internal stripped path (e.g.
+    ``relative_path`` is the YAML-internal stripped path (e.g.
     ``"columns.email.checks.missing"``). It is what selector matching and
     user-facing messages use; it is byte-identical to the value emitted by
     every prior contract verification.
 
-    ``full_path`` is the wire path emitted to Soda Cloud as ``checkPath``.
-    For contracts (``wire_source == "soda-contract"``) it equals ``path``.
-    For non-contract subtypes (data standards, ...) it is prefixed with
-    ``"{collection_id}.{path}"`` so the backend's
+    ``check_path`` is the wire path emitted to Soda Cloud as ``checkPath``.
+    For contracts (``wire_source == "soda-contract"``) it equals
+    ``relative_path``. For non-contract subtypes (data standards, ...) it is
+    prefixed with ``"{collection_id}.{relative_path}"`` so the backend's
     ``firstSegmentOf(checkPath)`` filter matches the
     ``DataStandard.name``. Splitting the two means the prefix never leaks
     into selector matching or error display.
@@ -324,7 +324,7 @@ class Check:
     type: str
     qualifier: Optional[str]
     name: Optional[str]
-    path: str
+    relative_path: str
     identity: str
     definition: str
     contract_file_line: int
@@ -333,13 +333,13 @@ class Check:
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
     # Wire-path emitted to Soda Cloud as ``checkPath``. For contracts it
-    # equals ``path``; for non-contract subtypes the engine prefixes it
-    # with ``"{collection_id}.{path}"`` so the backend's
+    # equals ``relative_path``; for non-contract subtypes the engine prefixes
+    # it with ``"{collection_id}.{relative_path}"`` so the backend's
     # ``firstSegmentOf(checkPath)`` filter matches ``DataStandard.name``.
     # Defaults to ``""`` so external callers that construct ``Check(...)``
     # without specifying it still work — emission code falls back to
-    # ``path`` when ``full_path`` is empty.
-    full_path: str = ""
+    # ``relative_path`` when ``check_path`` is empty.
+    check_path: str = ""
     # Per-check source override. ``None`` (the default) means: emit the
     # enclosing ``CheckCollectionImpl.wire_source`` as the wire ``"source"``
     # field. A non-None value is exercised by future extensions that emit
