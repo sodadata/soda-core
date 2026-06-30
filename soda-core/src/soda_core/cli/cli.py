@@ -17,6 +17,7 @@ from soda_core.cli.handlers.contract import (
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
+    handle_discover_data_source,
     handle_test_data_source,
 )
 from soda_core.cli.handlers.request import (
@@ -425,6 +426,7 @@ def _setup_data_source_resource(resource_parsers) -> None:
 
     _setup_data_source_create_command(data_source_subparsers)
     _setup_data_source_test_command(data_source_subparsers)
+    _setup_data_source_discover_command(data_source_subparsers)
 
 
 def _setup_data_source_create_command(data_source_parsers) -> None:
@@ -486,6 +488,35 @@ def _setup_data_source_test_command(data_source_parsers) -> None:
         exit_with_code(exit_code)
 
     test_parser.set_defaults(handler_func=handle)
+
+
+def _setup_data_source_discover_command(data_source_parsers) -> None:
+    discover_parser = data_source_parsers.add_parser("discover", help="Discover datasets in a data source")
+    discover_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
+    discover_parser.add_argument(
+        "--include", type=str, nargs="*", help="Dataset name patterns to include (SQL %% wildcard)."
+    )
+    discover_parser.add_argument(
+        "--exclude", type=str, nargs="*", help="Dataset name patterns to exclude (SQL %% wildcard)."
+    )
+    discover_parser.add_argument("--scan-definition-name", type=str, help="Override the scan definition name.")
+    discover_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
+    discover_parser.add_argument(
+        "-v", "--verbose", const=True, action="store_const", default=False,
+        help="Show more detailed logs on the console.",
+    )
+
+    def handle(args):
+        exit_code = handle_discover_data_source(
+            args.data_source,
+            args.include,
+            args.exclude,
+            args.scan_definition_name,
+            soda_cloud_file_path=args.soda_cloud,
+        )
+        exit_with_code(exit_code)
+
+    discover_parser.set_defaults(handler_func=handle)
 
 
 def _setup_soda_cloud_resource(resource_parsers) -> None:
