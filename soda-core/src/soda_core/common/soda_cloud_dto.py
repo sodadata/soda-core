@@ -58,16 +58,26 @@ class ComputeWarehouseOverrideDTO(BaseModel):
     name: str = Field(..., alias="name")
 
 
+class ProfilingConfigurationDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
+    # samplingStrategyConfiguration holds either a cardinality or time-partition strategy.
+    # Kept as dict for now — discriminated CardinalitySamplingStrategyConfigurationDTO /
+    # TimePartitionSamplingStrategyConfigurationDTO subtypes can be tightened in a follow-up.
+    sampling_strategy_configuration: Optional[dict] = Field(None, alias="samplingStrategyConfiguration")
+
+
 class DatasetConfigurationDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     collect_failed_rows: Optional[bool] = Field(None, alias="collectFailedRows")
     dataset_qualified_name: Optional[str] = Field(None, alias="datasetQualifiedName")
 
-    # MM and profiling skipped for now, extra=allow will take care of it, this needs to be added as a full structure later
+    # MM skipped for now, extra=allow will take care of it, this needs to be added as a full structure later
     # metric_monitoring_configuration: Optional[list[dict[str, Any]]] = Field(None, alias="metricMonitoringConfiguration")
-    # profiling_configuration: Optional[dict[str, Any]] = Field(None, alias="profilingConfiguration")
 
+    profiling_configuration: Optional[ProfilingConfigurationDTO] = Field(None, alias="profilingConfiguration")
     samples_columns: Optional[list[str]] = Field(None, alias="samplesColumns")
     table: Optional[str] = Field(None, alias="table")
     test_row_sampler_configuration: Optional[TestRowSamplerConfigurationDTO] = Field(
