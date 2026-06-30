@@ -2,7 +2,10 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
-from soda_core.discovery.discovery_payload import build_discovery_payload, send_discovery_results
+from soda_core.discovery.discovery_payload import (
+    build_discovery_payload,
+    send_discovery_results,
+)
 from soda_core.discovery.discovery_run import DiscoveryRun
 
 test_table_specification = (

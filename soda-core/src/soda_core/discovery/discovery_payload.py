@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Optional
 
 from requests import Response
-
 from soda_core.common.soda_cloud import SodaCloud
 
 

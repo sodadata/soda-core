@@ -136,7 +136,10 @@ def handle_discover_data_source(
     soda_cloud_file_path: Optional[str] = None,
 ) -> ExitCode:
     from soda_core.common.data_source_impl import DataSourceImpl
-    from soda_core.discovery.discovery_payload import build_discovery_payload, send_discovery_results
+    from soda_core.discovery.discovery_payload import (
+        build_discovery_payload,
+        send_discovery_results,
+    )
     from soda_core.discovery.discovery_run import DiscoveryRun
 
     soda_logger.info(f"Discovering datasets for data source configuration file {data_source_file_path}")

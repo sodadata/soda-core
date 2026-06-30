@@ -502,7 +502,11 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
     discover_parser.add_argument("--scan-definition-name", type=str, help="Override the scan definition name.")
     discover_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
     discover_parser.add_argument(
-        "-v", "--verbose", const=True, action="store_const", default=False,
+        "-v",
+        "--verbose",
+        const=True,
+        action="store_const",
+        default=False,
         help="Show more detailed logs on the console.",
     )
 
