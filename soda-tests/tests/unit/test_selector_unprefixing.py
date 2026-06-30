@@ -43,7 +43,7 @@ def _make_check_impl(*, path: str, wire_source: str, collection_id):
 def test_selector_matches_stripped_path_for_contract():
     """Baseline (today's behavior): contract subtype, selector matches
     against the stripped path. Locks that the rename of the wire-bound
-    field to ``full_path`` did not accidentally redirect the selector.
+    field to ``check_path`` did not accidentally redirect the selector.
     """
     selector = CheckSelector.parse("path=columns.email.checks.missing")
     check = _make_check_impl(
@@ -57,7 +57,7 @@ def test_selector_matches_stripped_path_for_contract():
 def test_selector_matches_stripped_path_for_data_standard():
     """Data-standard subtype: selector still matches against ``Check.path``
     (the stripped yaml-internal path). The collection_id prefix exists on
-    ``full_path`` only — never on the selector side.
+    ``check_path`` only — never on the selector side.
     """
     selector = CheckSelector.parse("path=columns.email.checks.missing")
     check = _make_check_impl(
@@ -68,7 +68,7 @@ def test_selector_matches_stripped_path_for_data_standard():
     assert selector.matches(check)
 
 
-def test_selector_does_not_match_full_path_with_prefix():
+def test_selector_does_not_match_check_path_with_prefix():
     """The wire-prefixed form ``"{collection_id}.{path}"`` must NOT match
     the selector — the prefix is wire-only. A user writing
     ``--check-selector path=my_pii_standard.columns.email.checks.missing``

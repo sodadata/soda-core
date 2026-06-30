@@ -41,14 +41,14 @@ def _make_contract() -> Contract:
     )
 
 
-def _make_check(path: str, full_path: str) -> Check:
+def _make_check(relative_path: str, check_path: str) -> Check:
     return Check(
         column_name="email",
         type="missing",
         qualifier=None,
         name="No missing values",
-        relative_path=path,
-        check_path=full_path,
+        relative_path=relative_path,
+        check_path=check_path,
         identity="abcd1234",
         definition="missing: ...",
         contract_file_line=1,
@@ -59,9 +59,9 @@ def _make_check(path: str, full_path: str) -> Check:
     )
 
 
-def _make_check_result(path: str, full_path: str) -> CheckResult:
+def _make_check_result(relative_path: str, check_path: str) -> CheckResult:
     return CheckResult(
-        check=_make_check(path=path, full_path=full_path),
+        check=_make_check(relative_path=relative_path, check_path=check_path),
         outcome=CheckOutcome.PASSED,
         diagnostic_metric_values={"check_rows_tested": 0, "dataset_rows_tested": 0},
     )
@@ -74,7 +74,7 @@ def test_contract_check_path_is_unprefixed():
     keyed off this value must not break.
     """
     path = "columns.email.checks.missing"
-    check_result = _make_check_result(path=path, full_path=path)
+    check_result = _make_check_result(relative_path=path, check_path=path)
     wire = _build_check_result_cloud_dict(
         contract=_make_contract(),
         check_result=check_result,
@@ -93,7 +93,7 @@ def test_data_standard_check_path_is_prefixed_with_collection_name():
     """
     path = "columns.email.checks.missing"
     full_path = f"my_pii_standard.{path}"
-    check_result = _make_check_result(path=path, full_path=full_path)
+    check_result = _make_check_result(relative_path=path, check_path=full_path)
     wire = _build_check_result_cloud_dict(
         contract=_make_contract(),
         check_result=check_result,
