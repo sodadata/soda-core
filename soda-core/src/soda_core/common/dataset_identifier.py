@@ -36,12 +36,13 @@ class DatasetIdentifier:
     def from_object(cls, data_source_name, sql_dialect, fully_qualified_object_name) -> "DatasetIdentifier":
         """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName.
 
-        Uses the dialect's prefix-index hooks (the inverse of
-        extract_database_from_prefix / extract_schema_from_prefix): the database
-        component is included only when the dialect has a database tier
+        Uses the dialect's prefix-index hooks to decide which components to include:
+        the database component is included only when the dialect has a database tier
         (get_database_prefix_index() is not None) and the object carries one;
-        the schema component is appended when present. Database always precedes
-        schema across all current dialects.
+        the schema component is appended when present. Database is always placed
+        before schema — this is the convention across all current dialects and
+        mirrors the order assumed by extract_database_from_prefix /
+        extract_schema_from_prefix.
         """
         prefixes: list[str] = []
         if (
