@@ -4,21 +4,22 @@
 
 **Goal:** Ship table discovery as first-party soda-core functionality — a `soda data-source discover` command that posts a DQN-only `sodaCoreInsertScanResults` payload (`version: "4"`) the BE's v4 `DiscoveryScanHandlerModule` accepts.
 
-**Architecture:** A pure `DiscoveryRun.execute(data_source_impl, prefixes, include, exclude)` that bulk-discovers objects, filters them, and returns DQNs; a `discovery_payload` module that wraps DQNs in the Cloud envelope and posts via the generic `SodaCloud._execute_command`; and a `data-source discover` CLI command + handler wiring them together. Discovery is NOT a `CheckCollectionImpl`.
+**Architecture:** A `DatasetIdentifier.from_object(...)` factory turns each discovered `FullyQualifiedObjectName` into a dialect-correct DQN using the dialect's prefix-index hooks; `DiscoveryRun.execute(...)` discovers within a scope, filters, and maps each object through that factory; a `discovery_payload` module wraps the DQNs in the Cloud envelope and posts via the generic `SodaCloud._execute_command`; and a `data-source discover` CLI command + handler wire it together. Discovery is NOT a `CheckCollectionImpl`.
 
 **Tech Stack:** Python, argparse CLI, pydantic data-source models, pytest (`.venv/bin/pytest`), postgres test DB.
 
 **Decisions (from design):**
 - CLI shape: `soda data-source discover` (under the existing `data-source` resource).
-- Test strategy: self-contained structural snapshot — in-process flow + `MockSodaCloud`; assert exit OK, DQN-only `metadata`, the test table's DQN present/well-formed, `version == "4"`. The OBSL-1026 golden is a reference, not a byte-equality target (its DQN hash/`sourceOwner`/`definitionName` legitimately differ).
+- DQN construction: **per discovered object**, via `DatasetIdentifier.from_object`, using the dialect's `get_database_prefix_index()`/`get_schema_prefix_index()` hooks. This is the inverse of the existing `extract_database_from_prefix`/`extract_schema_from_prefix`, so it's consistent with how soda-core reads prefixes everywhere else. No hand-rolled `[database, schema]` and no per-dialect namespace override.
+- Test strategy: self-contained structural snapshot — in-process flow + `MockSodaCloud`; assert exit OK, DQN-only `metadata`, the test table's DQN present/well-formed, `version == "4"`.
 
-**v4 payload shape (from the corrected OBSL-1026 golden):** `metadata` is DQN-only — `[{"datasetQualifiedName": "<dqn>"}]`, no schema/row_count. `version` is `"4"`.
+**Why per-object + dialect hooks (verified across all dialects):** the `MetadataTablesQuery` layer already normalizes each dialect into `FullyQualifiedObjectName(database_name, schema_name, …)` (postgres → `current_database()`+schema; BigQuery → project+dataset; oracle/db2/sparkdf → `None`+schema). Naive `[database_name, schema_name]` drop-None is **wrong for duckdb**, which populates a catalog in `database_name` but sets `get_database_prefix_index() == None` (DQN must be `[schema]`). Composing via the index hooks handles every case: postgres `[db, schema]`, duckdb `[schema]`, BigQuery `[project, dataset]`, oracle/db2/sparkdf `[schema]`.
 
-**Assumptions flagged for the implementer:**
-1. **Prefix derivation.** No `get_default_prefixes()` exists on `DataSourceImpl`. For the postgres/duckdb launch tier, discovery scope is `prefixes = [database, schema]` (matching the golden DQN `postgres/soda/dev_mvds/<table>` → db=`soda`, schema=`dev_mvds`). The handler reads them from `data_source_impl.data_source_model.connection_properties.to_connection_kwargs()`. If a dialect orders prefixes differently, `extract_schema_from_prefix`/`extract_database_from_prefix` already encode the indices — keep `[database, schema]` for the launch tier.
-2. **Envelope fields.** The payload mirrors the golden's non-volatile fields for BE DTO deserialization safety (`type`, `version`, `scanType`, `definitionName`, `defaultDataSource`, plus empty `checks`/`metrics`/`profiling`/`automatedMonitoringChecks`). If BE rejects, add the missing field — do not remove `metadata`/`version`.
+**Flagged assumptions for the implementer:**
+1. **Query scope.** The handler passes `prefixes=[]` to `discover_qualified_objects` (discover everything visible to the connection, matching v3's discover-all behavior); include/exclude + `__soda_temp` filtering narrow results. Per-dialect scope refinement (e.g. excluding postgres system schemas, BigQuery project/dataset scoping) is a follow-up and does not affect DQN correctness. The integration test scopes to the test schema (via the helper) for determinism.
+2. **Envelope fields.** The payload mirrors the golden's non-volatile fields for BE DTO deserialization safety. If BE rejects, add the missing field — never drop `metadata`/`version`.
 
-**Test run note:** all pytest commands use `.venv/bin/pytest` and `TEST_DATASOURCE=postgres` for the integration task. The branch is `obsl-1013-discovery-ship-tablecolumn-discovery-in-soda-core`.
+**Test run note:** `.venv/bin/pytest`, `TEST_DATASOURCE=postgres` for the integration task. Branch: `obsl-1013-discovery-ship-tablecolumn-discovery-in-soda-core`.
 
 ---
 
@@ -26,19 +27,123 @@
 
 | File | Responsibility |
 | -- | -- |
+| `soda-core/src/soda_core/common/dataset_identifier.py` (modify) | Add `DatasetIdentifier.from_object(...)` factory |
 | `soda-core/src/soda_core/discovery/__init__.py` (create) | Package marker |
-| `soda-core/src/soda_core/discovery/discovery_run.py` (create) | `DiscoveryRun.execute(...) -> list[str]` (DQNs): discover → filter → build DQNs |
+| `soda-core/src/soda_core/discovery/discovery_run.py` (create) | `DiscoveryRun.execute(...) -> list[str]` |
 | `soda-core/src/soda_core/discovery/discovery_payload.py` (create) | `build_discovery_payload(...)` + `send_discovery_results(...)` |
 | `soda-core/src/soda_core/cli/handlers/data_source.py` (modify) | `handle_discover_data_source(...)` |
-| `soda-core/src/soda_core/cli/cli.py` (modify) | `_setup_data_source_discover_command(...)` + register it |
-| `soda-tests/tests/unit/test_discovery_run.py` (create) | Unit: filtering + DQN building |
+| `soda-core/src/soda_core/cli/cli.py` (modify) | `_setup_data_source_discover_command(...)` + register |
+| `soda-tests/tests/unit/test_dataset_identifier_from_object.py` (create) | Unit: dialect-correct DQN composition |
+| `soda-tests/tests/unit/test_discovery_run.py` (create) | Unit: filtering + mapping |
 | `soda-tests/tests/unit/test_discovery_payload.py` (create) | Unit: payload shape |
 | `soda-tests/tests/unit/test_cli_discover.py` (create) | Unit: CLI arg → handler mapping |
 | `soda-tests/tests/integration/test_discovery.py` (create) | Integration snapshot: postgres + MockSodaCloud |
 
 ---
 
-## Task 1: `DiscoveryRun` — discover, filter, build DQNs
+## Task 1: `DatasetIdentifier.from_object` — dialect-correct DQN from a discovered object
+
+**Files:**
+- Modify: `soda-core/src/soda_core/common/dataset_identifier.py`
+- Test: `soda-tests/tests/unit/test_dataset_identifier_from_object.py`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# soda-tests/tests/unit/test_dataset_identifier_from_object.py
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.statements.table_types import FullyQualifiedTableName
+
+
+class _FakeDialect:
+    """Stands in for a SqlDialect: only the two prefix-index hooks are used."""
+
+    def __init__(self, database_prefix_index, schema_prefix_index):
+        self._db = database_prefix_index
+        self._schema = schema_prefix_index
+
+    def get_database_prefix_index(self):
+        return self._db
+
+    def get_schema_prefix_index(self):
+        return self._schema
+
+
+def test_from_object_postgres_like_includes_database():
+    obj = FullyQualifiedTableName(database_name="soda", schema_name="public", table_name="customers")
+    di = DatasetIdentifier.from_object("postgres", _FakeDialect(0, 1), obj)
+    assert di.to_string() == "postgres/soda/public/customers"
+
+
+def test_from_object_duckdb_like_drops_catalog():
+    # duckdb populates database_name with a catalog but get_database_prefix_index() is None,
+    # so the catalog must NOT appear in the DQN.
+    obj = FullyQualifiedTableName(database_name="memory", schema_name="main", table_name="t")
+    di = DatasetIdentifier.from_object("dd", _FakeDialect(None, 0), obj)
+    assert di.to_string() == "dd/main/t"
+
+
+def test_from_object_no_database_value():
+    # oracle/db2/sparkdf: database_name is None -> schema-only DQN.
+    obj = FullyQualifiedTableName(database_name=None, schema_name="HR", table_name="EMP")
+    di = DatasetIdentifier.from_object("ora", _FakeDialect(0, 1), obj)
+    assert di.to_string() == "ora/HR/EMP"
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `.venv/bin/pytest soda-tests/tests/unit/test_dataset_identifier_from_object.py -v`
+Expected: FAIL — `AttributeError: type object 'DatasetIdentifier' has no attribute 'from_object'`
+
+- [ ] **Step 3: Implement**
+
+In `soda-core/src/soda_core/common/dataset_identifier.py`, add this classmethod to the `DatasetIdentifier` class (e.g. after `parse`). Add `from typing import TYPE_CHECKING` usage for the type hints if desired, but duck-typed args are fine — do NOT add a hard import of `SqlDialect`/`FullyQualifiedObjectName` at module top (avoid import cycles); reference them only in a `TYPE_CHECKING` block or leave them unannotated.
+
+```python
+    @classmethod
+    def from_object(cls, data_source_name, sql_dialect, fully_qualified_object_name) -> "DatasetIdentifier":
+        """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName.
+
+        Uses the dialect's prefix-index hooks (the inverse of
+        extract_database_from_prefix / extract_schema_from_prefix): the database
+        component is included only when the dialect has a database tier
+        (get_database_prefix_index() is not None) and the object carries one;
+        the schema component is appended when present. Database always precedes
+        schema across all current dialects.
+        """
+        prefixes: list[str] = []
+        if (
+            sql_dialect.get_database_prefix_index() is not None
+            and fully_qualified_object_name.database_name is not None
+        ):
+            prefixes.append(fully_qualified_object_name.database_name)
+        if (
+            sql_dialect.get_schema_prefix_index() is not None
+            and fully_qualified_object_name.schema_name is not None
+        ):
+            prefixes.append(fully_qualified_object_name.schema_name)
+        return cls(
+            data_source_name=data_source_name,
+            prefixes=prefixes,
+            dataset_name=fully_qualified_object_name.get_object_name(),
+        )
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `.venv/bin/pytest soda-tests/tests/unit/test_dataset_identifier_from_object.py -v`
+Expected: PASS (3 passed)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add soda-core/src/soda_core/common/dataset_identifier.py soda-tests/tests/unit/test_dataset_identifier_from_object.py
+git commit -m "feat(discovery): DatasetIdentifier.from_object builds dialect-correct DQNs" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+```
+
+---
+
+## Task 2: `DiscoveryRun` — discover, filter, map to DQNs
 
 **Files:**
 - Create: `soda-core/src/soda_core/discovery/__init__.py` (empty)
@@ -53,36 +158,44 @@ from soda_core.common.statements.table_types import FullyQualifiedTableName
 from soda_core.discovery.discovery_run import DiscoveryRun
 
 
-class _FakeDataSource:
-    """Minimal stand-in for DataSourceImpl for pure DiscoveryRun unit tests."""
+class _FakeDialect:
+    def get_database_prefix_index(self):
+        return 0
 
-    def __init__(self, name, object_names):
-        self.name = name
+    def get_schema_prefix_index(self):
+        return 1
+
+
+class _FakeDataSource:
+    """Minimal DataSourceImpl stand-in: name, sql_dialect, discover_qualified_objects."""
+
+    def __init__(self, object_names):
+        self.name = "postgres"
+        self.sql_dialect = _FakeDialect()
         self._object_names = object_names
 
     def discover_qualified_objects(self, prefixes, object_types=None):
         return [
-            FullyQualifiedTableName(database_name=prefixes[0], schema_name=prefixes[1], table_name=n)
+            FullyQualifiedTableName(database_name="soda", schema_name="public", table_name=n)
             for n in self._object_names
         ]
 
 
 def test_builds_dqns_and_filters_soda_temp():
-    ds = _FakeDataSource("postgres", ["customers", "orders", "__soda_temp_x"])
-    dqns = DiscoveryRun.execute(ds, prefixes=["soda", "public"])
-    assert dqns == [
+    ds = _FakeDataSource(["customers", "orders", "__soda_temp_x"])
+    assert DiscoveryRun.execute(ds, prefixes=[]) == [
         "postgres/soda/public/customers",
         "postgres/soda/public/orders",
     ]
 
 
 def test_include_exclude_patterns():
-    ds = _FakeDataSource("postgres", ["customers", "orders", "cust_archive"])
-    assert DiscoveryRun.execute(ds, prefixes=["soda", "public"], include=["cust%"]) == [
+    ds = _FakeDataSource(["customers", "orders", "cust_archive"])
+    assert DiscoveryRun.execute(ds, prefixes=[], include=["cust%"]) == [
         "postgres/soda/public/customers",
         "postgres/soda/public/cust_archive",
     ]
-    assert DiscoveryRun.execute(ds, prefixes=["soda", "public"], exclude=["cust%"]) == [
+    assert DiscoveryRun.execute(ds, prefixes=[], exclude=["cust%"]) == [
         "postgres/soda/public/orders",
     ]
 ```
@@ -94,7 +207,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'soda_core.discovery'`
 
 - [ ] **Step 3: Implement**
 
-Create `soda-core/src/soda_core/discovery/__init__.py` (empty file). Then create `soda-core/src/soda_core/discovery/discovery_run.py`:
+Create `soda-core/src/soda_core/discovery/__init__.py` (empty). Then `soda-core/src/soda_core/discovery/discovery_run.py`:
 
 ```python
 # soda-core/src/soda_core/discovery/discovery_run.py
@@ -125,19 +238,14 @@ class DiscoveryRun:
         exclude: Optional[list[str]] = None,
     ) -> list[str]:
         objects = data_source_impl.discover_qualified_objects(prefixes=prefixes)
-        names = [obj.get_object_name() for obj in objects]
-        names = [n for n in names if not n.lower().startswith(SODA_TEMP_PREFIX)]
+        objects = [o for o in objects if not o.get_object_name().lower().startswith(SODA_TEMP_PREFIX)]
         if include:
-            names = [n for n in names if _matches_any(n, include)]
+            objects = [o for o in objects if _matches_any(o.get_object_name(), include)]
         if exclude:
-            names = [n for n in names if not _matches_any(n, exclude)]
+            objects = [o for o in objects if not _matches_any(o.get_object_name(), exclude)]
         return [
-            DatasetIdentifier(
-                data_source_name=data_source_impl.name,
-                prefixes=prefixes,
-                dataset_name=name,
-            ).to_string()
-            for name in names
+            DatasetIdentifier.from_object(data_source_impl.name, data_source_impl.sql_dialect, o).to_string()
+            for o in objects
         ]
 ```
 
@@ -150,12 +258,12 @@ Expected: PASS (2 passed)
 
 ```bash
 git add soda-core/src/soda_core/discovery/__init__.py soda-core/src/soda_core/discovery/discovery_run.py soda-tests/tests/unit/test_discovery_run.py
-git commit -m "feat(discovery): DiscoveryRun builds filtered DQNs" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+git commit -m "feat(discovery): DiscoveryRun discovers, filters, maps to DQNs" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-## Task 2: Discovery payload builder + sender
+## Task 3: Discovery payload builder + sender
 
 **Files:**
 - Create: `soda-core/src/soda_core/discovery/discovery_payload.py`
@@ -182,7 +290,6 @@ def test_payload_is_dqn_only_v4():
         {"datasetQualifiedName": "postgres/soda/public/customers"},
         {"datasetQualifiedName": "postgres/soda/public/orders"},
     ]
-    # DQN-only: no schema/row_count leak into metadata entries
     assert all(set(entry.keys()) == {"datasetQualifiedName"} for entry in payload["metadata"])
 ```
 
@@ -204,13 +311,9 @@ from requests import Response
 from soda_core.common.soda_cloud import SodaCloud
 
 
-def build_discovery_payload(
-    dqns: list[str],
-    data_source_name: str,
-    scan_definition_name: str,
-) -> dict:
-    """Build the DQN-only sodaCoreInsertScanResults body for v4 discovery.
-    Mirrors the non-routing fields v3 emits for BE DTO deserialization safety."""
+def build_discovery_payload(dqns: list[str], data_source_name: str, scan_definition_name: str) -> dict:
+    """DQN-only sodaCoreInsertScanResults body for v4 discovery. Mirrors the non-routing
+    fields v3 emits for BE DTO deserialization safety."""
     return {
         "type": "sodaCoreInsertScanResults",
         "version": "4",
@@ -243,11 +346,11 @@ git commit -m "feat(discovery): DQN-only v4 payload builder + sender" -m "Co-Aut
 
 ---
 
-## Task 3: `handle_discover_data_source` handler
+## Task 4: `handle_discover_data_source` handler
 
 **Files:**
-- Modify: `soda-core/src/soda_core/cli/handlers/data_source.py` (append a new handler function; imports already present: `ExitCode`, `soda_logger`, `Emoticons`, `DataSourceYamlSource`, `SodaCloud`, `SodaCloudYamlSource`)
-- Test: covered by the integration task (Task 5); no separate unit test (handler is thin glue and needs a real data source + cloud).
+- Modify: `soda-core/src/soda_core/cli/handlers/data_source.py` (append; reuses existing imports: `ExitCode`, `soda_logger`, `Emoticons`, `DataSourceYamlSource`, `SodaCloud`, `SodaCloudYamlSource`, `Optional`)
+- Verified by Task 6 (integration); no separate unit test (thin glue needing a real data source + cloud).
 
 - [ ] **Step 1: Implement the handler**
 
@@ -284,16 +387,11 @@ def handle_discover_data_source(
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
         return ExitCode.LOG_ERRORS
 
-    # Prefix derivation for the launch tier (postgres/duckdb): [database, schema].
-    conn_kwargs: dict = data_source_impl.data_source_model.connection_properties.to_connection_kwargs()
-    database: Optional[str] = conn_kwargs.get("database")
-    schema: Optional[str] = conn_kwargs.get("schema") or "public"
-    prefixes: list[str] = [p for p in [database, schema] if p is not None]
-
     try:
+        # Scope: discover everything visible to the connection (v3 behaviour); include/exclude narrow it.
         dqns: list[str] = DiscoveryRun.execute(
             data_source_impl=data_source_impl,
-            prefixes=prefixes,
+            prefixes=[],
             include=include,
             exclude=exclude,
         )
@@ -319,7 +417,7 @@ def handle_discover_data_source(
 - [ ] **Step 2: Sanity import check**
 
 Run: `.venv/bin/python -c "from soda_core.cli.handlers.data_source import handle_discover_data_source; print('ok')"`
-Expected: prints `ok` (no import errors)
+Expected: prints `ok`
 
 - [ ] **Step 3: Commit**
 
@@ -330,10 +428,10 @@ git commit -m "feat(discovery): handle_discover_data_source handler" -m "Co-Auth
 
 ---
 
-## Task 4: CLI wiring + arg-mapping test
+## Task 5: CLI wiring + arg-mapping test
 
 **Files:**
-- Modify: `soda-core/src/soda_core/cli/cli.py` (add `_setup_data_source_discover_command`, call it in `_setup_data_source_resource`, import the handler)
+- Modify: `soda-core/src/soda_core/cli/cli.py`
 - Test: `soda-tests/tests/unit/test_cli_discover.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -371,13 +469,13 @@ def test_cli_arg_mapping_for_data_source_discover(mock_handler):
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `.venv/bin/pytest soda-tests/tests/unit/test_cli_discover.py -v`
-Expected: FAIL — `discover` is not a valid `data-source` command (argparse error / SystemExit 2), or `handle_discover_data_source` import error.
+Expected: FAIL — `discover` not a valid `data-source` command (SystemExit 2) or import error.
 
-- [ ] **Step 3: Implement the CLI wiring**
+- [ ] **Step 3: Implement**
 
-In `soda-core/src/soda_core/cli/cli.py`, add the handler to the existing handlers import (find the line importing from `soda_core.cli.handlers.data_source`, e.g. `from soda_core.cli.handlers.data_source import handle_create_data_source, handle_test_data_source` and add `handle_discover_data_source`).
+In `soda-core/src/soda_core/cli/cli.py`, add `handle_discover_data_source` to the existing data_source handlers import (the line `from soda_core.cli.handlers.data_source import handle_create_data_source, handle_test_data_source`).
 
-Register the command in `_setup_data_source_resource` (currently lines 422-428):
+Register the command in `_setup_data_source_resource` (lines 422-428):
 
 ```python
 def _setup_data_source_resource(resource_parsers) -> None:
@@ -389,23 +487,19 @@ def _setup_data_source_resource(resource_parsers) -> None:
     _setup_data_source_discover_command(data_source_subparsers)
 ```
 
-Add the new command setup function (place it right after `_setup_data_source_test_command`, i.e. after line 488):
+Add the command setup right after `_setup_data_source_test_command` (after line 488):
 
 ```python
 def _setup_data_source_discover_command(data_source_parsers) -> None:
     discover_parser = data_source_parsers.add_parser("discover", help="Discover datasets in a data source")
-    discover_parser.add_argument(
-        "-ds", "--data-source", type=str, help="The data source configuration file."
-    )
+    discover_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
     discover_parser.add_argument(
         "--include", type=str, nargs="*", help="Dataset name patterns to include (SQL %% wildcard)."
     )
     discover_parser.add_argument(
         "--exclude", type=str, nargs="*", help="Dataset name patterns to exclude (SQL %% wildcard)."
     )
-    discover_parser.add_argument(
-        "--scan-definition-name", type=str, help="Override the scan definition name."
-    )
+    discover_parser.add_argument("--scan-definition-name", type=str, help="Override the scan definition name.")
     discover_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
     discover_parser.add_argument(
         "-v", "--verbose", const=True, action="store_const", default=False,
@@ -439,12 +533,12 @@ git commit -m "feat(discovery): soda data-source discover CLI command" -m "Co-Au
 
 ---
 
-## Task 5: Integration snapshot test (postgres + MockSodaCloud)
+## Task 6: Integration snapshot (postgres + MockSodaCloud)
 
 **Files:**
 - Test: `soda-tests/tests/integration/test_discovery.py`
 
-This is the structural-snapshot test (the design's chosen parity strategy). It runs the real discovery flow against postgres, captures the posted payload via `MockSodaCloud`, and asserts the DQN-only shape + `version: "4"` + the test table's DQN.
+End-to-end against postgres: capture the posted payload via `MockSodaCloud`, assert DQN-only `metadata`, `version: "4"`, and the test table's well-formed DQN. This exercises the real `DatasetIdentifier.from_object` against a live postgres dialect (the `[db, schema]` path).
 
 - [ ] **Step 1: Write the test**
 
@@ -472,6 +566,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
         [MockResponse(status_code=200, json_object={"scanId": "discovery_scan"})]
     )
 
+    # Scope discovery to the test schema for determinism (shared CI DB has many schemas).
     prefixes = data_source_test_helper._create_dataset_prefix()
     dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=prefixes)
 
@@ -485,9 +580,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
     posted = data_source_test_helper.soda_cloud.requests[0].json
     assert posted["type"] == "sodaCoreInsertScanResults"
     assert posted["version"] == "4"
-    # DQN-only metadata: every entry has exactly datasetQualifiedName
     assert all(set(entry.keys()) == {"datasetQualifiedName"} for entry in posted["metadata"])
-    # the discovered test table is present, as a well-formed DQN ending in the table name
     expected_suffix = test_table.unique_name.lower()
     assert any(
         entry["datasetQualifiedName"].lower().endswith(expected_suffix) for entry in posted["metadata"]
@@ -497,7 +590,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
 - [ ] **Step 2: Run against postgres**
 
 Run: `TEST_DATASOURCE=postgres .venv/bin/pytest soda-tests/tests/integration/test_discovery.py -v`
-Expected: PASS (1 passed). If `_create_dataset_prefix()` or `unique_name` differs, inspect `posted["metadata"]` in the failure and adjust the assertion to the real DQN — but do NOT loosen the DQN-only / version checks.
+Expected: PASS (1 passed). On failure, print `posted["metadata"]` and reconcile the DQN — but do NOT loosen the DQN-only / `version == "4"` checks.
 
 - [ ] **Step 3: Commit**
 
@@ -510,18 +603,16 @@ git commit -m "test(discovery): integration snapshot of DQN-only v4 payload" -m 
 
 ## Self-Review
 
-**Spec coverage (OBSL-1013 deliverables):**
-- `discovery_run.py` `DiscoveryRun.execute(data_source_impl, prefixes, include, exclude)` → Task 1. ✓
-- bulk `discover_qualified_objects` + include/exclude + `__soda_temp` filter + DQN via `DatasetIdentifier` → Task 1. ✓
-- `discovery_payload.py` envelope + `metadata` + `version: "4"` → Task 2. ✓
-- `soda data-source discover` CLI with `--include/--exclude/--scan-definition-name`, `ExitCode` semantics → Tasks 3–4. ✓
-- snapshot test vs postgres via `mock_soda_cloud` → Task 5. ✓
-- CLI test → Task 4 (arg-mapping; per the design's self-contained-snapshot decision, not a true subprocess). ✓
-- DoD "posts a payload accepted by BE v4 handler" → structurally satisfied (DQN-only + version 4); BE acceptance verified at integration/parity time. ✓
-- Documented limitation (hierarchy only, not columns) → captured in this plan header and the payload (DQN-only). Add to OBSL-1011 docs (out of scope here).
+**Spec coverage (OBSL-1013):**
+- `DiscoveryRun.execute(...)` → Task 2. ✓ (signature keeps the ticket's `prefixes` as scope)
+- bulk `discover_qualified_objects` + include/exclude + `__soda_temp` + DQN via `DatasetIdentifier` → Tasks 1–2. ✓
+- DQN-only payload + `version: "4"` → Task 3. ✓
+- `soda data-source discover` CLI + `ExitCode` semantics → Tasks 4–5. ✓
+- snapshot test vs postgres via `mock_soda_cloud` → Task 6. ✓
+- documented limitation (hierarchy only, not columns) → header + DQN-only payload. ✓
 
 **Placeholder scan:** none — every code step has complete code.
 
-**Type/name consistency:** `DiscoveryRun.execute(data_source_impl, prefixes, include, exclude) -> list[str]`, `build_discovery_payload(dqns, data_source_name, scan_definition_name)`, `send_discovery_results(soda_cloud, payload)`, `handle_discover_data_source(data_source_file_path, include, exclude, scan_definition_name, soda_cloud_file_path)` — used identically across tasks. ✓
+**Type/name consistency:** `DatasetIdentifier.from_object(data_source_name, sql_dialect, fully_qualified_object_name)`, `DiscoveryRun.execute(data_source_impl, prefixes, include, exclude) -> list[str]`, `build_discovery_payload(dqns, data_source_name, scan_definition_name)`, `send_discovery_results(soda_cloud, payload)`, `handle_discover_data_source(data_source_file_path, include, exclude, scan_definition_name, soda_cloud_file_path)` — consistent across tasks. ✓
 
-**Open risk:** the two flagged assumptions (prefix derivation, envelope fields). Task 5 exercises prefix derivation against real postgres; if the DQN doesn't match the test table, the failure is visible and the fix is local. Envelope completeness is only truly confirmed against the BE (parity ticket), not in this plan.
+**Open risks:** (1) query scope `prefixes=[]` discovers all visible schemas incl. system schemas on postgres — flagged as a follow-up refinement; does not affect DQN correctness. (2) envelope completeness vs the real BE — confirmed only at parity time, not here. Both flagged in the header.
