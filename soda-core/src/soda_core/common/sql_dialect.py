@@ -97,6 +97,7 @@ from soda_core.common.sql_ast import (
     VALUES,
     VALUES_ROW,
     WHERE,
+    WINDOW_FUNCTION,
     WITH,
     Operator,
     SqlExpression,
@@ -756,6 +757,8 @@ class SqlDialect:
             sql_str: str = self.build_select_sql(cte.cte_query)
         elif isinstance(cte.cte_query, VALUES):
             sql_str: str = self.build_cte_values_sql(values=cte.cte_query, alias_columns=cte.alias_columns)
+        elif isinstance(cte.cte_query, UNION):
+            sql_str: str = self.build_union_sql(cte.cte_query, add_semicolon=False)
         elif isinstance(cte.cte_query, str):
             sql_str: str = indent(cte.cte_query, "  ").strip()
         else:
@@ -842,6 +845,8 @@ class SqlDialect:
             return self._build_coalesce_sql(expression)
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
+        elif isinstance(expression, WINDOW_FUNCTION):
+            return self._build_window_function_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -1036,6 +1041,22 @@ class SqlDialect:
         else:
             args_list_sql: str = ", ".join(args_sqls)
             return f"{function.name}({args_list_sql})"
+
+    def _build_window_function_sql(self, wf: WINDOW_FUNCTION) -> str:
+        args: list[SqlExpression | str] = wf.args if isinstance(wf.args, list) else [wf.args]
+        args_list_sql: str = ", ".join(self.build_expression_sql(arg) for arg in args)
+        over_clauses: list[str] = []
+        if wf.partition_by:
+            partition_sqls = ", ".join(self._build_column_sql(col) for col in wf.partition_by)
+            over_clauses.append(f"PARTITION BY {partition_sqls}")
+        if wf.order_by:
+            order_by_parts: list[str] = []
+            for ob in wf.order_by:
+                direction: str = " ASC" if isinstance(ob, ORDER_BY_ASC) else " DESC"
+                order_by_parts.append(f"{self.build_expression_sql(ob.expression)}{direction}")
+            over_clauses.append(f"ORDER BY {', '.join(order_by_parts)}")
+        over_sql: str = " ".join(over_clauses)
+        return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
 
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:
