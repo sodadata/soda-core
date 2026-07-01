@@ -4,6 +4,7 @@ from textwrap import dedent
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import handle_discover_data_source
@@ -52,6 +53,15 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
 
 
 @pytest.mark.no_snapshot  # Opens its own connection from the YAML file, outside the helper's snapshot machinery.
+@pytest.mark.skipif(
+    test_datasource not in {"postgres"},
+    reason=(
+        "The handler connection lifecycle (open/close around the discovery "
+        "query) is dialect-independent, so one dialect suffices. The handler "
+        "discovers with unscoped prefixes, which doesn't surface the test "
+        "table on some dialects (e.g. databricks/sparkdf shared metastores)."
+    ),
+)
 def test_handle_discover_data_source_opens_connection_and_posts_payload(
     data_source_test_helper: DataSourceTestHelper, tmp_path, monkeypatch
 ):
