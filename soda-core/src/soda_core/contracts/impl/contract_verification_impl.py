@@ -484,13 +484,6 @@ class CheckCollectionImplExtension(Protocol):
         return []
 
 
-# Backward-compat alias: the name was contract-specific before the impl
-# extension mechanism went global-by-default (extensions now apply to every
-# check-collection kind unless registered on a specific subtype). Existing
-# imports of ``ContractImplExtension`` keep working.
-ContractImplExtension = CheckCollectionImplExtension
-
-
 class ContractImpl(CheckCollectionImpl):
     """Contract subtype — same engine as ``CheckCollectionImpl``, contract identity.
 
