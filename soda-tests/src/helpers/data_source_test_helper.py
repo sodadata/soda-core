@@ -1506,7 +1506,10 @@ class DataSourceTestHelper:
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
             header_contract_yaml_str: str = f"dataset: {self.build_dqn(test_table)}\n"
-            checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
+            # Contracts require a 'columns' property; inject an empty one when the
+            # test's contract doesn't declare columns (e.g. reconciliation-only).
+            columns_contract_yaml_str: str = "columns: []\n" if "columns:\n" not in checks_contract_yaml_str else ""
+            checks_contract_yaml_str = header_contract_yaml_str + columns_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
 
     def build_dqn(self, test_table: TestTable) -> str:

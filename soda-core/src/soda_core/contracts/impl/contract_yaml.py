@@ -50,6 +50,11 @@ class ContractYaml(CheckCollectionYaml):
 
     contract_yaml_extensions: dict[str, type[ContractYamlExtension]] = {}
 
+    # Whether a 'columns' property is required. Contracts require it (backend
+    # contract schema: required [dataset, columns]); subtypes whose schema allows
+    # a columns-less document (e.g. data standards) override this to False.
+    columns_required: bool = True
+
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
@@ -243,11 +248,14 @@ class ContractYaml(CheckCollectionYaml):
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
-            # columns is optional: a check collection may declare only
-            # checks and/or a reconciliation block (mirrors the schema rule "at
-            # least one of columns, checks, or reconciliation"). Absent 'columns:'
-            # → no columns, rather than a parse error.
             if column_yaml_objects is None:
+                # Contracts require a 'columns' property; data standards (which set
+                # columns_required = False) allow it absent — their schema permits
+                # checks-only or reconciliation-only collections.
+                if self.columns_required:
+                    raise ContractParserException(
+                        "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
+                    )
                 return []
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
