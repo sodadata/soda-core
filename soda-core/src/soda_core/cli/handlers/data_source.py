@@ -162,6 +162,9 @@ def handle_discover_data_source(
         return ExitCode.LOG_ERRORS
 
     try:
+        # from_yaml_source only parses YAML; the handler owns the connection lifecycle
+        # (same pattern as contract verification, see contract_verification_impl).
+        data_source_impl.open_connection()
         # Scope: discover everything visible to the connection (v3 behaviour); include/exclude narrow it.
         dqns: list[str] = DiscoveryRun.execute(
             data_source_impl=data_source_impl,
@@ -172,6 +175,8 @@ def handle_discover_data_source(
     except Exception as exc:
         soda_logger.exception(f"Discovery query failed: {exc}")
         return ExitCode.LOG_ERRORS
+    finally:
+        data_source_impl.close_connection()
 
     resolved_scan_definition_name: str = scan_definition_name or f"{data_source_impl.name}_schema_discovery_scan"
     payload: dict = build_discovery_payload(
