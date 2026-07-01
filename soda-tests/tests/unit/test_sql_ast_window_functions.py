@@ -7,6 +7,7 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     SELECT,
+    STAR,
     UNION,
     UNION_ALL,
     WINDOW_FUNCTION,
@@ -61,11 +62,11 @@ def test_window_function_partition_only():
     sql = dialect().build_expression_sql(
         WINDOW_FUNCTION(
             name="COUNT",
-            args=["*"],
+            args=[STAR()],
             partition_by=[COLUMN("dept")],
         )
     )
-    assert 'COUNT("*") OVER (PARTITION BY "dept")' == sql
+    assert 'COUNT(*) OVER (PARTITION BY "dept")' == sql
 
 
 def test_window_function_multiple_partition_cols():
