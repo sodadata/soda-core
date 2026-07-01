@@ -15,12 +15,15 @@ def _make_check_impl(
     full_path=None,
     qualifier=None,
     attributes=None,
+    wire_source="soda-contract",
+    collection_id=None,
 ):
     """Create a mock CheckImpl with the given attributes.
 
     ``relative_path`` is the stripped yaml-internal path (selector side).
     ``full_path`` is the wire path including any collection prefix; defaults
     to ``relative_path`` (contract behaviour where both are identical).
+    ``wire_source`` and ``collection_id`` are set on ``check_impl.contract_impl``.
     """
     check_impl = MagicMock()
     check_impl.type = type
@@ -37,6 +40,9 @@ def _make_check_impl(
     check_yaml = MagicMock()
     check_yaml.qualifier = qualifier
     check_impl.check_yaml = check_yaml
+
+    check_impl.contract_impl.wire_source = wire_source
+    check_impl.contract_impl.collection_id = collection_id
 
     return check_impl
 
@@ -116,6 +122,10 @@ class TestCheckSelectorParse:
         selectors = CheckSelector.from_check_paths([])
         assert selectors == []
 
+    def test_parse_new_fields(self):
+        for field in ("source", "collection", "standard", "relative_path", "check_path"):
+            assert CheckSelector.parse(f"{field}=x").field == field
+
 
 # --- Matching tests ---
 
@@ -175,6 +185,23 @@ class TestCheckSelectorMatches:
         selector = CheckSelector.parse("attributes.priority=1")
         check = _make_check_impl(attributes={"priority": 1})
         assert selector.matches(check)
+
+    def test_match_source(self):
+        sel = CheckSelector.parse("source=data-standard")
+        assert sel.matches(_make_check_impl(wire_source="data-standard"))
+        assert not sel.matches(_make_check_impl(wire_source="soda-contract"))
+
+    def test_match_collection_and_standard_alias(self):
+        for field in ("collection", "standard"):
+            sel = CheckSelector.parse(f"{field}=my_std")
+            assert sel.matches(_make_check_impl(collection_id="my_std"))
+            assert not sel.matches(_make_check_impl(collection_id="other"))
+
+    def test_collection_does_not_match_none(self):
+        assert not CheckSelector.parse("collection=my_std").matches(_make_check_impl(collection_id=None))
+
+    def test_collection_wildcard(self):
+        assert CheckSelector.parse("standard=pii_*").matches(_make_check_impl(collection_id="pii_v2"))
 
 
 # --- Wildcard tests ---

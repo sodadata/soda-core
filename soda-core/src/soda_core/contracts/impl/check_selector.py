@@ -18,7 +18,10 @@ class CheckSelector:
     - Different fields: AND (all groups must match)
     """
 
-    SUPPORTED_FIELDS = {"type", "name", "column", "path", "relative_path", "check_path", "qualifier"}
+    SUPPORTED_FIELDS = {
+        "type", "name", "column", "path", "relative_path", "check_path",
+        "qualifier", "source", "collection", "standard",
+    }
     ATTRIBUTES_PREFIX = "attributes."
 
     def __init__(self, field: str, value: str, raw: str):
@@ -105,6 +108,10 @@ class CheckSelector:
             return check_impl.check_path
         elif self.field == "qualifier":
             return check_impl.check_yaml.qualifier
+        elif self.field == "source":
+            return check_impl.contract_impl.wire_source
+        elif self.field in ("collection", "standard"):
+            return check_impl.contract_impl.collection_id
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):
             attr_key = self.field[len(self.ATTRIBUTES_PREFIX) :]
             attr_value = check_impl.attributes.get(attr_key)
