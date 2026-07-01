@@ -397,6 +397,31 @@ class CheckCollectionImpl:
         own_exts: dict = cls.__dict__.get("impl_extensions", {})
         return {**global_exts, **own_exts}
 
+    @staticmethod
+    def _resolve_primary_data_source_impl(
+        yaml: CheckCollectionYaml,
+        all_data_source_impls: dict[str, "DataSourceImpl"],
+    ) -> Optional["DataSourceImpl"]:
+        """Resolve this collection's data source from ``all_data_source_impls``.
+
+        Looks up the data source name from ``yaml.dataset`` (the leading segment
+        before the first ``/``), opening the connection lazily. Logs an error and
+        returns None when the named data source is missing.
+        """
+        dataset: Optional[str] = getattr(yaml, "dataset", None)
+        if not dataset:
+            return None
+        data_source_name: str = dataset[: dataset.find("/")] if "/" in dataset else ""
+        if not data_source_name:
+            return None
+        data_source_impl: Optional[DataSourceImpl] = all_data_source_impls.get(data_source_name)
+        if not isinstance(data_source_impl, DataSourceImpl):
+            logger.error(f"Data source '{data_source_name}' not found")
+            return None
+        if not data_source_impl.has_open_connection():
+            data_source_impl.open_connection()
+        return data_source_impl
+
     @property
     def display_name(self) -> str:
         """Human-readable label for this subtype in logs and error messages.
@@ -475,8 +500,16 @@ class CheckCollectionImpl:
         self.only_validate_without_execute: bool = only_validate_without_execute
         # Stamp this collection's ``thread`` label on every record it emits.
         self.logs.label = self.thread_label
-        self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
+        # Resolve the primary data source from the named-data-source map when the
+        # caller didn't hand one in. The session executor passes data_source_impl=None
+        # and lets each impl resolve its own data source from its dataset name — doing
+        # it here covers every check-collection kind (contracts, data standards, and
+        # future kinds), so a ``kind: data-standard`` file dispatched through the
+        # universal executor resolves its data source instead of silently getting None.
+        if data_source_impl is None and not only_validate_without_execute:
+            data_source_impl = self._resolve_primary_data_source_impl(yaml, self.all_data_source_impls)
+        self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
         self.soda_config = EnvConfigHelper()
