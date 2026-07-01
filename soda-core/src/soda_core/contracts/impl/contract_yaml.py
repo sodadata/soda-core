@@ -243,7 +243,7 @@ class ContractYaml(CheckCollectionYaml):
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
-            # columns is optional (DES-433): a check collection may declare only
+            # columns is optional: a check collection may declare only
             # checks and/or a reconciliation block (mirrors the schema rule "at
             # least one of columns, checks, or reconciliation"). Absent 'columns:'
             # → no columns, rather than a parse error.

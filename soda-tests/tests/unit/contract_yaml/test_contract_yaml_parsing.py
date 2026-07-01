@@ -54,7 +54,7 @@ def _parse_with_dialect(yaml_str: str) -> ContractYaml:
 
 
 def test_contract_without_columns_parses_with_empty_columns():
-    """columns is optional (DES-433): a check collection with no 'columns:' key
+    """columns is optional: a check collection with no 'columns:' key
     parses with columns == [] for every kind, instead of raising — so a
     reconciliation-only / checks-only collection is valid. Mirrors the backend
     schema ('at least one of columns, checks, or reconciliation')."""
