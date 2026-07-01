@@ -18,7 +18,7 @@ class CheckSelector:
     - Different fields: AND (all groups must match)
     """
 
-    SUPPORTED_FIELDS = {"type", "name", "column", "path", "qualifier"}
+    SUPPORTED_FIELDS = {"type", "name", "column", "path", "relative_path", "check_path", "qualifier"}
     ATTRIBUTES_PREFIX = "attributes."
 
     def __init__(self, field: str, value: str, raw: str):
@@ -71,10 +71,10 @@ class CheckSelector:
 
     @classmethod
     def from_check_paths(cls, check_paths: Optional[list[str]]) -> list[CheckSelector]:
-        """Convert --check-paths values to path selectors."""
+        """Convert --check-paths values to full check_path selectors (the wire form the FE sends)."""
         if not check_paths:
             return []
-        return [cls(field="path", value=path, raw=f"path={path}") for path in check_paths]
+        return [cls(field="check_path", value=p, raw=f"check_path={p}") for p in check_paths]
 
     def matches(self, check_impl) -> bool:
         """Returns True if the given CheckImpl matches this selector."""
@@ -99,8 +99,10 @@ class CheckSelector:
             return check_impl.name
         elif self.field == "column":
             return check_impl.column_impl.column_yaml.name if check_impl.column_impl else None
-        elif self.field == "path":
+        elif self.field in ("path", "relative_path"):
             return check_impl.relative_path
+        elif self.field == "check_path":
+            return check_impl.check_path
         elif self.field == "qualifier":
             return check_impl.check_yaml.qualifier
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):
