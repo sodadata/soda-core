@@ -403,6 +403,24 @@ class CheckResult:
     def is_excluded(self) -> bool:
         return self.outcome == CheckOutcome.EXCLUDED
 
+    def get_soda_cloud_measure(self) -> Optional[str]:
+        """Unit/type marker Soda Cloud uses to format this check's value.
+
+        ``None`` (the default) means "render as a plain number". Subtypes whose
+        value represents a duration return ``"time"`` so Soda Cloud formats it as a
+        human-readable duration instead of a raw float.
+        """
+        return None
+
+    def to_soda_cloud_measure_value(self, value: Optional[Number]) -> Optional[Number]:
+        """Convert a value (the check value or a threshold bound) into the unit Soda
+        Cloud expects for ``get_soda_cloud_measure()``.
+
+        Identity by default. Overridden where the wire unit differs from the check's
+        native unit — e.g. the ``"time"`` measure is always milliseconds.
+        """
+        return value
+
     def log_table_row(self) -> dict:
         row = {}
         row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"

@@ -98,7 +98,8 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
 class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     DEFAULT_QUOTE_CHAR = "`"
-    # Databricks SQL rejects ``DROP TABLE ... CASCADE`` with a PARSE_SYNTAX_ERROR.
+    # Databricks SQL rejects DROP TABLE ... CASCADE with PARSE_SYNTAX_ERROR
+    # (CASCADE is valid on DROP SCHEMA only) — same as sparkdf/trino/athena.
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     SODA_DATA_TYPE_SYNONYMS = (
@@ -111,6 +112,14 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         return [
             ["int", "integer"],
         ]
+
+    def get_max_sql_statement_length(self) -> int:
+        # Databricks rejects large statements with INVALID_PARAMETER_VALUE
+        # "Query text size exceeds limit" (observed live at ~30 MB,
+        # 2026-06-12); the documented query-text cap is 16 MiB. Reserve
+        # 1 MiB because we count characters while the server limit is
+        # bytes (multi-byte UTF-8).
+        return 15 * 1024 * 1024
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type is SamplerType.PERCENTAGE

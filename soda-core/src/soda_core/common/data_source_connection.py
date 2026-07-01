@@ -17,6 +17,70 @@ logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
 
+
+class MemoryOptimizedDriverSettings:
+    """Process-level enablement for the bounded-memory streaming fetch driver.
+
+    Enabled when EITHER the Soda Cloud override (``configure``, plumbed in by
+    soda-extensions from the ``useMemoryOptimized`` feature flag) OR the env var
+    ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` is on; DISABLED by default.
+
+    When disabled, every connection's ``execute_query_one_by_one_prefer_streaming``
+    uses the buffered base fetch. When enabled, connections that advertise a
+    low-memory fetch (``supports_streaming_fetch``, e.g. postgres' server-side
+    streaming cursor) use it. Disabled by default because the streaming path trades
+    throughput for bounded peak memory and regresses DWH runtime on fast /
+    low-latency sources.
+
+    Process-scoped (a single module instance) because the Soda Cloud flag is
+    resolved during diagnostics-config parse, before any DWH/source connection
+    exists, and connections are reused across scans. The env var is read at call
+    time so it can be toggled per-process (or per-test via ``monkeypatch.setenv``).
+
+    Operator guidance: enable this (set ``MEMORY_OPTIMIZED_DRIVER_ENABLED=true``)
+    when reads of very wide source rows run out of memory — without it the source
+    read buffers the whole result client-side. Only postgres sources benefit today
+    (other adapters fall back to the buffered read regardless). Expect a throughput
+    cost (~14% slower @100k rows) in exchange for bounded peak memory.
+    """
+
+    ENV_VAR: str = "MEMORY_OPTIMIZED_DRIVER_ENABLED"
+    _TRUTHY: tuple[str, ...] = ("1", "true", "yes", "on")
+
+    def __init__(self) -> None:
+        # Override set from the Soda Cloud diagnostics-warehouse config; ORed with
+        # the env toggle so either source can turn the driver on.
+        self._override: bool = False
+        # One-off guard so the "driver active" line is logged once per process,
+        # not once per query.
+        self._active_logged: bool = False
+
+    def configure(self, enabled: Optional[bool]) -> None:
+        """Set the Soda Cloud override. A falsy value leaves the env var as the
+        sole control."""
+        self._override = bool(enabled)
+
+    def is_enabled(self) -> bool:
+        if self._override:
+            return True
+        return os.getenv(self.ENV_VAR, "").strip().lower() in self._TRUTHY
+
+    def log_active_once(self, adapter_name: str) -> None:
+        if not self._active_logged:
+            self._active_logged = True
+            logger.info("Memory-optimized fetch driver active (%s)", adapter_name)
+
+    def reset(self) -> None:
+        """Restore defaults — for test isolation between cases."""
+        self._override = False
+        self._active_logged = False
+
+
+# Single process-level instance. State lives here rather than in module globals so
+# it is encapsulated and unit-testable (see MemoryOptimizedDriverSettings.reset).
+memory_optimized_driver_settings = MemoryOptimizedDriverSettings()
+
+
 # IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
 # of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
 # whether the driver reports the literal string ``"UTC"`` or one of the IANA aliases
@@ -357,6 +421,65 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
         return description
+
+    def supports_streaming_fetch(self) -> bool:
+        """Whether this adapter implements a real bounded-memory streaming fetch
+        (i.e. overrides ``_execute_query_one_by_one_streaming``). Base: ``False``;
+        postgres returns ``True``. Used by
+        ``execute_query_one_by_one_prefer_streaming`` to decide whether the
+        streaming impl is worth dispatching to."""
+        return False
+
+    def execute_query_one_by_one_prefer_streaming(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        """Execute ``sql`` and deliver rows one-by-one to ``row_callback``,
+        *preferring* a bounded-memory streaming fetch when it is both enabled and
+        available — otherwise the plain buffered fetch (same external contract).
+
+        Callers that stream potentially large result sets through Python — the
+        diagnostics-warehouse failed-rows flows — use this instead of the base
+        ``execute_query_one_by_one``. The name says *preferring*, not
+        *guaranteeing*: streaming engages only when the driver is enabled
+        (``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env var or the Soda Cloud override)
+        AND this adapter advertises a streaming impl (``supports_streaming_fetch``).
+        Today only postgres does (server-side named cursor, byte-budgeted batches,
+        bounding peak memory to ~one batch plus the largest single row); every other
+        adapter — and every adapter when the driver is disabled — keeps the proven
+        buffered behavior.
+        """
+        # Two terms, one feature: the "memory-optimized driver" is the operator-facing
+        # toggle (the MEMORY_OPTIMIZED_DRIVER_ENABLED env var / Soda Cloud flag);
+        # "streaming" is the fetch mechanism it prefers. So: driver enabled AND this
+        # adapter can stream → stream, otherwise buffer. The "driver active" log lives
+        # in the streaming impl (it fires only when streaming actually engages, not when
+        # an adapter accepts the call but then falls back, e.g. postgres in autocommit).
+        if memory_optimized_driver_settings.is_enabled() and self.supports_streaming_fetch():
+            return self._execute_query_one_by_one_streaming(
+                sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+            )
+        return self.execute_query_one_by_one(
+            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+        )
+
+    def _execute_query_one_by_one_streaming(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        """Bounded-memory streaming fetch. Only reached when this adapter advertises
+        the capability via ``supports_streaming_fetch`` returning ``True``, so the
+        base raises — advertise *and* implement (e.g. postgres' server-side cursor)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} advertises supports_streaming_fetch() but does not implement "
+            "_execute_query_one_by_one_streaming()"
+        )
 
     @contextlib.contextmanager
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:

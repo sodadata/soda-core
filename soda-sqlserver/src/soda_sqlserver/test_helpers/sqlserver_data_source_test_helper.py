@@ -15,6 +15,14 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> Optional[str]:
         return os.getenv("SQLSERVER_DATABASE", "master")
 
+    def _string_length_sql_function(self) -> str:
+        # SqlServer's LEN() trims trailing spaces, under-reporting any
+        # payload that ends with spaces. DATALENGTH() returns the raw
+        # byte count, which equals char count for varchar columns and
+        # is the right answer for the unbounded-column data-length
+        # verification.
+        return "datalength"
+
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl

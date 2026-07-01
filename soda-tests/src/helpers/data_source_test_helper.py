@@ -9,7 +9,7 @@ import re
 import string
 from copy import deepcopy
 from textwrap import dedent
-from typing import Optional
+from typing import Callable, Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -63,6 +63,61 @@ from soda_core.contracts.contract_verification import (
 logger = logging.getLogger(__name__)
 
 SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
+
+
+# Plugin hook for fixture row inserts. soda-core itself doesn't depend
+# on soda-extensions, but soda-extensions's conftest can register a
+# bulk-insert function here at session start so fixture tables get
+# created via the adapter's optimised path (load jobs / COPY /
+# fast_executemany / write_pandas) instead of inline SQL — which has
+# strict per-statement size limits on cloud adapters (BigQuery 413,
+# sqlserver TDS).
+#
+# Signature: ``fn(data_source_impl, test_table) -> None``. The hook
+# is responsible for taking ``test_table.row_values`` and writing them
+# into the already-created ``test_table.qualified_name``. The table
+# itself is created by the test helper before the hook is called.
+#
+# Activation: the hook is ONLY invoked when ``_fixture_bulk_inserter_active``
+# is True. The memory_container plugin flips this flag on around the
+# ``__prepare_outside__`` host setup so memory tests get the bulk path.
+# All other fixture flows keep using the long-standing inline-SQL path
+# (proven to work for every adapter), so this hook can never destabilise
+# non-memory tests.
+_fixture_bulk_inserter: Optional["Callable[[DataSourceImpl, TestTable], None]"] = None
+_fixture_bulk_inserter_active: bool = False
+
+
+def register_fixture_bulk_inserter(fn: "Callable[[DataSourceImpl, TestTable], None]") -> None:
+    """Register a fixture-side bulk-insert hook. Replaces any prior
+    registration. Pass ``None`` to unregister (rarely needed).
+
+    Called by soda-extensions's tests/conftest.py at session start to
+    plug in ``DataSourceExtension.do_bulk_insert``. Registration alone
+    does NOT enable the hook — activate it via
+    ``activate_fixture_bulk_inserter()`` (the memory_container plugin
+    handles this for memory-measurement tests)."""
+    global _fixture_bulk_inserter
+    _fixture_bulk_inserter = fn
+
+
+def activate_fixture_bulk_inserter() -> bool:
+    """Turn the registered bulk inserter on. Returns the prior active
+    state so callers can restore it (paired with
+    ``deactivate_fixture_bulk_inserter``). Safe to call when no hook is
+    registered — has no effect until one is."""
+    global _fixture_bulk_inserter_active
+    prev = _fixture_bulk_inserter_active
+    _fixture_bulk_inserter_active = True
+    return prev
+
+
+def deactivate_fixture_bulk_inserter(prev_state: bool = False) -> None:
+    """Restore the active flag to ``prev_state`` (defaults to off).
+    Pair with ``activate_fixture_bulk_inserter`` to scope bulk-insert
+    behaviour to a specific phase of a test run."""
+    global _fixture_bulk_inserter_active
+    _fixture_bulk_inserter_active = prev_state
 
 
 def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
@@ -274,6 +329,12 @@ class DataSourceTestHelper:
             )
 
             return Db2DataSourceTestHelper(name)
+        elif test_datasource == "hana":
+            from soda_hana.test_helpers.hana_data_source_test_helper import (
+                HanaDataSourceTestHelper,
+            )
+
+            return HanaDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -413,6 +474,14 @@ class DataSourceTestHelper:
         # Return cached value if available (avoids timestamp drift between calls)
         if hasattr(self, "_base_schema_name"):
             return self._base_schema_name
+
+        # Hard override used by the memory_container plugin (Phase 6 setup-outside
+        # architecture). Both the host-side helper and the in-container helper
+        # set this env var to the same value so ensure_test_table can dedup
+        # tables created on the host against the container's lookup.
+        fixed_schema = os.getenv("SODA_MEMTEST_FIXED_SCHEMA")
+        if fixed_schema:
+            return re.sub("[^0-9a-zA-Z]+", "_", fixed_schema).lower()
 
         schema_name_parts = []
 
@@ -587,7 +656,13 @@ class DataSourceTestHelper:
             raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
-        if self.is_cicd:
+        # SODA_MEMTEST_SKIP_SCHEMA_DROP=1 is set by the memory_container plugin
+        # in the in-container helper when setup_outside=True. Suppresses the
+        # CI-mode drop because the HOST helper has already populated this
+        # schema (via __prepare_outside__) and dropping it here would destroy
+        # the data the test is supposed to read.
+        skip_drop = os.getenv("SODA_MEMTEST_SKIP_SCHEMA_DROP", "").lower() in ("1", "true", "yes", "on")
+        if self.is_cicd and not skip_drop:
             self.drop_test_schema_if_exists()
         self.create_test_schema_if_not_exists()
 
@@ -617,7 +692,12 @@ class DataSourceTestHelper:
         self.data_source_impl.close_connection()
 
     def end_test_session_drop_schema(self) -> None:
-        if self.is_cicd:
+        # Same SODA_MEMTEST_SKIP_SCHEMA_DROP override as in
+        # start_test_session_ensure_schema — without this, the in-container
+        # helper would drop the schema at session end, destroying the
+        # table the host's __finalize_outside__ is about to clean up.
+        skip_drop = os.getenv("SODA_MEMTEST_SKIP_SCHEMA_DROP", "").lower() in ("1", "true", "yes", "on")
+        if self.is_cicd and not skip_drop:
             self.drop_test_schema_if_exists()
 
     def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:
@@ -778,6 +858,26 @@ class DataSourceTestHelper:
                 or not self.verify_test_table_row_count(test_table_specification)
                 or force_recreate
             ):
+                # Inside a memory container, a host-prepared (forced) table
+                # must NEVER be recreated here: the in-container spec is a
+                # stub whose row_values are [None] placeholders — recreating
+                # from it would replace the real fixture payload with NULL
+                # rows that pass the next run's row-count check. Fail loudly
+                # instead; the host-side __prepare_outside__ is the only
+                # legitimate (re)creator of these tables.
+                from helpers.memory_container_stub import (
+                    in_memory_container,
+                    lookup_forced_table_name,
+                )
+
+                if in_memory_container() and lookup_forced_table_name(test_table_specification.unique_name):
+                    raise AssertionError(
+                        f"Host-prepared fixture table {test_table_specification.unique_name} is missing or "
+                        f"has the wrong row count inside the memory container. Refusing to recreate it from "
+                        f"a stub spec (that would replace the fixture payload with NULL placeholder rows). "
+                        f"The host-side preparation likely failed or was interrupted — drop the table and "
+                        f"re-run so __prepare_outside__ rebuilds it."
+                    )
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
@@ -786,7 +886,12 @@ class DataSourceTestHelper:
                 if obsolete_table_names:
                     for obsolete_table_name in obsolete_table_names:
                         logger.debug(f"Test table {obsolete_table_name} has changed and will be recreated")
-                        self._drop_test_table(table_name=obsolete_table_name)
+                        # The table we are about to (re)create must really be
+                        # dropped even under SODA_MEMTEST_KEEP_TABLES (it
+                        # failed verification / changed); other same-purpose
+                        # variants remain convenience drops.
+                        is_current_table = obsolete_table_name.lower() == test_table_specification.unique_name.lower()
+                        self._drop_test_table(table_name=obsolete_table_name, force=is_current_table)
                         self.existing_test_table_names.remove(obsolete_table_name)
                         self._update_metadata_cache(obsolete_table_name, added=False)
 
@@ -820,15 +925,23 @@ class DataSourceTestHelper:
         row_count = self.data_source_impl.execute_query(row_count_sql)
         try:
             row_count_int = int(row_count.rows[0][0])
-        except ValueError:
-            row_count_int = None
+        except (ValueError, TypeError, IndexError):
+            # An unverifiable count must NOT pass as valid — a pre-existing
+            # but empty/partial fixture (e.g. an interrupted population on a
+            # cloud adapter) would then silently feed every subsequent run.
+            logger.error(
+                f"Could not parse row count for test table {test_table_specification.unique_name} "
+                f"(got {row_count.rows!r}); treating the table as invalid so it gets recreated."
+            )
+            return False
 
-        if row_count_int is not None and row_count_int != len(expected_row_values):
+        if row_count_int != len(expected_row_values):
             logger.warning(
                 f"Test table {test_table_specification.unique_name} has {row_count_int} rows, expected {len(expected_row_values)}"
             )
             logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
             return False
+        logger.debug(f"Test table {test_table_specification.unique_name} row count verified: {row_count_int} rows")
         return True
 
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
@@ -863,7 +976,94 @@ class DataSourceTestHelper:
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
         self._create_test_table(test_table)
-        self._insert_test_table_rows(test_table)
+        # Three INSERT paths, picked in order:
+        #
+        # 1. If a fixture bulk-inserter has been registered AND is
+        #    currently active (memory_container plugin flips the flag
+        #    for memory tests only), route through the adapter's native
+        #    optimised insert. Avoids inline-SQL size limits on cloud
+        #    adapters (BigQuery 413, sqlserver TDS) for the huge tables
+        #    that memory tests build.
+        #
+        # 2. Else, if the spec has a column marked unbounded (text /
+        #    string / varchar(MAX)), use the dialect-aware chunked
+        #    inline-SQL path. Bounded by ``get_max_sql_statement_length``;
+        #    splits a single INSERT into multiple statements to avoid
+        #    the driver-level overflow (e.g. sqlserver TDS at ~64 MB).
+        #
+        # 3. Else, the historical single-statement path. Works for the
+        #    typical short-row fixture; every soda-core test depends on
+        #    its exact behaviour.
+        if _fixture_bulk_inserter is not None and _fixture_bulk_inserter_active:
+            _fixture_bulk_inserter(self.data_source_impl, test_table)
+        elif self._spec_has_unbounded_column(test_table):
+            self._insert_test_table_rows_chunked(test_table)
+        else:
+            self._insert_test_table_rows(test_table)
+        # Data-length verification only runs for explicitly-unbounded
+        # columns — the test-side defence against silent driver /
+        # collation truncations. Cheap when the spec has no such
+        # columns (the function iterates and returns immediately).
+        if self._spec_has_unbounded_column(test_table):
+            self._verify_unbounded_columns_data_length(test_table)
+
+    def _string_length_sql_function(self) -> str:
+        """SQL function name that returns the character length of a string
+        column. Defaults to the ANSI-ish ``length(...)`` which is what
+        postgres / snowflake / bigquery / databricks understand. SqlServer
+        adapters override to ``datalength`` (the postgres-equivalent that
+        doesn't trim trailing spaces — sqlserver's ``len(...)`` does)."""
+        return "length"
+
+    def _verify_unbounded_columns_data_length(self, test_table: TestTable) -> None:
+        """For every column flagged unbounded by the spec, query
+        ``SELECT MIN(<length_fn>(col))`` and verify the result matches
+        the minimum payload length recorded by the spec. If the driver
+        / DB silently truncated rows at insert, the actual MIN will be
+        lower than the expected MIN and we fail loudly.
+
+        Skipped when the spec has zero rows (nothing to verify)."""
+        spec_columns = test_table.columns
+        rows = test_table.row_values
+        if not rows:
+            return
+        length_fn = self._string_length_sql_function()
+        dialect = self.data_source_impl.sql_dialect
+
+        problems: list[str] = []
+        for col_idx, (col_name, spec_col) in enumerate(spec_columns.items()):
+            if not isinstance(spec_col.sql_data_type.character_maximum_length, str):
+                continue  # not an unbounded column
+            # Expected MIN from the spec's row data.
+            try:
+                values = [row[col_idx] for row in rows if row[col_idx] is not None]
+            except (IndexError, KeyError):
+                continue
+            if not values:
+                continue
+            expected_min = min(len(str(v)) for v in values)
+            # Query actual MIN from the DB.
+            qcol = dialect.quote_default(col_name)
+            sql = f"SELECT MIN({length_fn}({qcol})) FROM {test_table.qualified_name}"
+            try:
+                result = self.data_source_impl.execute_query(sql, log_query=False)
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"{col_name}: length query failed ({exc!r})")
+                continue
+            if not result.rows or result.rows[0][0] is None:
+                problems.append(f"{col_name}: length query returned no row")
+                continue
+            actual_min = int(result.rows[0][0])
+            if actual_min < expected_min:
+                problems.append(
+                    f"{col_name}: expected MIN length ≥ {expected_min}, got {actual_min} "
+                    f"(rows were silently truncated)"
+                )
+        if problems:
+            raise AssertionError(
+                f"Unbounded-column data-length verification failed for "
+                f"{test_table.unique_name}: " + "; ".join(problems)
+            )
 
     def _create_test_table(self, test_table: TestTable) -> None:
         my_create_table = CREATE_TABLE(
@@ -876,10 +1076,99 @@ class DataSourceTestHelper:
         sql: str = self.data_source_impl.sql_dialect.build_create_table_sql(my_create_table)
         self.data_source_impl.execute_update(sql)
 
+    def _spec_has_unbounded_column(self, test_table: TestTable) -> bool:
+        """True iff the spec contains a column declared with
+        ``column_unbounded_text`` (or otherwise marked unbounded by setting
+        ``character_maximum_length`` to a non-int sentinel like ``"max"``).
+
+        Bounded specs go through the original ``_insert_test_table_rows``
+        path; unbounded specs go through the chunked path. Detecting via
+        the column type avoids guessing based on row-data size at runtime.
+        """
+        for column in test_table.columns.values():
+            length = column.sql_data_type.character_maximum_length
+            # The Builder's `column_unbounded_text` sets length to the
+            # string "max" on sqlserver-family adapters. On other adapters
+            # the column maps to TEXT (length stays None) — which is
+            # already unbounded so no chunking needed there either, but
+            # we still route through the chunked path to keep behaviour
+            # consistent and to gracefully handle large payloads on any
+            # adapter.
+            if isinstance(length, str):
+                return True
+        return False
+
     def _insert_test_table_rows(self, test_table: TestTable) -> None:
+        """Insert all rows in a single INSERT statement.
+
+        Historic behaviour. Works fine for the typical test fixture (a
+        handful of short rows). Don't use this for fat-row payloads —
+        use ``_insert_test_table_rows_chunked`` instead, dispatched from
+        ``_create_and_insert_test_table`` when the spec declares an
+        unbounded column."""
         sql: str = self._insert_test_table_rows_sql(test_table)
         if sql:
             self.data_source_impl.execute_update(sql)
+
+    def _insert_test_table_rows_chunked(self, test_table: TestTable) -> None:
+        """Bulk-insert in chunks so per-statement SQL stays under the
+        dialect's ``get_max_sql_statement_length()``.
+
+        Fat-row test fixtures (e.g. 200 rows × 1 MB payload for the
+        Phase 7 memory tests) would otherwise build a 200 MB
+        ``INSERT INTO ... VALUES (...)`` string and push it through the
+        DB driver — postgres tolerates this, sqlserver's TDS / pyodbc
+        TCP socket buffer drops the connection with an opaque ``0x20``
+        ("connection reset / broken pipe") error.
+
+        Strategy mirrors
+        ``DataSourceExtension._split_insert_into_multiple_statements``
+        but lives here because the test infra runs before any extension
+        is wired up.
+        """
+        if not test_table.row_values:
+            return
+
+        dialect = self.data_source_impl.sql_dialect
+        max_len = dialect.get_max_sql_statement_length()
+        rows = test_table.row_values
+        columns = [COLUMN(column.name) for column in test_table.columns.values()]
+        table_name = test_table.qualified_name
+
+        # Cheap per-row byte estimate to pick a chunk size without
+        # building the full SQL first. For typical fixtures (alphanumeric
+        # payloads, simple ints), `repr(value)` is close enough. We aim
+        # for a chunk SQL of ~half the dialect max to leave headroom for
+        # INSERT INTO header + escape overhead.
+        per_row_bytes = max(sum(len(repr(v)) + 2 for v in row) + len(row) * 2 + 4 for row in rows[: min(8, len(rows))])
+        chunk_size = max(1, (max_len // 2) // max(1, per_row_bytes))
+        chunk_size = min(chunk_size, len(rows))
+
+        i = 0
+        while i < len(rows):
+            chunk = rows[i : i + chunk_size]
+            chunk_sql = dialect.build_insert_into_sql(
+                INSERT_INTO(
+                    fully_qualified_table_name=table_name,
+                    values=[VALUES_ROW(row) for row in chunk],
+                    columns=columns,
+                )
+            )
+            if len(chunk_sql) > max_len and chunk_size > 1:
+                # Estimate was too loose (extreme escaping). Halve and retry.
+                chunk_size = max(1, chunk_size // 2)
+                continue
+            # When chunk_size == 1 we deliberately fall through and attempt the
+            # statement even if it exceeds max_len. The fat-row fixtures
+            # (scaling[1x100M], frq_fat[1x100M], the 100 MB unbounded-text
+            # round-trip) push single rows whose INSERT is ~105 MB — above the
+            # generic 63 MB cap — and the drivers accept them (postgres allows
+            # ~1 GB statements). A single row can't be split, so there is
+            # nothing left to shrink. If a driver DOES reject it, execute_update
+            # lets the error propagate and fails fixture setup loudly — exactly
+            # the signal we want, never a silent skip.
+            self.data_source_impl.execute_update(chunk_sql)
+            i += chunk_size
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
@@ -892,7 +1181,22 @@ class DataSourceTestHelper:
             )
             return insert_into_sql
 
-    def _drop_test_table(self, table_name: str) -> None:
+    def _drop_test_table(self, table_name: str, force: bool = False) -> None:
+        # Memory tests opt into "create once, reuse forever" — the
+        # dev_memory_testing schema's tables are huge (hundreds of MB) and
+        # rebuilding them every run wastes minutes per test. The memory_
+        # container plugin sets SODA_MEMTEST_KEEP_TABLES=1 around the whole
+        # test protocol so every drop call (session-end drops, obsolete-
+        # table cleanup, ``__finalize_outside__`` hooks) becomes a no-op.
+        # External sweep is responsible for evicting truly stale tables.
+        #
+        # ``force=True`` is for CORRECTNESS drops — a table that failed
+        # row-count verification must actually be dropped or the recreate's
+        # CREATE TABLE hits DuplicateTable and the broken fixture is wedged
+        # forever (every subsequent memory run errors at prepare).
+        if not force and os.getenv("SODA_MEMTEST_KEEP_TABLES", "").lower() in ("1", "true", "yes", "on"):
+            logger.debug(f"SODA_MEMTEST_KEEP_TABLES set — skipping drop of {table_name}")
+            return
         # Note, this is not a fully qualified table name, it's just the table name.
         # So we need to qualify it ourselves.
         fully_qualified_table_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
@@ -1319,6 +1623,56 @@ class DataSourceTestHelper:
             .build()
         )
         return test_table_specification
+
+    @classmethod
+    def create_fat_rows_test_table_spec(
+        cls,
+        table_purpose: str,
+        number_of_rows: int,
+        payload_bytes: int = 1024,
+    ) -> TestTableSpecification:
+        """Test table with a single wide TEXT `payload` column per row.
+
+        Drives memory_container tests that need a predictable DB-side result-set
+        size for FRQ-style queries. On a ``SELECT *``, the wire bytes and the
+        libpq client-side buffer hold approximately ``number_of_rows × payload_bytes``
+        of data (plus small per-row protocol overhead). The OOM-prone soda paths
+        (psycopg3's default cursor buffer in particular) scale with this total.
+
+        **Per-row payloads are unique** (each row gets a different prefix), so
+        CPython cannot intern the value across rows and psycopg's decoded copies
+        won't dedupe. Measurements thus reflect realistic per-row memory.
+
+        **Spec-build time** in Python memory is roughly
+        ``number_of_rows × payload_bytes`` — each row holds its own ``str``.
+        For multi-GB targets you'll want a server-side generator (``CREATE TABLE
+        AS SELECT … FROM generate_series(...)``) instead of this helper.
+
+        Subclasses may override to use a vendor-specific wide type (SQL Server
+        ``VARCHAR(MAX)``, Snowflake ``VARIANT``) if the default ``TEXT`` doesn't fit.
+        """
+        # Each row gets a unique 16-byte prefix (`row{i:012}_`) + ASCII filler.
+        # The unique prefix defeats CPython str interning; the filler matters
+        # for the actual byte-count on the wire / in libpq. Avoid per-char
+        # work like secrets.choice — that's ~100ms per 1MB string.
+        filler_len = max(0, payload_bytes - 16)
+        filler = "x" * filler_len
+        rows = [(i, f"row{i:012d}_{filler}") for i in range(number_of_rows)]
+        return (
+            TestTableSpecification.builder()
+            .table_purpose(table_purpose)
+            .column_integer("id")
+            # column_unbounded_text picks the adapter's true unbounded string
+            # type (TEXT on postgres, varchar(MAX) on sqlserver / fabric /
+            # synapse). column_text would map to varchar(default_length) =
+            # 8000 on the sqlserver family, silently truncating any payload
+            # larger than that — every fat-row test (payload_bytes ≥ 100 KB)
+            # would error at insert time with "String or binary data would
+            # be truncated".
+            .column_unbounded_text("payload")
+            .rows(rows=rows)
+            .build()
+        )
 
     def get_column_mappings(self) -> dict[str, SodaDataTypeName]:
         return {
