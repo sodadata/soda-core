@@ -313,10 +313,10 @@ class TestCheckSelectorAllMatch:
         assert not CheckSelector.all_match(all_selectors, check_wrong_attr)
 
     def test_check_paths_match_full_check_path_for_data_standard(self):
-        selectors = CheckSelector.from_check_paths(["my_std.columns.email.checks.missing"])
+        selectors = CheckSelector.from_check_paths(["data-standard.my_std:columns.email.checks.missing"])
         ds_check = _make_check_impl(
             relative_path="columns.email.checks.missing",
-            full_path="my_std.columns.email.checks.missing",  # _make_check_impl maps this to check_path
+            full_path="data-standard.my_std:columns.email.checks.missing",  # _make_check_impl maps this to check_path
         )
         assert CheckSelector.all_match(selectors, ds_check)
 
@@ -325,7 +325,7 @@ class TestCheckSelectorAllMatch:
         selectors = CheckSelector.from_check_paths(["columns.email.checks.missing"])
         ds_check = _make_check_impl(
             relative_path="columns.email.checks.missing",
-            full_path="my_std.columns.email.checks.missing",
+            full_path="data-standard.my_std:columns.email.checks.missing",
         )
         assert not CheckSelector.all_match(selectors, ds_check)
 

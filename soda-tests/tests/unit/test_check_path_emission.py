@@ -139,7 +139,7 @@ def test_check_full_path_property_for_contract_subtype_returns_bare_path():
     assert stub.check_path == "columns.age.checks.missing"
 
 
-def test_check_full_path_property_for_data_standard_subtype_prefixes_with_collection_id():
+def test_check_full_path_property_for_data_standard_subtype_emits_option3_format():
     """``CheckImpl.check_path`` returns ``f"{wire_source}.{collection_id}:{relative_path}"``
     (option-3 format) when the parent has ``wire_source != "soda-contract"`` and
     ``collection_id`` is set.

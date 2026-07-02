@@ -1175,8 +1175,10 @@ class CheckImpl:
         - Defensive fallback (no ``collection_id``): bare ``self.relative_path``.
 
         The ``type`` (wire_source) and ``id`` (collection_id) segments must not
-        contain ``.`` or ``:``. The ``base.py`` guard in ``verify()`` enforces
-        this before this property is reached during a real run.
+        contain ``.`` or ``:``. ``wire_source`` is delimiter-safe **by
+        convention** (hardcoded subclass literals, never user input); the
+        ``base.py`` guard in ``verify()`` enforces this for ``collection_id``
+        (which does come from user-supplied config).
 
         Selector matching uses ``self.relative_path`` (not ``check_path``) so
         the prefix never leaks into ``--check-selector`` matching.
