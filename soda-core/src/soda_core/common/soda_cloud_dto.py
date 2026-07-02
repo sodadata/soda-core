@@ -58,14 +58,41 @@ class ComputeWarehouseOverrideDTO(BaseModel):
     name: str = Field(..., alias="name")
 
 
+class CardinalitySamplingStrategyConfigurationDTO(BaseModel):
+    """Cardinality sampling strategy: profile at most ``numberOfRows`` rows."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    type: Literal["cardinality"] = Field(..., alias="type")
+    number_of_rows: int = Field(..., alias="numberOfRows")
+
+
+class TimePartitionSamplingStrategyConfigurationDTO(BaseModel):
+    """Time-partition sampling strategy: profile a trailing time window."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    type: Literal["timePartition"] = Field(..., alias="type")
+    unit_of_time: Literal["hours", "days", "weeks"] = Field(..., alias="unitOfTime")
+    number_of_units: int = Field(..., alias="numberOfUnits")
+
+
+SamplingStrategyConfiguration = Annotated[
+    Union[
+        CardinalitySamplingStrategyConfigurationDTO,
+        TimePartitionSamplingStrategyConfigurationDTO,
+    ],
+    Field(discriminator="type"),
+]
+
+
 class ProfilingConfigurationDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     is_enabled: Optional[bool] = Field(None, alias="isEnabled")
-    # samplingStrategyConfiguration holds either a cardinality or time-partition strategy.
-    # Kept as dict for now — discriminated CardinalitySamplingStrategyConfigurationDTO /
-    # TimePartitionSamplingStrategyConfigurationDTO subtypes can be tightened in a follow-up.
-    sampling_strategy_configuration: Optional[dict] = Field(None, alias="samplingStrategyConfiguration")
+    sampling_strategy_configuration: Optional[SamplingStrategyConfiguration] = Field(
+        None, alias="samplingStrategyConfiguration"
+    )
 
 
 class DatasetConfigurationDTO(BaseModel):
@@ -78,6 +105,12 @@ class DatasetConfigurationDTO(BaseModel):
     # metric_monitoring_configuration: Optional[list[dict[str, Any]]] = Field(None, alias="metricMonitoringConfiguration")
 
     profiling_configuration: Optional[ProfilingConfigurationDTO] = Field(None, alias="profilingConfiguration")
+    # Kept as a raw dict on purpose: TimePartitionSource.from_dict (soda-extensions,
+    # soda.partition_detector) owns the parsing so soda-core stays free of partition
+    # semantics. Wire shapes: {"type": "partitionColumn", "columnName": str|null,
+    # "suggestedPartitionColumns": [...]} | {"type": "sqlExpression",
+    # "sqlExpression": str} | {"type": "disabled"}.
+    time_partition_configuration: Optional[dict] = Field(None, alias="timePartitionConfiguration")
     samples_columns: Optional[list[str]] = Field(None, alias="samplesColumns")
     table: Optional[str] = Field(None, alias="table")
     test_row_sampler_configuration: Optional[TestRowSamplerConfigurationDTO] = Field(

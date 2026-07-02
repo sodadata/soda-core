@@ -1,8 +1,12 @@
 """Unit tests for ProfilingConfigurationDTO and its integration into DatasetConfigurationDTO."""
 
+import pytest
+from pydantic import ValidationError
 from soda_core.common.soda_cloud_dto import (
+    CardinalitySamplingStrategyConfigurationDTO,
     DatasetConfigurationDTO,
     ProfilingConfigurationDTO,
+    TimePartitionSamplingStrategyConfigurationDTO,
 )
 
 
@@ -15,7 +19,8 @@ class TestProfilingConfigurationDTOParsing:
                     "isEnabled": True,
                     "samplingStrategyConfiguration": {
                         "type": "timePartition",
-                        "columnName": "ts",
+                        "unitOfTime": "days",
+                        "numberOfUnits": 30,
                     },
                 },
             }
@@ -23,7 +28,7 @@ class TestProfilingConfigurationDTOParsing:
         assert dto.profiling_configuration is not None
         assert dto.profiling_configuration.is_enabled is True
 
-    def test_profiling_configuration_sampling_strategy_is_accessible(self):
+    def test_profiling_configuration_time_partition_strategy_is_typed(self):
         dto = DatasetConfigurationDTO.model_validate(
             {
                 "datasetQualifiedName": "x",
@@ -31,14 +36,17 @@ class TestProfilingConfigurationDTOParsing:
                     "isEnabled": True,
                     "samplingStrategyConfiguration": {
                         "type": "timePartition",
-                        "columnName": "ts",
+                        "unitOfTime": "days",
+                        "numberOfUnits": 30,
                     },
                 },
             }
         )
-        assert dto.profiling_configuration.sampling_strategy_configuration is not None
-        assert dto.profiling_configuration.sampling_strategy_configuration["type"] == "timePartition"
-        assert dto.profiling_configuration.sampling_strategy_configuration["columnName"] == "ts"
+        strategy = dto.profiling_configuration.sampling_strategy_configuration
+        assert isinstance(strategy, TimePartitionSamplingStrategyConfigurationDTO)
+        assert strategy.type == "timePartition"
+        assert strategy.unit_of_time == "days"
+        assert strategy.number_of_units == 30
 
     def test_profiling_configuration_disabled(self):
         dto = DatasetConfigurationDTO.model_validate(
@@ -61,14 +69,74 @@ class TestProfilingConfigurationDTOParsing:
                     "isEnabled": True,
                     "samplingStrategyConfiguration": {
                         "type": "cardinality",
-                        "cardinalityThreshold": 100,
+                        "numberOfRows": 100,
                     },
                 },
             }
         )
         strategy = dto.profiling_configuration.sampling_strategy_configuration
-        assert strategy["type"] == "cardinality"
-        assert strategy["cardinalityThreshold"] == 100
+        assert isinstance(strategy, CardinalitySamplingStrategyConfigurationDTO)
+        assert strategy.type == "cardinality"
+        assert strategy.number_of_rows == 100
+
+    @pytest.mark.parametrize("unit_of_time", ["hours", "days", "weeks"])
+    def test_profiling_configuration_time_partition_all_units(self, unit_of_time):
+        strategy = TimePartitionSamplingStrategyConfigurationDTO.model_validate(
+            {"type": "timePartition", "unitOfTime": unit_of_time, "numberOfUnits": 2}
+        )
+        assert strategy.unit_of_time == unit_of_time
+        assert strategy.number_of_units == 2
+
+    def test_profiling_configuration_unknown_sampling_type_is_a_validation_error(self):
+        with pytest.raises(ValidationError):
+            ProfilingConfigurationDTO.model_validate(
+                {
+                    "isEnabled": True,
+                    "samplingStrategyConfiguration": {
+                        "type": "somethingElse",
+                        "numberOfRows": 100,
+                    },
+                }
+            )
+
+    def test_profiling_configuration_sampling_strategy_extra_fields_pass_through(self):
+        """extra=allow on the union members: unknown Cloud fields don't break parsing."""
+        strategy = CardinalitySamplingStrategyConfigurationDTO.model_validate(
+            {"type": "cardinality", "numberOfRows": 100, "someUnknownFutureField": "value"}
+        )
+        assert strategy.number_of_rows == 100
+
+
+class TestTimePartitionConfigurationParsing:
+    def test_time_partition_configuration_partition_column_passes_through_as_dict(self):
+        dto = DatasetConfigurationDTO.model_validate(
+            {
+                "datasetQualifiedName": "x",
+                "timePartitionConfiguration": {
+                    "type": "partitionColumn",
+                    "columnName": None,
+                    "suggestedPartitionColumns": ["created_at"],
+                },
+            }
+        )
+        assert dto.time_partition_configuration == {
+            "type": "partitionColumn",
+            "columnName": None,
+            "suggestedPartitionColumns": ["created_at"],
+        }
+
+    def test_time_partition_configuration_sql_expression_passes_through_as_dict(self):
+        dto = DatasetConfigurationDTO.model_validate(
+            {
+                "datasetQualifiedName": "x",
+                "timePartitionConfiguration": {"type": "sqlExpression", "sqlExpression": "ts"},
+            }
+        )
+        assert dto.time_partition_configuration == {"type": "sqlExpression", "sqlExpression": "ts"}
+
+    def test_time_partition_configuration_defaults_to_none(self):
+        dto = DatasetConfigurationDTO.model_validate({"datasetQualifiedName": "x"})
+        assert dto.time_partition_configuration is None
 
     def test_profiling_configuration_extra_fields_pass_through(self):
         """extra=allow means unknown Cloud fields don't cause validation errors."""
