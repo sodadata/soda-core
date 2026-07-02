@@ -69,7 +69,7 @@ def _make_check(*, source):
         qualifier=None,
         name="No missing values",
         relative_path="columns.email.checks.missing",
-        check_path="my_pii_standard.columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
         identity="abc",
         definition="...",
         contract_file_line=1,

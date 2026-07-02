@@ -3,9 +3,10 @@
 
 ``relative_path=`` always matches the stripped yaml-internal path on both
 contract and data-standard subtypes.  ``check_path=`` matches the full wire
-path (which for data standards carries the collection prefix).  A
-``relative_path=`` selector with a prefixed value does NOT match — that
-would silently fan-out to a check the user did not target.
+path (which for data standards carries the option-3 prefix
+``"{wire_source}.{collection_id}:{relative_path}"``).  A ``relative_path=``
+selector with a prefixed value does NOT match — that would silently fan-out
+to a check the user did not target.
 
 ``from_check_paths`` is the entry-point used by the CLI and the FE; it emits
 ``check_path`` selectors so the full prefixed path is matched exactly.
@@ -46,12 +47,12 @@ def test_relative_path_selector_matches_stripped_path_for_contract():
 
 def test_relative_path_selector_matches_stripped_path_for_data_standard():
     """``relative_path=`` matches the stripped path on data-standard subtypes
-    even though their ``check_path`` carries a collection prefix.
+    even though their ``check_path`` carries the option-3 prefix.
     """
     selector = CheckSelector.parse("relative_path=columns.email.checks.missing")
     check = _make_check_impl(
         relative_path="columns.email.checks.missing",
-        check_path="my_pii_standard.columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert selector.matches(check)
 
@@ -60,20 +61,20 @@ def test_relative_path_selector_does_not_match_prefixed_form():
     """A ``relative_path=`` selector with a collection-prefixed value must NOT
     match — the prefix is wire-only and never appears in ``relative_path``.
     """
-    selector = CheckSelector.parse("relative_path=my_pii_standard.columns.email.checks.missing")
+    selector = CheckSelector.parse("relative_path=data-standard.my_pii_standard:columns.email.checks.missing")
     check = _make_check_impl(
         relative_path="columns.email.checks.missing",
-        check_path="my_pii_standard.columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert not selector.matches(check)
 
 
 def test_check_path_selector_matches_full_path_for_data_standard():
-    """``check_path=`` matches a data-standard check by its full wire path."""
-    selector = CheckSelector.parse("check_path=my_pii_standard.columns.email.checks.missing")
+    """``check_path=`` matches a data-standard check by its full option-3 wire path."""
+    selector = CheckSelector.parse("check_path=data-standard.my_pii_standard:columns.email.checks.missing")
     check = _make_check_impl(
         relative_path="columns.email.checks.missing",
-        check_path="my_pii_standard.columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert selector.matches(check)
 

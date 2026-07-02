@@ -801,6 +801,12 @@ class CheckCollectionImpl:
                 f"collection_id (used to prefix checkPath for backend routing)."
             )
 
+        if self.collection_id and (("." in self.collection_id) or (":" in self.collection_id)):
+            raise ValueError(
+                f"collection_id {self.collection_id!r} must not contain '.' or ':' "
+                "(reserved check-path delimiters)"
+            )
+
         if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None

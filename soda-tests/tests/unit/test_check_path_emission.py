@@ -1,14 +1,14 @@
 """Lock the wire ``checkPath`` emission format for each check-collection subtype.
 
-The backend's ``CheckCollectionModule.firstSegmentOf(checkPath)`` splits on
-the first ``.`` and matches the first segment verbatim against
-``DataStandard.name``. The format is therefore pinned at the wire boundary:
+The wire format (option 3) uses exactly one ``:`` as the delimiter between
+the ``{type}.{id}`` prefix and the ``{relative}`` path:
 
 - Contracts: ``checkPath`` is the yaml-internal stripped
   ``Check.relative_path``. Byte-identical to every prior contract
   verification.
-- Non-contract subtypes (e.g. data standards): ``checkPath`` is prefixed
-  with ``"{collection_id}.{relative_path}"`` so the backend filter routes it.
+- Non-contract subtypes (e.g. data standards): ``checkPath`` is
+  ``"{wire_source}.{collection_id}:{relative_path}"`` so the backend filter
+  routes it. The ``type`` and ``id`` segments must not contain ``.`` or ``:``.
 
 This test exercises ``_build_check_result_cloud_dict`` — the only wire-bound
 site reading ``Check.check_path`` — and the upstream ``Check.check_path``
@@ -84,22 +84,20 @@ def test_contract_check_path_is_unprefixed():
     assert wire["source"] == "soda-contract"
 
 
-def test_data_standard_check_path_is_prefixed_with_collection_name():
-    """Non-contract subtype: ``checkPath`` is ``"{collection_id}.{path}"``.
+def test_data_standard_check_path_is_type_id_colon_relative():
+    """Non-contract subtype: ``checkPath`` is ``"{wire_source}.{collection_id}:{path}"``.
 
-    Backend's ``firstSegmentOf(checkPath)`` splits on the first ``.`` and
-    looks up ``DataStandard`` by the first segment. The collection_id
-    (POC convention: matches ``DataStandard.name``) is the prefix.
+    Option-3 format uses exactly one ``:`` as the delimiter between the
+    ``{type}.{id}`` prefix and the ``{relative}`` path.
     """
-    path = "columns.email.checks.missing"
-    full_path = f"my_pii_standard.{path}"
-    check_result = _make_check_result(relative_path=path, check_path=full_path)
+    relative = "columns.email.checks.missing"
+    check_path = f"data-standard.my_pii_standard:{relative}"
     wire = _build_check_result_cloud_dict(
         contract=_make_contract(),
-        check_result=check_result,
+        check_result=_make_check_result(relative_path=relative, check_path=check_path),
         wire_source="data-standard",
     )
-    assert wire["checkPath"] == "my_pii_standard.columns.email.checks.missing"
+    assert wire["checkPath"] == "data-standard.my_pii_standard:columns.email.checks.missing"
     assert wire["source"] == "data-standard"
 
 
@@ -142,28 +140,28 @@ def test_check_full_path_property_for_contract_subtype_returns_bare_path():
 
 
 def test_check_full_path_property_for_data_standard_subtype_prefixes_with_collection_id():
-    """``CheckImpl.check_path`` returns ``f"{collection_id}.{relative_path}"``
-    when the parent has ``wire_source != "soda-contract"`` and ``collection_id``
-    is set.
+    """``CheckImpl.check_path`` returns ``f"{wire_source}.{collection_id}:{relative_path}"``
+    (option-3 format) when the parent has ``wire_source != "soda-contract"`` and
+    ``collection_id`` is set.
     """
     stub = _StubCheckImpl(
         wire_source="data-standard",
         collection_id="my_pii_standard",
         path="columns.age.checks.missing",
     )
-    assert stub.check_path == "my_pii_standard.columns.age.checks.missing"
+    assert stub.check_path == "data-standard.my_pii_standard:columns.age.checks.missing"
 
 
 def test_check_full_path_for_hypothetical_third_wire_source_also_prefixes():
     """Any future non-contract ``wire_source`` literal (not ``"soda-contract"``)
-    triggers prefixing — the heuristic isn't ``"data-standard"`` specifically.
+    triggers option-3 prefixing — the heuristic isn't ``"data-standard"`` specifically.
     """
     stub = _StubCheckImpl(
         wire_source="some-future-source",
         collection_id="my_collection",
         path="checks.row_count",
     )
-    assert stub.check_path == "my_collection.checks.row_count"
+    assert stub.check_path == "some-future-source.my_collection:checks.row_count"
 
 
 def test_check_full_path_falls_back_to_bare_path_when_collection_id_missing():
