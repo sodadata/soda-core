@@ -807,6 +807,12 @@ class CheckCollectionImpl:
                 "(reserved check-path delimiters)"
             )
 
+        if self.wire_source and (("." in self.wire_source) or (":" in self.wire_source)):
+            raise ValueError(
+                f"wire_source {self.wire_source!r} must not contain '.' or ':' "
+                "(reserved check-path delimiters)"
+            )
+
         if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None

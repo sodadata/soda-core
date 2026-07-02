@@ -105,9 +105,8 @@ class TestCheckSelectorParse:
         assert selectors == []
 
     def test_parse_all_supported_fields(self):
-        for field in ["type", "name", "column", "path", "qualifier"]:
-            selector = CheckSelector.parse(f"{field}=value")
-            assert selector.field == field
+        for field in CheckSelector.SUPPORTED_FIELDS:
+            assert CheckSelector.parse(f"{field}=value").field == field
 
     def test_from_check_paths(self):
         selectors = CheckSelector.from_check_paths(["columns.id.checks.missing", "checks.schema"])
@@ -202,6 +201,11 @@ class TestCheckSelectorMatches:
 
     def test_collection_wildcard(self):
         assert CheckSelector.parse("standard=pii_*").matches(_make_check_impl(collection_id="pii_v2"))
+        assert not CheckSelector.parse("standard=pii_*").matches(_make_check_impl(collection_id="gdpr_v1"))
+
+    def test_source_wildcard(self):
+        assert CheckSelector.parse("source=data-*").matches(_make_check_impl(wire_source="data-standard"))
+        assert not CheckSelector.parse("source=data-*").matches(_make_check_impl(wire_source="soda-contract"))
 
 
 # --- Wildcard tests ---

@@ -92,7 +92,7 @@ def test_from_check_paths_targets_check_path_field():
     """``from_check_paths`` must emit ``check_path`` selectors — not ``path``
     or ``relative_path`` — so the full wire path is matched exactly.
     """
-    selectors = CheckSelector.from_check_paths(["my_std.columns.email.checks.missing"])
+    selectors = CheckSelector.from_check_paths(["data-standard.my_std:columns.email.checks.missing"])
     assert len(selectors) == 1
     assert selectors[0].field == "check_path"
-    assert selectors[0].value == "my_std.columns.email.checks.missing"
+    assert selectors[0].value == "data-standard.my_std:columns.email.checks.missing"
