@@ -2,6 +2,7 @@
 Unit tests for ContractYaml parsing of basic dataset and column structures.
 """
 
+import pytest
 from helpers.test_functions import dedent_and_strip
 from helpers.yaml_parsing_helpers import parse_column_check, parse_contract
 from soda_core.common.datetime_conversions import (
@@ -51,6 +52,18 @@ def _parse_with_dialect(yaml_str: str) -> ContractYaml:
         provided_variable_values={},
         primary_data_source_impl=_FakeDataSourceImpl(),
     )
+
+
+def test_contract_without_columns_raises():
+    """Contracts require a 'columns' property (backend contract schema:
+    required [dataset, columns]); a columns-less contract fails to parse.
+    Data standards allow it absent via DataStandardYaml.columns_required=False."""
+    with pytest.raises(ContractParserException):
+        _parse_with_dialect(
+            """
+            dataset: postgres/db/public/tbl
+            """
+        )
 
 
 def test_parse_dataset_qualified_name():
@@ -170,9 +183,8 @@ def test_parse_variables():
 
 
 def test_parse_empty_checks_raises_exception():
-    """Test that empty checks list raises ContractParserException."""
-    import pytest
-
+    """An empty ``checks: []`` list raises ContractParserException — a checks-less
+    collection omits the key entirely rather than declaring an empty list."""
     yaml_str = """
         dataset: ds/db/schema/table
         columns:
