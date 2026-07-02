@@ -123,9 +123,7 @@ class ContractYaml(CheckCollectionYaml):
             self.filter = self.filter.strip()
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(
-            self.yaml_object, allow_empty_checks=True
-        )
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object, allow_empty_checks=True)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
