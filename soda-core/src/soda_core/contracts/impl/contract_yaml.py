@@ -123,7 +123,7 @@ class ContractYaml(CheckCollectionYaml):
             self.filter = self.filter.strip()
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object, allow_empty_checks=True)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
@@ -285,21 +285,15 @@ class ContractYaml(CheckCollectionYaml):
         return columns
 
     def _parse_checks(
-        self,
-        checks_containing_yaml_object: YamlObject,
-        column_yaml: Optional[ColumnYaml] = None,
-        allow_empty_checks: bool = False,
+        self, checks_containing_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml] = None
     ) -> Optional[list[Optional[CheckYaml]]]:
         checks: Optional[list[Optional[CheckYaml]]] = None
         if checks_containing_yaml_object:
             checks_yaml_list: YamlList = checks_containing_yaml_object.read_list_opt("checks")
             if checks_yaml_list:
-                # Dataset-level ``checks: []`` is allowed (allow_empty_checks, matching
-                # the backend schema's checks minItems=0). Column- and reconciliation-
-                # level check lists still require at least one entry.
-                if len(list(checks_yaml_list)) == 0 and not allow_empty_checks:
+                if len(list(checks_yaml_list)) == 0:
                     raise ContractParserException(
-                        "The 'checks' property must not be an empty list"
+                        "The 'checks' property must not be an empty list. "
                         "Please add at least one check or remove the 'checks' property."
                     )
                 checks = []

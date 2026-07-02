@@ -182,10 +182,9 @@ def test_parse_variables():
     assert contract_yaml.variables[1].default == 100
 
 
-def test_parse_empty_dataset_level_checks_is_allowed():
-    """Dataset-level ``checks: []`` is allowed (matches the backend schema's
-    checks minItems=0). Column- and reconciliation-level check lists still
-    require at least one entry."""
+def test_parse_empty_checks_raises_exception():
+    """An empty ``checks: []`` list raises ContractParserException — a checks-less
+    collection omits the key entirely rather than declaring an empty list."""
     yaml_str = """
         dataset: ds/db/schema/table
         columns:
@@ -194,8 +193,8 @@ def test_parse_empty_dataset_level_checks_is_allowed():
         checks: []
     """
 
-    contract_yaml = parse_contract(yaml_str)
-    assert contract_yaml.checks == []
+    with pytest.raises(ContractParserException, match="must not be an empty list"):
+        parse_contract(yaml_str)
 
 
 def test_parse_invalid_dataset_logs_error(logs: Logs):
