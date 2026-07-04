@@ -98,3 +98,25 @@ def test_non_text_types_unaffected():
     assert metadatas[0].sql_data_type.name == "numeric"
     assert metadatas[0].sql_data_type.numeric_precision == 38
     assert metadatas[0].sql_data_type.numeric_scale == 2
+
+
+# ---------------------------------------------------------------------------
+# Soda-type reverse map — defensive string-type aliases (OBSL-1005).
+#
+# Unreachable via INFORMATION_SCHEMA: Snowflake canonicalizes every string
+# type to TEXT in column metadata. Kept for parity with the defensive v3
+# profiling list (soda-library snowflake_data_source.py:162-173) so raw map
+# consumers (profiling classification, DWH reverse map) cover the same names.
+# ---------------------------------------------------------------------------
+
+
+def test_reverse_map_defensive_string_aliases():
+    from soda_core.common.metadata_types import SodaDataTypeName
+
+    dialect = SnowflakeSqlDialect()
+    reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
+    assert reverse_map["nchar"] == SodaDataTypeName.CHAR
+    assert reverse_map["nvarchar"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["nvarchar2"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["char varying"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["nchar varying"] == SodaDataTypeName.VARCHAR

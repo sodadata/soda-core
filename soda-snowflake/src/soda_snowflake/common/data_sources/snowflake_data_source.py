@@ -166,6 +166,14 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
             "character": SodaDataTypeName.CHAR,
             "text": SodaDataTypeName.TEXT,
             "string": SodaDataTypeName.VARCHAR,
+            # Defensive aliases — unreachable via INFORMATION_SCHEMA (Snowflake
+            # canonicalizes every string type to TEXT in column metadata); kept
+            # for parity with the defensive v3 profiling list (OBSL-1005).
+            "nchar": SodaDataTypeName.CHAR,
+            "nvarchar": SodaDataTypeName.VARCHAR,
+            "nvarchar2": SodaDataTypeName.VARCHAR,
+            "char varying": SodaDataTypeName.VARCHAR,
+            "nchar varying": SodaDataTypeName.VARCHAR,
             "smallint": SodaDataTypeName.SMALLINT,
             "integer": SodaDataTypeName.INTEGER,
             "int": SodaDataTypeName.INTEGER,
