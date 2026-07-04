@@ -1,4 +1,3 @@
-# soda-core/src/soda_core/discovery/discovery_payload.py
 from __future__ import annotations
 
 from typing import Optional

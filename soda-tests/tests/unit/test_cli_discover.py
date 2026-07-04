@@ -1,4 +1,3 @@
-# soda-tests/tests/unit/test_cli_discover.py
 import sys
 from unittest.mock import patch
 

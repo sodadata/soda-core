@@ -1,4 +1,3 @@
-# soda-core/src/soda_core/discovery/discovery_run.py
 from __future__ import annotations
 
 from typing import Optional
@@ -10,7 +9,7 @@ SODA_TEMP_PREFIX = "__soda_temp"
 
 
 class DiscoveryRun:
-    """Discovers dataset names for a data source and returns their DQNs. Not a CheckCollectionImpl."""
+    """Discovers dataset names for a data source and returns their DQNs."""
 
     @staticmethod
     def execute(
@@ -19,9 +18,8 @@ class DiscoveryRun:
         include: Optional[list[str]] = None,
         exclude: Optional[list[str]] = None,
     ) -> list[str]:
-        # include/exclude are pushed down to the metadata query as SQL LIKE/NOT LIKE filters
-        # (consistent SQL-wildcard semantics, server-side). The __soda_temp prefix is filtered
-        # here in Python: a SQL LIKE '__soda_temp%' would treat the leading underscores as
+        # include/exclude are pushed down as SQL LIKE filters. The __soda_temp prefix is
+        # filtered in Python instead: in a LIKE pattern its leading underscores would be
         # single-character wildcards.
         objects = data_source_impl.discover_qualified_objects(
             prefixes=prefixes,
