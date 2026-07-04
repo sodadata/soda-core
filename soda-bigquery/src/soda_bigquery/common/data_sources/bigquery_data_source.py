@@ -142,13 +142,11 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "bool": SodaDataTypeName.BOOLEAN,
-            # Reachable metadata type names that were missing (OBSL-1005):
             # BigQuery DATETIME is a naive (timezone-less) civil timestamp → canonical TIMESTAMP.
             "datetime": SodaDataTypeName.TIMESTAMP,
             "bignumeric": SodaDataTypeName.NUMERIC,
-            # Defensive aliases — unreachable via INFORMATION_SCHEMA (BigQuery
-            # canonicalizes them to INT64 / NUMERIC / BIGNUMERIC / BOOL), kept
-            # consistent with _get_data_type_name_synonyms below.
+            # Defensive aliases — unreachable via INFORMATION_SCHEMA (BigQuery canonicalizes
+            # them to INT64/NUMERIC/BIGNUMERIC/BOOL); consistent with _get_data_type_name_synonyms.
             "int": SodaDataTypeName.BIGINT,
             "integer": SodaDataTypeName.BIGINT,
             "bigint": SodaDataTypeName.BIGINT,
@@ -167,20 +165,14 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         ]
 
     def get_large_numeric_cast_type_name(self) -> Optional[str]:
-        """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP arguments in CAST(... AS NUMERIC)
-        on BigQuery (soda-library bigquery_data_source.py:442-443 via the type
-        map :102) so aggregate math over INT64 columns runs in NUMERIC(38,9),
-        not FLOAT64 (OBSL-1005)."""
+        """CAST aggregate args to NUMERIC so math over INT64 runs in NUMERIC(38,9),
+        not FLOAT64 (v3 bigquery_data_source.py:442)."""
         return "NUMERIC"
 
     def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
-        """BigQuery rejects bare UNION — it requires UNION ALL | UNION DISTINCT.
-
-        Render the UNION node as UNION ALL, matching v3 (soda-library
-        bigquery_data_source.py:427-428). For profiling's frequencies query the
-        unioned sets carry disjoint constant metric_ labels
-        ('mins'/'maxs'/'frequent_values'), so ALL vs DISTINCT is numerically
-        identical (OBSL-1005).
+        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT); render as
+        UNION ALL, matching v3 (bigquery_data_source.py:427). Safe: profiling's unioned
+        sets carry disjoint constant metric_ labels, so ALL vs DISTINCT is identical.
         """
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         return "\nUNION ALL\n".join(
@@ -191,12 +183,8 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         ) + (";" if add_semicolon else "")
 
     def format_metadata_data_type(self, data_type: str) -> str:
-        """BigQuery INFORMATION_SCHEMA reports parameterized columns with the
-        parameter suffix (e.g. ``NUMERIC(20, 4)``, ``STRING(10)``), and the base
-        implementation is identity — so ``sql_data_type.name`` would miss every
-        map lookup (soda-type reverse map, date-like detection, DWH reverse map).
-        Strip the parameter suffix, mirroring the DuckDB dialect (OBSL-1005).
-        """
+        """Strip the parameter suffix BigQuery INFORMATION_SCHEMA reports (e.g.
+        ``NUMERIC(20, 4)``) so type-map lookups match; mirrors the DuckDB dialect."""
         paranthesis_index = data_type.find("(")
         if paranthesis_index != -1:
             return data_type[:paranthesis_index]
@@ -274,14 +262,9 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return f"timestamp('{datetime_in_iso8601}')"
 
     def sql_expr_timestamp_coerce(self, expr: str) -> str:
-        # BigQuery coerces bare string comparison literals to the COLUMN's
-        # type; an ISO string with a UTC offset cannot cast to DATETIME
-        # ("Could not cast literal '...T12:00:00+00:00' to type DATETIME" —
-        # verified live, OBSL-1005 Task 8). Wrapping the column expression
-        # makes the comparison TIMESTAMP-typed on both sides; naive DATETIME
-        # is interpreted as UTC, matching v3: get_time_between_sql
-        # `TIMESTAMP({column}) BETWEEN ...` (soda-library
-        # bigquery_data_source.py:465-467).
+        # BigQuery coerces bare string comparison literals to the column's type, and an
+        # ISO string with a UTC offset cannot cast to DATETIME. Wrapping the column makes
+        # both sides TIMESTAMP-typed; matches v3 get_time_between_sql (bigquery_data_source.py:465).
         return f"timestamp({expr})"
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:

@@ -52,19 +52,9 @@ def test_extract_numeric_precision_case_insensitive():
     assert dialect.extract_numeric_precision(row, columns=[]) == 76
 
 
-# ---------------------------------------------------------------------------
-# Soda-type reverse map coverage (OBSL-1005).
-#
-# BigQuery DATETIME and BIGNUMERIC columns are real, reachable metadata type
-# names (v3 profiled both: soda-library bigquery_data_source.py:133,:138) but
-# were missing from get_soda_data_type_name_by_data_source_data_type_names —
-# consumers doing a raw map lookup (profiling classification, the partition
-# detector's is_date_like_column, DWH reverse-map lookups) silently skipped
-# those columns. The remaining aliases (int/integer/bigint/tinyint/decimal/
-# bigdecimal/boolean) are unreachable via INFORMATION_SCHEMA — BigQuery
-# canonicalizes them to INT64/NUMERIC/BIGNUMERIC/BOOL — kept as defensive
-# entries mirroring the dialect's own _get_data_type_name_synonyms.
-# ---------------------------------------------------------------------------
+# Soda-type reverse map: DATETIME/BIGNUMERIC are reachable metadata type names;
+# raw map consumers (profiling classification, is_date_like_column, DWH reverse
+# map) silently skip columns whose type name is missing.
 
 
 def test_reverse_map_covers_datetime_and_bignumeric():
@@ -72,8 +62,6 @@ def test_reverse_map_covers_datetime_and_bignumeric():
 
     dialect = BigQuerySqlDialect()
     reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
-
-    # BigQuery DATETIME is a naive (timezone-less) timestamp → canonical TIMESTAMP.
     assert reverse_map["datetime"] == SodaDataTypeName.TIMESTAMP
     assert reverse_map["bignumeric"] == SodaDataTypeName.NUMERIC
 
@@ -92,15 +80,7 @@ def test_reverse_map_defensive_aliases():
     assert reverse_map["boolean"] == SodaDataTypeName.BOOLEAN
 
 
-# ---------------------------------------------------------------------------
-# format_metadata_data_type parameter stripping (OBSL-1005).
-#
-# BigQuery INFORMATION_SCHEMA reports parameterized columns WITH the suffix
-# (e.g. "NUMERIC(20, 4)", "STRING(10)") and, unlike DuckDB
-# (duckdb_data_source.py format_metadata_data_type), BigQuery inherited the
-# base identity implementation (soda_core sql_dialect.py) — so
-# sql_data_type.name could be "numeric(20, 4)" and miss every map lookup.
-# ---------------------------------------------------------------------------
+# format_metadata_data_type parameter stripping
 
 
 def test_format_metadata_data_type_strips_parameters():
@@ -118,16 +98,7 @@ def test_format_metadata_data_type_passes_bare_names_through():
     assert dialect.format_metadata_data_type("struct<a int64>") == "struct<a int64>"
 
 
-# ---------------------------------------------------------------------------
-# UNION rendering (OBSL-1005).
-#
-# BigQuery rejects bare UNION — it requires UNION ALL | UNION DISTINCT. v3
-# rendered UNION as UNION ALL on BigQuery (soda-library
-# bigquery_data_source.py:427-428). Rendering the UNION node as UNION ALL is
-# the v3-faithful choice; for profiling's frequencies query the unioned sets
-# carry disjoint constant metric_ labels ('mins'/'maxs'/'frequent_values'),
-# so ALL vs DISTINCT is numerically identical.
-# ---------------------------------------------------------------------------
+# UNION rendering (see BigQuerySqlDialect.build_union_sql for the rationale)
 
 
 def _make_union(node_cls):
@@ -159,17 +130,8 @@ def test_union_all_still_renders_union_all():
 
 
 def test_get_large_numeric_cast_type_name_is_numeric():
-    """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP args in CAST(... AS NUMERIC) on
-    BigQuery (soda-library bigquery_data_source.py:442-443 + :102) so that
-    e.g. AVG(INT64) uses NUMERIC(38,9) math instead of FLOAT64 (OBSL-1005)."""
     assert BigQuerySqlDialect().get_large_numeric_cast_type_name() == "NUMERIC"
 
 
 def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
-    """v3 wrapped the partition expression as TIMESTAMP({column}) BETWEEN ...
-    (soda-library bigquery_data_source.py:465-467): BigQuery coerces bare
-    string window-bound literals to the COLUMN's type, and an ISO string with
-    a UTC offset cannot cast to DATETIME ("Could not cast literal
-    '...T12:00:00+00:00' to type DATETIME" — verified live, OBSL-1005 Task 8).
-    Wrapping the column makes the comparison TIMESTAMP-typed on both sides."""
     assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "timestamp(`dt`)"

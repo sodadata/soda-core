@@ -1441,32 +1441,20 @@ class SqlDialect:
         return data_type
 
     def get_large_numeric_cast_type_name(self) -> Optional[str]:
-        """Native type name to CAST numeric columns to for high-precision aggregate math, or None.
+        """Native type name to CAST aggregate arguments (AVG/SUM/VAR_SAMP/STDDEV_SAMP)
+        to, or None when the engine needs no cast.
 
-        Some engines' default aggregate math over exact-numeric columns differs
-        from float math (e.g. Snowflake AVG(NUMBER(38,0)) yields a scaled
-        NUMBER; BigQuery AVG(INT64) yields FLOAT64 where v3 used NUMERIC(38,9)
-        math). Dialects that need a wide numeric cast around AVG/SUM/VAR_SAMP/
-        STDDEV_SAMP-style aggregate arguments return the native type name to
-        cast to (a raw native name, not SodaDataTypeName — e.g. Snowflake needs
-        "FLOAT", which its canonical DECIMAL mapping cannot express). Base:
-        None = no cast needed. v3 provenance: cast_to_large_numerical
-        (soda-library data_source.py:2219-2223, snowflake :390-391,
-        bigquery :442-443). (OBSL-1005)
+        A raw native name, not SodaDataTypeName: e.g. Snowflake needs "FLOAT", which
+        its canonical DECIMAL mapping cannot express. v3: cast_to_large_numerical
+        (soda-library data_source.py:2219).
         """
         return None
 
     def sql_expr_timestamp_coerce(self, expr: str) -> str:
         """Wrap *expr* so it compares as a timestamp against string window-bound literals.
 
-        Base: identity — most engines (postgres/duckdb/snowflake) implicitly
-        coerce ISO-8601 string literals when compared to their temporal column
-        types. BigQuery coerces the string literal to the COLUMN's type
-        instead, and an ISO string carrying a UTC offset cannot cast to a
-        naive DATETIME column — it wraps the expression as ``timestamp(expr)``
-        so both sides become TIMESTAMP-typed. v3 provenance: get_time_between_sql
-        ``TIMESTAMP({column}) BETWEEN ...`` (soda-library
-        bigquery_data_source.py:465-467). (OBSL-1005 R6b)
+        Base: identity — most engines coerce ISO-8601 string literals against their
+        temporal column types themselves. See BigQuerySqlDialect for the exception.
         """
         return expr
 

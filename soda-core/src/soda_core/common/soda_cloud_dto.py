@@ -105,11 +105,8 @@ class DatasetConfigurationDTO(BaseModel):
     # metric_monitoring_configuration: Optional[list[dict[str, Any]]] = Field(None, alias="metricMonitoringConfiguration")
 
     profiling_configuration: Optional[ProfilingConfigurationDTO] = Field(None, alias="profilingConfiguration")
-    # Kept as a raw dict on purpose: TimePartitionSource.from_dict (soda-extensions,
-    # soda.partition_detector) owns the parsing so soda-core stays free of partition
-    # semantics. Wire shapes: {"type": "partitionColumn", "columnName": str|null,
-    # "suggestedPartitionColumns": [...]} | {"type": "sqlExpression",
-    # "sqlExpression": str} | {"type": "disabled"}.
+    # Kept as a raw dict on purpose: the partition-detector plugin owns the parsing,
+    # so soda-core stays free of partition semantics.
     time_partition_configuration: Optional[dict] = Field(None, alias="timePartitionConfiguration")
     samples_columns: Optional[list[str]] = Field(None, alias="samplesColumns")
     table: Optional[str] = Field(None, alias="table")

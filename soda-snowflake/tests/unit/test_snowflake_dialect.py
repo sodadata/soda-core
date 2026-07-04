@@ -100,16 +100,6 @@ def test_non_text_types_unaffected():
     assert metadatas[0].sql_data_type.numeric_scale == 2
 
 
-# ---------------------------------------------------------------------------
-# Soda-type reverse map — defensive string-type aliases (OBSL-1005).
-#
-# Unreachable via INFORMATION_SCHEMA: Snowflake canonicalizes every string
-# type to TEXT in column metadata. Kept for parity with the defensive v3
-# profiling list (soda-library snowflake_data_source.py:162-173) so raw map
-# consumers (profiling classification, DWH reverse map) cover the same names.
-# ---------------------------------------------------------------------------
-
-
 def test_reverse_map_defensive_string_aliases():
     from soda_core.common.metadata_types import SodaDataTypeName
 
@@ -123,7 +113,4 @@ def test_reverse_map_defensive_string_aliases():
 
 
 def test_get_large_numeric_cast_type_name_is_float():
-    """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP args in CAST(... AS FLOAT) on
-    Snowflake (soda-library snowflake_data_source.py:390-391 + :127) so that
-    e.g. AVG(NUMBER(38,0)) uses float math instead of scaled NUMBER (OBSL-1005)."""
     assert SnowflakeSqlDialect().get_large_numeric_cast_type_name() == "FLOAT"
