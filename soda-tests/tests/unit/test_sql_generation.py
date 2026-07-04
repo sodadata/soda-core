@@ -392,3 +392,8 @@ def test_sql_ast_union_renders_bare_union_on_base_dialect():
     sql = sql_dialect.build_union_sql(union, add_semicolon=False)
     assert "\nUNION\n" in sql
     assert "UNION ALL" not in sql
+
+
+def test_get_large_numeric_cast_type_name_base_is_none():
+    """Base dialects need no cast for high-precision aggregate math (OBSL-1005)."""
+    assert SqlDialect().get_large_numeric_cast_type_name() is None

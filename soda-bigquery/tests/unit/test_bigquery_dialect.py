@@ -156,3 +156,10 @@ def test_union_all_still_renders_union_all():
     dialect = BigQuerySqlDialect()
     sql = dialect.build_union_sql(_make_union(UNION_ALL), add_semicolon=False)
     assert "\nUNION ALL\n" in sql
+
+
+def test_get_large_numeric_cast_type_name_is_numeric():
+    """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP args in CAST(... AS NUMERIC) on
+    BigQuery (soda-library bigquery_data_source.py:442-443 + :102) so that
+    e.g. AVG(INT64) uses NUMERIC(38,9) math instead of FLOAT64 (OBSL-1005)."""
+    assert BigQuerySqlDialect().get_large_numeric_cast_type_name() == "NUMERIC"

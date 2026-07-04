@@ -1440,6 +1440,22 @@ class SqlDialect:
         """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
         return data_type
 
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """Native type name to CAST numeric columns to for high-precision aggregate math, or None.
+
+        Some engines' default aggregate math over exact-numeric columns differs
+        from float math (e.g. Snowflake AVG(NUMBER(38,0)) yields a scaled
+        NUMBER; BigQuery AVG(INT64) yields FLOAT64 where v3 used NUMERIC(38,9)
+        math). Dialects that need a wide numeric cast around AVG/SUM/VAR_SAMP/
+        STDDEV_SAMP-style aggregate arguments return the native type name to
+        cast to (a raw native name, not SodaDataTypeName — e.g. Snowflake needs
+        "FLOAT", which its canonical DECIMAL mapping cannot express). Base:
+        None = no cast needed. v3 provenance: cast_to_large_numerical
+        (soda-library data_source.py:2219-2223, snowflake :390-391,
+        bigquery :442-443). (OBSL-1005)
+        """
+        return None
+
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false
 

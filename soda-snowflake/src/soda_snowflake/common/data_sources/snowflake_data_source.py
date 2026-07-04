@@ -159,6 +159,13 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         return data_type_name.lower() in ["varchar", "char", "character", "text"]
 
     # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP arguments in CAST(... AS FLOAT)
+        on Snowflake (soda-library snowflake_data_source.py:390-391 via
+        SQL_TYPE_FOR_CREATE_TABLE_MAP[DECIMAL]="FLOAT" :127) so aggregate math
+        over NUMBER columns runs in float, not scaled NUMBER (OBSL-1005)."""
+        return "FLOAT"
+
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
             "varchar": SodaDataTypeName.VARCHAR,

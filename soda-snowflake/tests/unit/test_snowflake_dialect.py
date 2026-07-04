@@ -120,3 +120,10 @@ def test_reverse_map_defensive_string_aliases():
     assert reverse_map["nvarchar2"] == SodaDataTypeName.VARCHAR
     assert reverse_map["char varying"] == SodaDataTypeName.VARCHAR
     assert reverse_map["nchar varying"] == SodaDataTypeName.VARCHAR
+
+
+def test_get_large_numeric_cast_type_name_is_float():
+    """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP args in CAST(... AS FLOAT) on
+    Snowflake (soda-library snowflake_data_source.py:390-391 + :127) so that
+    e.g. AVG(NUMBER(38,0)) uses float math instead of scaled NUMBER (OBSL-1005)."""
+    assert SnowflakeSqlDialect().get_large_numeric_cast_type_name() == "FLOAT"

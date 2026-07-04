@@ -166,6 +166,13 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             ["bignumeric", "bigdecimal"],
         ]
 
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """v3 wrapped AVG/SUM/VAR_SAMP/STDDEV_SAMP arguments in CAST(... AS NUMERIC)
+        on BigQuery (soda-library bigquery_data_source.py:442-443 via the type
+        map :102) so aggregate math over INT64 columns runs in NUMERIC(38,9),
+        not FLOAT64 (OBSL-1005)."""
+        return "NUMERIC"
+
     def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
         """BigQuery rejects bare UNION — it requires UNION ALL | UNION DISTINCT.
 
