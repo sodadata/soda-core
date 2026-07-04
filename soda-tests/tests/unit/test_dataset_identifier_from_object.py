@@ -1,4 +1,3 @@
-# soda-tests/tests/unit/test_dataset_identifier_from_object.py
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.statements.table_types import FullyQualifiedTableName
 
