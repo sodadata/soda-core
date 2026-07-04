@@ -1,4 +1,3 @@
-# soda-tests/tests/unit/test_discovery_payload.py
 from soda_core.discovery.discovery_payload import build_discovery_payload
 
 

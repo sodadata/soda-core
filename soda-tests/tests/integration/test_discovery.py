@@ -1,4 +1,3 @@
-# soda-tests/tests/integration/test_discovery.py
 from textwrap import dedent
 
 import pytest
@@ -65,13 +64,9 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
 def test_handle_discover_data_source_opens_connection_and_posts_payload(
     data_source_test_helper: DataSourceTestHelper, tmp_path, monkeypatch
 ):
-    """Handler-level regression test for the `soda data-source discover` CLI path.
-
-    ``DataSourceImpl.from_yaml_source`` only parses YAML — it does not open the
-    connection — so the handler must open (and close) it around the discovery
-    query. Before that fix, ``discover_qualified_objects`` crashed with
-    ``AttributeError: 'NoneType' object has no attribute 'execute_query'``,
-    swallowed by the handler's broad except into a LOG_ERRORS exit.
+    """Regression test for the `soda data-source discover` CLI path:
+    from_yaml_source does not open the connection, so the handler must
+    open/close it around the discovery query.
     """
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
