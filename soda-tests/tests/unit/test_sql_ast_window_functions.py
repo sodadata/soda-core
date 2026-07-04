@@ -20,9 +20,7 @@ def dialect() -> SqlDialect:
     return SqlDialect()
 
 
-# ---------------------------------------------------------------------------
-# P1 — WINDOW_FUNCTION rendering
-# ---------------------------------------------------------------------------
+# WINDOW_FUNCTION rendering
 
 
 def test_window_function_order_by_only():
@@ -33,8 +31,6 @@ def test_window_function_order_by_only():
             order_by=[ORDER_BY_DESC("value_")],
         ).AS("rn")
     )
-    # Build expectation from actual output once node is implemented.
-    # The expression renders as <fn>(<args>) OVER (<clauses>) AS <alias>.
     assert 'ROW_NUMBER() OVER (ORDER BY "value_" DESC)' in sql
 
 
@@ -81,9 +77,7 @@ def test_window_function_multiple_partition_cols():
     assert 'RANK() OVER (PARTITION BY "a", "b" ORDER BY "c" DESC)' == sql
 
 
-# ---------------------------------------------------------------------------
-# P2 — UNION inside a CTE body
-# ---------------------------------------------------------------------------
+# UNION inside a CTE body
 
 
 def test_cte_with_union_body():
