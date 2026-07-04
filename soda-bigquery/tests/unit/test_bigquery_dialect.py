@@ -163,3 +163,13 @@ def test_get_large_numeric_cast_type_name_is_numeric():
     BigQuery (soda-library bigquery_data_source.py:442-443 + :102) so that
     e.g. AVG(INT64) uses NUMERIC(38,9) math instead of FLOAT64 (OBSL-1005)."""
     assert BigQuerySqlDialect().get_large_numeric_cast_type_name() == "NUMERIC"
+
+
+def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
+    """v3 wrapped the partition expression as TIMESTAMP({column}) BETWEEN ...
+    (soda-library bigquery_data_source.py:465-467): BigQuery coerces bare
+    string window-bound literals to the COLUMN's type, and an ISO string with
+    a UTC offset cannot cast to DATETIME ("Could not cast literal
+    '...T12:00:00+00:00' to type DATETIME" — verified live, OBSL-1005 Task 8).
+    Wrapping the column makes the comparison TIMESTAMP-typed on both sides."""
+    assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "timestamp(`dt`)"

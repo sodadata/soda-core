@@ -397,3 +397,10 @@ def test_sql_ast_union_renders_bare_union_on_base_dialect():
 def test_get_large_numeric_cast_type_name_base_is_none():
     """Base dialects need no cast for high-precision aggregate math (OBSL-1005)."""
     assert SqlDialect().get_large_numeric_cast_type_name() is None
+
+
+def test_sql_expr_timestamp_coerce_base_is_identity():
+    """Base dialects compare partition-window bounds against the raw expression
+    (postgres/duckdb/snowflake coerce ISO string literals themselves); only
+    BigQuery needs a TIMESTAMP() wrap for DATETIME columns (OBSL-1005 R6b)."""
+    assert SqlDialect().sql_expr_timestamp_coerce("ts") == "ts"

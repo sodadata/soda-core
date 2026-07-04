@@ -1456,6 +1456,20 @@ class SqlDialect:
         """
         return None
 
+    def sql_expr_timestamp_coerce(self, expr: str) -> str:
+        """Wrap *expr* so it compares as a timestamp against string window-bound literals.
+
+        Base: identity — most engines (postgres/duckdb/snowflake) implicitly
+        coerce ISO-8601 string literals when compared to their temporal column
+        types. BigQuery coerces the string literal to the COLUMN's type
+        instead, and an ISO string carrying a UTC offset cannot cast to a
+        naive DATETIME column — it wraps the expression as ``timestamp(expr)``
+        so both sides become TIMESTAMP-typed. v3 provenance: get_time_between_sql
+        ``TIMESTAMP({column}) BETWEEN ...`` (soda-library
+        bigquery_data_source.py:465-467). (OBSL-1005 R6b)
+        """
+        return expr
+
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false
 

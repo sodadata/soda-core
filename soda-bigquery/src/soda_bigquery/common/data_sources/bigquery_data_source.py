@@ -273,6 +273,17 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp('{datetime_in_iso8601}')"
 
+    def sql_expr_timestamp_coerce(self, expr: str) -> str:
+        # BigQuery coerces bare string comparison literals to the COLUMN's
+        # type; an ISO string with a UTC offset cannot cast to DATETIME
+        # ("Could not cast literal '...T12:00:00+00:00' to type DATETIME" —
+        # verified live, OBSL-1005 Task 8). Wrapping the column expression
+        # makes the comparison TIMESTAMP-typed on both sides; naive DATETIME
+        # is interpreted as UTC, matching v3: get_time_between_sql
+        # `TIMESTAMP({column}) BETWEEN ...` (soda-library
+        # bigquery_data_source.py:465-467).
+        return f"timestamp({expr})"
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"date_trunc(timestamp({timestamp_literal}), day)"
 
