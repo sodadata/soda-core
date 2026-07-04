@@ -162,10 +162,9 @@ def handle_discover_data_source(
         return ExitCode.LOG_ERRORS
 
     try:
-        # from_yaml_source only parses YAML; the handler owns the connection lifecycle
-        # (same pattern as contract verification, see contract_verification_impl).
+        # from_yaml_source only parses YAML; the handler owns the connection lifecycle.
         data_source_impl.open_connection()
-        # Scope: discover everything visible to the connection (v3 behaviour); include/exclude narrow it.
+        # Empty prefixes: discover everything visible to the connection (v3 behaviour).
         dqns: list[str] = DiscoveryRun.execute(
             data_source_impl=data_source_impl,
             prefixes=[],

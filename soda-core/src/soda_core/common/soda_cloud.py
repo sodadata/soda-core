@@ -1663,10 +1663,6 @@ def _build_check_collection_results_json_dict(
             ingestion_mode = VerificationIngestionMode.PARTIAL
             break
 
-    # Collect measurement dicts across all results.  Empty when no MM caller
-    # has attached dicts (the contracts-only path) — in that case we must NOT
-    # emit a ``metrics`` key at all so the wire output is byte-identical to the
-    # pre-OBSL-1025 payload.
     all_measurement_dicts: list[dict] = []
     for r in results:
         measurement_dicts = getattr(r, "measurement_dicts", None)
@@ -1703,9 +1699,8 @@ def _build_check_collection_results_json_dict(
         }
     )
 
-    # Add ``metrics`` key ONLY when there is at least one measurement dict —
-    # key omission (not null, not empty list) preserves byte-identical wire
-    # output for existing contract-only payloads.
+    # Emit ``metrics`` only when non-empty: omitting the key (not null, not [])
+    # keeps contract-only payloads byte-identical on the wire.
     if all_measurement_dicts:
         payload["metrics"] = all_measurement_dicts
 

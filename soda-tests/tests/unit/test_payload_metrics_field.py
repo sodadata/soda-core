@@ -1,9 +1,4 @@
-"""OBSL-1025 — Lock the ``metrics: [...]`` plumbing in the scan-results payload.
-
-Two tests:
-  1. Contracts-only result (no measurement_dicts): ``metrics`` key MUST be absent.
-  2. measurement_dicts present: ``metrics`` key must appear with the exact dicts.
-"""
+"""``metrics: [...]`` plumbing in the scan-results payload."""
 
 from __future__ import annotations
 
@@ -46,12 +41,9 @@ def _make_result(measurement_dicts=None) -> ContractVerificationResult:
 
 
 def test_contracts_only_payload_omits_metrics_key():
-    """When no measurement_dicts are present the payload must not contain a ``metrics`` key.
-
-    This is the byte-identical guard: existing contract payloads must be
-    wire-unchanged (``metrics: null`` or ``metrics: []`` are both wrong).
-    """
-    result = _make_result()  # no measurement_dicts attached
+    """Byte-identical guard: without measurement_dicts there must be no ``metrics``
+    key at all (``metrics: null`` or ``metrics: []`` are both wrong)."""
+    result = _make_result()
     payload = _build_check_collection_results_json_dict([result])
 
     assert (

@@ -90,11 +90,10 @@ class CheckCollectionResult:
     # producing real output (used by ``execute_check_collections`` per-item
     # error isolation). Real verifications leave this as None.
     error: Optional[BaseException] = None
-    # Optional list of raw measurement dicts to be emitted as ``metrics: [...]``
-    # in the ``sodaCoreInsertScanResults`` payload.  Populated by metric-monitoring
-    # callers; contracts leave this empty.  Using a list[dict] (not list[Measurement])
-    # so MM callers can attach pre-serialised cloud-shape dicts without depending on
-    # the engine's internal ``Measurement`` class.
+    # Raw measurement dicts emitted as ``metrics: [...]`` in the scan-results
+    # payload. Populated by metric-monitoring callers; contracts leave this empty.
+    # list[dict] rather than list[Measurement] so callers can attach pre-serialised
+    # cloud-shape dicts without depending on the engine's internal Measurement class.
     measurement_dicts: list[dict] = field(default_factory=list)
 
     def get_logs(self) -> list[str]:

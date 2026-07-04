@@ -1,4 +1,3 @@
-# soda-tests/tests/unit/test_discovery_run.py
 from soda_core.common.statements.table_types import FullyQualifiedTableName
 from soda_core.discovery.discovery_run import DiscoveryRun
 
