@@ -22,6 +22,8 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     STRING_HASH,
     TUPLE,
+    UNION,
+    UNION_ALL,
     VALUES,
     WITH,
 )
@@ -163,6 +165,23 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
         ]
+
+    def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
+        """BigQuery rejects bare UNION — it requires UNION ALL | UNION DISTINCT.
+
+        Render the UNION node as UNION ALL, matching v3 (soda-library
+        bigquery_data_source.py:427-428). For profiling's frequencies query the
+        unioned sets carry disjoint constant metric_ labels
+        ('mins'/'maxs'/'frequent_values'), so ALL vs DISTINCT is numerically
+        identical (OBSL-1005).
+        """
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return "\nUNION ALL\n".join(
+            [
+                f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)"
+                for select_element in union.select_elements
+            ]
+        ) + (";" if add_semicolon else "")
 
     def format_metadata_data_type(self, data_type: str) -> str:
         """BigQuery INFORMATION_SCHEMA reports parameterized columns with the

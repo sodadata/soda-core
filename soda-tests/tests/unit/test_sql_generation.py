@@ -378,3 +378,17 @@ def test_AS_method_works_on_any_sql_expression():
         'current_database() AS "table_catalog"'
     )
     assert isinstance(LITERAL(None).AS("x"), ALIAS)
+
+
+def test_sql_ast_union_renders_bare_union_on_base_dialect():
+    """Pins base-dialect UNION rendering (BigQuery overrides to UNION ALL — OBSL-1005)."""
+    sql_dialect: SqlDialect = SqlDialect()
+    union = UNION(
+        [
+            [SELECT(STAR()), FROM("a")],
+            [SELECT(STAR()), FROM("b")],
+        ]
+    )
+    sql = sql_dialect.build_union_sql(union, add_semicolon=False)
+    assert "\nUNION\n" in sql
+    assert "UNION ALL" not in sql

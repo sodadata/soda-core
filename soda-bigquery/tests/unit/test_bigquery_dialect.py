@@ -116,3 +116,43 @@ def test_format_metadata_data_type_passes_bare_names_through():
     assert dialect.format_metadata_data_type("int64") == "int64"
     assert dialect.format_metadata_data_type("string") == "string"
     assert dialect.format_metadata_data_type("struct<a int64>") == "struct<a int64>"
+
+
+# ---------------------------------------------------------------------------
+# UNION rendering (OBSL-1005).
+#
+# BigQuery rejects bare UNION — it requires UNION ALL | UNION DISTINCT. v3
+# rendered UNION as UNION ALL on BigQuery (soda-library
+# bigquery_data_source.py:427-428). Rendering the UNION node as UNION ALL is
+# the v3-faithful choice; for profiling's frequencies query the unioned sets
+# carry disjoint constant metric_ labels ('mins'/'maxs'/'frequent_values'),
+# so ALL vs DISTINCT is numerically identical.
+# ---------------------------------------------------------------------------
+
+
+def _make_union(node_cls):
+    from soda_core.common.sql_dialect import FROM, SELECT, STAR
+
+    return node_cls(
+        [
+            [SELECT(STAR()), FROM("a")],
+            [SELECT(STAR()), FROM("b")],
+        ]
+    )
+
+
+def test_union_renders_as_union_all():
+    from soda_core.common.sql_ast import UNION
+
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_union_sql(_make_union(UNION), add_semicolon=False)
+    assert "\nUNION ALL\n" in sql
+    assert "\nUNION\n" not in sql
+
+
+def test_union_all_still_renders_union_all():
+    from soda_core.common.sql_ast import UNION_ALL
+
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_union_sql(_make_union(UNION_ALL), add_semicolon=False)
+    assert "\nUNION ALL\n" in sql
