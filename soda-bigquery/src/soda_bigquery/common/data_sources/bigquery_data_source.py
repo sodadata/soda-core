@@ -140,6 +140,20 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "bool": SodaDataTypeName.BOOLEAN,
+            # Reachable metadata type names that were missing (OBSL-1005):
+            # BigQuery DATETIME is a naive (timezone-less) civil timestamp → canonical TIMESTAMP.
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "bignumeric": SodaDataTypeName.NUMERIC,
+            # Defensive aliases — unreachable via INFORMATION_SCHEMA (BigQuery
+            # canonicalizes them to INT64 / NUMERIC / BIGNUMERIC / BOOL), kept
+            # consistent with _get_data_type_name_synonyms below.
+            "int": SodaDataTypeName.BIGINT,
+            "integer": SodaDataTypeName.BIGINT,
+            "bigint": SodaDataTypeName.BIGINT,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "decimal": SodaDataTypeName.NUMERIC,
+            "bigdecimal": SodaDataTypeName.NUMERIC,
+            "boolean": SodaDataTypeName.BOOLEAN,
         }
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -149,6 +163,18 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
         ]
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """BigQuery INFORMATION_SCHEMA reports parameterized columns with the
+        parameter suffix (e.g. ``NUMERIC(20, 4)``, ``STRING(10)``), and the base
+        implementation is identity — so ``sql_data_type.name`` would miss every
+        map lookup (soda-type reverse map, date-like detection, DWH reverse map).
+        Strip the parameter suffix, mirroring the DuckDB dialect (OBSL-1005).
+        """
+        paranthesis_index = data_type.find("(")
+        if paranthesis_index != -1:
+            return data_type[:paranthesis_index]
+        return data_type
 
     def information_schema_namespace_elements(self, data_source_namespace: BigQueryDataSourceNamespace) -> list[str]:
         return [data_source_namespace.project_id, data_source_namespace.dataset, "INFORMATION_SCHEMA"]
