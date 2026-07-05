@@ -18,6 +18,7 @@ from soda_core.common.sql_ast import (
     COUNT,
     DISTINCT,
     LITERAL,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
     STRING_HASH,
@@ -207,6 +208,14 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """BigQuery has no ordered-set aggregates; the v3 parity form is
+        ``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]``, incl. the int(p*1000)
+        offset rule (v3 bigquery_data_source.py:346-348)."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        quantile_number: int = int(percentile_within_group.percentile * 1000)
+        return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
 
     def supports_data_type_character_maximum_length(self) -> bool:
         return False

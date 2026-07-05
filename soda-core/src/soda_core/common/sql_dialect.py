@@ -84,6 +84,7 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     RAW_SQL,
     REGEX_LIKE,
@@ -847,6 +848,8 @@ class SqlDialect:
             return self._build_cast_sql(expression)
         elif isinstance(expression, WINDOW_FUNCTION):
             return self._build_window_function_sql(expression)
+        elif isinstance(expression, PERCENTILE_WITHIN_GROUP):
+            return self._build_percentile_within_group_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -1057,6 +1060,14 @@ class SqlDialect:
             over_clauses.append(f"ORDER BY {', '.join(order_by_parts)}")
         over_sql: str = " ".join(over_clauses)
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """Ordered-set aggregate, v3 base form (v3 soda-library data_source.py:2184-2185).
+
+        Valid on postgres/duckdb/snowflake; BigQuery overrides with APPROX_QUANTILES.
+        """
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
 
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:

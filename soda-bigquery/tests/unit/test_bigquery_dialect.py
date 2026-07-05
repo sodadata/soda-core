@@ -135,3 +135,31 @@ def test_get_large_numeric_cast_type_name_is_numeric():
 
 def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
     assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "timestamp(`dt`)"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — BigQuery has no ordered-set aggregates; v3 rendered
+# APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}] (v3 bigquery_data_source.py:346-348).
+# The int(p*1000) offset rule is part of the parity contract (OBSL-1022).
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_renders_approx_quantiles_q1():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.25))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[250]"
+
+
+def test_percentile_within_group_renders_approx_quantiles_median():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.5))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[500]"
+
+
+def test_percentile_within_group_renders_approx_quantiles_q3():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.75))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[750]"

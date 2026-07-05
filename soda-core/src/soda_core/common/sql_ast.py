@@ -420,6 +420,22 @@ class WINDOW_FUNCTION(SqlExpression):
 
 
 @dataclass
+class PERCENTILE_WITHIN_GROUP(SqlExpression):
+    """Ordered-set aggregate: ``PERCENTILE_DISC(percentile) WITHIN GROUP (ORDER BY expression)``.
+
+    Base renderer emits the v3 base form (valid on postgres/duckdb/snowflake);
+    BigQuery overrides with ``APPROX_QUANTILES(expression, 1000)[int(percentile*1000)]``.
+    """
+
+    expression: SqlExpression | str
+    percentile: float
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
 class COALESCE(SqlExpression):
     args: list[SqlExpression | str]
 
