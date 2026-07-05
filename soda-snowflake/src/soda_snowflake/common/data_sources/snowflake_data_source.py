@@ -11,7 +11,17 @@ from soda_core.common.metadata_types import (
     SamplerType,
     SodaDataTypeName,
 )
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, RANDOM, TUPLE, VALUES
+from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
+    COLUMN,
+    COUNT,
+    DISTINCT,
+    RANDOM,
+    TIME_DELTA,
+    TUPLE,
+    VALUES,
+    seconds_per_time_bucket,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -120,6 +130,21 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
 
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Snowflake TIMESTAMPDIFF only counts crossed boundaries of the given
+        unit, so v3 computes the difference in SECONDS and divides by the float
+        seconds-per-interval (v3 snowflake_data_source.py:353-360) — kept verbatim."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        multiplier: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
+        return f"FLOOR(TIMESTAMPDIFF(second, {start_sql}, {end_sql}) / {multiplier})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """v3 snowflake TIMESTAMPADD form (v3 snowflake_data_source.py:362-363)."""
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        return f"TIMESTAMPADD({add_interval.unit}, {count_sql}, {timestamp_sql})"
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         # Implements data type synonyms

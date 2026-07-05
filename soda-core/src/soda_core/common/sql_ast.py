@@ -435,6 +435,83 @@ class PERCENTILE_WITHIN_GROUP(SqlExpression):
         self.handle_parent_node_update(self.expression)
 
 
+# Fixed-length time units supported by the time-bucket nodes below (v3
+# TimeUnit, soda-library partition.py:14-18). All are fixed-length, which is
+# what makes the base epoch-floor rendering of TIME_DELTA equivalent to v3's
+# EXTRACT-unit math on every dialect.
+TIME_BUCKET_UNITS: tuple[str, ...] = ("weeks", "days", "hours", "seconds")
+
+_SECONDS_PER_TIME_BUCKET_UNIT: dict[str, int] = {
+    "weeks": 7 * 24 * 60 * 60,
+    "days": 24 * 60 * 60,
+    "hours": 60 * 60,
+    "seconds": 1,
+}
+
+
+def _validate_time_bucket_unit(unit: str) -> None:
+    if unit not in TIME_BUCKET_UNITS:
+        raise ValueError(f"Invalid time bucket unit {unit!r}; must be one of {TIME_BUCKET_UNITS}")
+
+
+def seconds_per_time_bucket(unit: str, count: int) -> int:
+    """Seconds in one time bucket of ``count`` ``unit``s (v3 ``convert_to_timedelta``
+    over fixed-length units, datetime_helper.py:77-79)."""
+    _validate_time_bucket_unit(unit)
+    return _SECONDS_PER_TIME_BUCKET_UNIT[unit] * count
+
+
+@dataclass
+class TIME_DELTA(SqlExpression):
+    """Time between two timestamps (end - start) expressed in buckets of
+    ``count`` ``unit``s — the start-anchored partition index of the metric
+    monitoring bulk SQL (OBSL-1028).
+
+    Base renderer emits v3's POSTGRES epoch-floor form
+    ``FLOOR(EXTRACT(EPOCH FROM {end} - {start}) / {seconds_per_bucket})``
+    (v3 postgres_data_source.py:264-268) — byte-parity on postgres, valid on
+    duckdb, equivalent to v3-base EXTRACT-unit math because all supported
+    units are fixed-length. Snowflake overrides with the TIMESTAMPDIFF-seconds
+    form (v3 snowflake_data_source.py:353-360); bigquery with TIMESTAMP_DIFF
+    (v3 bigquery_data_source.py:446-455).
+    """
+
+    start: SqlExpression | str
+    end: SqlExpression | str
+    unit: str
+    count: int = 1
+
+    def __post_init__(self):
+        super().__post_init__()
+        _validate_time_bucket_unit(self.unit)
+        self.handle_parent_node_update(self.start)
+        self.handle_parent_node_update(self.end)
+
+
+@dataclass
+class ADD_INTERVAL(SqlExpression):
+    """Add ``count_expression`` intervals of one ``unit`` to a timestamp — the
+    scan_time reconstruction of the metric monitoring bulk SQL (OBSL-1028).
+
+    Base renderer emits v3's base/postgres interval-multiply form
+    ``{timestamp} + INTERVAL '1 {unit}' * {count_expression}``
+    (v3 data_source.py:1298-1307; the count expression parenthesizes itself —
+    SqlExpressionStr renders ``(...)`` — matching v3's get_interval_sql parens).
+    Snowflake overrides with TIMESTAMPADD (v3 snowflake_data_source.py:362-363);
+    bigquery with TIMESTAMP_ADD (v3 bigquery_data_source.py:457-463).
+    """
+
+    timestamp: SqlExpression | str
+    unit: str
+    count_expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        _validate_time_bucket_unit(self.unit)
+        self.handle_parent_node_update(self.timestamp)
+        self.handle_parent_node_update(self.count_expression)
+
+
 @dataclass
 class COALESCE(SqlExpression):
     args: list[SqlExpression | str]

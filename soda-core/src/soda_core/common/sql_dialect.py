@@ -23,6 +23,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -92,6 +93,7 @@ from soda_core.common.sql_ast import (
     STAR,
     STRING_HASH,
     SUM,
+    TIME_DELTA,
     TUPLE,
     UNION,
     UNION_ALL,
@@ -850,6 +852,10 @@ class SqlDialect:
             return self._build_window_function_sql(expression)
         elif isinstance(expression, PERCENTILE_WITHIN_GROUP):
             return self._build_percentile_within_group_sql(expression)
+        elif isinstance(expression, TIME_DELTA):
+            return self._build_time_delta_sql(expression)
+        elif isinstance(expression, ADD_INTERVAL):
+            return self._build_add_interval_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -1068,6 +1074,34 @@ class SqlDialect:
         """
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Time between two timestamps in buckets of ``count`` ``unit``s.
+
+        Base form = v3's POSTGRES epoch-floor rendering (v3
+        postgres_data_source.py:264-268) — byte-parity on postgres, valid on
+        duckdb, unit-safe because every supported unit is fixed-length.
+        Snowflake/bigquery override (v3 :353-360 / :446-455).
+        """
+        from soda_core.common.sql_ast import seconds_per_time_bucket
+
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        seconds: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
+        return f"FLOOR(EXTRACT(EPOCH FROM {end_sql} - {start_sql}) / {seconds})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """Add ``count_expression`` intervals of one ``unit`` to a timestamp.
+
+        Base form = v3's base/postgres interval-multiply rendering
+        (v3 data_source.py:1298-1307). NOTE: no parens are added around the
+        count — the count expression's own rendering provides them
+        (SqlExpressionStr renders ``(...)``), matching v3's get_interval_sql
+        output byte-for-byte for the MM bulk CTE.
+        """
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        return f"{timestamp_sql} + INTERVAL '1 {add_interval.unit}' * {count_sql}"
 
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:

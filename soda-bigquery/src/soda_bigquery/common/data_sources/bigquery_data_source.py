@@ -13,6 +13,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     COLUMN,
     CONCAT_WS,
     COUNT,
@@ -22,6 +23,7 @@ from soda_core.common.sql_ast import (
     RANDOM,
     REGEX_LIKE,
     STRING_HASH,
+    TIME_DELTA,
     TUPLE,
     UNION,
     UNION_ALL,
@@ -216,6 +218,34 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         quantile_number: int = int(percentile_within_group.percentile * 1000)
         return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
+
+    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD (v3 used
+    # ``TimeUnit.name``, bigquery_data_source.py:446-448).
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "WEEK",
+        "days": "DAY",
+        "hours": "HOUR",
+        "seconds": "SECOND",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """v3 bigquery TIMESTAMP_DIFF form incl. the CAST(FLOOR(../count) AS INT)
+        wrap when count != 1 (v3 bigquery_data_source.py:449-455)."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[time_delta.unit]
+        sql: str = f"TIMESTAMP_DIFF({end_sql}, {start_sql}, {unit_name})"
+        if time_delta.count != 1:
+            sql = f"CAST(FLOOR({sql} / {time_delta.count}) AS INT)"
+        return sql
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """v3 bigquery TIMESTAMP_ADD form; the INTERVAL takes the same arithmetic
+        count expression verbatim (v3 bigquery_data_source.py:457-463)."""
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} {unit_name})"
 
     def supports_data_type_character_maximum_length(self) -> bool:
         return False

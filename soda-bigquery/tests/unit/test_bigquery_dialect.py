@@ -163,3 +163,44 @@ def test_percentile_within_group_renders_approx_quantiles_q3():
 
     sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.75))
     assert sql == "APPROX_QUANTILES(`c`, 1000)[750]"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1028).
+# v3 bigquery forms: TIMESTAMP_DIFF with SINGULAR unit names + CAST(FLOOR(../count)
+# AS INT) when count != 1 (bigquery_data_source.py:446-455); TIMESTAMP_ADD with
+# an INTERVAL that takes the same arithmetic count expression verbatim (:457-463).
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_timestamp_diff_singular_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "days", 1)
+    )
+    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', DAY)"
+
+
+def test_time_delta_timestamp_diff_count_2_wraps_cast_floor():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "hours", 2)
+    )
+    assert sql == "CAST(FLOOR(TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', HOUR) / 2) AS INT)"
+
+
+def test_add_interval_renders_timestamp_add():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) DAY)"

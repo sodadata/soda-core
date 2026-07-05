@@ -114,3 +114,44 @@ def test_reverse_map_defensive_string_aliases():
 
 def test_get_large_numeric_cast_type_name_is_float():
     assert SnowflakeSqlDialect().get_large_numeric_cast_type_name() == "FLOAT"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1028).
+# v3 snowflake forms: TIMESTAMPDIFF counts crossed boundaries of the given
+# unit, so v3 computes in SECONDS and divides by the float seconds-per-interval
+# (snowflake_data_source.py:353-360); add-interval is TIMESTAMPADD (:362-363).
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_timestampdiff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "days", 1)
+    )
+    assert sql == "FLOOR(TIMESTAMPDIFF(second, '2020-06-20T00:00:00', (\"ts\")) / 86400.0)"
+
+
+def test_time_delta_timestampdiff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "hours", 2)
+    )
+    assert sql == "FLOOR(TIMESTAMPDIFF(second, '2020-06-20T00:00:00', (\"ts\")) / 7200.0)"
+
+
+def test_add_interval_renders_timestampadd():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMPADD(days, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00')"
