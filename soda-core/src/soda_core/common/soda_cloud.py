@@ -1692,10 +1692,21 @@ def _build_check_results_cloud_json_dicts(
     contract: Contract = contract_verification_result.check_collection
     if not check_results:
         return None
-    return [
-        _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
-        for check_result in check_results
-    ]
+    check_dicts: list[dict] = []
+    for check_result in check_results:
+        # Per-CheckResult override hook (see CheckResult.build_soda_cloud_check_dict):
+        # a non-None return is used verbatim; the base class returns None, so
+        # contract check dicts stay byte-identical.
+        override_dict: Optional[dict] = check_result.build_soda_cloud_check_dict(
+            contract=contract, wire_source=wire_source
+        )
+        if override_dict is not None:
+            check_dicts.append(override_dict)
+        else:
+            check_dicts.append(
+                _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
+            )
+    return check_dicts
 
 
 def _build_scan_definition_name(
