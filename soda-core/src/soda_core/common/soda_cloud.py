@@ -936,6 +936,24 @@ class SodaCloud:
             return self._group_results_by_key(results, "identity")
         return results
 
+    def get_last_measurement(self, metric_identity: str) -> Optional[dict]:
+        """Fetch the most recent measurement for a single metric identity.
+
+        Ported from v3 ``SodaCloud.get_last_measurement`` (soda_cloud.py:703-712)
+        verbatim semantics: ``sodaCoreHistoricMeasurements2`` with ``limit: 1``,
+        first-result-or-None. Non-200 raises like the sibling historic-data
+        methods (callers isolate per metric).
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricMeasurements2",
+            identities_key="metricIdentities",
+            identities=[metric_identity],
+            date_time_range=None,
+            limit=1,
+            request_log_name="get_last_measurement",
+        )
+        return results[0] if results else None
+
     def get_historic_check_results(
         self,
         check_identities: list[str],

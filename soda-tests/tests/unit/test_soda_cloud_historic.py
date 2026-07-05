@@ -231,3 +231,52 @@ def test_historic_query_non_200_raises_soda_cloud_exception():
 
     with pytest.raises(SodaCloudException, match="boom"):
         mock.get_historic_measurements(["m1"], date_time_range=DATE_TIME_RANGE)
+
+
+# ---------------------------------------------------------------------------
+# get_last_measurement (OBSL-1028) — v3 soda_cloud.py:703-712 verbatim
+# semantics: sodaCoreHistoricMeasurements2 with a single identity and
+# ``limit: 1``; first-result-or-None.
+# ---------------------------------------------------------------------------
+
+
+def test_get_last_measurement_request_shape():
+    mock = MockSodaCloud()
+    mock.add_historic_measurements("m1", [_measurement("m1", value=7)])
+
+    mock.get_last_measurement("m1")
+
+    request = mock.requests[-1].json
+    assert request["type"] == "sodaCoreHistoricMeasurements2"
+    assert request["metricIdentities"] == ["m1"]
+    assert request["limit"] == 1
+    assert "minScanTime" not in request
+    assert "maxScanTime" not in request
+
+
+def test_get_last_measurement_returns_first_result():
+    mock = MockSodaCloud()
+    mock.add_historic_measurements("m1", [_measurement("m1", value=7), _measurement("m1", value=8)])
+
+    result = mock.get_last_measurement("m1")
+
+    assert result is not None
+    assert result["value"] == 7
+
+
+def test_get_last_measurement_returns_none_when_no_results():
+    mock = MockSodaCloud()
+    mock.add_historic_measurements("other", [_measurement("other")])
+
+    assert mock.get_last_measurement("m1") is None
+
+
+def test_get_last_measurement_non_200_raises_soda_cloud_exception():
+    from helpers.mock_soda_cloud import MockResponse
+
+    mock = MockSodaCloud(
+        responses=[MockResponse(status_code=500, json_object={"message": "boom"})],
+    )
+
+    with pytest.raises(SodaCloudException, match="boom"):
+        mock.get_last_measurement("m1")
