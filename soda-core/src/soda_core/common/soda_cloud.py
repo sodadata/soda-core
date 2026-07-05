@@ -5,12 +5,13 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
 from time import sleep
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import requests
 from pydantic import ValidationError
@@ -192,6 +193,32 @@ class ContractType(Enum):
 class VerificationIngestionMode(Enum):
     FULL = "full"
     PARTIAL = "partial"
+
+
+# Soda Cloud rejects historic-data queries with more than 500 identities per
+# request; get_historic_measurements/get_historic_check_results batch and merge.
+HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
+
+
+@dataclass(frozen=True)
+class HistoricDateTimeRange:
+    """Scan-time window for historic-data queries (v3 HistoricDateTimeRangeDescriptor)."""
+
+    from_date_time: datetime
+    to_date_time: datetime
+
+
+def _convert_scan_time_to_str(dt: datetime) -> str:
+    """Serialize a scan-time boundary exactly like v3 (JsonHelper.to_jsonnable,
+    json_helper.py:66-69): naive datetimes are interpreted as UTC; output is the
+    UTC isoformat with milliseconds, e.g. ``2026-07-05T12:00:00.000+00:00``.
+
+    NOT v4's ``convert_datetime_to_str`` (seconds precision) — the historic-data
+    endpoints get the byte-identical v3 format.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
@@ -875,6 +902,117 @@ class SodaCloud:
             raise SodaCloudException(
                 f"Failed to parse datasets configurations for datasets '{dataset_identifiers}': {str(e)}"
             ) from e
+
+    def get_historic_measurements(
+        self,
+        metric_identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange] = None,
+        group_by_identity: bool = True,
+        limit: Optional[int] = None,
+        drop_measurements_without_value: bool = True,
+    ) -> Union[list[dict], dict[str, list[dict]]]:
+        """Fetch historic measurements for the given metric identities.
+
+        Ported from v3 ``SodaCloud.get_historic_measurements`` (soda_cloud.py:714-744).
+        Exactly one of ``date_time_range`` or ``limit`` must be provided (the
+        ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
+        Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+
+        Returns measurements grouped by metric identity (default), or the flat
+        result list when ``group_by_identity`` is False. Measurements without a
+        ``value`` key are dropped by default, like v3.
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricMeasurements2",
+            identities_key="metricIdentities",
+            identities=metric_identities,
+            date_time_range=date_time_range,
+            limit=limit,
+            request_log_name="get_historic_measurements",
+        )
+        if drop_measurements_without_value:
+            results = [measurement for measurement in results if "value" in measurement]
+        if group_by_identity:
+            return self._group_results_by_key(results, "identity")
+        return results
+
+    def get_historic_check_results(
+        self,
+        check_identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange] = None,
+        group_by_measurement_id: bool = True,
+        limit: Optional[int] = None,
+    ) -> Union[list[dict], dict[str, list[dict]]]:
+        """Fetch historic check results for the given check identities.
+
+        Ported from v3 ``SodaCloud.get_historic_check_results`` (soda_cloud.py:746-770).
+        Exactly one of ``date_time_range`` or ``limit`` must be provided.
+        Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+
+        Returns check results grouped by ``measurementId`` (default), or the flat
+        result list when ``group_by_measurement_id`` is False.
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricCheckResults2",
+            identities_key="checkIdentities",
+            identities=check_identities,
+            date_time_range=date_time_range,
+            limit=limit,
+            request_log_name="get_historic_check_results",
+        )
+        if group_by_measurement_id:
+            return self._group_results_by_key(results, "measurementId")
+        return results
+
+    def _fetch_historic_results(
+        self,
+        query_type: str,
+        identities_key: str,
+        identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange],
+        limit: Optional[int],
+        request_log_name: str,
+    ) -> list[dict]:
+        """Shared query execution for the two historic-data endpoints: builds the
+        date-range XOR limit query args, batches identities, merges ``results``."""
+        if (date_time_range is None) == (limit is None):
+            raise SodaCloudException(
+                f"'{query_type}' requires exactly one of date_time_range or limit "
+                f"(got date_time_range={date_time_range}, limit={limit})"
+            )
+        query_args: dict = {}
+        if date_time_range is not None:
+            query_args["minScanTime"] = _convert_scan_time_to_str(date_time_range.from_date_time)
+            query_args["maxScanTime"] = _convert_scan_time_to_str(date_time_range.to_date_time)
+        else:
+            query_args["limit"] = limit
+
+        all_results: list[dict] = []
+        for batch_start in range(0, len(identities), HISTORIC_IDENTITIES_MAX_BATCH_SIZE):
+            batch: list[str] = identities[batch_start : batch_start + HISTORIC_IDENTITIES_MAX_BATCH_SIZE]
+            response: Optional[Response] = self._execute_query(
+                {
+                    "type": query_type,
+                    identities_key: batch,
+                    **query_args,
+                },
+                request_log_name=request_log_name,
+            )
+            if response is None:
+                raise SodaCloudException(f"No response from Soda Cloud for '{query_type}'")
+            body: dict = self._parse_json_body(response)
+            if response.status_code != 200:
+                detail = body.get("message") or body.get("code") or response.text or response.status_code
+                raise SodaCloudException(f"Failed '{query_type}': {detail}")
+            all_results.extend(body.get("results") or [])
+        return all_results
+
+    @staticmethod
+    def _group_results_by_key(results: list[dict], key: str) -> dict[str, list[dict]]:
+        grouped: dict[str, list[dict]] = {}
+        for result in results:
+            grouped.setdefault(result.get(key), []).append(result)
+        return grouped
 
     def fetch_contract(
         self,

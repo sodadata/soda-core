@@ -190,3 +190,43 @@ class TestDatasetConfigurationDTORegressionNoProfiling:
         assert dto.samples_columns == ["id", "created_at"]
         assert dto.test_row_sampler_configuration is not None
         assert dto.test_row_sampler_configuration.enabled is True
+
+
+class TestMetricMonitoringConfigurationField:
+    """metricMonitoringConfiguration stays a raw list[dict] on purpose (OBSL-1007):
+    the metric-monitoring plugin's monitor_config owns the parsing, exactly like
+    timePartitionConfiguration."""
+
+    BE_MONITORS = [
+        {"metricType": "rowCount", "metricIdentity": "e07cd407"},
+        {
+            "metricType": "average",
+            "columnName": "cst_size",
+            "metricIdentity": "ae0b66d7",
+            "userConfiguration": {"validMin": 0},
+        },
+    ]
+
+    def test_metric_monitoring_configuration_parses_via_alias_as_raw_dicts(self):
+        dto = DatasetConfigurationDTO.model_validate(
+            {
+                "datasetQualifiedName": "x",
+                "metricMonitoringConfiguration": self.BE_MONITORS,
+            }
+        )
+        assert dto.metric_monitoring_configuration == self.BE_MONITORS
+        assert all(isinstance(monitor, dict) for monitor in dto.metric_monitoring_configuration)
+
+    def test_metric_monitoring_configuration_round_trips_by_alias(self):
+        dto = DatasetConfigurationDTO.model_validate({"metricMonitoringConfiguration": self.BE_MONITORS})
+        dumped = dto.model_dump(by_alias=True, exclude_none=True)
+        assert dumped["metricMonitoringConfiguration"] == self.BE_MONITORS
+
+    def test_payloads_omitting_the_key_parse_to_none(self):
+        """Regression: existing payloads without metricMonitoringConfiguration still parse."""
+        dto = DatasetConfigurationDTO.model_validate({"datasetQualifiedName": "existing/dataset"})
+        assert dto.metric_monitoring_configuration is None
+
+    def test_empty_monitor_list_is_preserved_not_none(self):
+        dto = DatasetConfigurationDTO.model_validate({"metricMonitoringConfiguration": []})
+        assert dto.metric_monitoring_configuration == []
