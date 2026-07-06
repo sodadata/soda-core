@@ -145,13 +145,21 @@ def test_m2m_connection_passes_credentials_provider():
             "client_secret": "sec",
         }
     )
-    with patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value="M2M") as osp, patch(
-        "databricks.sdk.core.Config"
-    ) as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
+    headers = {"Authorization": "Bearer tok"}
+    with patch(
+        "databricks.sdk.credentials_provider.oauth_service_principal", return_value=lambda: headers
+    ) as osp, patch("databricks.sdk.core.Config") as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
         _make_connection()._create_connection(props)
 
     called_kwargs = mock_connect.call_args.kwargs
-    assert called_kwargs["credentials_provider"] == "M2M"
+    # ExternalAuthProvider calls credentials_provider() once to get the header factory, then
+    # calls that factory per request. Verify both levels resolve to a headers dict — the old
+    # one-level shape would make provider() return the dict and provider()() raise TypeError.
+    provider = called_kwargs["credentials_provider"]
+    assert callable(provider)
+    header_factory = provider()
+    assert callable(header_factory)
+    assert header_factory() == headers
     assert "client_id" not in called_kwargs and "client_secret" not in called_kwargs
     # SDK Config got a scheme-prefixed host built from the stripped server_hostname.
     assert cfg.call_args.kwargs["host"] == "https://abc.cloud.databricks.com"
@@ -171,16 +179,39 @@ def test_azure_connection_passes_credentials_provider():
             "azure_tenant_id": "tid",
         }
     )
-    with patch("databricks.sdk.credentials_provider.azure_service_principal", return_value="AZ") as asp, patch(
-        "databricks.sdk.core.Config"
-    ) as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
+    headers = {"Authorization": "Bearer az"}
+    with patch(
+        "databricks.sdk.credentials_provider.azure_service_principal", return_value=lambda: headers
+    ) as asp, patch("databricks.sdk.core.Config") as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
         _make_connection()._create_connection(props)
 
     called_kwargs = mock_connect.call_args.kwargs
-    assert called_kwargs["credentials_provider"] == "AZ"
+    provider = called_kwargs["credentials_provider"]
+    assert callable(provider)
+    assert provider()() == headers
     assert cfg.call_args.kwargs["azure_tenant_id"] == "tid"
     assert cfg.call_args.kwargs["azure_client_secret"] == "asec"
     asp.assert_called_once()
+
+
+def test_m2m_provider_none_raises_clear_error():
+    """If the SDK yields no header factory (OIDC discovery failure), fail loudly rather than
+    silently falling through to a credential-less PAT connect."""
+    props = infer(
+        {
+            "auth_type": "databricks-oauth-m2m",
+            "host": "abc.cloud.databricks.com",
+            "http_path": "/x",
+            "client_id": "cid",
+            "client_secret": "sec",
+        }
+    )
+    with patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value=None), patch(
+        "databricks.sdk.core.Config"
+    ), patch.object(conn_mod.sql, "connect") as mock_connect:
+        with pytest.raises(ValueError, match="OAuth .M2M. authentication setup failed"):
+            _make_connection()._create_connection(props)
+    mock_connect.assert_not_called()
 
 
 def test_token_connection_has_no_credentials_provider():

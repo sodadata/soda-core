@@ -73,16 +73,32 @@ class DatabricksDataSourceConnection(DataSourceConnection):
                 client_id=config.client_id,
                 client_secret=config.client_secret.get_secret_value(),
             )
-            return oauth_service_principal(sdk_config)
+            header_factory = oauth_service_principal(sdk_config)
+            auth_desc = "OAuth (M2M)"
+        else:
+            # DatabricksAzureServicePrincipal — Entra ID (Azure AD) service principal.
+            sdk_config = Config(
+                host=host,
+                azure_client_id=config.azure_client_id,
+                azure_client_secret=config.azure_client_secret.get_secret_value(),
+                azure_tenant_id=config.azure_tenant_id,
+            )
+            header_factory = azure_service_principal(sdk_config)
+            auth_desc = "Azure service principal"
 
-        # DatabricksAzureServicePrincipal — Entra ID (Azure AD) service principal.
-        sdk_config = Config(
-            host=host,
-            azure_client_id=config.azure_client_id,
-            azure_client_secret=config.azure_client_secret.get_secret_value(),
-            azure_tenant_id=config.azure_tenant_id,
-        )
-        return azure_service_principal(sdk_config)
+        # The SDK returns None when OIDC discovery yields no token endpoint. Fail loudly here
+        # instead of returning None — otherwise the caller would silently degrade to a
+        # credential-less PAT connect for a config the user explicitly marked OAuth.
+        if header_factory is None:
+            raise ValueError(
+                f"Databricks {auth_desc} authentication setup failed: the SDK could not resolve "
+                f"an OIDC token endpoint for host '{host}'. Verify the workspace host and credentials."
+            )
+
+        # databricks-sql-connector's ExternalAuthProvider calls credentials_provider() once to
+        # obtain the header factory, then invokes that per request. So credentials_provider must
+        # be a zero-arg callable that RETURNS the SDK header factory, not the factory itself.
+        return lambda: header_factory
 
     def _fetch_session_timezone(self) -> tzinfo:
         with self.connection.cursor() as cursor:
