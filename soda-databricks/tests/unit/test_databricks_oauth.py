@@ -4,10 +4,12 @@ No live database. The SDK credentials-provider factories are mocked because buil
 real provider performs OIDC endpoint discovery over the network.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from soda_databricks.common.data_sources import databricks_data_source_connection as conn_mod
+from soda_databricks.common.data_sources import (
+    databricks_data_source_connection as conn_mod,
+)
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -16,7 +18,9 @@ from soda_databricks.model.data_source.databricks_connection_properties import (
     DatabricksOAuthM2M,
     DatabricksTokenAuth,
 )
-from soda_databricks.model.data_source.databricks_data_source import DatabricksDataSource
+from soda_databricks.model.data_source.databricks_data_source import (
+    DatabricksDataSource,
+)
 
 infer = DatabricksDataSource.infer_connection_type
 
