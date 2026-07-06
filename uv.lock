@@ -400,6 +400,21 @@ wheels = [
 ]
 
 [[package]]
+name = "databricks-sdk"
+version = "0.119.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-auth" },
+    { name = "protobuf" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/12/f9f912d8be2786c9aa2dbfa2a2da0af97c5548432a94b65a2c2af807da71/databricks_sdk-0.119.0.tar.gz", hash = "sha256:40e56ad56a8afb8150d4152c9fc7bf474ba1d44b6315ac4d9a5b18d57fd29900", size = 1001754, upload-time = "2026-06-24T15:37:01.829Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/aa/65c33c372960c4c786def1b01346767e880a4d85fdf310aecf817789fa82/databricks_sdk-0.119.0-py3-none-any.whl", hash = "sha256:17d9fe9add06668da57250454e4e91a18f7a288ba5fe80cd73be3e66cded48ef", size = 948381, upload-time = "2026-06-24T15:36:59.986Z" },
+]
+
+[[package]]
 name = "databricks-sql-connector"
 version = "4.2.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2237,12 +2252,14 @@ name = "soda-databricks"
 version = "4.16.0"
 source = { editable = "soda-databricks" }
 dependencies = [
+    { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
     { name = "soda-core" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "databricks-sdk", specifier = ">=0.19" },
     { name = "databricks-sql-connector" },
     { name = "soda-core", editable = "soda-core" },
 ]
