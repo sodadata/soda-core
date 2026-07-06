@@ -29,7 +29,7 @@ DATABRICKS_AZURE_TENANT_ID = os.getenv("DATABRICKS_AZURE_TENANT_ID")
 
 
 def _with_https(host: str | None) -> str | None:
-    if host and not (host.startswith("https://") or host.startswith("http://")):
+    if host and "://" not in host:
         return f"https://{host}"
     return host
 
