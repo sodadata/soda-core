@@ -188,3 +188,42 @@ def test_uncaught_exception_during_verify_marks_scan_failed_with_logs(monkeypatc
     assert mark_requests[0].get("scanId") == "scan-under-test"
     # The captured engine logs must be shipped, not an empty payload — that is the whole point.
     assert mark_requests[0].get("logs"), "mark-scan-failed must carry the captured engine logs, not an empty payload"
+
+
+def test_uncaught_exception_during_construction_marks_scan_failed_with_logs(monkeypatch):
+    """The other abort pathway: an uncaught exception during contract *construction* (phase 1, before
+    verify) must likewise mark the runner scan FAILED with the captured logs before re-raising. Both
+    the construction and verify abort points call the same reporting helper (SAS-13001)."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    def _boom_init(self, *args, **kwargs):
+        soda_logger.error("Boom: could not construct contract")
+        raise RuntimeError("construction exploded")
+
+    # Fail inside ContractImpl.__init__ so the exception escapes phase-1 construction, not verify().
+    monkeypatch.setattr(ContractImpl, "__init__", _boom_init)
+
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(_DATA_SOURCE_YAML))
+    mock_cloud = MockSodaCloud()
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    with pytest.raises(RuntimeError, match="construction exploded"):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
+            data_source_impls=[data_source_impl],
+            soda_cloud_impl=mock_cloud,
+            soda_cloud_publish_results=True,
+        )
+
+    request_types = [r.json.get("type") for r in mock_cloud.requests if isinstance(r.json, dict)]
+    mark_requests = [
+        r.json
+        for r in mock_cloud.requests
+        if isinstance(r.json, dict) and r.json.get("type") == "sodaCoreMarkScanFailed"
+    ]
+    assert mark_requests, (
+        "A scan that raised an uncaught exception during construction must be marked FAILED. "
+        f"Requests seen: {request_types}"
+    )
+    assert mark_requests[0].get("scanId") == "scan-under-test"
+    assert mark_requests[0].get("logs"), "mark-scan-failed must carry the captured engine logs, not an empty payload"

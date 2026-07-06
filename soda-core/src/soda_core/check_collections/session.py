@@ -434,7 +434,10 @@ def _report_runner_scan_failed_before_reraise(
             exc=exc if isinstance(exc, Exception) else None,
         )
     except Exception:
-        logger.debug("Could not report runner scan as failed before re-raising", exc_info=True)
+        # Warning, not debug: if this best-effort report fails the scan stays FAILED-with-no-logs in
+        # Cloud — the exact state this helper exists to avoid — so it must be visible in the pod logs
+        # / Datadog rather than silently swallowed. (The original exception is still re-raised.)
+        logger.warning("Could not report runner scan as failed before re-raising", exc_info=True)
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
