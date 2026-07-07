@@ -10,9 +10,8 @@ from soda_databricks.model.data_source.databricks_connection_properties import (
     DatabricksTokenAuth,
 )
 
-# Explicit auth_type discriminator values (Trino/Snowflake/BigQuery style).
-# NOTE (provisional): these literals must match what the Backend emits in the generated
-# YAML — confirm with BE before merge. See implementation-plan.md.
+# Explicit auth_type discriminator values (Trino/Snowflake/BigQuery style). These literals
+# are the cross-repo contract: they match soda-library#759 and the Cloud connection form.
 AUTH_TYPE_TOKEN = "personal-access-token"
 AUTH_TYPE_OAUTH_M2M = "databricks-oauth-m2m"
 AUTH_TYPE_AZURE_SP = "azure-service-principal"
