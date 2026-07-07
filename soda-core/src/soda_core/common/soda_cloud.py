@@ -1588,6 +1588,56 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
+def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]) -> list[dict]:
+    """Top-level ``metadata`` array that refreshes each dataset's column schema
+    in Soda Cloud.
+
+    One entry per distinct dataset that ran a schema check which discovered a
+    non-empty column set. Reuses v3 discover's ``{columnName, sourceDataType}``
+    shape so the backend runs the same full column reconciliation (columns
+    absent from ``schema`` are soft-deleted) — so we send every discovered
+    column, in discovery order, and never an empty schema.
+
+    ``datasetQualifiedName`` is the collection's ``soda_qualified_dataset_name``
+    (the raw ``yaml.dataset`` dqn), identical to the identifier the backend
+    builds from each check, so the block resolves to the same dataset the checks
+    registered under. ``sourceDataType`` is the raw, un-parameterized DB type
+    (``SqlDataType.name``, e.g. ``character varying``) — not the parameterized
+    ``character varying(255)`` form — matching what v3 discover uploads.
+    ``isPrimaryKey`` is deliberately omitted (the v4 schema check doesn't
+    discover PKs); omitting it preserves the backend's existing PK flags.
+    """
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    dataset_metadata: list[dict] = []
+    seen_dataset_qualified_names: set[str] = set()
+    for r in results:
+        dataset_qualified_name: str = r.check_collection.soda_qualified_dataset_name
+        if dataset_qualified_name in seen_dataset_qualified_names:
+            continue
+        for check_result in r.check_results:
+            # Only a schema check with a discovered (non-empty) column set
+            # contributes a metadata entry — an empty schema would soft-delete
+            # every column on the backend, so we skip it.
+            if not isinstance(check_result, SchemaCheckResult) or not check_result.actual_columns:
+                continue
+            seen_dataset_qualified_names.add(dataset_qualified_name)
+            dataset_metadata.append(
+                {
+                    "datasetQualifiedName": dataset_qualified_name,
+                    "schema": [
+                        {
+                            "columnName": column.column_name,
+                            "sourceDataType": (column.sql_data_type.name if column.sql_data_type else None),
+                        }
+                        for column in check_result.actual_columns
+                    ],
+                }
+            )
+            break
+    return dataset_metadata
+
+
 def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
@@ -1690,6 +1740,11 @@ def _build_check_collection_results_json_dict(
             "postProcessingStages": post_processing_stages,
             "resultsIngestionMode": ingestion_mode.value,
             "tokenUsage": token_usage,
+            # Per-dataset column schema for datasets that ran a schema check,
+            # so the backend can refresh the dataset schema in Cloud. ``None``
+            # when no schema check produced columns, so ``to_jsonnable`` strips
+            # the key entirely (no empty ``metadata`` on the wire).
+            "metadata": _build_dataset_metadata_json_dicts(results) or None,
         }
     )
 
