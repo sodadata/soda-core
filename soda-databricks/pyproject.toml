@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "soda-core==4.16.0",
     "databricks-sql-connector",
+    "databricks-sdk>=0.19,<1",
 ]
 
 [project.entry-points."soda.plugins.data_source.databricks"]
