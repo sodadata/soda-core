@@ -302,6 +302,79 @@ def test_discovery_lists_object_storage_views(tmp_path):
     data_source_impl.close_connection()
 
 
+def test_default_discovery_includes_object_storage_views(tmp_path):
+    """The DEFAULT discovery path (no explicit object_types) must enumerate the
+    object-storage VIEW datasets — that is the path the real product profiling /
+    discovery flow uses. This goes through the full DataSourceImpl built from YAML,
+    so the source is genuinely an object-storage source (connection_properties is
+    DuckDBObjectStorageConnectionProperties). httpfs install + S3 secret creation
+    are stubbed so the VIEWs are built over local files (no network, no httpfs)."""
+    pd.DataFrame({"id": [1, 2, 3]}).to_parquet(tmp_path / "r.parquet")
+    (tmp_path / "c.csv").write_text("id\n1\n2\n")
+
+    yaml_str = f"""
+        type: duckdb
+        name: highradius_landing
+        connection:
+            database: ":memory:"
+            object_storage:
+                provider: s3
+                region: eu-west-1
+                auth:
+                    type: access_key
+                    access_key_id: "AK"
+                    secret_access_key: "SK"
+                datasets:
+                    - name: remittances
+                      path: "{tmp_path / 'r.parquet'}"
+                      format: parquet
+                    - name: invoices
+                      path: "{tmp_path / 'c.csv'}"
+                      format: csv
+    """
+    with mock.patch.object(DuckDBDataSourceConnection, "_install_httpfs"), mock.patch.object(
+        DuckDBDataSourceConnection, "_create_s3_secret"
+    ):
+        data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(yaml_str=yaml_str))
+        data_source_impl.open_connection()
+        try:
+            # NB: object_types is intentionally NOT passed -> the default path, which
+            # used to default to TABLE-only and therefore miss the object-storage VIEWs.
+            discovered = data_source_impl.discover_qualified_objects(prefixes=["main"])
+            discovered_names = sorted(obj.get_object_name() for obj in discovered)
+            assert discovered_names == ["invoices", "remittances"]
+        finally:
+            data_source_impl.close_connection()
+
+
+def test_default_discovery_excludes_views_for_non_object_storage():
+    """Scope guard: a standard (non-object-storage) DuckDB source keeps the TABLE-only
+    default. A VIEW present in such a source is NOT returned by the default path; it is
+    only surfaced when object_types explicitly asks for it. This proves the VIEW-inclusion
+    is scoped to object-storage sources and does not regress local-file / standard DuckDB."""
+    raw_connection = duckdb.connect(":memory:")
+    raw_connection.execute("CREATE TABLE t AS SELECT 1 AS id")
+    raw_connection.execute("CREATE VIEW v AS SELECT 1 AS id")
+
+    data_source_impl = DuckDBDataSourceImpl.from_existing_cursor(raw_connection, "std_source")
+    data_source_impl.open_connection()
+    try:
+        default_names = sorted(
+            obj.get_object_name() for obj in data_source_impl.discover_qualified_objects(prefixes=["main"])
+        )
+        assert default_names == ["t"]  # view "v" excluded by the TABLE-only default
+
+        with_views = sorted(
+            obj.get_object_name()
+            for obj in data_source_impl.discover_qualified_objects(
+                prefixes=["main"], object_types=[TableType.TABLE, TableType.VIEW]
+            )
+        )
+        assert with_views == ["t", "v"]  # mechanism still works when explicitly requested
+    finally:
+        data_source_impl.close_connection()
+
+
 # --------------------------------------------------------------------------- #
 # 5. Credential resolution -> DuckDB S3 secret                                 #
 # --------------------------------------------------------------------------- #

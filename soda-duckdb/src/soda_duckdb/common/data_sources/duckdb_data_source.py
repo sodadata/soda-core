@@ -12,6 +12,7 @@ from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
 )
@@ -422,6 +423,25 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
         return DuckDBSqlDialect()
+
+    def _is_object_storage_source(self) -> bool:
+        """Object-storage datasets are registered as DuckDB VIEWs
+        (see DuckDBDataSourceConnection._create_object_storage_views), not TABLEs."""
+        return isinstance(self.data_source_model.connection_properties, DuckDBObjectStorageConnectionProperties)
+
+    def discover_qualified_objects(
+        self,
+        prefixes: list[str],
+        object_types: Optional[list[TableType]] = None,
+    ) -> list[FullyQualifiedObjectName]:
+        # Object-storage sources expose each configured dataset as a VIEW, but the default
+        # discovery/metadata path enumerates TABLEs only. When the caller does not request
+        # object types explicitly, include VIEWs so those datasets are actually found.
+        # Standard/local-file DuckDB sources materialize TABLEs and keep the TABLE-only default,
+        # so their discovery behavior is unchanged.
+        if object_types is None and self._is_object_storage_source():
+            object_types = [TableType.TABLE, TableType.VIEW]
+        return super().discover_qualified_objects(prefixes=prefixes, object_types=object_types)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DuckDBDataSourceConnection(
