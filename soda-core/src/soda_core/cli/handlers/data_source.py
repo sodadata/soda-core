@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from os.path import dirname, exists
 from pathlib import Path
 from textwrap import dedent
@@ -167,6 +168,7 @@ def handle_discover_data_source(
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
         return ExitCode.LOG_ERRORS
 
+    scan_start_timestamp: datetime = datetime.now(timezone.utc)
     try:
         # from_yaml_source only parses YAML; the handler owns the connection lifecycle.
         data_source_impl.open_connection()
@@ -182,12 +184,15 @@ def handle_discover_data_source(
         return ExitCode.LOG_ERRORS
     finally:
         data_source_impl.close_connection()
+    scan_end_timestamp: datetime = datetime.now(timezone.utc)
 
     resolved_scan_definition_name: str = resolve_scan_definition_name(scan_definition_name, data_source_impl.name)
     payload: dict = build_discovery_payload(
         dqns=dqns,
         data_source_name=data_source_impl.name,
         scan_definition_name=resolved_scan_definition_name,
+        scan_start_timestamp=scan_start_timestamp,
+        scan_end_timestamp=scan_end_timestamp,
     )
     response = send_discovery_results(soda_cloud, payload)
     if response is None or not response.ok:
