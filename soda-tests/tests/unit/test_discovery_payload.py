@@ -1,7 +1,6 @@
-import pytest
 
-from soda_core.discovery.discovery_payload import build_discovery_payload
 from soda_core.cli.handlers.data_source import resolve_scan_definition_name
+from soda_core.discovery.discovery_payload import build_discovery_payload
 
 
 def test_payload_is_dqn_only_v4():
