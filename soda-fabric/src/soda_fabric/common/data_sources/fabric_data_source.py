@@ -49,6 +49,13 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
             return True
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
 
+    def is_system_schema(self, schema_name: str) -> bool:
+        # Ported verbatim from soda-library's fabric_data_source.py, which
+        # replaces (not extends) the base information_schema check. In Fabric,
+        # INFORMATION_SCHEMA only contains views, so table discovery is
+        # unaffected by not listing it here.
+        return schema_name.lower() in ["sys", "queryinsights"]
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 

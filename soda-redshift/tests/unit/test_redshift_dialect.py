@@ -14,3 +14,13 @@ def test_max_sql_statement_length_respects_redshift_16mb_cap():
     sql_dialect: RedshiftSqlDialect = RedshiftSqlDialect()
     assert sql_dialect.get_max_sql_statement_length() == 15 * 1024 * 1024
     assert sql_dialect.get_max_sql_statement_length() < 16 * 1024 * 1024
+
+
+def test_is_system_schema():
+    # v3 soda-library redshift_data_source.py: pg_ prefix is matched
+    # case-insensitively, plus the base information_schema exclusion.
+    sql_dialect: RedshiftSqlDialect = RedshiftSqlDialect()
+    assert sql_dialect.is_system_schema("pg_catalog") is True
+    assert sql_dialect.is_system_schema("PG_AUTOMV") is True
+    assert sql_dialect.is_system_schema("information_schema") is True
+    assert sql_dialect.is_system_schema("public") is False
