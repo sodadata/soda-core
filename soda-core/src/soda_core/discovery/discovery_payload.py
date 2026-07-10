@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from requests import Response
@@ -10,6 +11,7 @@ def build_discovery_payload(dqns: list[str], data_source_name: str, scan_definit
     """DQN-only sodaCoreInsertScanResults body for v4 discovery. Mirrors the non-routing
     fields v3 emits for BE DTO deserialization safety."""
     return {
+        "scanId": os.environ.get("SODA_SCAN_ID", None),
         "type": "sodaCoreInsertScanResults",
         "version": "4",
         "scanType": None,
