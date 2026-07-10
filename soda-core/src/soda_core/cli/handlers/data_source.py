@@ -155,18 +155,21 @@ def handle_discover_data_source(
     )
     if data_source_impl is None:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Data source could not be created. See logs above (or -v).")
-        return ExitCode.LOG_ERRORS
+        # Pre-send failures must exit > 3 (RESULTS_NOT_SENT_TO_CLOUD) so the managed launcher
+        # marks the scan failed on Soda Cloud; LOG_ERRORS (3) is reserved for
+        # "results published, but errors occurred".
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
     if not soda_cloud_file_path:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery requires a Soda Cloud configuration (-sc).")
-        return ExitCode.LOG_ERRORS
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     soda_cloud: Optional[SodaCloud] = SodaCloud.from_yaml_source(
         SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
         provided_variable_values=None,
     )
     if soda_cloud is None:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
-        return ExitCode.LOG_ERRORS
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
     try:
@@ -181,7 +184,7 @@ def handle_discover_data_source(
         )
     except Exception as exc:
         soda_logger.exception(f"Discovery query failed: {exc}")
-        return ExitCode.LOG_ERRORS
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     finally:
         data_source_impl.close_connection()
     scan_end_timestamp: datetime = datetime.now(timezone.utc)
