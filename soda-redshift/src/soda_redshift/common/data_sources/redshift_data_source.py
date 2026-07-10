@@ -60,6 +60,13 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
+    def is_system_schema(self, schema_name: str) -> bool:
+        # Ported from soda-library's redshift_data_source.py: pg_* schemas
+        # (matched case-insensitively) plus the base information_schema.
+        if schema_name.lower().startswith("pg_"):
+            return True
+        return super().is_system_schema(schema_name)
+
     def escape_string(self, value: str):
         # Redshift treats backslash as an escape character by default
         # (standard_conforming_strings is off).  Double backslashes first

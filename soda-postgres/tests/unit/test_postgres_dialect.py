@@ -51,3 +51,20 @@ def test_random():
     sql_dialect: PostgresSqlDialect = PostgresSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == 'SELECT RANDOM()\nFROM "a";'
+
+
+@pytest.mark.parametrize(
+    "schema_name, expected",
+    [
+        # v3 soda-library postgres_data_source.py:
+        #   return schema_name.startswith("pg_") or schema_name == "information_schema"
+        ("pg_catalog", True),
+        ("pg_toast", True),
+        ("pg_temp_1", True),
+        ("information_schema", True),
+        ("public", False),
+        ("pguser", False),
+    ],
+)
+def test_is_system_schema(schema_name, expected):
+    assert PostgresSqlDialect().is_system_schema(schema_name) is expected

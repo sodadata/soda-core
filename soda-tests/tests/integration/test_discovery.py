@@ -51,6 +51,32 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
     ), f"{test_table.unique_name} not found in {posted['metadata']}"
 
 
+@pytest.mark.skipif(
+    test_datasource not in {"postgres"},
+    reason=(
+        "System-schema exclusion is asserted against postgres' catalogs "
+        "(pg_catalog/information_schema); other dialects are covered by the "
+        "is_system_schema unit tests."
+    ),
+)
+def test_discovery_excludes_system_schemas(data_source_test_helper: DataSourceTestHelper):
+    """Discovery scoped to the database only (no schema prefix) must not
+    return pg_catalog / information_schema datasets (OBSL-1013)."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    # Database-only prefix: without the system-schema filter this returns
+    # ~70 pg_catalog and information_schema tables.
+    database_only_prefixes = data_source_test_helper.dataset_prefix[:1]
+    dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=database_only_prefixes)
+
+    # Positive control: the user table is still discovered.
+    expected_suffix = test_table.unique_name.lower()
+    assert any(dqn.lower().endswith(expected_suffix) for dqn in dqns), f"{test_table.unique_name} not found in {dqns}"
+
+    system_schema_dqns = [dqn for dqn in dqns if "/pg_catalog/" in dqn.lower() or "/information_schema/" in dqn.lower()]
+    assert system_schema_dqns == []
+
+
 @pytest.mark.no_snapshot  # Opens its own connection from the YAML file, outside the helper's snapshot machinery.
 @pytest.mark.skipif(
     test_datasource not in {"postgres"},
