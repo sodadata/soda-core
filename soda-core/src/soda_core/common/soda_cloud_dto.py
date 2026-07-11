@@ -58,43 +58,6 @@ class ComputeWarehouseOverrideDTO(BaseModel):
     name: str = Field(..., alias="name")
 
 
-class CardinalitySamplingStrategyConfigurationDTO(BaseModel):
-    """Cardinality sampling strategy: profile at most ``numberOfRows`` rows."""
-
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
-
-    type: Literal["cardinality"] = Field(..., alias="type")
-    number_of_rows: int = Field(..., alias="numberOfRows")
-
-
-class TimePartitionSamplingStrategyConfigurationDTO(BaseModel):
-    """Time-partition sampling strategy: profile a trailing time window."""
-
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
-
-    type: Literal["timePartition"] = Field(..., alias="type")
-    unit_of_time: Literal["hours", "days", "weeks"] = Field(..., alias="unitOfTime")
-    number_of_units: int = Field(..., alias="numberOfUnits")
-
-
-SamplingStrategyConfiguration = Annotated[
-    Union[
-        CardinalitySamplingStrategyConfigurationDTO,
-        TimePartitionSamplingStrategyConfigurationDTO,
-    ],
-    Field(discriminator="type"),
-]
-
-
-class ProfilingConfigurationDTO(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
-
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
-    sampling_strategy_configuration: Optional[SamplingStrategyConfiguration] = Field(
-        None, alias="samplingStrategyConfiguration"
-    )
-
-
 class DatasetConfigurationDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
@@ -106,7 +69,11 @@ class DatasetConfigurationDTO(BaseModel):
     # (same rationale as timePartitionConfiguration below).
     metric_monitoring_configuration: Optional[list[dict]] = Field(None, alias="metricMonitoringConfiguration")
 
-    profiling_configuration: Optional[ProfilingConfigurationDTO] = Field(None, alias="profilingConfiguration")
+    # Kept as a raw dict on purpose: the soda-profiling extension owns the parsing
+    # (soda_profiling.profiling_config), so soda-core stays free of profiling
+    # semantics (same rationale as metricMonitoringConfiguration above and
+    # timePartitionConfiguration below).
+    profiling_configuration: Optional[dict] = Field(None, alias="profilingConfiguration")
     # Kept as a raw dict on purpose: the partition-detector plugin owns the parsing,
     # so soda-core stays free of partition semantics.
     time_partition_configuration: Optional[dict] = Field(None, alias="timePartitionConfiguration")

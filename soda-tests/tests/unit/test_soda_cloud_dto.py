@@ -1,110 +1,51 @@
-"""Unit tests for ProfilingConfigurationDTO and its integration into DatasetConfigurationDTO."""
+"""Unit tests for the raw-passthrough feature configs on DatasetConfigurationDTO."""
 
-import pytest
-from pydantic import ValidationError
-from soda_core.common.soda_cloud_dto import (
-    CardinalitySamplingStrategyConfigurationDTO,
-    DatasetConfigurationDTO,
-    ProfilingConfigurationDTO,
-    TimePartitionSamplingStrategyConfigurationDTO,
-)
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 
 
-class TestProfilingConfigurationDTOParsing:
-    def test_profiling_configuration_is_enabled_parses_via_alias(self):
+class TestProfilingConfigurationPassthrough:
+    """profilingConfiguration stays a raw dict on purpose (OBSL-1019):
+    the soda-profiling extension (soda_profiling.profiling_config) owns the
+    parsing, exactly like metricMonitoringConfiguration and
+    timePartitionConfiguration."""
+
+    BE_PROFILING_CONFIGURATION = {
+        "isEnabled": True,
+        "samplingStrategyConfiguration": {
+            "type": "timePartition",
+            "unitOfTime": "days",
+            "numberOfUnits": 30,
+        },
+    }
+
+    def test_profiling_configuration_parses_via_alias_as_raw_dict(self):
         dto = DatasetConfigurationDTO.model_validate(
             {
                 "datasetQualifiedName": "x",
-                "profilingConfiguration": {
-                    "isEnabled": True,
-                    "samplingStrategyConfiguration": {
-                        "type": "timePartition",
-                        "unitOfTime": "days",
-                        "numberOfUnits": 30,
-                    },
-                },
+                "profilingConfiguration": self.BE_PROFILING_CONFIGURATION,
             }
         )
-        assert dto.profiling_configuration is not None
-        assert dto.profiling_configuration.is_enabled is True
+        assert dto.profiling_configuration == self.BE_PROFILING_CONFIGURATION
+        assert isinstance(dto.profiling_configuration, dict)
 
-    def test_profiling_configuration_time_partition_strategy_is_typed(self):
-        dto = DatasetConfigurationDTO.model_validate(
-            {
-                "datasetQualifiedName": "x",
-                "profilingConfiguration": {
-                    "isEnabled": True,
-                    "samplingStrategyConfiguration": {
-                        "type": "timePartition",
-                        "unitOfTime": "days",
-                        "numberOfUnits": 30,
-                    },
-                },
-            }
-        )
-        strategy = dto.profiling_configuration.sampling_strategy_configuration
-        assert isinstance(strategy, TimePartitionSamplingStrategyConfigurationDTO)
-        assert strategy.type == "timePartition"
-        assert strategy.unit_of_time == "days"
-        assert strategy.number_of_units == 30
+    def test_profiling_configuration_round_trips_by_alias(self):
+        dto = DatasetConfigurationDTO.model_validate({"profilingConfiguration": self.BE_PROFILING_CONFIGURATION})
+        dumped = dto.model_dump(by_alias=True, exclude_none=True)
+        assert dumped["profilingConfiguration"] == self.BE_PROFILING_CONFIGURATION
 
-    def test_profiling_configuration_disabled(self):
-        dto = DatasetConfigurationDTO.model_validate(
-            {
-                "datasetQualifiedName": "y",
-                "profilingConfiguration": {
-                    "isEnabled": False,
-                },
-            }
-        )
-        assert dto.profiling_configuration is not None
-        assert dto.profiling_configuration.is_enabled is False
-        assert dto.profiling_configuration.sampling_strategy_configuration is None
+    def test_unknown_future_fields_arrive_verbatim(self):
+        """soda-core does not validate profiling semantics: any dict passes through."""
+        raw = {"isEnabled": True, "someUnknownFutureField": "value"}
+        dto = DatasetConfigurationDTO.model_validate({"profilingConfiguration": raw})
+        assert dto.profiling_configuration == raw
 
-    def test_profiling_configuration_cardinality_strategy(self):
-        dto = DatasetConfigurationDTO.model_validate(
-            {
-                "datasetQualifiedName": "z",
-                "profilingConfiguration": {
-                    "isEnabled": True,
-                    "samplingStrategyConfiguration": {
-                        "type": "cardinality",
-                        "numberOfRows": 100,
-                    },
-                },
-            }
-        )
-        strategy = dto.profiling_configuration.sampling_strategy_configuration
-        assert isinstance(strategy, CardinalitySamplingStrategyConfigurationDTO)
-        assert strategy.type == "cardinality"
-        assert strategy.number_of_rows == 100
+    def test_payloads_omitting_the_key_parse_to_none(self):
+        dto = DatasetConfigurationDTO.model_validate({"datasetQualifiedName": "existing/dataset"})
+        assert dto.profiling_configuration is None
 
-    @pytest.mark.parametrize("unit_of_time", ["hours", "days", "weeks"])
-    def test_profiling_configuration_time_partition_all_units(self, unit_of_time):
-        strategy = TimePartitionSamplingStrategyConfigurationDTO.model_validate(
-            {"type": "timePartition", "unitOfTime": unit_of_time, "numberOfUnits": 2}
-        )
-        assert strategy.unit_of_time == unit_of_time
-        assert strategy.number_of_units == 2
-
-    def test_profiling_configuration_unknown_sampling_type_is_a_validation_error(self):
-        with pytest.raises(ValidationError):
-            ProfilingConfigurationDTO.model_validate(
-                {
-                    "isEnabled": True,
-                    "samplingStrategyConfiguration": {
-                        "type": "somethingElse",
-                        "numberOfRows": 100,
-                    },
-                }
-            )
-
-    def test_profiling_configuration_sampling_strategy_extra_fields_pass_through(self):
-        """extra=allow on the union members: unknown Cloud fields don't break parsing."""
-        strategy = CardinalitySamplingStrategyConfigurationDTO.model_validate(
-            {"type": "cardinality", "numberOfRows": 100, "someUnknownFutureField": "value"}
-        )
-        assert strategy.number_of_rows == 100
+    def test_empty_profiling_configuration_is_preserved_not_none(self):
+        dto = DatasetConfigurationDTO.model_validate({"profilingConfiguration": {}})
+        assert dto.profiling_configuration == {}
 
 
 class TestTimePartitionConfigurationParsing:
@@ -137,22 +78,6 @@ class TestTimePartitionConfigurationParsing:
     def test_time_partition_configuration_defaults_to_none(self):
         dto = DatasetConfigurationDTO.model_validate({"datasetQualifiedName": "x"})
         assert dto.time_partition_configuration is None
-
-    def test_profiling_configuration_extra_fields_pass_through(self):
-        """extra=allow means unknown Cloud fields don't cause validation errors."""
-        dto = ProfilingConfigurationDTO.model_validate(
-            {
-                "isEnabled": True,
-                "someUnknownFutureField": "value",
-            }
-        )
-        assert dto.is_enabled is True
-
-    def test_profiling_configuration_all_fields_optional(self):
-        """An empty dict is valid — all fields are Optional."""
-        dto = ProfilingConfigurationDTO.model_validate({})
-        assert dto.is_enabled is None
-        assert dto.sampling_strategy_configuration is None
 
 
 class TestDatasetConfigurationDTORegressionNoProfiling:
