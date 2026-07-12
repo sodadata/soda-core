@@ -61,3 +61,7 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
     # supplies extra columns, so no "Window" (or other caller-supplied)
     # column may ever appear in its table.
     assert not any("Window" in line for line in log_lines)
+    # The log_table_header_overrides seam is opt-in too: contract verification
+    # keeps the "Check" header (pinned verbatim in `expected` above) and must
+    # never render the metric-monitoring "Monitor" header.
+    assert not any("Monitor" in line for line in log_lines)

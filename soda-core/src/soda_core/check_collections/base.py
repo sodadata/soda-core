@@ -1115,6 +1115,21 @@ class CheckCollectionImpl:
         """
         return {}
 
+    def log_table_header_overrides(self) -> dict[str, str]:
+        """Optional header renames for the results table logged by
+        ``build_log_summary``.
+
+        Default ``{}``: headers stay byte-identical for every collection type
+        that doesn't override this (contract verification, ...). Subtypes for
+        which the standard header is a misnomer override it, e.g. metric
+        monitoring returns ``{"Check": "Monitor"}`` so its table renders the
+        "Check" column as "Monitor". This is a rename applied only when the
+        table is rendered: row-dict keys (and the row sort) keep the internal
+        names, so ``log_table_extra_columns`` overrides keep targeting e.g.
+        ``"Diagnostics"`` regardless of how the header is displayed.
+        """
+        return {}
+
     def build_summary_table(self, check_results: list[CheckResult]) -> str:
         from tabulate import tabulate
 
@@ -1139,6 +1154,14 @@ class CheckCollectionImpl:
                 row["Column"] = ""  # Clear column name if it is the same as the previous row
             else:
                 previous_column_name = row["Column"]
+
+        # Apply header renames (default {}) only at render time so the rows
+        # above keep their internal keys for sorting and cell overrides.
+        header_overrides: dict[str, str] = self.log_table_header_overrides()
+        if header_overrides:
+            overview_table_data = [
+                {header_overrides.get(key, key): value for key, value in row.items()} for row in overview_table_data
+            ]
 
         return tabulate(overview_table_data, headers="keys", tablefmt="grid")
 
