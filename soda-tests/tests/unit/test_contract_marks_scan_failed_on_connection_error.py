@@ -12,7 +12,7 @@ the send valid.
 
 from unittest.mock import patch
 
-from helpers.mock_soda_cloud import MockSodaCloud
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
@@ -145,3 +145,55 @@ def test_ad_hoc_run_without_scan_id_still_uploads_results(monkeypatch):
         "Ad-hoc run has no scan id to mark failed; mark_scan_as_failed must not be used. "
         f"Requests seen: {request_types}"
     )
+
+
+def test_rejected_mark_surfaces_as_send_failure(monkeypatch):
+    # When Soda Cloud rejects the mark request, the failure is invisible on Cloud, so
+    # the result must be flagged sending_results_to_soda_cloud_failed: the exit code
+    # then goes > 3 and the launcher fallback marks the scan failed itself.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(_DATA_SOURCE_YAML))
+
+    # The only HTTP request in this flow is the mark command; make it fail.
+    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    with patch(
+        "soda_duckdb.common.data_sources.duckdb_data_source.DuckDBDataSourceConnection._create_connection",
+        side_effect=RuntimeError("Invalid access token"),
+    ):
+        session_result = ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
+            data_source_impls=[data_source_impl],
+            soda_cloud_impl=mock_cloud,
+            soda_cloud_publish_results=True,
+        )
+
+    result = session_result.contract_verification_results[0]
+    assert result.sending_results_to_soda_cloud_failed is True
+
+
+def test_combine_uploads_path_rejected_mark_surfaces_as_send_failure(monkeypatch):
+    # Same as above, on the session-level combined-upload path.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+    monkeypatch.setattr(ContractImpl, "combine_uploads", True)
+
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(_DATA_SOURCE_YAML))
+
+    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    with patch(
+        "soda_duckdb.common.data_sources.duckdb_data_source.DuckDBDataSourceConnection._create_connection",
+        side_effect=RuntimeError("Invalid access token"),
+    ):
+        session_result = ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
+            data_source_impls=[data_source_impl],
+            soda_cloud_impl=mock_cloud,
+            soda_cloud_publish_results=True,
+        )
+
+    result = session_result.contract_verification_results[0]
+    assert result.sending_results_to_soda_cloud_failed is True

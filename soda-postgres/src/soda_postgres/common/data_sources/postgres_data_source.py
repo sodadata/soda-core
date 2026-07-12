@@ -86,6 +86,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def supports_materialized_views(self) -> bool:
         return True
 
+    def is_system_schema(self, schema_name: str) -> bool:
+        return schema_name.startswith("pg_") or schema_name == "information_schema"
+
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
