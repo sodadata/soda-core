@@ -116,7 +116,8 @@ class SqlServerDataSourceConnection(DataSourceConnection):
     def _format_row(self, row: Any) -> tuple:
         return tuple(row)
 
-    def build_connection_string(self, config: SqlServerConnectionProperties):
+    @staticmethod
+    def build_connection_string(config: SqlServerConnectionProperties):
         conn_params = []
 
         conn_params.append(f"DRIVER={{{config.driver}}}")
