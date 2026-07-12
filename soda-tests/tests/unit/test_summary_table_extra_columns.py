@@ -10,10 +10,9 @@ that position) and may replace existing cells (e.g. "Diagnostics") in place.
 
 from __future__ import annotations
 
-from tabulate import tabulate
-
 from soda_core.check_collections.base import CheckCollectionImpl
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult
+from tabulate import tabulate
 
 
 def _check_result(name: str, column_name=None, outcome=CheckOutcome.PASSED, identity=None) -> CheckResult:
