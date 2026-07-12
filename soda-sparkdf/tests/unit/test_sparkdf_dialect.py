@@ -54,3 +54,43 @@ def test_drop_table_cascade_enabled_in_catalog_mode():
     # DROP TABLE ... CASCADE. The dialect promotes the class default to True per-instance.
     dialect = SparkDataFrameSqlDialect(use_catalog=True)
     assert dialect.SUPPORTS_DROP_TABLE_CASCADE is True
+
+
+# ---------------------------------------------------------------------------
+# Time-bucket / percentile / NaN seams (OBSL-1036) — all inherited from
+# DatabricksSqlDialect (3-arg DATEDIFF, TIMESTAMPADD and percentile_disc
+# WITHIN GROUP are OSS Spark 3.3/3.4+ syntax too: SPARK-38389, SPARK-38195).
+# Pins the inheritance against accidental regressions.
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_inherits_databricks_datediff_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SparkDataFrameSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "days", 1)
+    )
+    # SparkDf's literal_datetime wraps in to_utc_timestamp(...) — the DATEDIFF
+    # shape itself is the inherited Databricks form.
+    assert sql == "FLOOR(DATEDIFF(SECOND, to_utc_timestamp('2020-06-20T00:00:00', 'UTC'), (`ts`)) / 86400)"
+
+
+def test_add_interval_inherits_databricks_timestampadd_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SparkDataFrameSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMPADD(DAY, ((soda_partition__ + 1) * 1), to_utc_timestamp('2020-06-20T00:00:00', 'UTC'))"
+
+
+def test_sql_expr_is_not_nan_inherits_not_isnan():
+    assert SparkDataFrameSqlDialect().sql_expr_is_not_nan("`c`") == "NOT ISNAN(`c`)"
+
+
+def test_supports_percentile_within_group_is_true():
+    assert SparkDataFrameSqlDialect().supports_percentile_within_group() is True
