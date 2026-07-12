@@ -56,3 +56,8 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
     ]
     for line in expected:
         assert line in log_lines
+
+    # The log_table_extra_columns seam is opt-in: contract verification never
+    # supplies extra columns, so no "Window" (or other caller-supplied)
+    # column may ever appear in its table.
+    assert not any("Window" in line for line in log_lines)
