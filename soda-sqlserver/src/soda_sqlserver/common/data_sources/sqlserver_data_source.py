@@ -182,14 +182,12 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def literal_timestamp_typed(self, dt: datetime) -> str:
         """T-SQL has no TIMESTAMP '...' literal (TIMESTAMP is the deprecated
-        rowversion type), so cast the string form to DATETIME2 —
-        https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetime2-transact-sql.
-        v3 rendered the bare string (v3 sqlserver_data_source.py:699-703); the
-        explicit cast keeps the arithmetic operand typed on every consumer."""
+        rowversion type), so cast the string form to DATETIME2 to keep the
+        arithmetic operand typed —
+        https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetime2-transact-sql."""
         return f"CAST('{dt.strftime('%Y-%m-%d %H:%M:%S')}' AS DATETIME2)"
 
-    # Singular unit names for DATEADD (v3 used ``TimeUnit.name``,
-    # sqlserver_data_source.py:706-708).
+    # Singular unit names for DATEADD.
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "weeks": "WEEK",
         "days": "DAY",
@@ -198,27 +196,20 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     }
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
-        """T-SQL DATEDIFF counts crossed boundaries of the given unit, so v3
-        computes the difference in SECONDS and divides by the int seconds-per-
-        interval (v3 sqlserver_data_source.py:710-716) — kept verbatim, incl.
-        the truncating T-SQL int/int division.
-
-        Caller precondition: deltas must be non-negative — truncation toward
-        zero equals the FLOOR of every other dialect only for deltas >= 0.
-        The MM bulk query guarantees this by filtering rows to
-        ``ts >= anchor`` before bucketing; a consumer relying on negative
-        bucket indices would misbucket on the T-SQL family only.
+        """T-SQL DATEDIFF counts crossed boundaries of the given unit, so
+        compute the difference in SECONDS and divide by the seconds-per-
+        interval. T-SQL int/int division truncates toward zero, which equals
+        the FLOOR of the other dialects only for deltas >= 0 — callers must
+        guarantee non-negative deltas (the MM window filter does).
 
         DATEDIFF(second, ...) returns int and overflows for spans > ~68
-        years; DATEDIFF_BIG is the escape hatch if that ever bites (not
-        switched now: v3 parity)."""
+        years; switch to DATEDIFF_BIG if that ever bites."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         multiplier: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
         return f"DATEDIFF(second, {start_sql}, {end_sql}) / {multiplier}"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
-        """v3 sqlserver DATEADD form (v3 sqlserver_data_source.py:725-727)."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
@@ -227,8 +218,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """T-SQL PERCENTILE_DISC is a window function only; the aggregate form
         is APPROX_PERCENTILE_DISC (SQL Server 2022+/Azure SQL/Fabric,
-        https://learn.microsoft.com/en-us/sql/t-sql/functions/approx-percentile-disc-transact-sql)
-        — v3 form kept verbatim (v3 sqlserver_data_source.py:336-337)."""
+        https://learn.microsoft.com/en-us/sql/t-sql/functions/approx-percentile-disc-transact-sql)."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"APPROX_PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
 

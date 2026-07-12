@@ -57,7 +57,7 @@ def test_drop_table_cascade_enabled_in_catalog_mode():
 
 
 # ---------------------------------------------------------------------------
-# Time-bucket / percentile / NaN seams (OBSL-1036) — all inherited from
+# Time-bucket / percentile / NaN seams — all inherited from
 # DatabricksSqlDialect (3-arg DATEDIFF, TIMESTAMPADD and percentile_disc
 # WITHIN GROUP are OSS Spark 3.3/3.4+ syntax too: SPARK-38389, SPARK-38195).
 # Pins the inheritance against accidental regressions.

@@ -1,22 +1,18 @@
-"""Base-dialect seams for the all-datasource profiling/MM groundwork (OBSL-1036).
+"""Base-dialect seams for the all-datasource profiling/MM groundwork.
 
-v3 parity contract:
-
-- ``literal_timestamp_typed(dt)`` — typed timestamp literal for use INSIDE
-  timestamp arithmetic. Base form = v3's ``sql_time_filter_to_timestamp``
-  ``TIMESTAMP 'YYYY-MM-DD HH:MM:SS'`` (v3 data_source.py:1524-1529), incl.
-  sub-second truncation. Must reproduce the MM bulk query builder's
-  ``_timestamp_anchor_literal`` (soda-metric-monitoring
-  bulk_query_builder.py:74-79) byte-for-byte. SQL Server family overrides
-  with ``CAST('...' AS DATETIME2)`` — T-SQL has no TIMESTAMP '...' literal.
+- ``literal_timestamp_typed(dt)`` — typed timestamp literal for use inside
+  timestamp arithmetic: ``TIMESTAMP 'YYYY-MM-DD HH:MM:SS'``, sub-seconds
+  truncated. Must match the MM bulk query builder's anchor literal
+  byte-for-byte. The SQL Server family overrides with
+  ``CAST('...' AS DATETIME2)`` — T-SQL has no TIMESTAMP '...' literal.
 
 - ``sql_expr_is_not_nan(expr)`` — NaN-exclusion predicate for float
-  aggregates; base None = no filter needed. Spark family overrides with
-  ``NOT ISNAN({expr})`` (v3 spark_data_source.py:427-488).
+  aggregates; base None = no filter needed. The Spark family overrides with
+  ``NOT ISNAN({expr})``.
 
 - ``supports_percentile_within_group()`` — base True; Synapse overrides to
-  False (v3 synapse_data_source.py:56-58 warned and returned a dummy 1; v4
-  consumers skip the Q1/median/Q3 metrics instead).
+  False (no percentile aggregate) and consumers skip the Q1/median/Q3
+  metrics.
 """
 
 from __future__ import annotations
@@ -31,7 +27,7 @@ def dialect() -> SqlDialect:
 
 
 # ---------------------------------------------------------------------------
-# literal_timestamp_typed — v3 sql_time_filter_to_timestamp form
+# literal_timestamp_typed
 # ---------------------------------------------------------------------------
 
 
@@ -40,7 +36,7 @@ def test_literal_timestamp_typed_base_form():
 
 
 def test_literal_timestamp_typed_truncates_sub_seconds():
-    """v3 strftime('%Y-%m-%d %H:%M:%S') drops microseconds — kept verbatim."""
+    """Microseconds are dropped, not rounded."""
     assert dialect().literal_timestamp_typed(datetime(2025, 1, 2, 3, 4, 5, 999999)) == "TIMESTAMP '2025-01-02 03:04:05'"
 
 

@@ -92,11 +92,11 @@ class TestCollapseAthenaPrefixes:
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1036). Athena engine
-# v3 is Trino-based (https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html):
-# seconds date_diff divided by the float seconds-per-interval (v3
-# athena_data_source.py:269-273) with the v3-trino int cast added (date_add's
-# value argument must be integer-typed); date_add with lowercase unit names.
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes. Athena engine v3 is
+# Trino-based (https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html):
+# seconds date_diff divided by the float seconds-per-interval, cast to int
+# (date_add's value argument must be integer-typed); date_add with lowercase
+# unit names.
 # ---------------------------------------------------------------------------
 
 
@@ -149,9 +149,8 @@ def test_add_interval_weeks_unit_name():
 
 
 # ---------------------------------------------------------------------------
-# PERCENTILE_WITHIN_GROUP — the base WITHIN GROUP form is not accepted by the
-# Trino-based Athena engine; v3 rendered approx_percentile(expr, p)
-# (athena_data_source.py:256-259).
+# PERCENTILE_WITHIN_GROUP — the Trino-based Athena engine does not accept the
+# base WITHIN GROUP form; approx_percentile(expr, p) is its aggregate.
 # ---------------------------------------------------------------------------
 
 

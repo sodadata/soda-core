@@ -86,9 +86,8 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         """Synapse dedicated SQL pools have no percentile aggregate: T-SQL
         PERCENTILE_DISC is window-only and APPROX_PERCENTILE_DISC's applies-to
         list excludes Synapse (https://learn.microsoft.com/en-us/sql/t-sql/
-        functions/approx-percentile-disc-transact-sql). v3 warned and returned
-        a dummy 1 (v3 synapse_data_source.py:56-58); v4 consumers skip the
-        Q1/median/Q3 metrics instead."""
+        functions/approx-percentile-disc-transact-sql). Consumers skip the
+        Q1/median/Q3 metrics."""
         return False
 
     def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:

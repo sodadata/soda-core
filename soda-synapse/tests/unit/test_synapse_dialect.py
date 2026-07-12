@@ -15,10 +15,10 @@ def test_count_renders_as_count_big():
 
 
 # ---------------------------------------------------------------------------
-# Time-bucket + percentile seams (OBSL-1036). DATEDIFF/DATEADD and the typed
-# DATETIME2 literal are inherited from SqlServerSqlDialect; percentile is NOT
-# available on Synapse dedicated SQL pools (APPROX_PERCENTILE_DISC's applies-to
-# list excludes Synapse; v3 synapse_data_source.py:56-58 returned a dummy 1).
+# Time-bucket + percentile seams. DATEDIFF/DATEADD and the typed DATETIME2
+# literal are inherited from SqlServerSqlDialect; percentile is not available
+# on Synapse dedicated SQL pools (APPROX_PERCENTILE_DISC's applies-to list
+# excludes Synapse).
 # ---------------------------------------------------------------------------
 
 

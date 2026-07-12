@@ -133,8 +133,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         else:
             raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
 
-    # Singular unit names for DATEDIFF/TIMESTAMPADD (v3 used ``TimeUnit.name``,
-    # spark_data_source.py:1154-1156).
+    # Singular unit names for DATEDIFF/TIMESTAMPADD.
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "weeks": "WEEK",
         "days": "DAY",
@@ -144,10 +143,9 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
         """Spark DATEDIFF(unit, ...) counts crossed boundaries of the given
-        unit, so v3 computes in SECONDS and divides by the int seconds-per-
-        interval (v3 spark_data_source.py:1158-1161) — kept verbatim. The
-        3-arg DATEDIFF is the documented TIMESTAMPDIFF synonym on Databricks
-        (DBR 10.4+) and OSS Spark 3.3+ (SPARK-38389)."""
+        unit, so compute in SECONDS and divide by the seconds-per-interval.
+        The 3-arg DATEDIFF is the documented TIMESTAMPDIFF synonym on
+        Databricks (DBR 10.4+) and OSS Spark 3.3+ (SPARK-38389)."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         sec_per_interval: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
@@ -155,11 +153,9 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         """TIMESTAMPADD(UNIT, count, ts) — documented on Databricks (DBR
-        10.4+) and OSS Spark 3.3+ (SPARK-38195). Deviation from v3, which
-        inherited the base ``ts + INTERVAL '1 {unit}' * n`` form
-        (data_source.py:1305-1307): Spark parses the plural-unit string
-        literal as a legacy CalendarInterval, so the explicit function form
-        is the safe documented rendering."""
+        10.4+) and OSS Spark 3.3+ (SPARK-38195) — rather than the base
+        ``ts + INTERVAL '1 {unit}' * n`` form: Spark parses the plural-unit
+        string literal as a legacy CalendarInterval."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
@@ -167,8 +163,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
     def sql_expr_is_not_nan(self, expr: str) -> Optional[str]:
         """Spark stores IEEE NaN in float/double columns and propagates it
-        into aggregates; v3 filtered with NOT ISNAN (v3
-        spark_data_source.py:427-488)."""
+        into aggregates; filter with NOT ISNAN."""
         return f"NOT ISNAN({expr})"
 
     def column_data_type(self) -> str:

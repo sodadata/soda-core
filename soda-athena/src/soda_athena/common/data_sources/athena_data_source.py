@@ -325,9 +325,8 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval '1' day"
 
-    # Lowercase singular unit names for date_add (v3 athena_data_source.py:233-242;
-    # Athena engine v3 functions are Trino's,
-    # https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html).
+    # Lowercase singular unit names for date_add (Athena engine v3 functions are
+    # Trino's, https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html).
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "weeks": "week",
         "days": "day",
@@ -336,29 +335,23 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     }
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
-        """Athena date_diff('second', ...) divided by the float seconds-per-
-        interval (v3 athena_data_source.py:269-273), plus the int cast of the
-        v3 TRINO form (trino_data_source.py:269-271) that v3 athena lacked:
-        floor() returns double on the Trino engine and date_add's value
-        argument must be integer-typed."""
+        """Seconds date_diff divided by the float seconds-per-interval, cast to
+        int. The cast matters: floor() returns double on the Trino engine and
+        date_add's value argument must be integer-typed."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         secs_per_interval: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
         return f"cast(floor(date_diff('second', {start_sql}, {end_sql}) / {secs_per_interval}) as int)"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
-        """Trino date_add form (v3 trino_data_source.py:280-281; v3 athena
-        inherited the base interval-multiply form, but Athena engine v3 is
-        Trino-based and date_add is the documented rendering)."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
         return f"date_add('{unit_name}', {count_sql}, {timestamp_sql})"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
-        """The base WITHIN GROUP form is not accepted by the Trino-based
-        Athena engine; v3 rendered approx_percentile(expr, p)
-        (v3 athena_data_source.py:256-259)."""
+        """The Trino-based Athena engine does not accept the base WITHIN GROUP
+        form; approx_percentile is its percentile aggregate."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
 

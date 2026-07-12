@@ -384,12 +384,11 @@ class SqlDialect:
         return self.literal_datetime(datetime)
 
     def literal_timestamp_typed(self, dt: datetime) -> str:
-        """Typed timestamp literal for use INSIDE timestamp arithmetic
+        """Typed timestamp literal for use inside timestamp arithmetic
         (TIME_DELTA / ADD_INTERVAL operands), where some engines refuse a bare
-        string literal (duckdb in particular). Base form = v3's
-        ``sql_time_filter_to_timestamp`` (v3 data_source.py:1524-1529),
-        incl. the sub-second truncation. Not a replacement for
-        ``literal_datetime``, which renders comparison literals.
+        string literal (duckdb in particular). Truncates sub-second precision.
+        Not a replacement for ``literal_datetime``, which renders comparison
+        literals.
         """
         return f"TIMESTAMP '{dt.strftime('%Y-%m-%d %H:%M:%S')}'"
 
@@ -1080,8 +1079,7 @@ class SqlDialect:
 
     def supports_percentile_within_group(self) -> bool:
         """False when the engine has no percentile aggregate at all — exact or
-        approximate (Synapse: v3 synapse_data_source.py:56-58 warned and
-        returned a dummy 1). Consumers skip the Q1/median/Q3 metrics instead
+        approximate (Synapse). Consumers skip the Q1/median/Q3 metrics instead
         of rendering PERCENTILE_WITHIN_GROUP.
         """
         return True
@@ -1526,7 +1524,7 @@ class SqlDialect:
         """NaN-exclusion predicate for float aggregates, or None when the
         engine needs no filter (base). Spark/Databricks store IEEE NaN in
         float/double columns and propagate it into aggregate results, so they
-        return ``NOT ISNAN({expr})`` (v3 spark_data_source.py:427-488).
+        return ``NOT ISNAN({expr})``.
         """
         return None
 

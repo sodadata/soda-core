@@ -72,10 +72,10 @@ def test_clamp_skips_non_datetime_types():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1036).
-# v3 sqlserver forms: DATEDIFF counts crossed boundaries of the given unit,
-# so v3 computes in SECONDS and divides by the int seconds-per-interval
-# (sqlserver_data_source.py:710-716); add-interval is DATEADD (:725-727).
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes.
+# DATEDIFF counts crossed boundaries of the given unit, so the dialect
+# computes in SECONDS and divides by the seconds-per-interval; add-interval
+# is DATEADD.
 # ---------------------------------------------------------------------------
 
 
@@ -125,7 +125,7 @@ def test_add_interval_weeks_unit_name():
 
 # ---------------------------------------------------------------------------
 # PERCENTILE_WITHIN_GROUP — T-SQL PERCENTILE_DISC is window-only; the
-# aggregate form is APPROX_PERCENTILE_DISC (v3 sqlserver_data_source.py:336-337).
+# aggregate form is APPROX_PERCENTILE_DISC.
 # ---------------------------------------------------------------------------
 
 

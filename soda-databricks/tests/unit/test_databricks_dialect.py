@@ -121,11 +121,10 @@ def test_drop_table_does_not_emit_cascade():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1036).
-# v3 spark form: DATEDIFF(unit, ...) counts crossed boundaries, so v3 computes
-# in SECONDS and divides by the int seconds-per-interval
-# (spark_data_source.py:1158-1161). 3-arg DATEDIFF and TIMESTAMPADD are
-# documented on Databricks (DBR 10.4+) and OSS Spark 3.3+
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes.
+# Spark DATEDIFF(unit, ...) counts crossed boundaries, so the dialect computes
+# in SECONDS and divides by the seconds-per-interval. 3-arg DATEDIFF and
+# TIMESTAMPADD are documented on Databricks (DBR 10.4+) and OSS Spark 3.3+
 # (SPARK-38389 / SPARK-38195).
 # ---------------------------------------------------------------------------
 
@@ -195,7 +194,7 @@ def test_supports_percentile_within_group_is_true():
 
 # ---------------------------------------------------------------------------
 # sql_expr_is_not_nan — Spark stores IEEE NaN in float/double columns and
-# propagates it into aggregates (v3 spark_data_source.py:427-488).
+# propagates it into aggregates.
 # ---------------------------------------------------------------------------
 
 

@@ -313,8 +313,6 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
 
     # Lowercase singular unit names for date_add, as listed in the Trino
     # datetime-functions doc (https://trino.io/docs/current/functions/datetime.html).
-    # v3 trino passed the uppercase enum names (trino_data_source.py:265-266);
-    # v3 athena already used the documented lowercase forms (:233-242).
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "weeks": "week",
         "days": "day",
@@ -323,17 +321,15 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
     }
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
-        """Trino date_diff('second', ...) divided by the float seconds-per-
-        interval, cast to int (v3 trino_data_source.py:269-271 kept verbatim).
-        The cast matters: floor() returns double on Trino and date_add's
-        value argument must be integer-typed."""
+        """Seconds date_diff divided by the float seconds-per-interval, cast
+        to int. The cast matters: floor() returns double on Trino and
+        date_add's value argument must be integer-typed."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         secs_per_interval: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
         return f"cast(floor(date_diff('second', {start_sql}, {end_sql}) / {secs_per_interval}) as int)"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
-        """v3 trino date_add form (v3 trino_data_source.py:280-281)."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
@@ -341,8 +337,7 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """Trino has no ordered-set aggregates (the base WITHIN GROUP form is
-        not Trino syntax); v3 rendered approx_percentile(expr, p)
-        (v3 trino_data_source.py:245-246)."""
+        not Trino syntax); approx_percentile is its percentile aggregate."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
 
