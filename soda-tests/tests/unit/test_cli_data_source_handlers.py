@@ -178,64 +178,154 @@ def test_test_data_source_uploader_captures_and_flushes_when_parsing_raises(
     mock_logs.close.assert_called_once()
 
 
-# Discovery pre-send failures must exit RESULTS_NOT_SENT_TO_CLOUD (4), not LOG_ERRORS (3):
-# the managed launcher only marks the scan failed on Soda Cloud for exit codes > 3, and
-# LOG_ERRORS is reserved for "results published, but errors occurred".
+# Discovery failure-reporting flow. Managed scans (SODA_SCAN_ID set) report engine
+# failures to Soda Cloud via mark_scan_as_failed with the captured log records and exit
+# LOG_ERRORS (3). RESULTS_NOT_SENT_TO_CLOUD (4) means nothing reached Cloud: the managed
+# launcher treats exit codes > 3 as undelivered and marks the scan failed itself.
 
 
-@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
-def test_discover_data_source_creation_failure_exits_results_not_sent(
-    mock_data_source_impl_cls, mock_ds_yaml_source_cls
-):
-    mock_data_source_impl_cls.from_yaml_source.return_value = None
-
-    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
-
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-
-@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
-@patch("soda_core.common.data_source_impl.DataSourceImpl")
-def test_discover_without_soda_cloud_config_exits_results_not_sent(mock_data_source_impl_cls, mock_ds_yaml_source_cls):
-    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
-
+def test_discover_without_soda_cloud_config_exits_results_not_sent(mock_data_source_impl_cls):
     exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path=None)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    # The Soda Cloud config is validated first: the data source YAML is never parsed.
+    mock_data_source_impl_cls.from_yaml_source.assert_not_called()
 
 
 @patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
-@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
 def test_discover_with_unparseable_soda_cloud_config_exits_results_not_sent(
-    mock_data_source_impl_cls, mock_ds_yaml_source_cls, mock_soda_cloud_cls, mock_sc_yaml_source_cls
+    mock_data_source_impl_cls, mock_soda_cloud_cls, mock_sc_yaml_source_cls
 ):
-    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
     mock_soda_cloud_cls.from_yaml_source.return_value = None
 
     exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    mock_data_source_impl_cls.from_yaml_source.assert_not_called()
+
+
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_discover_data_source_creation_failure_marks_scan_failed(
+    mock_data_source_impl_cls, mock_soda_cloud_cls, mock_sc_yaml_source_cls, mock_ds_yaml_source_cls, monkeypatch
+):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud.mark_scan_as_failed.return_value = True
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = None
+
+    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_called_once()
+    _, kwargs = mock_soda_cloud.mark_scan_as_failed.call_args
+    assert kwargs["scan_id"] == "scan-123"
+    assert any("Data source could not be created" in record.getMessage() for record in kwargs["logs"])
+
+
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_discover_data_source_creation_failure_without_scan_id_exits_log_errors(
+    mock_data_source_impl_cls, mock_soda_cloud_cls, mock_sc_yaml_source_cls, mock_ds_yaml_source_cls, monkeypatch
+):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = None
+
+    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_not_called()
 
 
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
 @patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
-@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
-def test_discover_execution_exception_exits_results_not_sent(
+def test_discover_execution_exception_marks_scan_failed(
     mock_data_source_impl_cls,
-    mock_ds_yaml_source_cls,
     mock_soda_cloud_cls,
     mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
     mock_discovery_run_cls,
+    monkeypatch,
 ):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud.mark_scan_as_failed.return_value = True
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
     mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
-    mock_soda_cloud_cls.from_yaml_source.return_value = MagicMock()
+    mock_discovery_run_cls.execute.side_effect = Exception("query failed")
+
+    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_called_once()
+    _, kwargs = mock_soda_cloud.mark_scan_as_failed.call_args
+    assert kwargs["scan_id"] == "scan-123"
+    assert any("Discovery query failed" in record.getMessage() for record in kwargs["logs"])
+
+
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_discover_execution_exception_when_mark_scan_failed_rejected_exits_results_not_sent(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
+    mock_discovery_run_cls,
+    monkeypatch,
+):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud.mark_scan_as_failed.return_value = False
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
     mock_discovery_run_cls.execute.side_effect = Exception("query failed")
 
     exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@patch("soda_core.discovery.discovery_payload.send_discovery_results")
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_discover_results_send_rejected_exits_results_not_sent(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
+    mock_discovery_run_cls,
+    mock_send_discovery_results,
+    monkeypatch,
+):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
+    mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
+    mock_send_discovery_results.return_value = MagicMock(ok=False)
+
+    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
+
+    # A rejected results upload is not an engine failure: no mark_scan_as_failed,
+    # the exit code alone signals the undelivered results.
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    mock_soda_cloud.mark_scan_as_failed.assert_not_called()
