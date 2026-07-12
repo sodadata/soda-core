@@ -41,8 +41,8 @@ def _make_result(measurement_dicts=None) -> ContractVerificationResult:
 
 
 def test_contracts_only_payload_omits_metrics_key():
-    """Byte-identical guard: without measurement_dicts there must be no ``metrics``
-    key at all (``metrics: null`` or ``metrics: []`` are both wrong)."""
+    """Without measurement_dicts there must be no ``metrics`` key at all
+    (``metrics: null`` or ``metrics: []`` are both wrong)."""
     result = _make_result()
     payload = _build_check_collection_results_json_dict([result])
 

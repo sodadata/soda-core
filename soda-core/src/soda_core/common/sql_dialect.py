@@ -1418,9 +1418,8 @@ class SqlDialect:
     def is_system_schema(self, schema_name: str) -> bool:
         """Check if the schema is a data source internal/system schema.
 
-        Objects in system schemas are excluded from discovery. Ported from
-        soda-library's DataSource.is_system_schema; dialects override this to
-        add their data source specific system schemas.
+        Objects in system schemas are excluded from discovery. Dialects
+        override this to add their data source specific system schemas.
         """
         return schema_name.lower() == "information_schema"
 

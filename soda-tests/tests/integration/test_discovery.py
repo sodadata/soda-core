@@ -61,7 +61,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
 )
 def test_discovery_excludes_system_schemas(data_source_test_helper: DataSourceTestHelper):
     """Discovery scoped to the database only (no schema prefix) must not
-    return pg_catalog / information_schema datasets (OBSL-1013)."""
+    return pg_catalog / information_schema datasets."""
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     # Database-only prefix: without the system-schema filter this returns

@@ -416,9 +416,8 @@ class DataSourceImpl(ABC):
             include_table_name_like_filters=include_table_name_like_filters,
             exclude_table_name_like_filters=exclude_table_name_like_filters,
         )
-        # Omit data source internal/system schemas (e.g. postgres' pg_catalog and
-        # information_schema) from discovery, mirroring soda-library's
-        # is_system_schema row filter.
+        # Omit data source internal/system schemas (e.g. postgres' pg_catalog
+        # and information_schema) from discovery.
         return [
             fully_qualified_object_name
             for fully_qualified_object_name in fully_qualified_object_names

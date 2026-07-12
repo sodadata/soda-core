@@ -311,14 +311,16 @@ class SodaCloud:
 
     def mark_scan_as_failed(
         self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
-    ) -> None:
+    ) -> bool:
         """
         Marks a scan as failed in Soda Cloud. This is used when the scan fails before we have any results to send.
+        Returns True when Soda Cloud accepted the command, so callers can fall back to
+        another failure-visibility path (e.g. exit code) when it did not.
         """
         if not scan_id:
             if "SODA_SCAN_ID" not in os.environ:
                 logger.debug("No scan ID provided, not marking scan as failed")
-                return
+                return False
             scan_id = os.environ["SODA_SCAN_ID"]
 
         cloud_log_dicts = (
@@ -328,10 +330,11 @@ class SodaCloud:
         if exc:
             cloud_log_dicts = _append_exception_to_cloud_log_dicts(cloud_log_dicts, exc)
 
-        self._execute_command(
+        response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
         )
+        return response is not None and response.ok
 
     def send_check_collection_results(
         self,
@@ -1699,8 +1702,8 @@ def _build_check_collection_results_json_dict(
         }
     )
 
-    # Emit ``metrics`` only when non-empty: omitting the key (not null, not [])
-    # keeps contract-only payloads byte-identical on the wire.
+    # Emit ``metrics`` only when non-empty: contract-only payloads must omit
+    # the key entirely (not null, not []).
     if all_measurement_dicts:
         payload["metrics"] = all_measurement_dicts
 

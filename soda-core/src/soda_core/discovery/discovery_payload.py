@@ -31,8 +31,7 @@ def build_discovery_payload(
     scan_start_timestamp: Optional[datetime] = None,
     scan_end_timestamp: Optional[datetime] = None,
 ) -> dict:
-    """DQN-only sodaCoreInsertScanResults body for v4 discovery. Mirrors the non-routing
-    fields v3 emits for BE DTO deserialization safety.
+    """Build a DQN-only sodaCoreInsertScanResults body for discovery.
 
     ``dataTimestamp``, ``scanStartTimestamp``, ``scanEndTimestamp`` and ``hasErrors``
     are @NotNull-validated by the backend command, so they are always emitted:

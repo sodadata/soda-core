@@ -6,6 +6,7 @@ from textwrap import dedent
 from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.failure_reporting import report_scan_execution_failure
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
@@ -149,58 +150,74 @@ def handle_discover_data_source(
     )
     from soda_core.discovery.discovery_run import DiscoveryRun
 
-    soda_logger.info(f"Discovering datasets for data source configuration file {data_source_file_path}")
-    data_source_impl: Optional[DataSourceImpl] = DataSourceImpl.from_yaml_source(
-        DataSourceYamlSource.from_file_path(data_source_file_path)
-    )
-    if data_source_impl is None:
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Data source could not be created. See logs above (or -v).")
-        # Pre-send failures must exit > 3 (RESULTS_NOT_SENT_TO_CLOUD) so the managed launcher
-        # marks the scan failed on Soda Cloud; LOG_ERRORS (3) is reserved for
-        # "results published, but errors occurred".
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-    if not soda_cloud_file_path:
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery requires a Soda Cloud configuration (-sc).")
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    soda_cloud: Optional[SodaCloud] = SodaCloud.from_yaml_source(
-        SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
-        provided_variable_values=None,
-    )
-    if soda_cloud is None:
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-    scan_start_timestamp: datetime = datetime.now(timezone.utc)
+    # Capture the run's log records from the first line so failures below reach Soda
+    # Cloud with the engine's diagnostics (report_scan_execution_failure) instead of
+    # only an exit code.
+    logs: Logs = Logs()
+    soda_cloud: Optional[SodaCloud] = None
     try:
-        # from_yaml_source only parses YAML; the handler owns the connection lifecycle.
-        data_source_impl.open_connection()
-        # Empty prefixes: discover everything visible to the connection (v3 behaviour).
-        dqns: list[str] = DiscoveryRun.execute(
-            data_source_impl=data_source_impl,
-            prefixes=[],
-            include=include,
-            exclude=exclude,
+        soda_logger.info(f"Discovering datasets for data source configuration file {data_source_file_path}")
+
+        # Soda Cloud config first: without it neither results nor a failure report can
+        # reach Cloud, so exit > 3 and let the managed launcher's fallback mark the scan failed.
+        if not soda_cloud_file_path:
+            soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery requires a Soda Cloud configuration (-sc).")
+            return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+        soda_cloud = SodaCloud.from_yaml_source(
+            SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
+            provided_variable_values=None,
         )
+        if soda_cloud is None:
+            soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud configuration could not be parsed.")
+            return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+        data_source_impl: Optional[DataSourceImpl] = DataSourceImpl.from_yaml_source(
+            DataSourceYamlSource.from_file_path(data_source_file_path)
+        )
+        if data_source_impl is None:
+            soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Data source could not be created. See logs above (or -v).")
+            return report_scan_execution_failure(soda_cloud, logs.get_log_records())
+
+        scan_start_timestamp: datetime = datetime.now(timezone.utc)
+        try:
+            # from_yaml_source only parses YAML; the handler owns the connection lifecycle.
+            data_source_impl.open_connection()
+            # Empty prefixes: discover everything visible to the connection.
+            dqns: list[str] = DiscoveryRun.execute(
+                data_source_impl=data_source_impl,
+                prefixes=[],
+                include=include,
+                exclude=exclude,
+            )
+        except Exception as exc:
+            soda_logger.exception(f"Discovery query failed: {exc}")
+            return report_scan_execution_failure(soda_cloud, logs.get_log_records())
+        finally:
+            data_source_impl.close_connection()
+        scan_end_timestamp: datetime = datetime.now(timezone.utc)
+
+        resolved_scan_definition_name: str = resolve_scan_definition_name(scan_definition_name, data_source_impl.name)
+        payload: dict = build_discovery_payload(
+            dqns=dqns,
+            data_source_name=data_source_impl.name,
+            scan_definition_name=resolved_scan_definition_name,
+            scan_start_timestamp=scan_start_timestamp,
+            scan_end_timestamp=scan_end_timestamp,
+        )
+        response = send_discovery_results(soda_cloud, payload)
+        if response is None or not response.ok:
+            soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
+            return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+        soda_logger.info(
+            f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud."
+        )
+        return ExitCode.OK
     except Exception as exc:
-        soda_logger.exception(f"Discovery query failed: {exc}")
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+        # Catch-all for failures outside the query phase (payload build, connection close,
+        # an exception escaping the results send): an unreported crash would otherwise
+        # propagate, exit LOG_ERRORS with nothing sent, and leave a managed scan stuck.
+        soda_logger.exception(f"Discovery failed: {exc}")
+        return report_scan_execution_failure(soda_cloud, logs.get_log_records())
     finally:
-        data_source_impl.close_connection()
-    scan_end_timestamp: datetime = datetime.now(timezone.utc)
-
-    resolved_scan_definition_name: str = resolve_scan_definition_name(scan_definition_name, data_source_impl.name)
-    payload: dict = build_discovery_payload(
-        dqns=dqns,
-        data_source_name=data_source_impl.name,
-        scan_definition_name=resolved_scan_definition_name,
-        scan_start_timestamp=scan_start_timestamp,
-        scan_end_timestamp=scan_end_timestamp,
-    )
-    response = send_discovery_results(soda_cloud, payload)
-    if response is None or not response.ok:
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-    soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud.")
-    return ExitCode.OK
+        logs.close()
