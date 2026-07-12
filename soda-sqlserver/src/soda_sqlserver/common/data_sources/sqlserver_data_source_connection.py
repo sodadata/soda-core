@@ -116,7 +116,8 @@ class SqlServerDataSourceConnection(DataSourceConnection):
     def _format_row(self, row: Any) -> tuple:
         return tuple(row)
 
-    def build_connection_string(self, config: SqlServerConnectionProperties):
+    @staticmethod
+    def build_connection_string(config: SqlServerConnectionProperties):
         conn_params = []
 
         conn_params.append(f"DRIVER={{{config.driver}}}")
@@ -138,8 +139,8 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         if config.encrypt:
             conn_params.append("Encrypt=YES")
 
-        if int(config.connection_max_retries) > 0:
-            conn_params.append(f"ConnectRetryCount={int(self.connection_max_retries)}")
+        if config.connection_max_retries is not None:
+            conn_params.append(f"ConnectRetryCount={config.connection_max_retries}")
 
         if config.enable_tracing:
             conn_params.append("SQL_ATTR_TRACE=SQL_OPT_TRACE_ON")
@@ -163,7 +164,7 @@ class SqlServerDataSourceConnection(DataSourceConnection):
 
         if config.connection_parameters:
             for key, value in config.connection_parameters.items():
-                logger.info(f"Adding connection parameter: {key}={value}")
+                logger.info("Adding connection parameter: %s=<redacted>", key)
                 conn_params.append(f"{key}={value}")
 
         conn_params.append(f"APP=soda-core-fabric/{SODA_CORE_VERSION}")
