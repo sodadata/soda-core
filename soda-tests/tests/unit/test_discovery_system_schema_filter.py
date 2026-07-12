@@ -1,9 +1,8 @@
-"""System-schema exclusion in discovery, ported from soda-library (OBSL-1013).
+"""System-schema exclusion in discovery.
 
-v3 soda-library filters metadata query rows through DataSource.is_system_schema
-(soda/execution/data_source.py) so that data source internal schemas such as
-postgres' pg_catalog never show up in discovery. v4 mirrors that as a SqlDialect
-hook applied in DataSourceImpl.discover_qualified_objects.
+Data source internal schemas such as postgres' pg_catalog must never show up in
+discovery: SqlDialect.is_system_schema is applied as a row filter in
+DataSourceImpl.discover_qualified_objects.
 """
 
 from types import SimpleNamespace
@@ -18,7 +17,6 @@ from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDi
 @pytest.mark.parametrize(
     "schema_name, expected",
     [
-        # v3 base default: `return schema_name.lower() == "information_schema"`
         ("information_schema", True),
         ("INFORMATION_SCHEMA", True),
         ("public", False),

@@ -56,8 +56,6 @@ def test_random():
 @pytest.mark.parametrize(
     "schema_name, expected",
     [
-        # v3 soda-library postgres_data_source.py:
-        #   return schema_name.startswith("pg_") or schema_name == "information_schema"
         ("pg_catalog", True),
         ("pg_toast", True),
         ("pg_temp_1", True),

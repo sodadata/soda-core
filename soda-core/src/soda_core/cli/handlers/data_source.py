@@ -175,7 +175,7 @@ def handle_discover_data_source(
     try:
         # from_yaml_source only parses YAML; the handler owns the connection lifecycle.
         data_source_impl.open_connection()
-        # Empty prefixes: discover everything visible to the connection (v3 behaviour).
+        # Empty prefixes: discover everything visible to the connection.
         dqns: list[str] = DiscoveryRun.execute(
             data_source_impl=data_source_impl,
             prefixes=[],

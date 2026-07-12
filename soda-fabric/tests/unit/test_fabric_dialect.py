@@ -71,8 +71,6 @@ def test_datetime2_precision_exactly_max_is_no_op():
 
 
 def test_is_system_schema():
-    # v3 soda-library fabric_data_source.py:
-    #   return schema_name.lower() in ["sys", "queryinsights"]
     dialect = FabricSqlDialect()
     assert dialect.is_system_schema("sys") is True
     assert dialect.is_system_schema("SYS") is True
