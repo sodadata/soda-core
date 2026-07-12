@@ -1699,8 +1699,8 @@ def _build_check_collection_results_json_dict(
         }
     )
 
-    # Emit ``metrics`` only when non-empty: omitting the key (not null, not [])
-    # keeps contract-only payloads byte-identical on the wire.
+    # Emit ``metrics`` only when non-empty: contract-only payloads must omit
+    # the key entirely (not null, not []).
     if all_measurement_dicts:
         payload["metrics"] = all_measurement_dicts
 
