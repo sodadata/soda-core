@@ -1,5 +1,6 @@
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+
 from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
 
@@ -44,3 +45,36 @@ def test_is_system_schema():
     assert sql_dialect.is_system_schema("PG_AUTOMV") is True
     assert sql_dialect.is_system_schema("information_schema") is True
     assert sql_dialect.is_system_schema("public") is False
+
+
+def test_time_delta_inherits_base_epoch_floor_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = RedshiftSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "days", 1)
+    )
+    assert sql == "FLOOR(EXTRACT(EPOCH FROM (\"ts\") - '2020-06-20T00:00:00') / 86400)"
+
+
+def test_add_interval_inherits_base_interval_multiply_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = RedshiftSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "'2020-06-20T00:00:00' + INTERVAL '1 days' * ((soda_partition__ + 1) * 1)"
+
+
+def test_percentile_within_group_renders_approximate_percentile_disc():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = RedshiftSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.75))
+    assert sql == 'APPROXIMATE PERCENTILE_DISC(0.75) WITHIN GROUP (ORDER BY "c")'
+
+
+def test_supports_percentile_within_group_is_true():
+    assert RedshiftSqlDialect().supports_percentile_within_group() is True
