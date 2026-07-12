@@ -76,3 +76,45 @@ def test_is_system_schema():
     assert dialect.is_system_schema("SYS") is True
     assert dialect.is_system_schema("queryinsights") is True
     assert dialect.is_system_schema("dbo") is False
+
+
+def test_time_delta_inherits_sqlserver_datediff_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = FabricSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "days", 1)
+    )
+    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400"
+
+
+def test_add_interval_inherits_sqlserver_dateadd_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = FabricSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "DATEADD(DAY, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00.000')"
+
+
+def test_percentile_within_group_inherits_approx_percentile_disc():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = FabricSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.5))
+    assert sql == "APPROX_PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY [c])"
+
+
+def test_supports_percentile_within_group_is_true():
+    assert FabricSqlDialect().supports_percentile_within_group() is True
+
+
+def test_literal_timestamp_typed_inherits_datetime2_cast():
+    from datetime import datetime
+
+    assert (
+        FabricSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
+        == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+    )

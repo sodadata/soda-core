@@ -9,6 +9,7 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     AND,
     COLUMN,
     COUNT,
@@ -30,16 +31,19 @@ from soda_core.common.sql_ast import (
     LIMIT,
     OFFSET,
     ORDER_BY_ASC,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
     SELECT,
     STAR,
     STRING_HASH,
+    TIME_DELTA,
     TUPLE,
     VALUES,
     WHERE,
     WITH,
     SqlExpressionStr,
+    seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -175,6 +179,48 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATEADD(DAY, 1, {timestamp_literal})"
+
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        """T-SQL has no TIMESTAMP '...' literal (TIMESTAMP is the deprecated
+        rowversion type), so cast the string form to DATETIME2 —
+        https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetime2-transact-sql.
+        v3 rendered the bare string (v3 sqlserver_data_source.py:699-703); the
+        explicit cast keeps the arithmetic operand typed on every consumer."""
+        return f"CAST('{dt.strftime('%Y-%m-%d %H:%M:%S')}' AS DATETIME2)"
+
+    # Singular unit names for DATEADD (v3 used ``TimeUnit.name``,
+    # sqlserver_data_source.py:706-708).
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "WEEK",
+        "days": "DAY",
+        "hours": "HOUR",
+        "seconds": "SECOND",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """T-SQL DATEDIFF counts crossed boundaries of the given unit, so v3
+        computes the difference in SECONDS and divides by the int seconds-per-
+        interval (v3 sqlserver_data_source.py:710-716) — kept verbatim, incl.
+        the truncating T-SQL int/int division (== FLOOR for positive deltas)."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        multiplier: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
+        return f"DATEDIFF(second, {start_sql}, {end_sql}) / {multiplier}"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """v3 sqlserver DATEADD form (v3 sqlserver_data_source.py:725-727)."""
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"DATEADD({unit_name}, {count_sql}, {timestamp_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """T-SQL PERCENTILE_DISC is a window function only; the aggregate form
+        is APPROX_PERCENTILE_DISC (SQL Server 2022+/Azure SQL/Fabric,
+        https://learn.microsoft.com/en-us/sql/t-sql/functions/approx-percentile-disc-transact-sql)
+        — v3 form kept verbatim (v3 sqlserver_data_source.py:336-337)."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"APPROX_PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):

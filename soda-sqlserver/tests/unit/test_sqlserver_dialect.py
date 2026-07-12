@@ -69,3 +69,92 @@ def test_clamp_skips_non_datetime_types():
     column = CREATE_TABLE_COLUMN(name="age", type=SqlDataType(name="int", datetime_precision=9))
     # The base strip pass zeroes datetime_precision on non-datetime types before render.
     assert dialect._build_create_table_column_type(column) == "int"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1036).
+# v3 sqlserver forms: DATEDIFF counts crossed boundaries of the given unit,
+# so v3 computes in SECONDS and divides by the int seconds-per-interval
+# (sqlserver_data_source.py:710-716); add-interval is DATEADD (:725-727).
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_datediff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "days", 1)
+    )
+    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400"
+
+
+def test_time_delta_datediff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "hours", 2)
+    )
+    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 7200"
+
+
+def test_add_interval_renders_dateadd_singular_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "DATEADD(DAY, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00.000')"
+
+
+def test_add_interval_weeks_unit_name():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "DATEADD(WEEK, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00.000')"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — T-SQL PERCENTILE_DISC is window-only; the
+# aggregate form is APPROX_PERCENTILE_DISC (v3 sqlserver_data_source.py:336-337).
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_renders_approx_percentile_disc():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = SqlServerSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.25))
+    assert sql == "APPROX_PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY [c])"
+
+
+def test_supports_percentile_within_group_is_true():
+    assert SqlServerSqlDialect().supports_percentile_within_group() is True
+
+
+# ---------------------------------------------------------------------------
+# literal_timestamp_typed — T-SQL has no TIMESTAMP '...' literal (TIMESTAMP is
+# the deprecated rowversion type); CAST(... AS DATETIME2) is the typed form.
+# ---------------------------------------------------------------------------
+
+
+def test_literal_timestamp_typed_casts_to_datetime2():
+    from datetime import datetime
+
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+
+
+def test_literal_timestamp_typed_truncates_sub_seconds():
+    from datetime import datetime
+
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3, 999999))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
