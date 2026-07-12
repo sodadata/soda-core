@@ -1394,6 +1394,14 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
+    def is_system_schema(self, schema_name: str) -> bool:
+        """Check if the schema is a data source internal/system schema.
+
+        Objects in system schemas are excluded from discovery. Dialects
+        override this to add their data source specific system schemas.
+        """
+        return schema_name.lower() == "information_schema"
+
     def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
         """Convert to a SQL representation of a timestamp with timezone.
 

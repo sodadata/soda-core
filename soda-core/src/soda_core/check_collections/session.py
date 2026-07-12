@@ -316,11 +316,16 @@ def execute_check_collections(
             # (build_error_result) carry result.error but log_records=None, so without this the
             # scan would be marked FAILED in Cloud with an empty, undiagnosable log payload.
             errored_without_results_result.scan_id = soda_scan_id
-            soda_cloud_impl.mark_scan_as_failed(
+            marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,
                 logs=errored_without_results_result.log_records,
                 exc=errored_without_results_result.error,
             )
+            if not marked_as_failed:
+                # A rejected mark leaves the failure invisible on Cloud; surface it as a
+                # send failure so the exit code goes > 3 and the launcher fallback marks
+                # the scan failed itself.
+                errored_without_results_result.sending_results_to_soda_cloud_failed = True
 
     # Post-processing handlers — combine-upload subtypes. The non-combine path
     # runs handlers inline per file inside ``verify()``; combine-upload results are
