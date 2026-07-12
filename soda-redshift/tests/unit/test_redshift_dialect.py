@@ -1,6 +1,5 @@
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
-
 from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
 
