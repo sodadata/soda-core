@@ -201,7 +201,17 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         """T-SQL DATEDIFF counts crossed boundaries of the given unit, so v3
         computes the difference in SECONDS and divides by the int seconds-per-
         interval (v3 sqlserver_data_source.py:710-716) — kept verbatim, incl.
-        the truncating T-SQL int/int division (== FLOOR for positive deltas)."""
+        the truncating T-SQL int/int division.
+
+        Caller precondition: deltas must be non-negative — truncation toward
+        zero equals the FLOOR of every other dialect only for deltas >= 0.
+        The MM bulk query guarantees this by filtering rows to
+        ``ts >= anchor`` before bucketing; a consumer relying on negative
+        bucket indices would misbucket on the T-SQL family only.
+
+        DATEDIFF(second, ...) returns int and overflows for spans > ~68
+        years; DATEDIFF_BIG is the escape hatch if that ever bites (not
+        switched now: v3 parity)."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         multiplier: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
