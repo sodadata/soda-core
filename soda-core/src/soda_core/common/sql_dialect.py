@@ -383,6 +383,16 @@ class SqlDialect:
         # See Fabric for an example
         return self.literal_datetime(datetime)
 
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        """Typed timestamp literal for use INSIDE timestamp arithmetic
+        (TIME_DELTA / ADD_INTERVAL operands), where some engines refuse a bare
+        string literal (duckdb in particular). Base form = v3's
+        ``sql_time_filter_to_timestamp`` (v3 data_source.py:1524-1529),
+        incl. the sub-second truncation. Not a replacement for
+        ``literal_datetime``, which renders comparison literals.
+        """
+        return f"TIMESTAMP '{dt.strftime('%Y-%m-%d %H:%M:%S')}'"
+
     def literal_boolean(self, boolean: bool):
         return "TRUE" if boolean is True else "FALSE"
 
@@ -1068,6 +1078,14 @@ class SqlDialect:
         over_sql: str = " ".join(over_clauses)
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
 
+    def supports_percentile_within_group(self) -> bool:
+        """False when the engine has no percentile aggregate at all — exact or
+        approximate (Synapse: v3 synapse_data_source.py:56-58 warned and
+        returned a dummy 1). Consumers skip the Q1/median/Q3 metrics instead
+        of rendering PERCENTILE_WITHIN_GROUP.
+        """
+        return True
+
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """Ordered-set aggregate; valid on postgres/duckdb/snowflake. BigQuery
         overrides with APPROX_QUANTILES."""
@@ -1503,6 +1521,14 @@ class SqlDialect:
         temporal column types themselves. See BigQuerySqlDialect for the exception.
         """
         return expr
+
+    def sql_expr_is_not_nan(self, expr: str) -> Optional[str]:
+        """NaN-exclusion predicate for float aggregates, or None when the
+        engine needs no filter (base). Spark/Databricks store IEEE NaN in
+        float/double columns and propagate it into aggregate results, so they
+        return ``NOT ISNAN({expr})`` (v3 spark_data_source.py:427-488).
+        """
+        return None
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false
