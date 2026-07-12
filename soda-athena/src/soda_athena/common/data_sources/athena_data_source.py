@@ -16,13 +16,17 @@ from soda_core.common.data_source_impl import DataSourceImpl, FullyQualifiedTabl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     ALTER_TABLE_ADD_COLUMN,
     COLUMN,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     INSERT_INTO_VIA_SELECT,
+    PERCENTILE_WITHIN_GROUP,
     STRING_HASH,
+    TIME_DELTA,
+    seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -320,6 +324,43 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval '1' day"
+
+    # Lowercase singular unit names for date_add (v3 athena_data_source.py:233-242;
+    # Athena engine v3 functions are Trino's,
+    # https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html).
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "week",
+        "days": "day",
+        "hours": "hour",
+        "seconds": "second",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Athena date_diff('second', ...) divided by the float seconds-per-
+        interval (v3 athena_data_source.py:269-273), plus the int cast of the
+        v3 TRINO form (trino_data_source.py:269-271) that v3 athena lacked:
+        floor() returns double on the Trino engine and date_add's value
+        argument must be integer-typed."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        secs_per_interval: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
+        return f"cast(floor(date_diff('second', {start_sql}, {end_sql}) / {secs_per_interval}) as int)"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """Trino date_add form (v3 trino_data_source.py:280-281; v3 athena
+        inherited the base interval-multiply form, but Athena engine v3 is
+        Trino-based and date_add is the documented rendering)."""
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"date_add('{unit_name}', {count_sql}, {timestamp_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """The base WITHIN GROUP form is not accepted by the Trino-based
+        Athena engine; v3 rendered approx_percentile(expr, p)
+        (v3 athena_data_source.py:256-259)."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
 
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
