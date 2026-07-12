@@ -329,3 +329,37 @@ def test_discover_results_send_rejected_exits_results_not_sent(
     # the exit code alone signals the undelivered results.
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     mock_soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
+@patch("soda_core.discovery.discovery_payload.build_discovery_payload")
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.cli.handlers.data_source.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_discover_unexpected_post_query_exception_marks_scan_failed(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
+    mock_discovery_run_cls,
+    mock_build_discovery_payload,
+    monkeypatch,
+):
+    # An unexpected exception outside the query phase (here: payload build) must not
+    # propagate out of the handler; it goes through the same failure reporting.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud.mark_scan_as_failed.return_value = True
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
+    mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
+    mock_build_discovery_payload.side_effect = RuntimeError("payload build failed")
+
+    exit_code = handle_discover_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_called_once()
+    _, kwargs = mock_soda_cloud.mark_scan_as_failed.call_args
+    assert kwargs["scan_id"] == "scan-123"
+    assert any("payload build failed" in record.getMessage() for record in kwargs["logs"])

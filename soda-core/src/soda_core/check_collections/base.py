@@ -910,7 +910,15 @@ class CheckCollectionImpl:
                 # (run_post_processing_handlers) can update Cloud, and pass it explicitly
                 # rather than have mark_scan_as_failed re-read it from the environment.
                 verification_result.scan_id = self.soda_config.soda_scan_id
-                self.soda_cloud.mark_scan_as_failed(scan_id=verification_result.scan_id, logs=log_records)
+                marked_as_failed: bool = self.soda_cloud.mark_scan_as_failed(
+                    scan_id=verification_result.scan_id, logs=log_records
+                )
+                if not marked_as_failed:
+                    # A rejected mark leaves the failure invisible on Cloud; surface it as a
+                    # send failure so the exit code goes > 3 and the launcher fallback marks
+                    # the scan failed itself.
+                    sending_results_to_soda_cloud_failed = True
+                    verification_result.sending_results_to_soda_cloud_failed = True
             else:
                 # send_check_collection_results stamps scan_id + dataset_id
                 # on the result internally; we just hold the response_json
