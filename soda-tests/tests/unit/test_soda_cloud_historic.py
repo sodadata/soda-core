@@ -1,10 +1,9 @@
-"""Unit tests for the historic-data fetch methods on SodaCloud (OBSL-1007).
+"""Unit tests for the historic-data fetch methods on SodaCloud.
 
-Request/response contract ported from v3 ``SodaCloud.get_historic_measurements``
-/ ``get_historic_check_results`` (soda_cloud.py:714-770): POST types
-``sodaCoreHistoricMeasurements2`` / ``sodaCoreHistoricCheckResults2``,
-minScanTime/maxScanTime XOR limit, v3 millisecond-UTC scan-time strings,
-and the 500-identities-per-request backend constraint (batch + merge).
+Request/response contract: POST types ``sodaCoreHistoricMeasurements2`` /
+``sodaCoreHistoricCheckResults2``, minScanTime/maxScanTime XOR limit,
+millisecond-UTC scan-time strings, and the 500-identities-per-request
+backend constraint (batch + merge).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -33,7 +32,7 @@ def _check_result(identity: str, measurement_id: str, **extra) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# scan-time serialization: the v3 byte-exact format
+# scan-time serialization
 # ---------------------------------------------------------------------------
 
 
@@ -50,7 +49,7 @@ def test_scan_time_str_aware_datetime_is_converted_to_utc():
 
 
 def test_scan_time_str_whole_seconds_keep_millisecond_precision():
-    # v3 JsonHelper used isoformat(timespec="milliseconds"): always 3 fractional digits.
+    # isoformat(timespec="milliseconds"): always 3 fractional digits.
     assert _convert_scan_time_to_str(datetime(2025, 3, 1, 0, 0, 0)) == "2025-03-01T00:00:00.000+00:00"
 
 
@@ -111,7 +110,6 @@ def test_get_historic_measurements_ungrouped_returns_flat_list():
 
 
 def test_get_historic_measurements_drops_measurements_without_value_by_default():
-    # v3 drop_measurements_without_value=True semantics (soda_cloud.py:730-734)
     mock = MockSodaCloud()
     mock.add_historic_measurements("m1", [{"identity": "m1"}, _measurement("m1", value=7)])
 
@@ -234,9 +232,8 @@ def test_historic_query_non_200_raises_soda_cloud_exception():
 
 
 # ---------------------------------------------------------------------------
-# get_last_measurement (OBSL-1028) — v3 soda_cloud.py:703-712 verbatim
-# semantics: sodaCoreHistoricMeasurements2 with a single identity and
-# ``limit: 1``; first-result-or-None.
+# get_last_measurement — sodaCoreHistoricMeasurements2 with a single identity
+# and ``limit: 1``; first-result-or-None.
 # ---------------------------------------------------------------------------
 
 

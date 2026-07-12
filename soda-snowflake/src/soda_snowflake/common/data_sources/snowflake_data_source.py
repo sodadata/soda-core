@@ -133,15 +133,14 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
         """Snowflake TIMESTAMPDIFF only counts crossed boundaries of the given
-        unit, so v3 computes the difference in SECONDS and divides by the float
-        seconds-per-interval (v3 snowflake_data_source.py:353-360) — kept verbatim."""
+        unit, so compute the difference in SECONDS and divide by the float
+        seconds-per-interval."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         multiplier: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
         return f"FLOOR(TIMESTAMPDIFF(second, {start_sql}, {end_sql}) / {multiplier})"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
-        """v3 snowflake TIMESTAMPADD form (v3 snowflake_data_source.py:362-363)."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         return f"TIMESTAMPADD({add_interval.unit}, {count_sql}, {timestamp_sql})"
@@ -186,7 +185,7 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
     def get_large_numeric_cast_type_name(self) -> Optional[str]:
         """CAST aggregate args to FLOAT so math over NUMBER columns runs in float,
-        not scaled NUMBER (v3 snowflake_data_source.py:390)."""
+        not scaled NUMBER."""
         return "FLOAT"
 
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
@@ -197,7 +196,7 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
             "text": SodaDataTypeName.TEXT,
             "string": SodaDataTypeName.VARCHAR,
             # Defensive aliases — unreachable via INFORMATION_SCHEMA (Snowflake
-            # canonicalizes every string type to TEXT); kept for v3 parity.
+            # canonicalizes every string type to TEXT).
             "nchar": SodaDataTypeName.CHAR,
             "nvarchar": SodaDataTypeName.VARCHAR,
             "nvarchar2": SodaDataTypeName.VARCHAR,

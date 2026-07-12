@@ -138,9 +138,8 @@ def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
 
 
 # ---------------------------------------------------------------------------
-# PERCENTILE_WITHIN_GROUP — BigQuery has no ordered-set aggregates; v3 rendered
-# APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}] (v3 bigquery_data_source.py:346-348).
-# The int(p*1000) offset rule is part of the parity contract (OBSL-1022).
+# PERCENTILE_WITHIN_GROUP — BigQuery has no ordered-set aggregates; rendered
+# as APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}].
 # ---------------------------------------------------------------------------
 
 
@@ -166,10 +165,9 @@ def test_percentile_within_group_renders_approx_quantiles_q3():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1028).
-# v3 bigquery forms: TIMESTAMP_DIFF with SINGULAR unit names + CAST(FLOOR(../count)
-# AS INT) when count != 1 (bigquery_data_source.py:446-455); TIMESTAMP_ADD with
-# an INTERVAL that takes the same arithmetic count expression verbatim (:457-463).
+# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes:
+# TIMESTAMP_DIFF with singular unit names + CAST(FLOOR(../count) AS INT) when
+# count != 1; TIMESTAMP_ADD with an INTERVAL taking the count expression.
 # ---------------------------------------------------------------------------
 
 

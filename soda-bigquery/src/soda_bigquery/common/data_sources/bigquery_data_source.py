@@ -169,13 +169,13 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
 
     def get_large_numeric_cast_type_name(self) -> Optional[str]:
         """CAST aggregate args to NUMERIC so math over INT64 runs in NUMERIC(38,9),
-        not FLOAT64 (v3 bigquery_data_source.py:442)."""
+        not FLOAT64."""
         return "NUMERIC"
 
     def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
-        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT); render as
-        UNION ALL, matching v3 (bigquery_data_source.py:427). Safe: profiling's unioned
-        sets carry disjoint constant metric_ labels, so ALL vs DISTINCT is identical.
+        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT); render
+        as UNION ALL. Safe: profiling's unioned sets carry disjoint constant
+        metric_ labels, so ALL vs DISTINCT is identical.
         """
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         return "\nUNION ALL\n".join(
@@ -212,15 +212,13 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
-        """BigQuery has no ordered-set aggregates; the v3 parity form is
-        ``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]``, incl. the int(p*1000)
-        offset rule (v3 bigquery_data_source.py:346-348)."""
+        """BigQuery has no ordered-set aggregates; render as
+        ``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]``."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         quantile_number: int = int(percentile_within_group.percentile * 1000)
         return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
 
-    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD (v3 used
-    # ``TimeUnit.name``, bigquery_data_source.py:446-448).
+    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD.
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "weeks": "WEEK",
         "days": "DAY",
@@ -229,8 +227,6 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     }
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
-        """v3 bigquery TIMESTAMP_DIFF form incl. the CAST(FLOOR(../count) AS INT)
-        wrap when count != 1 (v3 bigquery_data_source.py:449-455)."""
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[time_delta.unit]
@@ -240,8 +236,6 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return sql
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
-        """v3 bigquery TIMESTAMP_ADD form; the INTERVAL takes the same arithmetic
-        count expression verbatim (v3 bigquery_data_source.py:457-463)."""
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
@@ -303,7 +297,7 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def sql_expr_timestamp_coerce(self, expr: str) -> str:
         # BigQuery coerces bare string comparison literals to the column's type, and an
         # ISO string with a UTC offset cannot cast to DATETIME. Wrapping the column makes
-        # both sides TIMESTAMP-typed; matches v3 get_time_between_sql (bigquery_data_source.py:465).
+        # both sides TIMESTAMP-typed.
         return f"timestamp({expr})"
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:

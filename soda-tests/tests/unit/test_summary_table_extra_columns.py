@@ -2,8 +2,7 @@
 ``CheckCollectionImpl.log_table_header_overrides`` — the opt-in seams of the
 summary results table (``build_summary_table``).
 
-Default ``{}`` for both keeps the table byte-identical (pinned against the
-pre-seam formula); an overriding subtype (the metric-monitoring BACKFILL
+Default ``{}`` for both leaves the table unchanged; an overriding subtype (the metric-monitoring BACKFILL
 collection, whose rows are otherwise visually identical — one per backfilled
 window) gets new columns inserted right after "Check" (participating in the
 row sort at that position) and may replace existing cells (e.g.
@@ -61,7 +60,7 @@ def _instance(cls, **attributes):
     return impl
 
 
-def test_default_hook_is_empty_and_keeps_the_table_byte_identical():
+def test_default_hook_is_empty_and_keeps_the_table_unchanged():
     impl = _instance(_PlainCollection)
     check_results = [
         _check_result("b check"),
@@ -72,7 +71,7 @@ def test_default_hook_is_empty_and_keeps_the_table_byte_identical():
     assert CheckCollectionImpl.log_table_extra_columns(impl, check_results[0]) == {}
     assert CheckCollectionImpl.log_table_header_overrides(impl) == {}
 
-    # the pre-seam formula, verbatim
+    # the default rendering formula
     expected_rows = [check_result.log_table_row() for check_result in check_results]
     expected_rows.sort(key=lambda row: (row["Column"], row["Check"], row["Outcome"]))
     previous_column_name = None

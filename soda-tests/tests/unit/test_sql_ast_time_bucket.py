@@ -1,27 +1,18 @@
-"""TIME_DELTA + ADD_INTERVAL time-bucket node rendering (OBSL-1028).
-
-v3 parity contract (metric monitoring bulk SQL, start-anchored interval windows):
+"""TIME_DELTA + ADD_INTERVAL time-bucket node rendering (metric monitoring
+bulk SQL, start-anchored interval windows).
 
 - ``TIME_DELTA(start, end, unit, count)`` — the partition-index expression.
-  Base renderer = v3's POSTGRES epoch-floor form
-  ``FLOOR(EXTRACT(EPOCH FROM {end} - {start}) / {seconds_per_interval})``
-  (v3 postgres_data_source.py:264-268). This is byte-parity on the parity
-  dialect (postgres), valid duckdb, and unit-safe because every supported unit
-  (weeks/days/hours/seconds) is fixed-length, so epoch math is equivalent to
-  v3-base's EXTRACT-unit math.
-  Overrides: snowflake ``FLOOR(TIMESTAMPDIFF(second, {start}, {end}) / {multiplier})``
-  (v3 snowflake_data_source.py:353-360), bigquery ``TIMESTAMP_DIFF({end}, {start}, {UNIT})``
-  + ``CAST(FLOOR(../count) AS INT)`` when count != 1 (v3 bigquery_data_source.py:446-455)
-  — tested in the respective package unit suites.
+  Base renderer is the epoch-floor form
+  ``FLOOR(EXTRACT(EPOCH FROM {end} - {start}) / {seconds_per_interval})``,
+  valid on postgres/duckdb and unit-safe because every supported unit
+  (weeks/days/hours/seconds) is fixed-length.
+  Overrides: snowflake ``FLOOR(TIMESTAMPDIFF(second, {start}, {end}) / {multiplier})``,
+  bigquery ``TIMESTAMP_DIFF({end}, {start}, {UNIT})`` + ``CAST(FLOOR(../count) AS INT)``
+  when count != 1 — tested in the respective package unit suites.
 
-- ``ADD_INTERVAL(timestamp, unit, count_expression)`` — scan_time reconstruction.
-  Base ``{ts} + INTERVAL '1 {unit}' * {count_expr}`` (v3 data_source.py:1298-1307;
-  the paren pair around the count comes from the count expression's own
-  rendering — SqlExpressionStr parenthesizes, matching v3's
-  ``INTERVAL '1 days' * ((soda_partition__ + 1) * 1)`` byte-for-byte).
-
-Timestamp literals render via LITERAL ``'{isoformat}'`` where v3 rendered
-``TIMESTAMP 'YYYY-MM-DD HH:MM:SS'`` — documented text delta, results-identical.
+- ``ADD_INTERVAL(timestamp, unit, count_expression)`` — scan_time reconstruction,
+  ``{ts} + INTERVAL '1 {unit}' * {count_expr}``; the paren pair around the count
+  comes from the count expression's own rendering (SqlExpressionStr parenthesizes).
 """
 
 from __future__ import annotations
@@ -41,7 +32,7 @@ def dialect() -> SqlDialect:
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA — base renderer is v3's postgres epoch-floor form
+# TIME_DELTA — base epoch-floor renderer
 # ---------------------------------------------------------------------------
 
 
@@ -77,14 +68,13 @@ def test_time_delta_bare_str_end_is_quoted():
 
 
 # ---------------------------------------------------------------------------
-# ADD_INTERVAL — base renderer is the v3 base/postgres interval-multiply form
+# ADD_INTERVAL — base interval-multiply renderer
 # ---------------------------------------------------------------------------
 
 
 def test_add_interval_with_expression_count():
-    """The exact scan_time reconstruction shape of the MM bulk CTE
-    (v3 data_source.py:1396): parens around the count come from the
-    SqlExpressionStr rendering, matching v3's get_interval_sql parens."""
+    """The scan_time reconstruction shape of the metric-monitoring bulk CTE:
+    parens around the count come from the SqlExpressionStr rendering."""
     sql = dialect().build_expression_sql(
         ADD_INTERVAL(LITERAL(START), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
     )
@@ -111,7 +101,7 @@ def test_add_interval_rejects_unknown_unit():
 
 
 def test_add_interval_supports_alias():
-    """The MM bulk CTE aliases the reconstruction ``AS scan_time`` (v3 :1412)."""
+    """The metric-monitoring bulk CTE aliases the reconstruction ``AS scan_time``."""
     sql = dialect().build_expression_sql(
         ADD_INTERVAL(LITERAL(START), "days", SqlExpressionStr("(soda_partition__ + 1) * 1")).AS("scan_time")
     )

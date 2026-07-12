@@ -1068,20 +1068,16 @@ class SqlDialect:
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
-        """Ordered-set aggregate, v3 base form (v3 soda-library data_source.py:2184-2185).
-
-        Valid on postgres/duckdb/snowflake; BigQuery overrides with APPROX_QUANTILES.
-        """
+        """Ordered-set aggregate; valid on postgres/duckdb/snowflake. BigQuery
+        overrides with APPROX_QUANTILES."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
         """Time between two timestamps in buckets of ``count`` ``unit``s.
 
-        Base form = v3's POSTGRES epoch-floor rendering (v3
-        postgres_data_source.py:264-268) — byte-parity on postgres, valid on
-        duckdb, unit-safe because every supported unit is fixed-length.
-        Snowflake/bigquery override (v3 :353-360 / :446-455).
+        Epoch-floor form, valid on postgres/duckdb and unit-safe because every
+        supported unit is fixed-length. Snowflake and BigQuery override.
         """
         from soda_core.common.sql_ast import seconds_per_time_bucket
 
@@ -1093,11 +1089,8 @@ class SqlDialect:
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         """Add ``count_expression`` intervals of one ``unit`` to a timestamp.
 
-        Base form = v3's base/postgres interval-multiply rendering
-        (v3 data_source.py:1298-1307). NOTE: no parens are added around the
-        count — the count expression's own rendering provides them
-        (SqlExpressionStr renders ``(...)``), matching v3's get_interval_sql
-        output byte-for-byte for the MM bulk CTE.
+        NOTE: no parens are added around the count — the count expression's
+        own rendering provides them (SqlExpressionStr renders ``(...)``).
         """
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
@@ -1490,8 +1483,7 @@ class SqlDialect:
         to, or None when the engine needs no cast.
 
         A raw native name, not SodaDataTypeName: e.g. Snowflake needs "FLOAT", which
-        its canonical DECIMAL mapping cannot express. v3: cast_to_large_numerical
-        (soda-library data_source.py:2219).
+        its canonical DECIMAL mapping cannot express.
         """
         return None
 

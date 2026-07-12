@@ -412,11 +412,10 @@ class CheckResult:
         metric monitoring's ``type: "anomalyDetection"`` checks with
         candidate/metrics/scanTime/diagnostics-passthrough fields) subclass
         ``CheckResult`` and return the fully-built dict here; the payload
-        builder uses a non-None return verbatim.
+        builder uses a non-None return as-is.
 
-        Default ``None`` keeps every existing contract check dict byte-identical:
-        ``_build_check_results_cloud_json_dicts`` falls back to the generic
-        builder when this returns ``None``.
+        Default ``None``: ``_build_check_results_cloud_json_dicts`` falls back
+        to the generic builder.
         """
         return None
 

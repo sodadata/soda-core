@@ -1,12 +1,11 @@
-"""Lock the per-CheckResult cloud-dict override hook (OBSL-1008).
+"""Per-CheckResult cloud-dict override hook.
 
 ``CheckResult.build_soda_cloud_check_dict(contract, wire_source)`` is the
 checks-side counterpart of ``CheckCollectionResult.measurement_dicts``:
 
 * the BASE implementation returns ``None`` → ``_build_check_results_cloud_json_dicts``
-  falls back to the generic ``_build_check_result_cloud_dict``, so existing
-  contract check dicts are byte-unchanged;
-* a subclass returning a dict lands VERBATIM in the built ``checks`` list —
+  falls back to the generic ``_build_check_result_cloud_dict``;
+* a subclass returning a dict lands as-is in the built ``checks`` list —
   the seam non-contract subtypes (metric monitoring's ``anomalyDetection``
   checks) use to emit wire shapes the generic builder cannot express.
 """
@@ -97,9 +96,9 @@ def test_base_check_result_hook_returns_none():
     assert check_result.build_soda_cloud_check_dict(contract=_make_contract(), wire_source="soda-contract") is None
 
 
-def test_plain_check_result_dict_is_byte_identical_to_generic_builder():
-    """With the base (None-returning) hook, the built check dict must be byte-identical
-    to what the generic builder produced before the hook existed."""
+def test_plain_check_result_dict_equals_generic_builder():
+    """With the base (None-returning) hook, the built check dict must equal the
+    generic builder's output."""
     check_result = CheckResult(
         check=_make_check(),
         outcome=CheckOutcome.PASSED,

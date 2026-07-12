@@ -202,19 +202,19 @@ HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 
 @dataclass(frozen=True)
 class HistoricDateTimeRange:
-    """Scan-time window for historic-data queries (v3 HistoricDateTimeRangeDescriptor)."""
+    """Scan-time window for historic-data queries."""
 
     from_date_time: datetime
     to_date_time: datetime
 
 
 def _convert_scan_time_to_str(dt: datetime) -> str:
-    """Serialize a scan-time boundary exactly like v3 (JsonHelper.to_jsonnable,
-    json_helper.py:66-69): naive datetimes are interpreted as UTC; output is the
-    UTC isoformat with milliseconds, e.g. ``2026-07-05T12:00:00.000+00:00``.
+    """Serialize a scan-time boundary for the historic-data endpoints: naive
+    datetimes are interpreted as UTC; output is the UTC isoformat with
+    milliseconds, e.g. ``2026-07-05T12:00:00.000+00:00``.
 
-    NOT v4's ``convert_datetime_to_str`` (seconds precision) — the historic-data
-    endpoints get the byte-identical v3 format.
+    Deliberately NOT ``convert_datetime_to_str`` (seconds precision) — the
+    historic-data endpoints expect millisecond precision.
     """
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
@@ -913,14 +913,13 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic measurements for the given metric identities.
 
-        Ported from v3 ``SodaCloud.get_historic_measurements`` (soda_cloud.py:714-744).
         Exactly one of ``date_time_range`` or ``limit`` must be provided (the
         ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
 
         Returns measurements grouped by metric identity (default), or the flat
         result list when ``group_by_identity`` is False. Measurements without a
-        ``value`` key are dropped by default, like v3.
+        ``value`` key are dropped by default.
         """
         results: list[dict] = self._fetch_historic_results(
             query_type="sodaCoreHistoricMeasurements2",
@@ -939,8 +938,7 @@ class SodaCloud:
     def get_last_measurement(self, metric_identity: str) -> Optional[dict]:
         """Fetch the most recent measurement for a single metric identity.
 
-        Ported from v3 ``SodaCloud.get_last_measurement`` (soda_cloud.py:703-712)
-        verbatim semantics: ``sodaCoreHistoricMeasurements2`` with ``limit: 1``,
+        ``sodaCoreHistoricMeasurements2`` with ``limit: 1``,
         first-result-or-None. Non-200 raises like the sibling historic-data
         methods (callers isolate per metric).
         """
@@ -963,7 +961,6 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic check results for the given check identities.
 
-        Ported from v3 ``SodaCloud.get_historic_check_results`` (soda_cloud.py:746-770).
         Exactly one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
 
@@ -1695,8 +1692,7 @@ def _build_check_results_cloud_json_dicts(
     check_dicts: list[dict] = []
     for check_result in check_results:
         # Per-CheckResult override hook (see CheckResult.build_soda_cloud_check_dict):
-        # a non-None return is used verbatim; the base class returns None, so
-        # contract check dicts stay byte-identical.
+        # a non-None return is used as-is; the base class returns None.
         override_dict: Optional[dict] = check_result.build_soda_cloud_check_dict(
             contract=contract, wire_source=wire_source
         )

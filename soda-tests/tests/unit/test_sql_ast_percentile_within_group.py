@@ -1,10 +1,9 @@
-"""PERCENTILE_WITHIN_GROUP ordered-set aggregate rendering (OBSL-1022).
+"""PERCENTILE_WITHIN_GROUP ordered-set aggregate rendering.
 
-v3 parity contract: base renderer must emit the v3 base form
-``PERCENTILE_DISC({p}) WITHIN GROUP (ORDER BY {expr})``
-(v3 soda-library data_source.py:2184-2185), valid on postgres/duckdb/snowflake.
-BigQuery overrides with ``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]``
-(v3 bigquery_data_source.py:346-348) — tested in soda-bigquery's unit tests.
+The base renderer emits ``PERCENTILE_DISC({p}) WITHIN GROUP (ORDER BY {expr})``,
+valid on postgres/duckdb/snowflake. BigQuery overrides with
+``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]`` — tested in soda-bigquery's
+unit tests.
 """
 
 from __future__ import annotations

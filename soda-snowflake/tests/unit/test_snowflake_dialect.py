@@ -117,10 +117,10 @@ def test_get_large_numeric_cast_type_name_is_float():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes (OBSL-1028).
-# v3 snowflake forms: TIMESTAMPDIFF counts crossed boundaries of the given
-# unit, so v3 computes in SECONDS and divides by the float seconds-per-interval
-# (snowflake_data_source.py:353-360); add-interval is TIMESTAMPADD (:362-363).
+# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes:
+# TIMESTAMPDIFF counts crossed boundaries of the given unit, so the dialect
+# computes in SECONDS and divides by the float seconds-per-interval;
+# add-interval is TIMESTAMPADD.
 # ---------------------------------------------------------------------------
 
 

@@ -1,20 +1,15 @@
-"""Stable observability identity helpers (v3 byte-parity).
+"""Stable observability identity helpers.
 
 Metric and check identities are the join keys between locally computed
 measurements and the historic data Soda Cloud stores for them, so they must
-stay byte-identical across major versions and across features (profiling,
-metric monitoring). That cross-feature stability is why they live in
-soda-core rather than in a feature plugin.
+stay byte-identical across releases and across features (profiling, metric
+monitoring). That cross-feature stability is why they live in soda-core
+rather than in a feature plugin.
 
-Verbatim ports from v3 soda-library:
-
-- ``get_metric_identity``: ``src/soda/soda/profiling/model/profiling_metric.py:113-132``.
-  The ``ConsistentHashBuilder.add`` ORDER is load-bearing: data_source, table,
-  partition_name, COLUMN (only if not None), then metric_name, dqn (only if
-  not None). Skipping ``None`` equals not adding at all.
-- ``get_check_identity``: ``src/observability/soda/observability/config.py:145-147``.
-
-Pinned against outputs of the actual v3 implementation in
+The ``ConsistentHashBuilder.add`` order in ``get_metric_identity`` is
+load-bearing: data_source, table, partition_name, column (only if not None),
+then metric_name, dqn (only if not None). Skipping ``None`` equals not adding
+at all. Digests are pinned in
 ``soda-tests/tests/unit/test_observability_identity.py``.
 """
 
@@ -35,8 +30,7 @@ def get_metric_identity(
 ) -> str:
     """Library-generated metric identity (8-hex blake2b digest).
 
-    Only the fallback path: a BE-provided ``metricIdentity`` always wins
-    (v3 runs.py:281-283).
+    Only the fallback path: a BE-provided ``metricIdentity`` always wins.
     """
     hash_builder = ConsistentHashBuilder()
 

@@ -1104,9 +1104,9 @@ class CheckCollectionImpl:
         """Optional per-row extra columns for the results table logged by
         ``build_log_summary``.
 
-        Default ``{}``: the table stays byte-identical for every collection
-        type that doesn't override this (contract verification, regular
-        metric monitoring, ...). Subtypes whose rows are otherwise visually
+        Default ``{}``: the table is unchanged for every collection type
+        that doesn't override this (contract verification, regular metric
+        monitoring, ...). Subtypes whose rows are otherwise visually
         identical (e.g. metric-monitoring BACKFILL — one row per backfilled
         window) override it to return e.g. ``{"Window": "2026-07-09"}``:
         NEW keys become columns inserted right after "Check" (participating
@@ -1119,8 +1119,8 @@ class CheckCollectionImpl:
         """Optional header renames for the results table logged by
         ``build_log_summary``.
 
-        Default ``{}``: headers stay byte-identical for every collection type
-        that doesn't override this (contract verification, ...). Subtypes for
+        Default ``{}``: headers are unchanged for every collection type that
+        doesn't override this (contract verification, ...). Subtypes for
         which the standard header is a misnomer override it, e.g. metric
         monitoring returns ``{"Check": "Monitor"}`` so its table renders the
         "Check" column as "Monitor". This is a rename applied only when the

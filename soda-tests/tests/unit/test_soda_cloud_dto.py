@@ -4,7 +4,7 @@ from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 
 
 class TestProfilingConfigurationPassthrough:
-    """profilingConfiguration stays a raw dict on purpose (OBSL-1019):
+    """profilingConfiguration stays a raw dict on purpose:
     the soda-profiling extension (soda_profiling.profiling_config) owns the
     parsing, exactly like metricMonitoringConfiguration and
     timePartitionConfiguration."""
@@ -118,7 +118,7 @@ class TestDatasetConfigurationDTORegressionNoProfiling:
 
 
 class TestMetricMonitoringConfigurationField:
-    """metricMonitoringConfiguration stays a raw list[dict] on purpose (OBSL-1007):
+    """metricMonitoringConfiguration stays a raw list[dict] on purpose:
     the metric-monitoring plugin's monitor_config owns the parsing, exactly like
     timePartitionConfiguration."""
 

@@ -65,7 +65,7 @@ class MockSodaCloud(SodaCloud):
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
         self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
-        # Fixture-driven historic-data responses (OBSL-1007), keyed by identity.
+        # Fixture-driven historic-data responses, keyed by identity.
         # Only consulted when at least one fixture is registered, so existing
         # tests using the `responses` list are unaffected.
         self.historic_measurements: dict[str, list[dict]] = {}
