@@ -6,7 +6,7 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 
 
 class SodaCoreException(Exception):
-    """Base class for all data source connection exceptions."""
+    """Base class for all exceptions raised by the soda-core package."""
 
     def __init__(self, message: str, *args: object) -> None:
         super().__init__(message, *args)

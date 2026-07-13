@@ -2,7 +2,17 @@ import logging
 from unittest.mock import MagicMock
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.failure_reporting import report_scan_execution_failure
+from soda_core.cli.handlers.failure_reporting import (
+    ScanExecutionFailedException,
+    report_scan_execution_failure,
+)
+from soda_core.common.exceptions import SodaCoreException
+
+
+def test_scan_execution_failed_exception_is_a_soda_core_exception():
+    # Callers handling package exceptions via the SodaCoreException base must
+    # see ScanExecutionFailedException too.
+    assert issubclass(ScanExecutionFailedException, SodaCoreException)
 
 
 def _log_records() -> list[logging.LogRecord]:
