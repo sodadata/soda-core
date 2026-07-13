@@ -10,7 +10,6 @@ from soda_core.cli.handlers.data_source import (
     handle_test_data_source,
 )
 from soda_core.cli.handlers.dependencies import run_with_failure_reporting
-from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 
 
 @patch("soda_core.cli.handlers.data_source.exists", return_value=True)
@@ -184,9 +183,9 @@ def test_test_data_source_uploader_captures_and_flushes_when_parsing_raises(
 
 # Discovery handler tests. The handler receives fully resolved dependencies
 # (resolution + exit-code mapping are covered in test_cli_dependencies.py).
-# Convention: engine failures raise (ScanExecutionFailedException when already
-# logged by the handler); a rejected results upload is not an engine failure
-# and returns RESULTS_NOT_SENT_TO_CLOUD directly.
+# Convention: engine failures propagate raw without logging — the CLI wiring
+# is the single logging site; a rejected results upload is not an engine
+# failure and returns RESULTS_NOT_SENT_TO_CLOUD directly.
 
 
 def _data_source_impl_fake() -> MagicMock:
@@ -211,13 +210,15 @@ def test_discover_success_sends_results_and_exits_ok(mock_discovery_run_cls, moc
 
 
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
-def test_discover_query_failure_raises_scan_execution_failed(mock_discovery_run_cls):
+def test_discover_query_failure_propagates_raw(mock_discovery_run_cls, caplog):
     data_source_impl = _data_source_impl_fake()
     mock_discovery_run_cls.execute.side_effect = Exception("query failed")
 
-    with pytest.raises(ScanExecutionFailedException):
+    with pytest.raises(Exception, match="query failed"):
         handle_discover_data_source(data_source_impl, soda_cloud=MagicMock(), scan_definition_name="my_scan")
 
+    # Nothing is logged at the raise site: the CLI wiring logs once, with the traceback.
+    assert not any("query failed" in record.getMessage() for record in caplog.records)
     # The connection is always released; the CLI wiring maps the raise to failure reporting.
     data_source_impl.close_connection.assert_called_once()
 
@@ -385,7 +386,11 @@ def test_discover_execution_exception_marks_scan_failed(
     mock_soda_cloud.mark_scan_as_failed.assert_called_once()
     _, kwargs = mock_soda_cloud.mark_scan_as_failed.call_args
     assert kwargs["scan_id"] == "scan-123"
-    assert any("Discovery query failed" in record.getMessage() for record in kwargs["logs"])
+    # The single failure line originates from the wiring (with traceback), and
+    # is captured into the reported records.
+    failure_records = [record for record in kwargs["logs"] if "query failed" in record.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is not None
 
 
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")

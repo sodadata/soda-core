@@ -26,19 +26,18 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
 
     There is no default: an implicit per-data-source name would silently
     register a new scan definition on Soda Cloud when the configuration is
-    missing. When neither source is set this logs an error and raises
-    ``ScanExecutionFailedException`` — call it inside the command wrapped by
-    ``run_with_failure_reporting`` so the standard failure mapping applies
-    (managed scans get marked failed).
+    missing. When neither source is set this raises
+    ``ScanExecutionFailedException`` carrying the user-facing message — call it
+    inside the command wrapped by ``run_with_failure_reporting``, which logs
+    the message and applies the standard failure mapping (managed scans get
+    marked failed).
     """
     resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
     if not resolved_scan_definition_name:
-        message: str = (
+        raise ScanExecutionFailedException(
             "A scan definition name is required to send discovery results to Soda Cloud: "
             "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
         )
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {message}")
-        raise ScanExecutionFailedException(message)
     return resolved_scan_definition_name
 
 
@@ -168,12 +167,11 @@ def handle_discover_data_source(
     """Discover datasets and send the results to Soda Cloud.
 
     Receives fully resolved dependencies — including the mandatory scan
-    definition name (``resolve_scan_definition_name``); failure mapping lives
-    in the CLI wiring (``dependencies.run_with_failure_reporting``). Engine
-    failures raise — ``ScanExecutionFailedException`` when already logged
-    here, any other exception is logged by the wiring. A rejected results
-    upload is not an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD``
-    directly, so no failure report is sent.
+    definition name (``resolve_scan_definition_name``). Engine failures
+    propagate raw: the CLI wiring (``dependencies.run_with_failure_reporting``)
+    is the single logging site and maps them to failure reporting. A rejected
+    results upload is not an engine failure: it returns
+    ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
     """
     from soda_core.discovery.discovery_payload import (
         build_discovery_payload,
@@ -186,6 +184,7 @@ def handle_discover_data_source(
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
     try:
         # Resolution only parses YAML; the handler owns the connection lifecycle.
+        # Query failures propagate raw to the wiring, which logs the traceback.
         data_source_impl.open_connection()
         # Empty prefixes: discover everything visible to the connection.
         dqns: list[str] = DiscoveryRun.execute(
@@ -194,9 +193,6 @@ def handle_discover_data_source(
             include=include,
             exclude=exclude,
         )
-    except Exception as exc:
-        soda_logger.exception(f"Discovery query failed: {exc}")
-        raise ScanExecutionFailedException(f"Discovery query failed: {exc}") from exc
     finally:
         data_source_impl.close_connection()
     scan_end_timestamp: datetime = datetime.now(timezone.utc)

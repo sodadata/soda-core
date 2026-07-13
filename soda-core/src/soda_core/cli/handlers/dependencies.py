@@ -87,15 +87,20 @@ def run_with_failure_reporting(
     exit code in one place.
 
     The ``Logs`` collector starts before the first log line so records from the
-    resolution steps reach Soda Cloud with a failure report too. Mapping:
+    resolution steps reach Soda Cloud with a failure report too. This is the
+    single logging site for command failures — handlers raise without logging,
+    and the two except arms only pick the log form:
 
     - Unusable Soda Cloud config (resolved first): neither results nor a
       failure report can reach Cloud, so exit ``RESULTS_NOT_SENT_TO_CLOUD``
       and let the managed launcher's fallback mark the scan failed.
-    - Data source resolution failure, or any exception raised by the command
-      (``ScanExecutionFailedException`` when the command already logged the
-      failure; anything else is logged here): report via
-      ``report_scan_execution_failure`` with the captured log records.
+    - ``ScanExecutionFailedException``: an expected/validation failure — its
+      message is user-facing, logged clean without a traceback.
+    - Any other exception: unexpected — logged with the traceback.
+    - Both, and a data source resolution failure, report via
+      ``report_scan_execution_failure`` with the captured log records (the
+      failure line above is logged before the records are captured, so it is
+      part of the report).
     - Otherwise the command's own exit code is returned unchanged.
     """
     logs: Logs = Logs()
@@ -108,7 +113,8 @@ def run_with_failure_reporting(
         if data_source_impl is None:
             return report_scan_execution_failure(soda_cloud, logs.get_log_records())
         return command(data_source_impl, soda_cloud)
-    except ScanExecutionFailedException:
+    except ScanExecutionFailedException as exc:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
         return report_scan_execution_failure(soda_cloud, logs.get_log_records())
     except Exception as exc:
         soda_logger.exception(f"Scan execution failed: {exc}")

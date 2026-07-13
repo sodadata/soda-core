@@ -115,8 +115,10 @@ def test_scan_definition_name_falls_back_to_env(monkeypatch):
 
 def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, caplog):
     # No default: an implicit name would silently register a new scan definition
-    # on Soda Cloud. The raise routes through the standard failure mapping.
+    # on Soda Cloud. The exception carries the user-facing message and routes
+    # through the standard failure mapping.
     monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
-    with pytest.raises(ScanExecutionFailedException):
+    with pytest.raises(ScanExecutionFailedException, match="scan definition name is required"):
         resolve_scan_definition_name(scan_definition_name=None)
-    assert any("scan definition name is required" in record.getMessage() for record in caplog.records)
+    # Nothing is logged at the raise site: the CLI wiring is the single logging site.
+    assert not any("scan definition name is required" in record.getMessage() for record in caplog.records)
