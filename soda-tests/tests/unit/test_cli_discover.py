@@ -1,3 +1,4 @@
+import logging
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -152,3 +153,114 @@ def test_cli_discover_with_scan_id_and_soda_cloud_takes_cloud_flow(
 
     assert e.value.code == ExitCode.OK
     mock_run_with_failure_reporting.assert_called_once()
+
+
+@patch("soda_core.cli.cli.handle_discover_data_source_locally", return_value=ExitCode.OK)
+@patch("soda_core.cli.cli.resolve_data_source")
+def test_cli_discover_locally_warns_when_scan_definition_name_provided(
+    mock_resolve_data_source, mock_local_handler, monkeypatch, caplog
+):
+    # --scan-definition-name names the Soda Cloud scan definition: in a local run
+    # it has nothing to apply to, so the wiring warns instead of silently dropping it.
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    mock_resolve_data_source.return_value = MagicMock()
+    sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "--scan-definition-name", "my_scan"]
+
+    args = create_cli_parser().parse_args()
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == ExitCode.OK
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert any("--scan-definition-name is ignored in a local run" in record.getMessage() for record in warnings)
+
+
+# Cloud flow with a missing scan definition name (no --scan-definition-name, no
+# SODA_SCAN_DEFINITION): resolution happens inside the wrapped command, so the
+# raise takes the standard failure mapping — managed scans get marked failed
+# with the captured log records, ad-hoc runs exit LOG_ERRORS.
+
+
+def _run_discover_cloud_flow_without_scan_definition_name():
+    sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
+    args = create_cli_parser().parse_args()
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+    return e.value.code
+
+
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.dependencies.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_cli_discover_cloud_flow_without_scan_definition_name_marks_managed_scan_failed(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
+    mock_discovery_run_cls,
+    monkeypatch,
+):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud.mark_scan_as_failed.return_value = True
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
+
+    exit_code = _run_discover_cloud_flow_without_scan_definition_name()
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_called_once()
+    _, kwargs = mock_soda_cloud.mark_scan_as_failed.call_args
+    assert kwargs["scan_id"] == "scan-123"
+    assert any("scan definition name is required" in record.getMessage() for record in kwargs["logs"])
+    # The name resolves before the handler runs: no discovery query is attempted.
+    mock_discovery_run_cls.execute.assert_not_called()
+
+
+@patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
+@patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.dependencies.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_cli_discover_cloud_flow_without_scan_definition_name_ad_hoc_exits_log_errors(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_sc_yaml_source_cls,
+    mock_ds_yaml_source_cls,
+    monkeypatch,
+    caplog,
+):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_data_source_impl_cls.from_yaml_source.return_value = MagicMock()
+
+    exit_code = _run_discover_cloud_flow_without_scan_definition_name()
+
+    # Ad-hoc run: no Cloud scan to update, the error stays on the console.
+    assert exit_code == ExitCode.LOG_ERRORS
+    mock_soda_cloud.mark_scan_as_failed.assert_not_called()
+    assert any("scan definition name is required" in record.getMessage() for record in caplog.records)
+
+
+@patch("soda_core.cli.cli.handle_discover_data_source", return_value=ExitCode.OK)
+@patch("soda_core.cli.cli.run_with_failure_reporting")
+def test_cli_discover_cloud_flow_resolves_scan_definition_name_from_env(
+    mock_run_with_failure_reporting, mock_handler, monkeypatch
+):
+    monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
+    mock_run_with_failure_reporting.side_effect = lambda data_source_file_path, soda_cloud_file_path, command: command(
+        MagicMock(), MagicMock()
+    )
+    sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
+
+    args = create_cli_parser().parse_args()
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == ExitCode.OK
+    _, handler_kwargs = mock_handler.call_args
+    assert handler_kwargs["scan_definition_name"] == "env_scan_def"

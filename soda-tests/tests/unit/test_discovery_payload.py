@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
+import pytest
 from soda_core.cli.handlers.data_source import resolve_scan_definition_name
+from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.discovery.discovery_payload import build_discovery_payload
 
@@ -103,26 +105,18 @@ def test_payload_data_timestamp_falls_back_to_scan_start_on_unparseable_env(monk
 
 def test_scan_definition_name_prefers_cli_arg(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    result = resolve_scan_definition_name(
-        scan_definition_name="cli_arg_scan_def",
-        data_source_name="postgres",
-    )
-    assert result == "cli_arg_scan_def"
+    assert resolve_scan_definition_name(scan_definition_name="cli_arg_scan_def") == "cli_arg_scan_def"
 
 
 def test_scan_definition_name_falls_back_to_env(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    result = resolve_scan_definition_name(
-        scan_definition_name=None,
-        data_source_name="postgres",
-    )
-    assert result == "env_scan_def"
+    assert resolve_scan_definition_name(scan_definition_name=None) == "env_scan_def"
 
 
-def test_scan_definition_name_falls_back_to_default(monkeypatch):
+def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, caplog):
+    # No default: an implicit name would silently register a new scan definition
+    # on Soda Cloud. The raise routes through the standard failure mapping.
     monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
-    result = resolve_scan_definition_name(
-        scan_definition_name=None,
-        data_source_name="postgres",
-    )
-    assert result == "postgres_schema_discovery_scan"
+    with pytest.raises(ScanExecutionFailedException):
+        resolve_scan_definition_name(scan_definition_name=None)
+    assert any("scan definition name is required" in record.getMessage() for record in caplog.records)

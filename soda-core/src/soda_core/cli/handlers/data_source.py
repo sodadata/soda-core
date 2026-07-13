@@ -21,9 +21,25 @@ if TYPE_CHECKING:
     from soda_core.common.data_source_impl import DataSourceImpl
 
 
-def resolve_scan_definition_name(scan_definition_name: Optional[str], data_source_name: str) -> str:
-    """Resolve the scan definition name with precedence: CLI arg > SODA_SCAN_DEFINITION env > default."""
-    return scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION") or f"{data_source_name}_schema_discovery_scan"
+def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
+    """Resolve the mandatory scan definition name with precedence: CLI arg > SODA_SCAN_DEFINITION env.
+
+    There is no default: an implicit per-data-source name would silently
+    register a new scan definition on Soda Cloud when the configuration is
+    missing. When neither source is set this logs an error and raises
+    ``ScanExecutionFailedException`` — call it inside the command wrapped by
+    ``run_with_failure_reporting`` so the standard failure mapping applies
+    (managed scans get marked failed).
+    """
+    resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
+    if not resolved_scan_definition_name:
+        message: str = (
+            "A scan definition name is required to send discovery results to Soda Cloud: "
+            "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
+        )
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {message}")
+        raise ScanExecutionFailedException(message)
+    return resolved_scan_definition_name
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
@@ -145,18 +161,19 @@ def build_test_connection_log_uploader(
 def handle_discover_data_source(
     data_source_impl: DataSourceImpl,
     soda_cloud: SodaCloud,
+    scan_definition_name: str,
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
-    scan_definition_name: Optional[str] = None,
 ) -> ExitCode:
     """Discover datasets and send the results to Soda Cloud.
 
-    Receives fully resolved dependencies; failure mapping lives in the CLI
-    wiring (``dependencies.run_with_failure_reporting``). Engine failures
-    raise — ``ScanExecutionFailedException`` when already logged here, any
-    other exception is logged by the wiring. A rejected results upload is not
-    an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so
-    no failure report is sent.
+    Receives fully resolved dependencies — including the mandatory scan
+    definition name (``resolve_scan_definition_name``); failure mapping lives
+    in the CLI wiring (``dependencies.run_with_failure_reporting``). Engine
+    failures raise — ``ScanExecutionFailedException`` when already logged
+    here, any other exception is logged by the wiring. A rejected results
+    upload is not an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD``
+    directly, so no failure report is sent.
     """
     from soda_core.discovery.discovery_payload import (
         build_discovery_payload,
@@ -184,11 +201,10 @@ def handle_discover_data_source(
         data_source_impl.close_connection()
     scan_end_timestamp: datetime = datetime.now(timezone.utc)
 
-    resolved_scan_definition_name: str = resolve_scan_definition_name(scan_definition_name, data_source_impl.name)
     payload: dict = build_discovery_payload(
         dqns=dqns,
         data_source_name=data_source_impl.name,
-        scan_definition_name=resolved_scan_definition_name,
+        scan_definition_name=scan_definition_name,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
     )

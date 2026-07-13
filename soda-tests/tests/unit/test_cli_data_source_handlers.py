@@ -202,7 +202,7 @@ def test_discover_success_sends_results_and_exits_ok(mock_discovery_run_cls, moc
     mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
     mock_send_discovery_results.return_value = MagicMock(ok=True)
 
-    exit_code = handle_discover_data_source(data_source_impl, soda_cloud=MagicMock())
+    exit_code = handle_discover_data_source(data_source_impl, soda_cloud=MagicMock(), scan_definition_name="my_scan")
 
     assert exit_code == ExitCode.OK
     # Resolution only parses YAML: the handler owns the connection lifecycle.
@@ -216,7 +216,7 @@ def test_discover_query_failure_raises_scan_execution_failed(mock_discovery_run_
     mock_discovery_run_cls.execute.side_effect = Exception("query failed")
 
     with pytest.raises(ScanExecutionFailedException):
-        handle_discover_data_source(data_source_impl, soda_cloud=MagicMock())
+        handle_discover_data_source(data_source_impl, soda_cloud=MagicMock(), scan_definition_name="my_scan")
 
     # The connection is always released; the CLI wiring maps the raise to failure reporting.
     data_source_impl.close_connection.assert_called_once()
@@ -229,7 +229,7 @@ def test_discover_results_send_rejected_exits_results_not_sent(mock_discovery_ru
     mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
     mock_send_discovery_results.return_value = MagicMock(ok=False)
 
-    exit_code = handle_discover_data_source(_data_source_impl_fake(), soda_cloud)
+    exit_code = handle_discover_data_source(_data_source_impl_fake(), soda_cloud, scan_definition_name="my_scan")
 
     # A rejected results upload is not an engine failure: no mark_scan_as_failed,
     # the exit code alone signals the undelivered results.
@@ -245,7 +245,7 @@ def test_discover_unexpected_post_query_exception_propagates(mock_discovery_run_
 
     # Unexpected exceptions propagate; the CLI wiring logs and reports them.
     with pytest.raises(RuntimeError):
-        handle_discover_data_source(_data_source_impl_fake(), soda_cloud=MagicMock())
+        handle_discover_data_source(_data_source_impl_fake(), soda_cloud=MagicMock(), scan_definition_name="my_scan")
 
 
 # Local discovery handler tests. Unlike the Cloud sibling there is no scan
@@ -313,7 +313,9 @@ def _run_discover_flow() -> ExitCode:
     return run_with_failure_reporting(
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
-        command=lambda data_source_impl, soda_cloud: handle_discover_data_source(data_source_impl, soda_cloud),
+        command=lambda data_source_impl, soda_cloud: handle_discover_data_source(
+            data_source_impl, soda_cloud, scan_definition_name="my_scan"
+        ),
     )
 
 
