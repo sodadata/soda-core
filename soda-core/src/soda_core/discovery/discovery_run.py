@@ -4,6 +4,7 @@ from typing import Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.statements.table_types import TableType
 
 SODA_TEMP_PREFIX = "__soda_temp"
 
@@ -23,6 +24,10 @@ class DiscoveryRun:
         # single-character wildcards.
         objects = data_source_impl.discover_qualified_objects(
             prefixes=prefixes,
+            # Every object type, explicitly: discovery matches v3 (no type filter — base
+            # tables, views and materialized views alike), while the metadata query's
+            # None default is tables-only for backward compatibility of other callers.
+            object_types=[TableType.TABLE, TableType.VIEW, TableType.MATERIALIZED_VIEW],
             include_table_name_like_filters=include,
             exclude_table_name_like_filters=exclude,
         )

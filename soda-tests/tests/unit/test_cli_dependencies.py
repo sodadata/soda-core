@@ -156,8 +156,8 @@ def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(
     mock_resolve_data_source.return_value = MagicMock()
 
     def command(data_source_impl, soda_cloud):
-        # Convention: the handler logs the failure with its domain context, then raises.
-        soda_logger.error("Discovery query failed: connection dropped")
+        # Convention: an expected/validation failure raises with a user-facing
+        # message and logs nothing — the wrapper is the single logging site.
         raise ScanExecutionFailedException("Discovery query failed: connection dropped")
 
     exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
@@ -166,7 +166,10 @@ def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(
     soda_cloud.mark_scan_as_failed.assert_called_once()
     _, kwargs = soda_cloud.mark_scan_as_failed.call_args
     assert kwargs["scan_id"] == "scan-123"
-    assert any("Discovery query failed" in record.getMessage() for record in kwargs["logs"])
+    # Logged exactly once, clean (no traceback), and captured into the report.
+    failure_records = [record for record in kwargs["logs"] if "Discovery query failed" in record.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is None
 
 
 @patch("soda_core.cli.handlers.dependencies.resolve_data_source")
@@ -186,8 +189,11 @@ def test_run_with_command_raising_unexpected_exception_marks_scan_failed(
     assert exit_code == ExitCode.LOG_ERRORS
     soda_cloud.mark_scan_as_failed.assert_called_once()
     _, kwargs = soda_cloud.mark_scan_as_failed.call_args
-    # Unexpected exceptions are logged here before reporting, so the records carry them.
-    assert any("payload build failed" in record.getMessage() for record in kwargs["logs"])
+    # Unexpected exceptions are logged here with the traceback before reporting,
+    # so the records carry them.
+    failure_records = [record for record in kwargs["logs"] if "payload build failed" in record.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is not None
 
 
 @patch("soda_core.cli.handlers.dependencies.resolve_data_source")
