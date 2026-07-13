@@ -13,6 +13,7 @@ result-publishing commands.
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Callable, Optional
 
 from soda_core.cli.exit_codes import ExitCode
@@ -85,6 +86,26 @@ def resolve_data_source(data_source_file_path: Optional[str]) -> DataSourceImpl:
     if data_source_impl is None:
         raise ScanExecutionFailedException("Data source could not be created. See logs above (or -v).")
     return data_source_impl
+
+
+def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
+    """Resolve the mandatory scan definition name with precedence: CLI arg > SODA_SCAN_DEFINITION env.
+
+    There is no default: an implicit per-data-source name would silently
+    register a new scan definition on Soda Cloud when the configuration is
+    missing. When neither source is set this raises
+    ``ScanExecutionFailedException`` carrying the user-facing message — call it
+    inside the command wrapped by ``run_with_failure_reporting``, which logs
+    the message and applies the standard failure mapping (managed scans get
+    marked failed).
+    """
+    resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
+    if not resolved_scan_definition_name:
+        raise ScanExecutionFailedException(
+            "A scan definition name is required to send discovery results to Soda Cloud: "
+            "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
+        )
+    return resolved_scan_definition_name
 
 
 def run_with_failure_reporting(

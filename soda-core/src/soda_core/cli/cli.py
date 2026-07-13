@@ -20,10 +20,10 @@ from soda_core.cli.handlers.data_source import (
     handle_discover_data_source,
     handle_discover_data_source_locally,
     handle_test_data_source,
-    resolve_scan_definition_name,
 )
 from soda_core.cli.handlers.dependencies import (
     resolve_data_source,
+    resolve_scan_definition_name,
     resolve_soda_cloud,
     run_with_failure_reporting,
 )

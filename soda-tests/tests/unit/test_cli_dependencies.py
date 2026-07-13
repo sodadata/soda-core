@@ -4,6 +4,7 @@ import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.dependencies import (
     resolve_data_source,
+    resolve_scan_definition_name,
     resolve_soda_cloud,
     run_with_failure_reporting,
 )
@@ -162,6 +163,31 @@ def test_resolve_data_source_with_missing_plugin_propagates_raw(mock_data_source
 
     with pytest.raises(ImportError, match="not available"):
         resolve_data_source("ds.yaml")
+
+
+# resolve_scan_definition_name: mandatory for the Cloud flow, CLI arg >
+# SODA_SCAN_DEFINITION env, no default.
+
+
+def test_scan_definition_name_prefers_cli_arg(monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
+    assert resolve_scan_definition_name(scan_definition_name="cli_arg_scan_def") == "cli_arg_scan_def"
+
+
+def test_scan_definition_name_falls_back_to_env(monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
+    assert resolve_scan_definition_name(scan_definition_name=None) == "env_scan_def"
+
+
+def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, caplog):
+    # No default: an implicit name would silently register a new scan definition
+    # on Soda Cloud. The exception carries the user-facing message and routes
+    # through the standard failure mapping.
+    monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
+    with pytest.raises(ScanExecutionFailedException, match="scan definition name is required"):
+        resolve_scan_definition_name(scan_definition_name=None)
+    # Nothing is logged at the raise site: the CLI wiring is the single logging site.
+    assert not any("scan definition name is required" in record.getMessage() for record in caplog.records)
 
 
 # run_with_failure_reporting: receives the already-constructed reporting

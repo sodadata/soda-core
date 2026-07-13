@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from os.path import dirname, exists
 from pathlib import Path
@@ -8,7 +7,6 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Optional
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
@@ -19,26 +17,6 @@ from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 if TYPE_CHECKING:
     from soda_core.common.data_source_impl import DataSourceImpl
     from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
-
-
-def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
-    """Resolve the mandatory scan definition name with precedence: CLI arg > SODA_SCAN_DEFINITION env.
-
-    There is no default: an implicit per-data-source name would silently
-    register a new scan definition on Soda Cloud when the configuration is
-    missing. When neither source is set this raises
-    ``ScanExecutionFailedException`` carrying the user-facing message — call it
-    inside the command wrapped by ``run_with_failure_reporting``, which logs
-    the message and applies the standard failure mapping (managed scans get
-    marked failed).
-    """
-    resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
-    if not resolved_scan_definition_name:
-        raise ScanExecutionFailedException(
-            "A scan definition name is required to send discovery results to Soda Cloud: "
-            "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
-        )
-    return resolved_scan_definition_name
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
@@ -216,9 +194,9 @@ def handle_discover_data_source_locally(
 ) -> ExitCode:
     """Discover datasets and print their DQNs to the console.
 
-    Local sibling of ``handle_discover_data_source``: no Soda Cloud, so no scan
-    lifecycle and no failure reporting — failures are logged and map straight
-    to ``LOG_ERRORS``.
+    Local sibling of ``handle_discover_data_source``: no Soda Cloud, so no
+    scan lifecycle and no failure reporting. Failures propagate raw — the CLI
+    wiring is the single logging site and maps them to ``LOG_ERRORS``.
     """
     from soda_core.discovery.discovery_run import DiscoveryRun
 
@@ -233,9 +211,6 @@ def handle_discover_data_source_locally(
             include=include,
             exclude=exclude,
         )
-    except Exception as exc:
-        soda_logger.exception(f"Discovery query failed: {exc}")
-        return ExitCode.LOG_ERRORS
     finally:
         data_source_impl.close_connection()
 

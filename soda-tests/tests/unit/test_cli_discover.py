@@ -163,6 +163,8 @@ def test_cli_discover_locally_with_unusable_data_source_exits_log_errors(
 def test_cli_discover_locally_with_raising_handler_exits_log_errors(
     mock_resolve_data_source, mock_local_handler, monkeypatch, caplog
 ):
+    # The local handler propagates failures raw; this wiring is the single
+    # logging site (with the traceback) and maps them to LOG_ERRORS.
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     mock_resolve_data_source.return_value = MagicMock()
 
@@ -171,7 +173,9 @@ def test_cli_discover_locally_with_raising_handler_exits_log_errors(
         args.handler_func(args)
 
     assert e.value.code == ExitCode.LOG_ERRORS
-    assert any("boom" in record.getMessage() for record in caplog.records)
+    failure_records = [record for record in caplog.records if "boom" in record.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is not None
 
 
 @patch("soda_core.cli.cli.handle_discover_data_source_locally")
