@@ -50,10 +50,11 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
 
     def is_system_schema(self, schema_name: str) -> bool:
-        # Replaces (not extends) the base information_schema check: in Fabric,
-        # INFORMATION_SCHEMA only contains views, so table discovery is
-        # unaffected by not listing it here.
-        return schema_name.lower() in ["sys", "queryinsights"]
+        # Fabric's own system schemas, on top of the base information_schema
+        # exclusion. Catalog metadata is data-source internals, never a
+        # discoverable dataset — and INFORMATION_SCHEMA's contents are views,
+        # which discovery includes.
+        return schema_name.lower() in ["sys", "queryinsights"] or super().is_system_schema(schema_name)
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"

@@ -8,6 +8,7 @@ from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
@@ -44,7 +45,7 @@ def build_discovery_payload(
     scan_end_timestamp = scan_end_timestamp or now
     data_timestamp = data_timestamp or resolve_data_timestamp(default=scan_start_timestamp)
     return {
-        "scanId": os.environ.get("SODA_SCAN_ID", None),
+        "scanId": EnvConfigHelper().soda_scan_id,
         "type": "sodaCoreInsertScanResults",
         "version": "4",
         "scanType": None,

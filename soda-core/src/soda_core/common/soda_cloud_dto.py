@@ -16,8 +16,8 @@ class _SodaCoreInsertScanResultsRequiredDTO(TypedDict):
     markers) so ``__required_keys__`` stays correct at runtime under this
     module's PEP 563 string annotations."""
 
-    # Command discriminator: always "sodaCoreInsertScanResults".
-    type: str
+    # Command discriminator.
+    type: Literal["sodaCoreInsertScanResults"]
     definitionName: str
     defaultDataSource: str
     dataTimestamp: str
