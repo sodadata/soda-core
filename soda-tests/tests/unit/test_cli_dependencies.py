@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.dependencies import (
     resolve_data_source,
@@ -8,14 +9,15 @@ from soda_core.cli.handlers.dependencies import (
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.exceptions import InvalidSodaCloudConfigurationException
-from soda_core.common.logging_constants import soda_logger
 
-# resolve_soda_cloud: None means unusable (reason logged), whether the parse
-# returns None or raises.
+# resolve_soda_cloud: expected/unusable-configuration shapes raise
+# ScanExecutionFailedException carrying the user-facing message — nothing is
+# logged at the raise site, the caller owns the logging.
 
 
-def test_resolve_soda_cloud_without_file_path_returns_none():
-    assert resolve_soda_cloud(None) is None
+def test_resolve_soda_cloud_without_file_path_raises():
+    with pytest.raises(ScanExecutionFailedException, match=r"configuration file \(-sc\) is required"):
+        resolve_soda_cloud(None)
 
 
 @patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
@@ -29,28 +31,43 @@ def test_resolve_soda_cloud_returns_parsed_instance(mock_soda_cloud_cls, mock_sc
 
 @patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
 @patch("soda_core.cli.handlers.dependencies.SodaCloud")
-def test_resolve_soda_cloud_with_unparseable_config_returns_none(mock_soda_cloud_cls, mock_sc_yaml_source_cls):
+def test_resolve_soda_cloud_with_unparseable_config_raises(mock_soda_cloud_cls, mock_sc_yaml_source_cls):
     mock_soda_cloud_cls.from_yaml_source.return_value = None
 
-    assert resolve_soda_cloud("sc.yaml") is None
+    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+        resolve_soda_cloud("sc.yaml")
 
 
 @patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
 @patch("soda_core.cli.handlers.dependencies.SodaCloud")
-def test_resolve_soda_cloud_with_raising_parse_returns_none(mock_soda_cloud_cls, mock_sc_yaml_source_cls):
-    mock_soda_cloud_cls.from_yaml_source.side_effect = InvalidSodaCloudConfigurationException(
-        "Missing required 'api_key_id' property"
-    )
+def test_resolve_soda_cloud_with_invalid_config_raises_with_cause(mock_soda_cloud_cls, mock_sc_yaml_source_cls, caplog):
+    original = InvalidSodaCloudConfigurationException("Missing required 'api_key_id' property")
+    mock_soda_cloud_cls.from_yaml_source.side_effect = original
 
-    assert resolve_soda_cloud("sc.yaml") is None
+    with pytest.raises(ScanExecutionFailedException, match="api_key_id") as excinfo:
+        resolve_soda_cloud("sc.yaml")
+
+    assert excinfo.value.__cause__ is original
+    # Nothing is logged at the raise site: the caller owns the logging.
+    assert not any("api_key_id" in record.getMessage() for record in caplog.records)
 
 
-# resolve_data_source: None means the data source could not be created (reason
-# logged), whether the parse returns None or raises.
+@patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
+@patch("soda_core.cli.handlers.dependencies.SodaCloud")
+def test_resolve_soda_cloud_with_unexpected_failure_propagates_raw(mock_soda_cloud_cls, mock_sc_yaml_source_cls):
+    mock_soda_cloud_cls.from_yaml_source.side_effect = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        resolve_soda_cloud("sc.yaml")
 
 
-def test_resolve_data_source_without_file_path_returns_none():
-    assert resolve_data_source(None) is None
+# resolve_data_source: same exception contract; environment problems (e.g. a
+# missing plugin) propagate raw so the caller logs the traceback.
+
+
+def test_resolve_data_source_without_file_path_raises():
+    with pytest.raises(ScanExecutionFailedException, match=r"configuration file \(-ds\) is required"):
+        resolve_data_source(None)
 
 
 @patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
@@ -64,103 +81,56 @@ def test_resolve_data_source_returns_created_instance(mock_data_source_impl_cls,
 
 @patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
-def test_resolve_data_source_with_unparseable_config_returns_none(mock_data_source_impl_cls, mock_ds_yaml_source_cls):
+def test_resolve_data_source_with_unparseable_config_raises(mock_data_source_impl_cls, mock_ds_yaml_source_cls):
     mock_data_source_impl_cls.from_yaml_source.return_value = None
 
-    assert resolve_data_source("ds.yaml") is None
+    with pytest.raises(ScanExecutionFailedException, match="could not be created"):
+        resolve_data_source("ds.yaml")
 
 
 @patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
-def test_resolve_data_source_with_raising_creation_returns_none(mock_data_source_impl_cls, mock_ds_yaml_source_cls):
+def test_resolve_data_source_with_invalid_config_raises_with_cause(
+    mock_data_source_impl_cls, mock_ds_yaml_source_cls, caplog
+):
+    original = ValueError("Missing required 'type' in data source YAML")
+    mock_data_source_impl_cls.from_yaml_source.side_effect = original
+
+    with pytest.raises(ScanExecutionFailedException, match="Missing required 'type'") as excinfo:
+        resolve_data_source("ds.yaml")
+
+    assert excinfo.value.__cause__ is original
+    # Nothing is logged at the raise site: the caller owns the logging.
+    assert not any("Missing required 'type'" in record.getMessage() for record in caplog.records)
+
+
+@patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_resolve_data_source_with_missing_plugin_propagates_raw(mock_data_source_impl_cls, mock_ds_yaml_source_cls):
+    # An environment problem, not a config mistake: propagates raw so the
+    # caller logs it with the traceback, which helps there.
     mock_data_source_impl_cls.from_yaml_source.side_effect = ImportError("Data source type 'postgres' not available")
 
-    assert resolve_data_source("ds.yaml") is None
+    with pytest.raises(ImportError, match="not available"):
+        resolve_data_source("ds.yaml")
 
 
-# run_with_failure_reporting: the ONE place where resolution and execution
-# failures map to exit codes and Soda Cloud failure reporting.
+# run_with_failure_reporting: receives the already-constructed reporting
+# channel and a zero-arg command; the ONE place where command failures map to
+# exit codes and Soda Cloud failure reporting.
 
 
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud", return_value=None)
-def test_run_with_unusable_soda_cloud_exits_results_not_sent_before_data_source_resolution(
-    mock_resolve_soda_cloud, mock_resolve_data_source
-):
-    command = MagicMock()
-
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
-
-    # Nothing can reach Cloud without a usable cloud config: exit > 3 so the
-    # managed launcher's fallback marks the scan failed.
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    # Reorder proof: the Soda Cloud config is resolved first; the data source
-    # is never resolved and the command never runs.
-    mock_resolve_data_source.assert_not_called()
-    command.assert_not_called()
-
-
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_with_unresolvable_data_source_marks_scan_failed_with_captured_records(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
+def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.mark_scan_as_failed.return_value = True
-    mock_resolve_soda_cloud.return_value = soda_cloud
 
-    def log_and_fail(data_source_file_path):
-        soda_logger.error("Data source could not be created")
-        return None
-
-    mock_resolve_data_source.side_effect = log_and_fail
-    command = MagicMock()
-
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
-
-    assert exit_code == ExitCode.LOG_ERRORS
-    command.assert_not_called()
-    soda_cloud.mark_scan_as_failed.assert_called_once()
-    _, kwargs = soda_cloud.mark_scan_as_failed.call_args
-    assert kwargs["scan_id"] == "scan-123"
-    # The Logs collector starts before resolution, so resolution failures are captured too.
-    assert any("Data source could not be created" in record.getMessage() for record in kwargs["logs"])
-
-
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source", return_value=None)
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_with_unresolvable_data_source_without_scan_id_exits_log_errors(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
-    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
-    soda_cloud = MagicMock()
-    mock_resolve_soda_cloud.return_value = soda_cloud
-
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", MagicMock())
-
-    # Ad-hoc run: no Cloud scan to update, errors stay on the console.
-    assert exit_code == ExitCode.LOG_ERRORS
-    soda_cloud.mark_scan_as_failed.assert_not_called()
-
-
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
-    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    soda_cloud = MagicMock()
-    soda_cloud.mark_scan_as_failed.return_value = True
-    mock_resolve_soda_cloud.return_value = soda_cloud
-    mock_resolve_data_source.return_value = MagicMock()
-
-    def command(data_source_impl, soda_cloud):
+    def command():
         # Convention: an expected/validation failure raises with a user-facing
         # message and logs nothing — the wrapper is the single logging site.
         raise ScanExecutionFailedException("Discovery query failed: connection dropped")
 
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
+    exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     soda_cloud.mark_scan_as_failed.assert_called_once()
@@ -172,19 +142,13 @@ def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(
     assert failure_records[0].exc_info is None
 
 
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_with_command_raising_unexpected_exception_marks_scan_failed(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
+def test_run_with_command_raising_unexpected_exception_marks_scan_failed(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.mark_scan_as_failed.return_value = True
-    mock_resolve_soda_cloud.return_value = soda_cloud
-    mock_resolve_data_source.return_value = MagicMock()
     command = MagicMock(side_effect=RuntimeError("payload build failed"))
 
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
+    exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     soda_cloud.mark_scan_as_failed.assert_called_once()
@@ -196,53 +160,46 @@ def test_run_with_command_raising_unexpected_exception_marks_scan_failed(
     assert failure_records[0].exc_info is not None
 
 
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_with_rejected_mark_scan_as_failed_exits_results_not_sent(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
+def test_run_with_rejected_mark_scan_as_failed_exits_results_not_sent(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.mark_scan_as_failed.return_value = False
-    mock_resolve_soda_cloud.return_value = soda_cloud
-    mock_resolve_data_source.return_value = MagicMock()
     command = MagicMock(side_effect=RuntimeError("boom"))
 
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
+    exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_passes_resolved_dependencies_and_returns_command_exit_code(
-    mock_resolve_soda_cloud, mock_resolve_data_source
-):
+def test_run_with_failing_command_without_scan_id_exits_log_errors(monkeypatch):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     soda_cloud = MagicMock()
-    data_source_impl = MagicMock()
-    mock_resolve_soda_cloud.return_value = soda_cloud
-    mock_resolve_data_source.return_value = data_source_impl
+    command = MagicMock(side_effect=ScanExecutionFailedException("no scan definition name"))
+
+    exit_code = run_with_failure_reporting(soda_cloud, command)
+
+    # Ad-hoc run: no Cloud scan to update, errors stay on the console.
+    assert exit_code == ExitCode.LOG_ERRORS
+    soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
+def test_run_returns_command_exit_code():
+    soda_cloud = MagicMock()
     command = MagicMock(return_value=ExitCode.OK)
 
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
+    exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.OK
-    command.assert_called_once_with(data_source_impl, soda_cloud)
+    command.assert_called_once_with()
 
 
-@patch("soda_core.cli.handlers.dependencies.resolve_data_source")
-@patch("soda_core.cli.handlers.dependencies.resolve_soda_cloud")
-def test_run_passes_through_command_failure_exit_code_without_reporting(
-    mock_resolve_soda_cloud, mock_resolve_data_source, monkeypatch
-):
+def test_run_passes_through_command_failure_exit_code_without_reporting(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
-    mock_resolve_soda_cloud.return_value = soda_cloud
-    mock_resolve_data_source.return_value = MagicMock()
     # E.g. a rejected results upload: the command decides the exit code itself.
     command = MagicMock(return_value=ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
 
-    exit_code = run_with_failure_reporting("ds.yaml", "sc.yaml", command)
+    exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     soda_cloud.mark_scan_as_failed.assert_not_called()
