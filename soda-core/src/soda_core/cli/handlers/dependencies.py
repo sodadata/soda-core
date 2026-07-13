@@ -13,9 +13,9 @@ result-publishing commands.
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Callable, Optional
 
-from pydantic import ValidationError
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.failure_reporting import (
     ScanExecutionFailedException,
@@ -42,7 +42,8 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
     when the configuration is missing or unusable (missing flag, missing or
     syntactically invalid YAML file, parse returning None, invalid or
     validation-rejected config) — nothing is logged here, the caller owns the
-    logging. Genuinely unexpected failures propagate raw so the caller logs
+    logging. Pydantic ``ValidationError`` is covered via ``ValueError``, its
+    base class. Genuinely unexpected failures propagate raw so the caller logs
     them with the traceback.
     """
     if not soda_cloud_file_path:
@@ -52,7 +53,7 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
             provided_variable_values=None,
         )
-    except (InvalidSodaCloudConfigurationException, YamlParserException, ValidationError, ValueError) as exc:
+    except (InvalidSodaCloudConfigurationException, YamlParserException, ValueError) as exc:
         raise ScanExecutionFailedException(f"Soda Cloud configuration could not be parsed: {exc}") from exc
     if soda_cloud is None:
         raise ScanExecutionFailedException("Soda Cloud configuration could not be parsed.")
@@ -65,7 +66,8 @@ def resolve_data_source(data_source_file_path: Optional[str]) -> DataSourceImpl:
     Raises ``ScanExecutionFailedException`` carrying the user-facing message
     for expected shapes (missing flag, missing or syntactically invalid YAML
     file, parse returning None, missing 'type', model validation) — nothing is
-    logged here, the caller owns the logging. Environment problems (e.g.
+    logged here, the caller owns the logging. Pydantic ``ValidationError`` is
+    covered via ``ValueError``, its base class. Environment problems (e.g.
     ``ImportError`` from a missing plugin) propagate raw so the caller logs
     them with the traceback, which helps there in a way it doesn't for
     user-config mistakes. Does not open a connection: the consumer owns the
@@ -79,11 +81,31 @@ def resolve_data_source(data_source_file_path: Optional[str]) -> DataSourceImpl:
         data_source_impl: Optional[DataSourceImpl] = DataSourceImpl.from_yaml_source(
             DataSourceYamlSource.from_file_path(data_source_file_path)
         )
-    except (InvalidDataSourceConfigurationException, YamlParserException, ValidationError, ValueError) as exc:
+    except (InvalidDataSourceConfigurationException, YamlParserException, ValueError) as exc:
         raise ScanExecutionFailedException(f"Data source could not be created: {exc}") from exc
     if data_source_impl is None:
         raise ScanExecutionFailedException("Data source could not be created. See logs above (or -v).")
     return data_source_impl
+
+
+def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
+    """Resolve the mandatory scan definition name with precedence: CLI arg > SODA_SCAN_DEFINITION env.
+
+    There is no default: an implicit per-data-source name would silently
+    register a new scan definition on Soda Cloud when the configuration is
+    missing. When neither source is set this raises
+    ``ScanExecutionFailedException`` carrying the user-facing message — call it
+    inside the command wrapped by ``run_with_failure_reporting``, which logs
+    the message and applies the standard failure mapping (managed scans get
+    marked failed).
+    """
+    resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
+    if not resolved_scan_definition_name:
+        raise ScanExecutionFailedException(
+            "A scan definition name is required to send discovery results to Soda Cloud: "
+            "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
+        )
+    return resolved_scan_definition_name
 
 
 def run_with_failure_reporting(

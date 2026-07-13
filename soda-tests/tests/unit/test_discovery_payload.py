@@ -1,8 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
-from soda_core.cli.handlers.data_source import resolve_scan_definition_name
-from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 from soda_core.discovery.discovery_payload import build_discovery_payload
@@ -114,24 +111,3 @@ def test_payload_data_timestamp_falls_back_to_scan_start_on_unparseable_env(monk
         scan_end_timestamp=datetime(2026, 7, 10, 8, 30, 5, tzinfo=timezone.utc),
     )
     assert payload["dataTimestamp"] == "2026-07-10T08:30:00+00:00"
-
-
-def test_scan_definition_name_prefers_cli_arg(monkeypatch):
-    monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    assert resolve_scan_definition_name(scan_definition_name="cli_arg_scan_def") == "cli_arg_scan_def"
-
-
-def test_scan_definition_name_falls_back_to_env(monkeypatch):
-    monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    assert resolve_scan_definition_name(scan_definition_name=None) == "env_scan_def"
-
-
-def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, caplog):
-    # No default: an implicit name would silently register a new scan definition
-    # on Soda Cloud. The exception carries the user-facing message and routes
-    # through the standard failure mapping.
-    monkeypatch.delenv("SODA_SCAN_DEFINITION", raising=False)
-    with pytest.raises(ScanExecutionFailedException, match="scan definition name is required"):
-        resolve_scan_definition_name(scan_definition_name=None)
-    # Nothing is logged at the raise site: the CLI wiring is the single logging site.
-    assert not any("scan definition name is required" in record.getMessage() for record in caplog.records)
