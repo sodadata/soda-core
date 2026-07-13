@@ -17,6 +17,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 if TYPE_CHECKING:
+    from requests import Response
     from soda_core.common.data_source_impl import DataSourceImpl
 
 
@@ -191,7 +192,7 @@ def handle_discover_data_source(
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
     )
-    response = send_discovery_results(soda_cloud, payload)
+    response: Optional[Response] = send_discovery_results(soda_cloud, payload)
     if response is None or not response.ok:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD

@@ -68,6 +68,9 @@ def resolve_data_source(data_source_file_path: Optional[str]) -> Optional[DataSo
             DataSourceYamlSource.from_file_path(data_source_file_path)
         )
     except Exception as exc:
+        # Traceback included, unlike resolve_soda_cloud: cloud parse failures are user
+        # config issues, while creation failures can be plugin/import problems where
+        # the traceback helps.
         soda_logger.exception(f"{Emoticons.POLICE_CAR_LIGHT} Data source could not be created: {exc}")
         return None
     if data_source_impl is None:
