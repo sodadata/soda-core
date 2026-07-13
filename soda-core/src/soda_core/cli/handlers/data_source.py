@@ -199,3 +199,39 @@ def handle_discover_data_source(
 
     soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud.")
     return ExitCode.OK
+
+
+def handle_discover_data_source_locally(
+    data_source_impl: DataSourceImpl,
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
+) -> ExitCode:
+    """Discover datasets and print their DQNs to the console.
+
+    Local sibling of ``handle_discover_data_source``: no Soda Cloud, so no scan
+    lifecycle and no failure reporting — failures are logged and map straight
+    to ``LOG_ERRORS``.
+    """
+    from soda_core.discovery.discovery_run import DiscoveryRun
+
+    soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
+    try:
+        # Resolution only parses YAML; the handler owns the connection lifecycle.
+        data_source_impl.open_connection()
+        # Empty prefixes: discover everything visible to the connection.
+        dqns: list[str] = DiscoveryRun.execute(
+            data_source_impl=data_source_impl,
+            prefixes=[],
+            include=include,
+            exclude=exclude,
+        )
+    except Exception as exc:
+        soda_logger.exception(f"Discovery query failed: {exc}")
+        return ExitCode.LOG_ERRORS
+    finally:
+        data_source_impl.close_connection()
+
+    for dqn in dqns:
+        soda_logger.info(dqn)
+    soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets (nothing sent to Soda Cloud).")
+    return ExitCode.OK

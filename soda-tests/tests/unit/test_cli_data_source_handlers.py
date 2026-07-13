@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -5,6 +6,7 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
     handle_discover_data_source,
+    handle_discover_data_source_locally,
     handle_test_data_source,
 )
 from soda_core.cli.handlers.dependencies import run_with_failure_reporting
@@ -244,6 +246,59 @@ def test_discover_unexpected_post_query_exception_propagates(mock_discovery_run_
     # Unexpected exceptions propagate; the CLI wiring logs and reports them.
     with pytest.raises(RuntimeError):
         handle_discover_data_source(_data_source_impl_fake(), soda_cloud=MagicMock())
+
+
+# Local discovery handler tests. Unlike the Cloud sibling there is no scan
+# lifecycle and no failure reporting: failures are logged and map straight to
+# LOG_ERRORS.
+
+
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+def test_discover_locally_prints_dqns_and_exits_ok(mock_discovery_run_cls, caplog):
+    data_source_impl = _data_source_impl_fake()
+    mock_discovery_run_cls.execute.return_value = ["test_ds/schema/table_a", "test_ds/schema/table_b"]
+
+    with caplog.at_level(logging.INFO, logger="soda"):
+        exit_code = handle_discover_data_source_locally(data_source_impl)
+
+    assert exit_code == ExitCode.OK
+    messages = [record.getMessage() for record in caplog.records]
+    # One DQN per line, followed by a summary count.
+    assert "test_ds/schema/table_a" in messages
+    assert "test_ds/schema/table_b" in messages
+    assert any("Discovered 2 datasets" in message for message in messages)
+    # Resolution only parses YAML: the handler owns the connection lifecycle.
+    data_source_impl.open_connection.assert_called_once()
+    data_source_impl.close_connection.assert_called_once()
+
+
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+def test_discover_locally_passes_include_exclude_filters(mock_discovery_run_cls):
+    data_source_impl = _data_source_impl_fake()
+    mock_discovery_run_cls.execute.return_value = []
+
+    exit_code = handle_discover_data_source_locally(data_source_impl, include=["cust%"], exclude=["tmp%"])
+
+    assert exit_code == ExitCode.OK
+    mock_discovery_run_cls.execute.assert_called_once_with(
+        data_source_impl=data_source_impl,
+        prefixes=[],
+        include=["cust%"],
+        exclude=["tmp%"],
+    )
+
+
+@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+def test_discover_locally_query_failure_exits_log_errors(mock_discovery_run_cls, caplog):
+    data_source_impl = _data_source_impl_fake()
+    mock_discovery_run_cls.execute.side_effect = Exception("query failed")
+
+    exit_code = handle_discover_data_source_locally(data_source_impl)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert any("query failed" in record.getMessage() for record in caplog.records)
+    # The connection is always released, also on failure.
+    data_source_impl.close_connection.assert_called_once()
 
 
 # Full discovery flow, wired as cli.py wires it: dependency resolution +
