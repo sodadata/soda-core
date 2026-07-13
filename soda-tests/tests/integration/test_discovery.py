@@ -7,6 +7,7 @@ from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import handle_discover_data_source
+from soda_core.cli.handlers.dependencies import run_with_failure_reporting
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.discovery.discovery_payload import (
     build_discovery_payload,
@@ -104,10 +105,14 @@ def test_handle_discover_data_source_opens_connection_and_posts_payload(
     mock_soda_cloud = MockSodaCloud([MockResponse(status_code=200, json_object={"scanId": "discovery_scan"})])
     monkeypatch.setattr(SodaCloud, "from_yaml_source", classmethod(lambda cls, *args, **kwargs: mock_soda_cloud))
 
-    exit_code = handle_discover_data_source(
+    exit_code = run_with_failure_reporting(
         data_source_file_path=str(data_source_file),
-        include=[test_table.unique_name],
         soda_cloud_file_path=str(soda_cloud_file),
+        command=lambda data_source_impl, soda_cloud: handle_discover_data_source(
+            data_source_impl,
+            soda_cloud,
+            include=[test_table.unique_name],
+        ),
     )
 
     assert exit_code == ExitCode.OK
