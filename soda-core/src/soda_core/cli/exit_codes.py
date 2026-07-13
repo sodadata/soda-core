@@ -5,7 +5,11 @@ from typing import Protocol
 class ExitCode(IntEnum):
     """Possible exit codes and their meaning.
 
-    See https://docs.soda.io/soda-library/programmatic.html#scan-exit-codes
+    0: all checks passed, no errors
+    1: one or more checks failed
+    2: one or more checks warned (no failures)
+    3: errors occurred during execution (e.g. parse or engine errors)
+    4: results could not be sent to Soda Cloud
     """
 
     OK = 0
