@@ -27,6 +27,23 @@ def test_base_dialect_treats_information_schema_as_system_schema(schema_name, ex
     assert SqlDialect().is_system_schema(schema_name) is expected
 
 
+@pytest.mark.parametrize(
+    "schema_name, expected",
+    [
+        ("sys", True),
+        ("queryinsights", True),
+        # Extends (not replaces) the base check: INFORMATION_SCHEMA's contents
+        # are views, which discovery includes, so it must stay excluded.
+        ("INFORMATION_SCHEMA", True),
+        ("dbo", False),
+    ],
+)
+def test_fabric_dialect_extends_base_system_schemas(schema_name, expected):
+    from soda_fabric.common.data_sources.fabric_data_source import FabricSqlDialect
+
+    assert FabricSqlDialect().is_system_schema(schema_name) is expected
+
+
 class _FakeMetadataTablesQuery:
     def __init__(self, objects):
         self._objects = objects
