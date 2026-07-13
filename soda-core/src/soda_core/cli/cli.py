@@ -40,6 +40,7 @@ from soda_core.cli.handlers.soda_cloud import (
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_request import RequestStatus
 from soda_core.contracts.impl.check_selector import (
     CheckSelector,
@@ -533,17 +534,7 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
     def handle(args):
         # Cloud flow: publish the discovery results, with centralized failure reporting.
         if args.soda_cloud:
-            # The reporting channel resolves first, before the wrapper: without it
-            # neither results nor a failure report can reach Cloud, so exit 4 and
-            # let the managed launcher's fallback mark the scan failed.
-            try:
-                soda_cloud = resolve_soda_cloud(args.soda_cloud)
-            except ScanExecutionFailedException as exc:
-                soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
-                exit_with_code(ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
-            except Exception as exc:
-                soda_logger.exception(f"Soda Cloud resolution failed: {exc}")
-                exit_with_code(ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
+            soda_cloud = _resolve_soda_cloud_for_discovery_or_exit(args.soda_cloud)
             # The data source and the mandatory scan definition name (arg >
             # SODA_SCAN_DEFINITION) resolve inside the wrapped command: their
             # failures take the standard mark-with-logs mapping.
@@ -568,28 +559,51 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             )
             exit_with_code(ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
 
-        # Local flow: print the discovered datasets. Ad-hoc semantics throughout — there
-        # is no Cloud scan to mark, so every failure maps to LOG_ERRORS on the console.
-        if args.scan_definition_name:
-            soda_logger.warning(
-                "--scan-definition-name is ignored in a local run: it names the Soda Cloud "
-                "scan definition and only applies with a Soda Cloud configuration (-sc)."
-            )
-        try:
-            exit_code = handle_discover_data_source_locally(
-                resolve_data_source(args.data_source),
-                include=args.include,
-                exclude=args.exclude,
-            )
-        except ScanExecutionFailedException as exc:
-            soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
-            exit_code = ExitCode.LOG_ERRORS
-        except Exception as exc:
-            soda_logger.exception(f"Discovery failed: {exc}")
-            exit_code = ExitCode.LOG_ERRORS
-        exit_with_code(exit_code)
+        exit_with_code(_discover_data_source_locally(args))
 
     discover_parser.set_defaults(handler_func=handle)
+
+
+def _resolve_soda_cloud_for_discovery_or_exit(soda_cloud_file_path: str) -> SodaCloud:
+    """Resolve the Soda Cloud reporting channel for a Cloud discovery run.
+
+    The reporting channel resolves first, before the failure-reporting wrapper:
+    without it neither results nor a failure report can reach Cloud, so exit 4
+    and let the managed launcher's fallback mark the scan failed.
+    """
+    try:
+        return resolve_soda_cloud(soda_cloud_file_path)
+    except ScanExecutionFailedException as exc:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
+        exit_with_code(ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
+    except Exception as exc:
+        soda_logger.exception(f"Soda Cloud resolution failed: {exc}")
+        exit_with_code(ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
+
+
+def _discover_data_source_locally(args) -> ExitCode:
+    """Local discovery flow: print the discovered datasets to the console.
+
+    Ad-hoc semantics throughout — there is no Cloud scan to mark, so every
+    failure maps to LOG_ERRORS on the console.
+    """
+    if args.scan_definition_name:
+        soda_logger.warning(
+            "--scan-definition-name is ignored in a local run: it names the Soda Cloud "
+            "scan definition and only applies with a Soda Cloud configuration (-sc)."
+        )
+    try:
+        return handle_discover_data_source_locally(
+            resolve_data_source(args.data_source),
+            include=args.include,
+            exclude=args.exclude,
+        )
+    except ScanExecutionFailedException as exc:
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
+        return ExitCode.LOG_ERRORS
+    except Exception as exc:
+        soda_logger.exception(f"Discovery failed: {exc}")
+        return ExitCode.LOG_ERRORS
 
 
 def _setup_soda_cloud_resource(resource_parsers) -> None:

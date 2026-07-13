@@ -221,10 +221,11 @@ def test_discover_success_sends_results_and_exits_ok(mock_discovery_run_cls):
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
 def test_discover_query_failure_propagates_raw(mock_discovery_run_cls, caplog):
     data_source_impl = _data_source_impl_fake()
+    soda_cloud = MagicMock()
     mock_discovery_run_cls.execute.side_effect = Exception("query failed")
 
     with pytest.raises(Exception, match="query failed"):
-        handle_discover_data_source(data_source_impl, soda_cloud=MagicMock(), scan_definition_name="my_scan")
+        handle_discover_data_source(data_source_impl, soda_cloud=soda_cloud, scan_definition_name="my_scan")
 
     # Nothing is logged at the raise site: the CLI wiring logs once, with the traceback.
     assert not any("query failed" in record.getMessage() for record in caplog.records)
@@ -249,12 +250,14 @@ def test_discover_results_send_rejected_exits_results_not_sent(mock_discovery_ru
 @patch("soda_core.discovery.discovery_payload.build_discovery_payload")
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
 def test_discover_unexpected_post_query_exception_propagates(mock_discovery_run_cls, mock_build_discovery_payload):
+    data_source_impl = _data_source_impl_fake()
+    soda_cloud = MagicMock()
     mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
     mock_build_discovery_payload.side_effect = RuntimeError("payload build failed")
 
     # Unexpected exceptions propagate; the CLI wiring logs and reports them.
     with pytest.raises(RuntimeError):
-        handle_discover_data_source(_data_source_impl_fake(), soda_cloud=MagicMock(), scan_definition_name="my_scan")
+        handle_discover_data_source(data_source_impl, soda_cloud=soda_cloud, scan_definition_name="my_scan")
 
 
 # Local discovery handler tests. Unlike the Cloud sibling there is no scan

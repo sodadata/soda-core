@@ -69,14 +69,17 @@ def test_resolve_soda_cloud_with_unexpected_failure_propagates_raw(mock_soda_clo
 def test_resolve_soda_cloud_with_yaml_syntax_error_raises_clean(tmp_path):
     config_file = tmp_path / "sc.yml"
     config_file.write_text("soda_cloud: [unclosed")
+    config_file_path = str(config_file)
 
     with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
-        resolve_soda_cloud(str(config_file))
+        resolve_soda_cloud(config_file_path)
 
 
 def test_resolve_soda_cloud_with_missing_file_raises_clean(tmp_path):
+    config_file_path = str(tmp_path / "does_not_exist.yml")
+
     with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
-        resolve_soda_cloud(str(tmp_path / "does_not_exist.yml"))
+        resolve_soda_cloud(config_file_path)
 
 
 def test_resolve_soda_cloud_without_soda_cloud_key_raises_clean(tmp_path):
@@ -85,22 +88,26 @@ def test_resolve_soda_cloud_without_soda_cloud_key_raises_clean(tmp_path):
     # AttributeError on None), which resolves to a clean message here.
     config_file = tmp_path / "sc.yml"
     config_file.write_text("something_else: 1\n")
+    config_file_path = str(config_file)
 
     with pytest.raises(ScanExecutionFailedException, match="Missing required 'soda_cloud' top-level key"):
-        resolve_soda_cloud(str(config_file))
+        resolve_soda_cloud(config_file_path)
 
 
 def test_resolve_data_source_with_yaml_syntax_error_raises_clean(tmp_path):
     config_file = tmp_path / "ds.yml"
     config_file.write_text("type: [unclosed")
+    config_file_path = str(config_file)
 
     with pytest.raises(ScanExecutionFailedException, match="could not be created"):
-        resolve_data_source(str(config_file))
+        resolve_data_source(config_file_path)
 
 
 def test_resolve_data_source_with_missing_file_raises_clean(tmp_path):
+    config_file_path = str(tmp_path / "does_not_exist.yml")
+
     with pytest.raises(ScanExecutionFailedException, match="could not be created"):
-        resolve_data_source(str(tmp_path / "does_not_exist.yml"))
+        resolve_data_source(config_file_path)
 
 
 # resolve_data_source: same exception contract; environment problems (e.g. a
