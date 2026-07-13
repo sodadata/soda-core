@@ -6,6 +6,60 @@ from enum import Enum
 from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import TypedDict
+
+
+class _SodaCoreInsertScanResultsRequiredDTO(TypedDict):
+    """The required keys of ``SodaCoreInsertScanResultsDTO``: the backend's
+    @NotNull/@NotEmpty-validated fields plus the ``type`` command
+    discriminator. Split into a total=True base (rather than ``NotRequired``
+    markers) so ``__required_keys__`` stays correct at runtime under this
+    module's PEP 563 string annotations."""
+
+    # Command discriminator: always "sodaCoreInsertScanResults".
+    type: str
+    definitionName: str
+    defaultDataSource: str
+    dataTimestamp: str
+    scanStartTimestamp: str
+    scanEndTimestamp: str
+    hasErrors: bool
+
+
+class SodaCoreInsertScanResultsDTO(_SodaCoreInsertScanResultsRequiredDTO, total=False):
+    """Outbound ``sodaCoreInsertScanResults`` command payload.
+
+    Mirrors the backend ``SodaCoreInsertScanResultsCommand`` field set; values
+    are JSON-ready (timestamps already serialized as ISO-8601 strings). Shared
+    shape for every result-inserting flow: discovery builds it today;
+    profiling (soda-extensions) adopts it next. Sent via
+    ``SodaCloud.insert_scan_results``.
+    """
+
+    # Set for managed scans: the id of the Cloud scan pre-created by the launcher.
+    scanId: Optional[str]
+    scanType: Optional[str]
+    # Payload model version; "4" for the v4 flows.
+    version: Optional[str]
+    defaultDataSourceProperties: Optional[dict]
+    metrics: Optional[list[dict]]
+    checks: Optional[list[dict]]
+    profiling: Optional[list[dict]]
+    metadata: Optional[list[dict]]
+    logs: Optional[list[dict]]
+    queries: Optional[list[dict]]
+    automatedMonitoringChecks: Optional[list[dict]]
+    hasFailures: Optional[bool]
+    hasWarnings: Optional[bool]
+    sourceOwner: Optional[str]
+    ciInfo: Optional[dict[str, str]]
+    discussion: Optional[int]
+    # Contract-handler routing on the backend: non-null forces the contract
+    # ingestion path; absent/null falls through to scan-def-type dispatch.
+    contract: Optional[dict]
+    postProcessingStages: Optional[list[dict]]
+    resultsIngestionMode: Optional[str]
+    tokenUsage: Optional[list[dict]]
 
 
 class SamplerType(str, Enum):

@@ -13,10 +13,7 @@ from soda_core.cli.handlers.dependencies import (
     run_with_failure_reporting,
 )
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.discovery.discovery_payload import (
-    build_discovery_payload,
-    send_discovery_results,
-)
+from soda_core.discovery.discovery_payload import build_discovery_payload
 from soda_core.discovery.discovery_run import DiscoveryRun
 
 test_table_specification = (
@@ -44,7 +41,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
         data_source_name=data_source_test_helper.data_source_impl.name,
         scan_definition_name="discovery_scan_definition",
     )
-    send_discovery_results(data_source_test_helper.soda_cloud, payload)
+    assert data_source_test_helper.soda_cloud.insert_scan_results(payload) is True
 
     posted = data_source_test_helper.soda_cloud.requests[0].json
     assert posted["type"] == "sodaCoreInsertScanResults"

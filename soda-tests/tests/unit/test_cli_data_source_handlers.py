@@ -198,16 +198,21 @@ def _data_source_impl_fake() -> MagicMock:
     return data_source_impl
 
 
-@patch("soda_core.discovery.discovery_payload.send_discovery_results")
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
-def test_discover_success_sends_results_and_exits_ok(mock_discovery_run_cls, mock_send_discovery_results):
+def test_discover_success_sends_results_and_exits_ok(mock_discovery_run_cls):
     data_source_impl = _data_source_impl_fake()
+    soda_cloud = MagicMock()
+    soda_cloud.insert_scan_results.return_value = True
     mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
-    mock_send_discovery_results.return_value = MagicMock(ok=True)
 
-    exit_code = handle_discover_data_source(data_source_impl, soda_cloud=MagicMock(), scan_definition_name="my_scan")
+    exit_code = handle_discover_data_source(data_source_impl, soda_cloud, scan_definition_name="my_scan")
 
     assert exit_code == ExitCode.OK
+    # The DTO travels to Soda Cloud through the transport method, in one piece.
+    soda_cloud.insert_scan_results.assert_called_once()
+    (payload,), _ = soda_cloud.insert_scan_results.call_args
+    assert payload["type"] == "sodaCoreInsertScanResults"
+    assert payload["metadata"] == [{"datasetQualifiedName": "ds/schema/table"}]
     # Resolution only parses YAML: the handler owns the connection lifecycle.
     data_source_impl.open_connection.assert_called_once()
     data_source_impl.close_connection.assert_called_once()
@@ -227,12 +232,11 @@ def test_discover_query_failure_propagates_raw(mock_discovery_run_cls, caplog):
     data_source_impl.close_connection.assert_called_once()
 
 
-@patch("soda_core.discovery.discovery_payload.send_discovery_results")
 @patch("soda_core.discovery.discovery_run.DiscoveryRun")
-def test_discover_results_send_rejected_exits_results_not_sent(mock_discovery_run_cls, mock_send_discovery_results):
+def test_discover_results_send_rejected_exits_results_not_sent(mock_discovery_run_cls):
     soda_cloud = MagicMock()
+    soda_cloud.insert_scan_results.return_value = False
     mock_discovery_run_cls.execute.return_value = ["ds/schema/table"]
-    mock_send_discovery_results.return_value = MagicMock(ok=False)
 
     exit_code = handle_discover_data_source(_data_source_impl_fake(), soda_cloud, scan_definition_name="my_scan")
 
