@@ -17,6 +17,12 @@ from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 
 
+class ScanExecutionFailedException(Exception):
+    """Raised by a handler whose scan execution failed after the failure was
+    already logged with its domain context. The CLI wiring maps it to
+    ``report_scan_execution_failure`` without logging a second record."""
+
+
 def report_scan_execution_failure(
     soda_cloud: Optional[SodaCloud],
     log_records: Optional[list[LogRecord]] = None,

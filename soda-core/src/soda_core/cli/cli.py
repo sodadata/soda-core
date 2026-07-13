@@ -20,6 +20,7 @@ from soda_core.cli.handlers.data_source import (
     handle_discover_data_source,
     handle_test_data_source,
 )
+from soda_core.cli.handlers.dependencies import run_with_failure_reporting
 from soda_core.cli.handlers.request import (
     handle_fetch_proposal,
     handle_push_proposal,
@@ -511,12 +512,16 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
     )
 
     def handle(args):
-        exit_code = handle_discover_data_source(
-            args.data_source,
-            args.include,
-            args.exclude,
-            args.scan_definition_name,
+        exit_code = run_with_failure_reporting(
+            data_source_file_path=args.data_source,
             soda_cloud_file_path=args.soda_cloud,
+            command=lambda data_source_impl, soda_cloud: handle_discover_data_source(
+                data_source_impl,
+                soda_cloud,
+                include=args.include,
+                exclude=args.exclude,
+                scan_definition_name=args.scan_definition_name,
+            ),
         )
         exit_with_code(exit_code)
 
