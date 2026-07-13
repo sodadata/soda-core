@@ -158,9 +158,11 @@ class _RecordingHandler(ContractVerificationHandler):
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> None:
         labels: list[Optional[str]] = [
-            item.verification_result.check_collection.dataset_name
-            if item.verification_result.check_collection
-            else None
+            (
+                item.verification_result.check_collection.dataset_name
+                if item.verification_result.check_collection
+                else None
+            )
             for item in items
         ]
         self.session_calls.append((labels, soda_cloud_send_results_response_json))
