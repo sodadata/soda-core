@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser, _SubParsersAction
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, NoReturn, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
@@ -808,7 +808,9 @@ def _setup_contract_request_transition_command(contract_request_parsers: Argumen
     transition_request_parser.set_defaults(handler_func=handle)
 
 
-def exit_with_code(exit_code: int):
+def exit_with_code(exit_code: int) -> NoReturn:
+    # NoReturn: exit() raises SystemExit, so call sites (e.g. the discover guard's
+    # except arms) provably don't fall through — bindings after them are unambiguous.
     soda_logger.debug(f"Exiting with code {exit_code}")
     soda_telemetry.set_attribute("cli__exit_code", exit_code)
     exit(exit_code)

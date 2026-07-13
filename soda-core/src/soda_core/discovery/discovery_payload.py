@@ -4,12 +4,11 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from requests import Response
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
-from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
 def resolve_data_timestamp(default: datetime) -> datetime:
@@ -30,7 +29,7 @@ def build_discovery_payload(
     data_timestamp: Optional[datetime] = None,
     scan_start_timestamp: Optional[datetime] = None,
     scan_end_timestamp: Optional[datetime] = None,
-) -> dict:
+) -> SodaCoreInsertScanResultsDTO:
     """Build a DQN-only sodaCoreInsertScanResults body for discovery.
 
     ``dataTimestamp``, ``scanStartTimestamp``, ``scanEndTimestamp`` and ``hasErrors``
@@ -38,7 +37,8 @@ def build_discovery_payload(
     missing timestamps default to now (UTC) and the data timestamp falls back to
     ``SODA_SCAN_DATA_TIMESTAMP`` / scan start. ``hasErrors`` is False because the
     discovery handler only sends the payload after a successful discovery run.
-    Timestamps are serialized like soda-core's ``to_jsonnable`` (ISO-8601 UTC)."""
+    Timestamps are serialized like soda-core's ``to_jsonnable`` (ISO-8601 UTC).
+    Sent via ``SodaCloud.insert_scan_results``."""
     now: datetime = datetime.now(timezone.utc)
     scan_start_timestamp = scan_start_timestamp or now
     scan_end_timestamp = scan_end_timestamp or now
@@ -60,7 +60,3 @@ def build_discovery_payload(
         "profiling": [],
         "automatedMonitoringChecks": [],
     }
-
-
-def send_discovery_results(soda_cloud: SodaCloud, payload: dict) -> Optional[Response]:
-    return soda_cloud._execute_command(command_json_dict=payload, request_log_name="send_discovery_results")
