@@ -9,7 +9,11 @@ from soda_core.cli.handlers.data_source import (
     handle_discover_data_source_locally,
     handle_test_data_source,
 )
-from soda_core.cli.handlers.dependencies import run_with_failure_reporting
+from soda_core.cli.handlers.dependencies import (
+    resolve_data_source,
+    resolve_soda_cloud,
+    run_with_failure_reporting,
+)
 
 
 @patch("soda_core.cli.handlers.data_source.exists", return_value=True)
@@ -302,21 +306,21 @@ def test_discover_locally_query_failure_exits_log_errors(mock_discovery_run_cls,
     data_source_impl.close_connection.assert_called_once()
 
 
-# Full discovery flow, wired as cli.py wires it: dependency resolution +
-# centralized failure mapping around the handler. Managed scans (SODA_SCAN_ID
-# set) report engine failures to Soda Cloud via mark_scan_as_failed with the
-# captured log records and exit LOG_ERRORS (3). RESULTS_NOT_SENT_TO_CLOUD (4)
-# means nothing reached Cloud: the managed launcher treats exit codes > 3 as
-# undelivered and marks the scan failed itself.
+# Full discovery flow, wired as cli.py wires it: the reporting channel is
+# resolved first (guard, outside the wrapper), the data source resolves inside
+# the wrapped command, failure mapping is centralized in the wrapper. Managed
+# scans (SODA_SCAN_ID set) report engine failures to Soda Cloud via
+# mark_scan_as_failed with the captured log records and exit LOG_ERRORS (3).
+# RESULTS_NOT_SENT_TO_CLOUD (4) means nothing reached Cloud: the managed
+# launcher treats exit codes > 3 as undelivered and marks the scan failed
+# itself.
 
 
 def _run_discover_flow() -> ExitCode:
+    soda_cloud = resolve_soda_cloud("sc.yaml")
     return run_with_failure_reporting(
-        data_source_file_path="ds.yaml",
-        soda_cloud_file_path="sc.yaml",
-        command=lambda data_source_impl, soda_cloud: handle_discover_data_source(
-            data_source_impl, soda_cloud, scan_definition_name="my_scan"
-        ),
+        soda_cloud,
+        lambda: handle_discover_data_source(resolve_data_source("ds.yaml"), soda_cloud, scan_definition_name="my_scan"),
     )
 
 

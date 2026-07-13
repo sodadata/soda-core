@@ -5,18 +5,24 @@ from unittest.mock import MagicMock, patch
 import pytest
 from soda_core.cli.cli import create_cli_parser
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 
 
 @patch("soda_core.cli.cli.handle_discover_data_source")
 @patch("soda_core.cli.cli.run_with_failure_reporting")
-def test_cli_arg_mapping_for_data_source_discover(mock_run_with_failure_reporting, mock_handler):
-    # The wiring resolves the dependencies and passes them to the handler; the fake
-    # wrapper hands sentinels to the command so the handler call can be asserted.
+@patch("soda_core.cli.cli.resolve_data_source")
+@patch("soda_core.cli.cli.resolve_soda_cloud")
+def test_cli_arg_mapping_for_data_source_discover(
+    mock_resolve_soda_cloud, mock_resolve_data_source, mock_run_with_failure_reporting, mock_handler
+):
+    # The wiring resolves the reporting channel first, passes it to the wrapper,
+    # and resolves the data source inside the wrapped command; the fake wrapper
+    # just runs the command so the handler call can be asserted.
     data_source_impl = MagicMock()
     soda_cloud = MagicMock()
-    mock_run_with_failure_reporting.side_effect = lambda data_source_file_path, soda_cloud_file_path, command: command(
-        data_source_impl, soda_cloud
-    )
+    mock_resolve_soda_cloud.return_value = soda_cloud
+    mock_resolve_data_source.return_value = data_source_impl
+    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command()
     mock_handler.return_value = ExitCode.OK
     sys.argv = [
         "soda",
@@ -37,9 +43,10 @@ def test_cli_arg_mapping_for_data_source_discover(mock_run_with_failure_reportin
     with pytest.raises(SystemExit) as e:
         args.handler_func(args)
     assert e.value.code == ExitCode.OK
-    _, run_kwargs = mock_run_with_failure_reporting.call_args
-    assert run_kwargs["data_source_file_path"] == "ds.yaml"
-    assert run_kwargs["soda_cloud_file_path"] == "cloud.yaml"
+    mock_resolve_soda_cloud.assert_called_once_with("cloud.yaml")
+    mock_resolve_data_source.assert_called_once_with("ds.yaml")
+    run_args, _ = mock_run_with_failure_reporting.call_args
+    assert run_args[0] is soda_cloud
     mock_handler.assert_called_once_with(
         data_source_impl,
         soda_cloud,
@@ -47,6 +54,54 @@ def test_cli_arg_mapping_for_data_source_discover(mock_run_with_failure_reportin
         exclude=["tmp%"],
         scan_definition_name="my_scan",
     )
+
+
+# Cloud-flow guard: the reporting channel resolves before the wrapper. When it
+# is unusable, neither results nor a failure report can reach Cloud: exit 4 so
+# the managed launcher's fallback marks the scan failed.
+
+
+@patch("soda_core.cli.cli.run_with_failure_reporting")
+@patch("soda_core.cli.cli.resolve_data_source")
+@patch(
+    "soda_core.cli.cli.resolve_soda_cloud",
+    side_effect=ScanExecutionFailedException("A Soda Cloud configuration file (-sc) is required."),
+)
+def test_cli_discover_with_unusable_soda_cloud_exits_results_not_sent(
+    mock_resolve_soda_cloud, mock_resolve_data_source, mock_run_with_failure_reporting, caplog
+):
+    sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
+    args = create_cli_parser().parse_args()
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    failure_records = [r for r in caplog.records if "configuration file (-sc) is required" in r.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is None
+    # Reorder proof: the reporting channel resolves first — the data source is
+    # never resolved and the wrapper never runs.
+    mock_resolve_data_source.assert_not_called()
+    mock_run_with_failure_reporting.assert_not_called()
+
+
+@patch("soda_core.cli.cli.run_with_failure_reporting")
+@patch("soda_core.cli.cli.resolve_data_source")
+@patch("soda_core.cli.cli.resolve_soda_cloud", side_effect=RuntimeError("boom"))
+def test_cli_discover_with_soda_cloud_resolution_raising_raw_exits_results_not_sent(
+    mock_resolve_soda_cloud, mock_resolve_data_source, mock_run_with_failure_reporting, caplog
+):
+    sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
+    args = create_cli_parser().parse_args()
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    # Unexpected failures are logged with the traceback.
+    failure_records = [r for r in caplog.records if "boom" in r.getMessage()]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is not None
+    mock_run_with_failure_reporting.assert_not_called()
 
 
 # Local flow wiring: without -sc, discovery runs locally — the data source is
@@ -84,9 +139,12 @@ def test_cli_discover_without_soda_cloud_runs_locally(
 
 
 @patch("soda_core.cli.cli.handle_discover_data_source_locally")
-@patch("soda_core.cli.cli.resolve_data_source", return_value=None)
+@patch(
+    "soda_core.cli.cli.resolve_data_source",
+    side_effect=ScanExecutionFailedException("Data source could not be created."),
+)
 def test_cli_discover_locally_with_unusable_data_source_exits_log_errors(
-    mock_resolve_data_source, mock_local_handler, monkeypatch
+    mock_resolve_data_source, mock_local_handler, monkeypatch, caplog
 ):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
 
@@ -94,8 +152,9 @@ def test_cli_discover_locally_with_unusable_data_source_exits_log_errors(
     with pytest.raises(SystemExit) as e:
         args.handler_func(args)
 
-    # Ad-hoc semantics: no Cloud scan to mark, errors stay on the console.
+    # Ad-hoc semantics: no Cloud scan to mark, the message stays on the console.
     assert e.value.code == ExitCode.LOG_ERRORS
+    assert any("Data source could not be created" in record.getMessage() for record in caplog.records)
     mock_local_handler.assert_not_called()
 
 
@@ -139,8 +198,9 @@ def test_cli_discover_with_scan_id_but_without_soda_cloud_exits_results_not_sent
 
 @patch("soda_core.cli.cli.handle_discover_data_source")
 @patch("soda_core.cli.cli.run_with_failure_reporting", return_value=ExitCode.OK)
+@patch("soda_core.cli.cli.resolve_soda_cloud")
 def test_cli_discover_with_scan_id_and_soda_cloud_takes_cloud_flow(
-    mock_run_with_failure_reporting, mock_handler, monkeypatch
+    mock_resolve_soda_cloud, mock_run_with_failure_reporting, mock_handler, monkeypatch
 ):
     # The misconfiguration guard only applies without -sc: a managed scan with a
     # cloud config goes through the regular Cloud flow.
@@ -248,13 +308,13 @@ def test_cli_discover_cloud_flow_without_scan_definition_name_ad_hoc_exits_log_e
 
 @patch("soda_core.cli.cli.handle_discover_data_source", return_value=ExitCode.OK)
 @patch("soda_core.cli.cli.run_with_failure_reporting")
+@patch("soda_core.cli.cli.resolve_data_source")
+@patch("soda_core.cli.cli.resolve_soda_cloud")
 def test_cli_discover_cloud_flow_resolves_scan_definition_name_from_env(
-    mock_run_with_failure_reporting, mock_handler, monkeypatch
+    mock_resolve_soda_cloud, mock_resolve_data_source, mock_run_with_failure_reporting, mock_handler, monkeypatch
 ):
     monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    mock_run_with_failure_reporting.side_effect = lambda data_source_file_path, soda_cloud_file_path, command: command(
-        MagicMock(), MagicMock()
-    )
+    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command()
     sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
 
     args = create_cli_parser().parse_args()
