@@ -4,7 +4,20 @@ import pytest
 from soda_core.cli.handlers.data_source import resolve_scan_definition_name
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.datetime_conversions import convert_datetime_to_str
+from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 from soda_core.discovery.discovery_payload import build_discovery_payload
+
+
+def test_payload_conforms_to_insert_scan_results_dto():
+    payload = build_discovery_payload(
+        dqns=["postgres/soda/public/customers"],
+        data_source_name="postgres",
+        scan_definition_name="postgres_schema_discovery_scan",
+    )
+    # Every emitted key is a declared DTO field, and every required DTO field
+    # (the backend's @NotNull/@NotEmpty set plus the discriminator) is emitted.
+    assert set(payload.keys()) <= set(SodaCoreInsertScanResultsDTO.__annotations__.keys())
+    assert SodaCoreInsertScanResultsDTO.__required_keys__ <= set(payload.keys())
 
 
 def test_payload_is_dqn_only_v4():

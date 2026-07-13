@@ -38,6 +38,7 @@ from soda_core.common.soda_cloud_dto import (
     DatasetConfigurationsDTO,
     RequestDatasetsConfigurationDatasetDTO,
     RequestDatasetsConfigurationDTO,
+    SodaCoreInsertScanResultsDTO,
 )
 from soda_core.common.utils import to_camel_case
 from soda_core.common.version import SODA_CORE_VERSION
@@ -336,6 +337,21 @@ class SodaCloud:
         response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
+        )
+        return response is not None and response.ok
+
+    def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
+        """Send one ``sodaCoreInsertScanResults`` payload; returns True when
+        Soda Cloud accepted it (same contract as ``mark_scan_as_failed``).
+
+        Transport for flows that build the DTO themselves — discovery today,
+        profiling (soda-extensions) next. The contract flow keeps its own
+        ``send_check_collection_results``, which also post-processes the
+        response (scan id, dataset ids).
+        """
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=payload,
+            request_log_name="insert_scan_results",
         )
         return response is not None and response.ok
 
