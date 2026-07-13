@@ -1576,6 +1576,17 @@ class SqlDialect:
             ]
         )
 
+    def build_schemas_metadata_from_clause(self, table_namespace: Optional[DataSourceNamespace] = None) -> FROM:
+        """
+        FROM clause for the schemas metadata query. Defaults to information_schema.schemata.
+
+        Override in dialects whose schema listing must not come from information_schema.
+        (e.g. Redshift, where information_schema.schemata is visibility-scoped to the schema
+        OWNER and therefore misses schemas the current user only has USAGE/CREATE on.)
+        """
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
+        return FROM(self.table_schemata()).IN(information_schema_namespace_elements)
+
     def build_schemas_metadata_query_str(
         self, table_namespace: Optional[DataSourceNamespace] = None, filter_on_schema_name: Optional[str] = None
     ) -> str:
@@ -1587,11 +1598,9 @@ class SqlDialect:
         """
         database_name: str | None = table_namespace.get_database_for_metadata_query() if table_namespace else None
 
-        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
-
         select_elements = [
             SELECT([self.column_schema_name()]),
-            FROM(self.table_schemata()).IN(information_schema_namespace_elements),
+            self.build_schemas_metadata_from_clause(table_namespace),
         ]
 
         and_elements = [
