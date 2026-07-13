@@ -18,9 +18,13 @@ from soda_core.common.soda_cloud import SodaCloud
 
 
 class ScanExecutionFailedException(Exception):
-    """Raised by a handler whose scan execution failed after the failure was
-    already logged with its domain context. The CLI wiring maps it to
-    ``report_scan_execution_failure`` without logging a second record."""
+    """Raise with a user-facing message for expected/validation failures.
+
+    The exception carries the message; nothing is logged at the raise site.
+    The CLI wiring (``dependencies.run_with_failure_reporting``) is the single
+    logging site: it logs this message clean (no traceback) and reports via
+    ``report_scan_execution_failure``. Unexpected failures should propagate
+    raw instead — the wiring logs those with the traceback."""
 
 
 def report_scan_execution_failure(

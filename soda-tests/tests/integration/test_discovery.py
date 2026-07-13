@@ -38,7 +38,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
     payload = build_discovery_payload(
         dqns=dqns,
         data_source_name=data_source_test_helper.data_source_impl.name,
-        scan_definition_name=f"{data_source_test_helper.data_source_impl.name}_schema_discovery_scan",
+        scan_definition_name="discovery_scan_definition",
     )
     send_discovery_results(data_source_test_helper.soda_cloud, payload)
 
@@ -50,6 +50,22 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
     assert any(
         entry["datasetQualifiedName"].lower().endswith(expected_suffix) for entry in posted["metadata"]
     ), f"{test_table.unique_name} not found in {posted['metadata']}"
+
+
+def test_discovery_includes_views(data_source_test_helper: DataSourceTestHelper):
+    """v3 parity: discovery returns views alongside base tables (the metadata
+    query's tables-only default would silently drop them)."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    # Skips internally when the data source cannot create views.
+    view_name = data_source_test_helper.create_view_from_test_table(test_table).unique_name
+
+    prefixes = data_source_test_helper._create_dataset_prefix()
+    dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=prefixes)
+
+    assert any(dqn.lower().endswith(view_name.lower()) for dqn in dqns), f"View {view_name} not found in {dqns}"
+    # Positive control: the base table is still discovered.
+    table_suffix = test_table.unique_name.lower()
+    assert any(dqn.lower().endswith(table_suffix) for dqn in dqns)
 
 
 @pytest.mark.skipif(
@@ -111,6 +127,7 @@ def test_handle_discover_data_source_opens_connection_and_posts_payload(
         command=lambda data_source_impl, soda_cloud: handle_discover_data_source(
             data_source_impl,
             soda_cloud,
+            scan_definition_name="discovery_scan_definition",
             include=[test_table.unique_name],
         ),
     )
