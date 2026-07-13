@@ -38,6 +38,7 @@ from soda_core.common.soda_cloud_dto import (
     DatasetConfigurationsDTO,
     RequestDatasetsConfigurationDatasetDTO,
     RequestDatasetsConfigurationDTO,
+    SodaCoreInsertScanResultsDTO,
 )
 from soda_core.common.utils import to_camel_case
 from soda_core.common.version import SODA_CORE_VERSION
@@ -265,7 +266,10 @@ class SodaCloud:
 
         soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
-            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+            # Same contract as the api_key checks below: an unusable configuration raises.
+            raise InvalidSodaCloudConfigurationException(
+                "Missing required 'soda_cloud' top-level key in your Soda Cloud configuration file."
+            )
 
         if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
             logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
@@ -333,6 +337,21 @@ class SodaCloud:
         response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
+        )
+        return response is not None and response.ok
+
+    def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
+        """Send one ``sodaCoreInsertScanResults`` payload; returns True when
+        Soda Cloud accepted it (same contract as ``mark_scan_as_failed``).
+
+        Transport for flows that build the DTO themselves — discovery today,
+        profiling (soda-extensions) next. The contract flow keeps its own
+        ``send_check_collection_results``, which also post-processes the
+        response (scan id, dataset ids).
+        """
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=payload,
+            request_log_name="insert_scan_results",
         )
         return response is not None and response.ok
 

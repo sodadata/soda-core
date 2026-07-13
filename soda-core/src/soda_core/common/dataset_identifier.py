@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from soda_core.common.sql_dialect import SqlDialect
+    from soda_core.common.statements.table_types import FullyQualifiedObjectName
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.logging_constants import soda_logger
@@ -33,7 +37,12 @@ class DatasetIdentifier:
         return cls(data_source_name, prefixes, dataset_name)
 
     @classmethod
-    def from_object(cls, data_source_name, sql_dialect, fully_qualified_object_name) -> "DatasetIdentifier":
+    def from_object(
+        cls,
+        data_source_name: str,
+        sql_dialect: "SqlDialect",
+        fully_qualified_object_name: "FullyQualifiedObjectName",
+    ) -> "DatasetIdentifier":
         """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName.
 
         A prefix component is included only when the dialect has that tier

@@ -17,8 +17,8 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 if TYPE_CHECKING:
-    from requests import Response
     from soda_core.common.data_source_impl import DataSourceImpl
+    from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
 def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
@@ -173,10 +173,7 @@ def handle_discover_data_source(
     results upload is not an engine failure: it returns
     ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
     """
-    from soda_core.discovery.discovery_payload import (
-        build_discovery_payload,
-        send_discovery_results,
-    )
+    from soda_core.discovery.discovery_payload import build_discovery_payload
     from soda_core.discovery.discovery_run import DiscoveryRun
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
@@ -197,15 +194,14 @@ def handle_discover_data_source(
         data_source_impl.close_connection()
     scan_end_timestamp: datetime = datetime.now(timezone.utc)
 
-    payload: dict = build_discovery_payload(
+    payload: SodaCoreInsertScanResultsDTO = build_discovery_payload(
         dqns=dqns,
         data_source_name=data_source_impl.name,
         scan_definition_name=scan_definition_name,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
     )
-    response: Optional[Response] = send_discovery_results(soda_cloud, payload)
-    if response is None or not response.ok:
+    if not soda_cloud.insert_scan_results(payload):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
