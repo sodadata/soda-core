@@ -61,6 +61,48 @@ def test_resolve_soda_cloud_with_unexpected_failure_propagates_raw(mock_soda_clo
         resolve_soda_cloud("sc.yaml")
 
 
+# The two most common user mistakes — a YAML syntax error and a wrong file
+# path — raise YamlParserException from the parsing layer and must take the
+# clean-message path, not the raw-traceback path. Exercised with real files.
+
+
+def test_resolve_soda_cloud_with_yaml_syntax_error_raises_clean(tmp_path):
+    config_file = tmp_path / "sc.yml"
+    config_file.write_text("soda_cloud: [unclosed")
+
+    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+        resolve_soda_cloud(str(config_file))
+
+
+def test_resolve_soda_cloud_with_missing_file_raises_clean(tmp_path):
+    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+        resolve_soda_cloud(str(tmp_path / "does_not_exist.yml"))
+
+
+def test_resolve_soda_cloud_without_soda_cloud_key_raises_clean(tmp_path):
+    # Root-fixed in SodaCloud.from_yaml_source: a missing top-level 'soda_cloud'
+    # key raises InvalidSodaCloudConfigurationException (previously an
+    # AttributeError on None), which resolves to a clean message here.
+    config_file = tmp_path / "sc.yml"
+    config_file.write_text("something_else: 1\n")
+
+    with pytest.raises(ScanExecutionFailedException, match="Missing required 'soda_cloud' top-level key"):
+        resolve_soda_cloud(str(config_file))
+
+
+def test_resolve_data_source_with_yaml_syntax_error_raises_clean(tmp_path):
+    config_file = tmp_path / "ds.yml"
+    config_file.write_text("type: [unclosed")
+
+    with pytest.raises(ScanExecutionFailedException, match="could not be created"):
+        resolve_data_source(str(config_file))
+
+
+def test_resolve_data_source_with_missing_file_raises_clean(tmp_path):
+    with pytest.raises(ScanExecutionFailedException, match="could not be created"):
+        resolve_data_source(str(tmp_path / "does_not_exist.yml"))
+
+
 # resolve_data_source: same exception contract; environment problems (e.g. a
 # missing plugin) propagate raw so the caller logs the traceback.
 

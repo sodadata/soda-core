@@ -265,7 +265,10 @@ class SodaCloud:
 
         soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
-            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+            # Same contract as the api_key checks below: an unusable configuration raises.
+            raise InvalidSodaCloudConfigurationException(
+                "Missing required 'soda_cloud' top-level key in your Soda Cloud configuration file."
+            )
 
         if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
             logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
