@@ -193,14 +193,23 @@ class Scan:
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
 
-    def add_duckdb_connection(self, duckdb_connection, data_source_name: str = "duckdb"):
+    def add_duckdb_connection(
+        self, duckdb_connection, data_source_name: str = "duckdb", configuration: dict | None = None
+    ):
         """
         Adds a duckdb connection to the scan. Only requireed in case of using a pre-existing
         duckdb connection object as a data source.
+
+        Optionally pass `configuration` to override the duckdb data source settings applied to the
+        connection. By default Soda sets `python_scan_all_frames=True` so DataFrames defined in
+        caller frames keep resolving on duckdb >= 1.1.0; pass e.g.
+        `configuration={"python_scan_all_frames": False}` to opt out.
         """
         try:
             self._configuration.add_duckdb_connection(
-                data_source_name=data_source_name, duckdb_connection=duckdb_connection
+                data_source_name=data_source_name,
+                duckdb_connection=duckdb_connection,
+                configuration=configuration,
             )
         except Exception as e:
             self._logs.error(

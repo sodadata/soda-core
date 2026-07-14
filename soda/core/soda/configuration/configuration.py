@@ -35,9 +35,10 @@ class Configuration:
             "context": dask_context,
         }
 
-    def add_duckdb_connection(self, data_source_name: str, duckdb_connection):
+    def add_duckdb_connection(self, data_source_name: str, duckdb_connection, configuration: dict | None = None):
         self.data_source_properties_by_name[data_source_name] = {
             "type": "duckdb",
             "connection": "duckdb_connection_data_source",
             "duckdb_connection": duckdb_connection,
+            "configuration": configuration or {},
         }
