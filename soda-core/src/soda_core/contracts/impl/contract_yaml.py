@@ -50,6 +50,11 @@ class ContractYaml(CheckCollectionYaml):
 
     contract_yaml_extensions: dict[str, type[ContractYamlExtension]] = {}
 
+    # Whether a 'columns' property is required. Contracts require it (backend
+    # contract schema: required [dataset, columns]); subtypes whose schema allows
+    # a columns-less document (e.g. data standards) override this to False.
+    columns_required: bool = True
+
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
@@ -243,10 +248,15 @@ class ContractYaml(CheckCollectionYaml):
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
-            if not column_yaml_objects:
-                raise ContractParserException(
-                    "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
-                )
+            if column_yaml_objects is None:
+                # Contracts require a 'columns' property; data standards (which set
+                # columns_required = False) allow it absent — their schema permits
+                # checks-only or reconciliation-only collections.
+                if self.columns_required:
+                    raise ContractParserException(
+                        "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
+                    )
+                return []
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
                 column_locations_by_name: dict[str, list[Optional[Location]]] = {}
@@ -283,7 +293,7 @@ class ContractYaml(CheckCollectionYaml):
             if checks_yaml_list:
                 if len(list(checks_yaml_list)) == 0:
                     raise ContractParserException(
-                        "The 'checks' property must not be an empty list"
+                        "The 'checks' property must not be an empty list. "
                         "Please add at least one check or remove the 'checks' property."
                     )
                 checks = []
