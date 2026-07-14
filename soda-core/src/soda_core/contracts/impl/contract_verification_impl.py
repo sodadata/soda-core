@@ -473,14 +473,14 @@ class ContractVerificationSessionImpl:
         return cls._execute_on_runner(*args, **kwargs)
 
 
-class ContractImplExtension(Protocol):
-    def __init__(self, contract_impl: ContractImpl):
-        self.contract_impl: ContractImpl = contract_impl
+class CheckCollectionImplExtension(Protocol):
+    def __init__(self, contract_impl: CheckCollectionImpl):
+        self.contract_impl: CheckCollectionImpl = contract_impl
 
-    def parse_checks(self, contract_impl: ContractImpl) -> list[CheckImpl]:
+    def parse_checks(self, contract_impl: CheckCollectionImpl) -> list[CheckImpl]:
         return []
 
-    def build_queries(self, contract_impl: ContractImpl) -> list[Query]:
+    def build_queries(self, contract_impl: CheckCollectionImpl) -> list[Query]:
         return []
 
 
@@ -501,13 +501,12 @@ class ContractImpl(CheckCollectionImpl):
     # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
     requires_collection_id: bool = False
 
-    # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
-    # ``register_extension`` auto-isolates this dict at registration time, so
-    # registering on ``ContractImpl`` never touches the base dict or any
-    # sibling subtype. The explicit declaration here makes the isolation
-    # visible to static analysis and to anyone inspecting the class for
-    # its extension surface.
-    impl_extensions: dict[str, type[ContractImplExtension]] = {}
+    # Per-kind extension override slot. Global extensions live on the
+    # ``CheckCollectionImpl`` base and apply to every kind; this dict is the
+    # contract-only override (empty today — reconciliation registers globally).
+    # ``register_extension`` auto-isolates it so a contract-specific
+    # registration never touches the base or a sibling subtype.
+    impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     def identity_prefix(self) -> tuple:
         """Contracts emit checks with no identity prefix so per-check
@@ -534,63 +533,23 @@ class ContractImpl(CheckCollectionImpl):
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
     ):
-        resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
-            all_data_source_impls if all_data_source_impls is not None else {}
-        )
-
-        # Per-contract data source resolution. The session executor passes
-        # ``data_source_impl=None`` plus ``all_data_source_impls`` and lets
-        # the impl resolve its own data source from its yaml — that's an
-        # impl-level concern, not a session-level concern. Legacy callers
-        # that pass ``data_source_impl=`` directly bypass this branch.
-        # ``all_data_source_impls`` may be an empty dict; the resolver still
-        # runs so the missing-data-source error is logged (and surfaces on
-        # the result's log_records the same way the legacy session loop did).
-        resolved_data_source_impl: Optional[DataSourceImpl] = data_source_impl
-        if resolved_data_source_impl is None and not only_validate_without_execute and yaml is not None:
-            resolved_data_source_impl = self._resolve_data_source_impl(
-                contract_yaml=yaml,
-                all_data_source_impls=resolved_all_data_source_impls,
-            )
-
+        # Data-source resolution (data_source_impl=None + all_data_source_impls →
+        # look up by the dataset's leading name segment) now lives in the base
+        # CheckCollectionImpl.__init__, so every kind — contract, data standard,
+        # future kinds — resolves identically.
         super().__init__(
             yaml=yaml,
-            data_source_impl=resolved_data_source_impl,
+            data_source_impl=data_source_impl,
             soda_cloud_impl=soda_cloud_impl,
             publish_results=publish_results,
             only_validate_without_execute=only_validate_without_execute,
             check_selectors=check_selectors if check_selectors is not None else [],
             execution_timestamp=execution_timestamp,
             data_timestamp=data_timestamp,
-            all_data_source_impls=resolved_all_data_source_impls,
+            all_data_source_impls=all_data_source_impls,
             dwh_files=dwh_files,
             logs=logs,
         )
-
-    @staticmethod
-    def _resolve_data_source_impl(
-        contract_yaml: ContractYaml,
-        all_data_source_impls: dict[str, DataSourceImpl],
-    ) -> Optional[DataSourceImpl]:
-        """Resolve the per-contract data source from ``all_data_source_impls``.
-
-        Looks up the data source name from ``contract_yaml.dataset`` (the
-        leading segment before the first ``/``), then opens the connection
-        lazily if not already open. Logs an error and returns None when the
-        named data source is missing.
-        """
-        if not contract_yaml.dataset:
-            return None
-        data_source_name: str = contract_yaml.dataset[: contract_yaml.dataset.find("/")]
-        if not data_source_name:
-            return None
-        data_source_impl: Optional[DataSourceImpl] = all_data_source_impls.get(data_source_name)
-        if not isinstance(data_source_impl, DataSourceImpl):
-            logger.error(f"Data source '{data_source_name}' not found")
-            return None
-        if not data_source_impl.has_open_connection():
-            data_source_impl.open_connection()
-        return data_source_impl
 
     @property
     def is_test_verification_on_runner(self) -> bool:

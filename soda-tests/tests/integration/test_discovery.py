@@ -127,7 +127,7 @@ def test_handle_discover_data_source_opens_connection_and_posts_payload(
     soda_cloud = resolve_soda_cloud(str(soda_cloud_file))
     exit_code = run_with_failure_reporting(
         soda_cloud,
-        lambda: handle_discover_data_source(
+        lambda logs: handle_discover_data_source(
             resolve_data_source(str(data_source_file)),
             soda_cloud,
             scan_definition_name="discovery_scan_definition",

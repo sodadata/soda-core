@@ -1,3 +1,4 @@
+from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
@@ -6,6 +7,27 @@ def test_random():
     sql_dialect: RedshiftSqlDialect = RedshiftSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == 'SELECT RANDOM()\nFROM "a";'
+
+
+def test_schema_existence_query_uses_svv_all_schemas_not_information_schema():
+    # Regression for SCS-1193: information_schema.schemata on Redshift only lists schemas the
+    # current user OWNS, so a pre-provisioned DWH schema the service user merely has USAGE on is
+    # invisible -> Soda wrongly issues CREATE SCHEMA -> "permission denied for database". The
+    # existence check must query SVV_ALL_SCHEMAS (access-visible), like svv_tables / svv_columns.
+    sql_dialect: RedshiftSqlDialect = RedshiftSqlDialect()
+    sql = sql_dialect.build_schemas_metadata_query_str(
+        table_namespace=DbSchemaDataSourceNamespace(database="comm", schema="qe_gold"),
+        filter_on_schema_name="qe_gold",
+    )
+    lowered = sql.lower()
+    assert "svv_all_schemas" in lowered
+    assert "information_schema" not in lowered
+    # SVV_ALL_SCHEMAS exposes the database via database_name (not information_schema's catalog_name)
+    assert "database_name" in lowered
+    assert "catalog_name" not in lowered
+    # still filters on the target database + schema so it answers "does THIS schema exist"
+    assert "comm" in lowered
+    assert "qe_gold" in lowered
 
 
 def test_max_sql_statement_length_respects_redshift_16mb_cap():

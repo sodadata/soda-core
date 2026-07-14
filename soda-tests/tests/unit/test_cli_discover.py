@@ -6,6 +6,7 @@ import pytest
 from soda_core.cli.cli import create_cli_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
+from soda_core.common.logs import Logs
 
 
 @patch("soda_core.cli.cli.handle_discover_data_source")
@@ -22,7 +23,7 @@ def test_cli_arg_mapping_for_data_source_discover(
     soda_cloud = MagicMock()
     mock_resolve_soda_cloud.return_value = soda_cloud
     mock_resolve_data_source.return_value = data_source_impl
-    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command()
+    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command(Logs())
     mock_handler.return_value = ExitCode.OK
     sys.argv = [
         "soda",
@@ -318,7 +319,7 @@ def test_cli_discover_cloud_flow_resolves_scan_definition_name_from_env(
     mock_resolve_soda_cloud, mock_resolve_data_source, mock_run_with_failure_reporting, mock_handler, monkeypatch
 ):
     monkeypatch.setenv("SODA_SCAN_DEFINITION", "env_scan_def")
-    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command()
+    mock_run_with_failure_reporting.side_effect = lambda soda_cloud, command: command(Logs())
     sys.argv = ["soda", "data-source", "discover", "-ds", "ds.yaml", "-sc", "cloud.yaml"]
 
     args = create_cli_parser().parse_args()
