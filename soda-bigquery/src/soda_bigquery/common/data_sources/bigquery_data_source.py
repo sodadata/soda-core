@@ -230,10 +230,16 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def literal_string(self, value: str) -> Optional[str]:
         if value is None:
             return None
-        # BigQuery triple-quoted strings ('''...''') allow multiline content and
-        # embedded single quotes without escaping.  The only sequence that needs
-        # escaping inside triple-quoted strings is ''' itself and backslashes.
-        escaped = value.replace("\\", "\\\\").replace("'''", "\\'''")
+        # BigQuery triple-quoted strings ('''...''') allow multiline content, so the
+        # wrapper keeps raw newlines in multi-line check SQL from needing escaping.
+        # Escape the backslash first, then EVERY single quote as \'. Escaping every
+        # quote guarantees that no unescaped ''' can appear inside the content and
+        # prematurely close the string (which would make BigQuery see two adjacent
+        # string literals -> "concatenated string literals must be separated by
+        # whitespace or comments"). Only escaping ''' runs was not enough: values
+        # ending in a quote, or containing runs of 4/5/7/8 quotes, still produced a
+        # bare ''' at or near the wrapper boundary.
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'")
         return "'''" + escaped + "'''"
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
