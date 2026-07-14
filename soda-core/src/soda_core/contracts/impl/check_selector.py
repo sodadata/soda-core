@@ -19,8 +19,16 @@ class CheckSelector:
     """
 
     SUPPORTED_FIELDS = {
-        "type", "name", "column", "path", "relative_path", "check_path",
-        "qualifier", "source", "collection", "standard",
+        "type",
+        "name",
+        "column",
+        "path",
+        "relative_path",
+        "check_path",
+        "qualifier",
+        "source",
+        "collection",
+        "standard",
     }
     ATTRIBUTES_PREFIX = "attributes."
 
