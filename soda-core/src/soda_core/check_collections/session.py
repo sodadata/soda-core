@@ -201,6 +201,7 @@ def execute_check_collections(
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
+                _report_runner_scan_failed_before_reraise(soda_cloud_impl, publish_results, logs, exc)
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
 
@@ -238,6 +239,7 @@ def execute_check_collections(
                 results.append(impl.verify())
             except Exception as exc:
                 if abort_on_first_error:
+                    _report_runner_scan_failed_before_reraise(soda_cloud_impl, publish_results, logs, exc)
                     raise
                 results.append(impl_class.build_error_result(yaml_source, exc))
 
@@ -401,6 +403,46 @@ def execute_check_collections(
                     )
 
     return CheckCollectionSessionResult(results)
+
+
+def _report_runner_scan_failed_before_reraise(
+    soda_cloud_impl: Optional[SodaCloud],
+    publish_results: bool,
+    logs: Optional[Logs],
+    exc: BaseException,
+) -> None:
+    """Best-effort: mark the runner's (still-PENDING) Cloud scan FAILED with the captured logs
+    just before an ``abort_on_first_error`` re-raise.
+
+    A single-contract (runner) scan aborts on the first construction/verify exception, which
+    re-raises out of ``execute_check_collections`` before phase 3's combined upload runs — the only
+    place that otherwise ships logs / marks the scan FAILED. Without this the exception propagates to
+    the CLI (exit 3) and the launcher only writes it to pod logs, so the Cloud scan record shows
+    FAILED with no logs and the failure is undiagnosable (SAS-13001). Reporting here keeps the
+    historical re-raise contract intact while making the failure visible in Cloud.
+
+    No-op when there is no cloud client, no publish opt-in, or no runner scan id (ad-hoc runs).
+    Never masks the original exception: any error while reporting is swallowed so the caller still
+    sees the real failure. The shared ``logs`` gatherer holds every construction/verify record (each
+    impl is built with ``logs=logs``), so its records are exactly what should reach Cloud.
+    """
+    if soda_cloud_impl is None or not publish_results:
+        return
+    soda_scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
+    if not soda_scan_id:
+        return
+    try:
+        log_records = logs.get_log_records() if logs is not None else None
+        soda_cloud_impl.mark_scan_as_failed(
+            scan_id=soda_scan_id,
+            logs=log_records,
+            exc=exc if isinstance(exc, Exception) else None,
+        )
+    except Exception:
+        # Warning, not debug: if this best-effort report fails the scan stays FAILED-with-no-logs in
+        # Cloud — the exact state this helper exists to avoid — so it must be visible in the pod logs
+        # / Datadog rather than silently swallowed. (The original exception is still re-raised.)
+        logger.warning("Could not report runner scan as failed before re-raising", exc_info=True)
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:

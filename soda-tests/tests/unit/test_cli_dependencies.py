@@ -10,6 +10,8 @@ from soda_core.cli.handlers.dependencies import (
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.exceptions import InvalidSodaCloudConfigurationException
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 
 # resolve_soda_cloud: expected/unusable-configuration shapes raise
 # ScanExecutionFailedException carrying the user-facing message — nothing is
@@ -191,8 +193,8 @@ def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, 
 
 
 # run_with_failure_reporting: receives the already-constructed reporting
-# channel and a zero-arg command; the ONE place where command failures map to
-# exit codes and Soda Cloud failure reporting.
+# channel and a command that takes the wrapper's own ``Logs`` collector; the ONE
+# place where command failures map to exit codes and Soda Cloud failure reporting.
 
 
 def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(monkeypatch):
@@ -200,7 +202,7 @@ def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(monkey
     soda_cloud = MagicMock()
     soda_cloud.mark_scan_as_failed.return_value = True
 
-    def command():
+    def command(logs):
         # Convention: an expected/validation failure raises with a user-facing
         # message and logs nothing — the wrapper is the single logging site.
         raise ScanExecutionFailedException("Discovery query failed: connection dropped")
@@ -265,7 +267,7 @@ def test_run_returns_command_exit_code():
     exit_code = run_with_failure_reporting(soda_cloud, command)
 
     assert exit_code == ExitCode.OK
-    command.assert_called_once_with()
+    command.assert_called_once()
 
 
 def test_run_passes_through_command_failure_exit_code_without_reporting(monkeypatch):
@@ -278,3 +280,43 @@ def test_run_passes_through_command_failure_exit_code_without_reporting(monkeypa
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
+def test_run_passes_its_own_logs_instance_to_command():
+    # The wrapper hands the command ITS OWN Logs collector so a command running a
+    # check-collection session can thread it (each impl built with logs=logs) and
+    # keep downstream records flowing into the wrapper's failure report.
+    soda_cloud = MagicMock()
+    received = {}
+
+    def command(logs):
+        received["logs"] = logs
+        return ExitCode.OK
+
+    run_with_failure_reporting(soda_cloud, command)
+
+    assert isinstance(received["logs"], Logs)
+
+
+def test_records_emitted_via_the_wrappers_logs_reach_the_failure_report(monkeypatch):
+    # A record emitted through the logs the command received must land in the
+    # captured records passed to mark_scan_as_failed — proving the collector the
+    # command gets is the same one the report reads from.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    soda_cloud = MagicMock()
+    soda_cloud.mark_scan_as_failed.return_value = True
+
+    def command(logs):
+        # Emit downstream through the active (wrapper's) collector, then fail so
+        # the report arm runs.
+        with logs.activate():
+            soda_logger.error("downstream record from within the command")
+        raise ScanExecutionFailedException("boom after emitting")
+
+    run_with_failure_reporting(soda_cloud, command)
+
+    soda_cloud.mark_scan_as_failed.assert_called_once()
+    _, kwargs = soda_cloud.mark_scan_as_failed.call_args
+    assert any(
+        "downstream record from within the command" in record.getMessage() for record in kwargs["logs"]
+    ), "records emitted via the command's logs must appear in the failure report"

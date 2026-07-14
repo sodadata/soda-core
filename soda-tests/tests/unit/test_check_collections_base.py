@@ -373,3 +373,38 @@ def test_source_description_last_resort_is_the_yaml_source_description():
     impl = _FakeImpl(yaml=_FakeYaml(yaml_source=source))  # collection_id is None
     assert impl.source_description == source.description
     assert "None" not in impl.source_description
+
+
+def test_global_impl_extension_applies_to_all_kinds():
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+    class _GlobalExt:
+        def __init__(self, impl):
+            self.impl = impl
+
+    CheckCollectionImpl.register_extension("xtest_global", _GlobalExt)
+    try:
+        assert ContractImpl._resolve_impl_extensions().get("xtest_global") is _GlobalExt
+        # A different kind (the test's _FakeImpl) also sees the global extension.
+        assert _FakeImpl._resolve_impl_extensions().get("xtest_global") is _GlobalExt
+    finally:
+        CheckCollectionImpl.impl_extensions.pop("xtest_global", None)
+
+
+def test_subtype_impl_extension_stays_isolated():
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+    class _IsoKindImpl(CheckCollectionImpl):
+        kind = "iso-test-kind"
+        wire_source = "iso"
+
+    class _IsoExt:
+        def __init__(self, impl):
+            self.impl = impl
+
+    _IsoKindImpl.register_extension("xtest_iso", _IsoExt)
+    try:
+        assert _IsoKindImpl._resolve_impl_extensions().get("xtest_iso") is _IsoExt
+        assert "xtest_iso" not in ContractImpl._resolve_impl_extensions()
+    finally:
+        _IsoKindImpl.impl_extensions.pop("xtest_iso", None)

@@ -680,7 +680,7 @@
                                     {
                                         "type": "object",
                                         "additionalProperties": false,
-                                        "description": "Use a schema check to validate the presence, absence or position of columns in a dataset, or to validate the type of data column contains. See documentation for more details: https://docs.soda.io/soda-cl/schema.html",
+                                        "description": "Use a schema check to validate the presence, absence or position of columns in a dataset, or to validate the type of data column contains. See documentation for more details: https://docs.soda.io/soda-v4/reference/contract-language-reference#schema-check",
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
@@ -1121,7 +1121,7 @@
         "threshold": {
             "type": "object",
             "additionalProperties": false,
-            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
+            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/soda-v4/reference/contract-language-reference#thresholds",
             "properties": {
                 "metric": {
                     "description": "The type of the metric value to check",
@@ -1131,7 +1131,7 @@
                     ]
                 },
                 "must_be": {
-                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
+                    "description": "The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/soda-v4/reference/contract-language-reference#thresholds",
                     "type": [
                         "number",
                         "string"
@@ -1296,7 +1296,7 @@
         "thresholdFreshness": {
             "type": "object",
             "additionalProperties": false,
-            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
+            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/soda-v4/reference/contract-language-reference#thresholds",
             "properties": {
                 "unit": {
                     "description": "The type of the metric value to check",
@@ -1307,7 +1307,7 @@
                     ]
                 },
                 "must_be": {
-                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
+                    "description": "The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/soda-v4/reference/contract-language-reference#thresholds",
                     "type": "number"
                 },
                 "must_not_be": {
