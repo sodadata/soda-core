@@ -329,7 +329,9 @@ def _run_discover_flow() -> ExitCode:
     soda_cloud = resolve_soda_cloud("sc.yaml")
     return run_with_failure_reporting(
         soda_cloud,
-        lambda: handle_discover_data_source(resolve_data_source("ds.yaml"), soda_cloud, scan_definition_name="my_scan"),
+        lambda logs: handle_discover_data_source(
+            resolve_data_source("ds.yaml"), soda_cloud, scan_definition_name="my_scan"
+        ),
     )
 
 

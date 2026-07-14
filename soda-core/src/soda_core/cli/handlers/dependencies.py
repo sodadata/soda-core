@@ -110,7 +110,7 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
 
 def run_with_failure_reporting(
     soda_cloud: SodaCloud,
-    command: Callable[[], ExitCode],
+    command: Callable[[Logs], ExitCode],
 ) -> ExitCode:
     """Run a command with every failure mapped to an exit code and reported to
     Soda Cloud in one place.
@@ -119,8 +119,12 @@ def run_with_failure_reporting(
     dependency construction lives at the wiring layer, which decides what
     resolves inside the command. Owns the ``Logs`` lifecycle — the collector
     starts before the command, so in-command resolution failures are captured
-    too. This is the single logging site for command failures; the two except
-    arms only pick the log form:
+    too. The wrapper's own ``logs`` collector is handed to the command so a
+    command that runs a check-collection session can thread it through (each
+    impl built with ``logs=logs``); without this a command constructing its own
+    inner ``Logs`` would displace the wrapper's collector and its downstream
+    records would never reach this failure report. This is the single logging
+    site for command failures; the two except arms only pick the log form:
 
     - ``ScanExecutionFailedException``: an expected/validation failure — its
       user-facing message is logged clean, without a traceback.
@@ -133,7 +137,7 @@ def run_with_failure_reporting(
     """
     logs: Logs = Logs()
     try:
-        return command()
+        return command(logs)
     except ScanExecutionFailedException as exc:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
         return report_scan_execution_failure(soda_cloud, logs.get_log_records())

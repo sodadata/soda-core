@@ -1506,8 +1506,11 @@ class DataSourceTestHelper:
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
             header_contract_yaml_str: str = f"dataset: {self.build_dqn(test_table)}\n"
-            # This asserts that any "columns" statement in a check is single line.
-            columns_contract_yaml_str: str = "columns: []\n" if not "columns:\n" in checks_contract_yaml_str else ""
+            # Contracts require a 'columns' property; inject an empty one when the
+            # test's contract doesn't declare a top-level ``columns:`` in any form
+            # (block or inline, e.g. reconciliation-only contracts).
+            has_columns: bool = re.search(r"(?m)^columns:", checks_contract_yaml_str) is not None
+            columns_contract_yaml_str: str = "" if has_columns else "columns: []\n"
             checks_contract_yaml_str = header_contract_yaml_str + columns_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
 

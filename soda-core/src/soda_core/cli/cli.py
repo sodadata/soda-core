@@ -538,9 +538,12 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # The data source and the mandatory scan definition name (arg >
             # SODA_SCAN_DEFINITION) resolve inside the wrapped command: their
             # failures take the standard mark-with-logs mapping.
+            # Discovery constructs no inner Logs (DiscoveryRun emits via soda_logger,
+            # which already lands in the active wrapper collector), so the wrapper's
+            # ``logs`` is accepted and ignored here.
             exit_code = run_with_failure_reporting(
                 soda_cloud,
-                lambda: handle_discover_data_source(
+                lambda logs: handle_discover_data_source(
                     resolve_data_source(args.data_source),
                     soda_cloud,
                     scan_definition_name=resolve_scan_definition_name(args.scan_definition_name),
