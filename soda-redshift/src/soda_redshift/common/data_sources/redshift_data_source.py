@@ -213,3 +213,20 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
 
     def _pg_catalog_schema(self) -> str:
         return "pg_catalog"
+
+    def table_schemata(self) -> str:
+        # information_schema.schemata on Redshift (Postgres-8 lineage) lists only schemas the
+        # current user OWNS, so a schema the DWH service user merely has USAGE/CREATE on is
+        # invisible. Soda's existence check then returns false and it issues CREATE SCHEMA,
+        # which needs CREATE-on-database and fails with "permission denied for database ..."
+        # even though the schema already exists (SCS-1193). SVV_ALL_SCHEMAS lists schemas by
+        # access, matching the svv_tables / svv_columns overrides above.
+        return self.default_casify("svv_all_schemas")
+
+    def column_schemata_catalog_name(self) -> str:
+        # SVV_ALL_SCHEMAS names the database column database_name (vs information_schema's catalog_name).
+        return self.default_casify("database_name")
+
+    def build_schemas_metadata_from_clause(self, table_namespace: Optional[DataSourceNamespace] = None) -> FROM:
+        # SVV_ALL_SCHEMAS is a system view in pg_catalog, mirroring the svv_columns FROM clause.
+        return FROM(self.table_schemata()).IN(self._pg_catalog_schema())
