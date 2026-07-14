@@ -118,6 +118,15 @@ class DuckDBDataSource(DataSource):
         try:
             if self.duckdb_connection:
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
+                # An externally supplied connection is created outside of Soda, so the connect-time
+                # `config` above never reached it. duckdb >= 1.1.0 defaults python_scan_all_frames to
+                # False, which stops replacement scans from resolving pandas/polars DataFrames defined
+                # in caller frames -- the canonical add_duckdb_connection workflow. Restore the
+                # pre-1.1.0 behavior at runtime. (custom_user_agent can only be set at connect time,
+                # so it cannot be applied to a pre-existing connection.)
+                python_scan_all_frames = self.configuration.get("python_scan_all_frames")
+                if python_scan_all_frames is not None:
+                    self.connection.execute(f"SET python_scan_all_frames = {str(bool(python_scan_all_frames)).lower()}")
             elif (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format())) is not None:
                 self.connection = DuckDBDataSourceConnectionWrapper(
                     duckdb.connect(":memory:", config=self.configuration)
