@@ -84,14 +84,15 @@ class TestConnection:
                 # do not try to query if connection failed
                 return
 
+            test_query = self._connection_test_query(data_source_impl)
             if self.query_should_succeed:
-                data_source_impl.execute_query(self._connection_test_query(data_source_impl))
+                data_source_impl.execute_query(test_query)
                 if logs.has_errors:
                     error_msg = "Query failed unexpectedly with error: " + logs.get_errors_str()
                     raise RuntimeError(error_msg)
             else:
                 with pytest.raises(Exception) as exc_info:
-                    data_source_impl.execute_query(self._connection_test_query(data_source_impl))
+                    data_source_impl.execute_query(test_query)
                 assert self.expected_query_error in str(exc_info.value)
                 return
         finally:

@@ -45,7 +45,7 @@ def test_schema_boolean_data_type_oracle(data_source_test_helper: DataSourceTest
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
+        contract_yaml_str="""
             checks:
               - schema:
             columns:
