@@ -270,7 +270,7 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT NULL
+                    {data_source_test_helper.select_literal_query("NULL")}
         """,
     )
 
