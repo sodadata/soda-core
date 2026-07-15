@@ -1143,7 +1143,7 @@ class CheckImpl:
     }
 
     @property
-    def path(self) -> str:
+    def relative_path(self) -> str:
         parts: list[str] = []
 
         column_name = self.column_impl.column_yaml.name if self.column_impl else None
@@ -1161,18 +1161,27 @@ class CheckImpl:
         return ".".join(parts)
 
     @property
-    def full_path(self) -> str:
+    def check_path(self) -> str:
         """Wire path emitted to Soda Cloud as ``checkPath``.
 
-        For contracts (``wire_source == "soda-contract"``) this is identical
-        to ``self.path`` — byte-identical to today's emission. For
-        non-contract subtypes it is prefixed with
-        ``"{collection_id}.{path}"`` so the backend's
-        ``firstSegmentOf(checkPath)`` filter can match the subtype's
-        identifier.
+        Format (option 3): ``"{wire_source}.{collection_id}:{relative_path}"``
+        using exactly one ``:`` as the delimiter between the ``{type}.{id}``
+        prefix and the ``{relative}`` path.
 
-        Selector matching uses ``self.path`` (not ``full_path``) so the
-        prefix never leaks into ``--check-selector`` matching.
+        - Contracts (``wire_source == "soda-contract"``): bare
+          ``self.relative_path``, byte-identical to today's emission.
+        - Non-contract subtypes (e.g. data standards): the full option-3
+          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``.
+        - Defensive fallback (no ``collection_id``): bare ``self.relative_path``.
+
+        The ``type`` (wire_source) and ``id`` (collection_id) segments must not
+        contain ``.`` or ``:``. ``wire_source`` is delimiter-safe **by
+        convention** (hardcoded subclass literals, never user input); the
+        ``base.py`` guard in ``verify()`` enforces this for ``collection_id``
+        (which does come from user-supplied config).
+
+        Selector matching uses ``self.relative_path`` (not ``check_path``) so
+        the prefix never leaks into ``--check-selector`` matching.
         """
         # ``contract_impl`` is the back-ref to the enclosing
         # ``CheckCollectionImpl`` (name preserved during the rename slice;
@@ -1180,7 +1189,7 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
-            return self.path
+            return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
         # Non-contract subtypes MUST declare collection_id: the
         # ``CheckCollectionImpl.verify()`` guard raises before this property
@@ -1188,8 +1197,8 @@ class CheckImpl:
         # back to the bare path so dataclass-build callers can still
         # instantiate a Check during error paths.
         if not collection_id:
-            return self.path
-        return f"{collection_id}.{self.path}"
+            return self.relative_path
+        return f"{self.contract_impl.wire_source}.{collection_id}:{self.relative_path}"
 
     def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
         if isinstance(check_yaml.name, str):
@@ -1222,8 +1231,8 @@ class CheckImpl:
             type=self.type,
             qualifier=self.check_yaml.qualifier,
             name=self.name,
-            path=self.path,
-            full_path=self.full_path,
+            relative_path=self.relative_path,
+            check_path=self.check_path,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,
