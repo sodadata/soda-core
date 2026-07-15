@@ -1375,6 +1375,13 @@ class SqlDialect:
     def supports_datetime_microseconds(self) -> bool:
         return True
 
+    def supports_native_boolean(self) -> bool:
+        """Whether a canonical BOOLEAN column round-trips through this data source's type
+        system. True for most sources (native BOOLEAN, or a bit/bool that maps back).
+        Oracle < 23ai has no SQL BOOLEAN and stores it as NUMBER, which cannot be
+        distinguished from any other number on read-back — see OracleSqlDialect."""
+        return True
+
     def default_casify(self, identifier: str) -> str:
         return identifier
 

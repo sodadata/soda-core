@@ -1542,6 +1542,12 @@ class DataSourceTestHelper:
         """For shorter notation in the tests, we can just point it to the dialect."""
         return self.data_source_impl.sql_dialect.quote_column(column_name)
 
+    def select_literal_query(self, expression: object) -> str:
+        """A standalone query selecting a literal/constant, for tests needing a small ad-hoc
+        query (e.g. a failed_rows rows_tested_query). Most data sources allow a FROM-less
+        SELECT; sources that require a FROM clause (Oracle) override this."""
+        return f"SELECT {expression}"
+
     def get_qualified_name_from_test_table(self, test_table: TestTable) -> str:
         return self.data_source_impl.sql_dialect.qualify_dataset_name(
             dataset_prefix=self.dataset_prefix,
@@ -1680,7 +1686,7 @@ class DataSourceTestHelper:
         )
 
     def get_column_mappings(self) -> dict[str, SodaDataTypeName]:
-        return {
+        mappings: dict[str, SodaDataTypeName] = {
             "char_default": SodaDataTypeName.CHAR,
             "char_w_length": SodaDataTypeName.CHAR,
             "varchar_default": SodaDataTypeName.VARCHAR,
@@ -1705,6 +1711,11 @@ class DataSourceTestHelper:
             "time_default": SodaDataTypeName.TIME,
             "boolean_default": SodaDataTypeName.BOOLEAN,
         }
+        # Data sources without a native, round-trippable BOOLEAN (e.g. Oracle < 23ai stores
+        # it as NUMBER) report the column back as NUMERIC on read-back.
+        if not self.data_source_impl.sql_dialect.supports_native_boolean():
+            mappings["boolean_default"] = SodaDataTypeName.NUMERIC
+        return mappings
 
     def map_table_type_to_short_string(self, table_type: TableType) -> str:
         return {
