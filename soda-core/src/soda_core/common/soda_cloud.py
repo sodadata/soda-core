@@ -1516,7 +1516,8 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if isinstance(o, datetime):
         return convert_datetime_to_str(o)
     if isinstance(o, date):
-        return o.strftime("%Y-%m-%d")
+        # Not strftime("%Y-%m-%d"): C strftime does not zero-pad years < 1000 on glibc.
+        return o.isoformat()
     if isinstance(o, time):
         return o.strftime("%H:%M:%S")
     if isinstance(o, timedelta):

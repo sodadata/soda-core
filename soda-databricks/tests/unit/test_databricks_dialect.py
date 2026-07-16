@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
@@ -54,6 +56,12 @@ def test_random():
     sql_dialect: DatabricksSqlDialect = DatabricksSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == "SELECT RAND()\nFROM `a`;"
+
+
+def test_literal_date_pads_year_to_four_digits():
+    """Spark SQL rejects DATE literals without a 4-digit year as INVALID_TYPED_LITERAL,
+    and C strftime("%Y") drops the leading zeros for years < 1000 on glibc."""
+    assert DatabricksSqlDialect().literal(date(200, 12, 17)) == "DATE '0200-12-17'"
 
 
 class TestTimestampReverseMapping:

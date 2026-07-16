@@ -204,6 +204,26 @@ def test_sql_ast_insert_into_with_datetimes():
     )
 
 
+def test_sql_ast_insert_into_pads_date_years_below_1000():
+    """C strftime("%Y") drops leading zeros for years < 1000 on glibc, which used to
+    render DATE '200-12-17' — an INVALID_TYPED_LITERAL for Spark/Databricks. Date
+    literals must always carry a 4-digit, zero-padded year."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.literal(date(200, 12, 17)) == "DATE '0200-12-17'"
+
+    my_insert_into_statement = sql_dialect.build_insert_into_sql(
+        INSERT_INTO(
+            fully_qualified_table_name='"customers"',
+            columns=[COLUMN("id"), COLUMN("birth_date")],
+            values=[VALUES_ROW([LITERAL(1), LITERAL(date(200, 12, 17))])],
+        )
+    )
+    assert my_insert_into_statement == (
+        'INSERT INTO "customers" ("id", "birth_date") VALUES\n' "(1, DATE '0200-12-17');"
+    )
+
+
 def test_sql_ast_insert_into_via_select():
     sql_dialect: SqlDialect = SqlDialect()
     my_insert_into_statement = sql_dialect.build_insert_into_via_select_sql(

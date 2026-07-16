@@ -279,10 +279,11 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
         ]
 
     def literal_datetime(self, datetime: datetime):
-        return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f')}'"
+        return f"TIMESTAMP '{datetime.isoformat(sep=' ', timespec='microseconds')}'"
 
     def literal_datetime_with_tz(self, datetime: datetime):
-        return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f%z')}'"
+        # isoformat appends the +HH:MM offset for tz-aware values.
+        return f"TIMESTAMP '{datetime.isoformat(sep=' ', timespec='microseconds')}'"
 
     def literal_time(self, time: time):
         formatted_time = time.strftime("%H:%M:%S.%f")
