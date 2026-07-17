@@ -1542,11 +1542,28 @@ class DataSourceTestHelper:
         """For shorter notation in the tests, we can just point it to the dialect."""
         return self.data_source_impl.sql_dialect.quote_column(column_name)
 
+    @staticmethod
+    def build_select_literal_query(data_source_type: str, expression: object) -> str:
+        """Single source of truth for a standalone SELECT of a literal/constant in tests.
+        Most data sources allow a FROM-less SELECT; Oracle requires a FROM clause (FROM DUAL is
+        valid on every Oracle version). Static so callers without a helper instance (e.g. the
+        connection-test helper) can reuse it."""
+        if data_source_type == "oracle":
+            return f"SELECT {expression} FROM DUAL"
+        return f"SELECT {expression}"
+
     def select_literal_query(self, expression: object) -> str:
         """A standalone query selecting a literal/constant, for tests needing a small ad-hoc
-        query (e.g. a failed_rows rows_tested_query). Most data sources allow a FROM-less
-        SELECT; sources that require a FROM clause (Oracle) override this."""
-        return f"SELECT {expression}"
+        query (e.g. a failed_rows rows_tested_query)."""
+        return self.build_select_literal_query(self.data_source_impl.type_name, expression)
+
+    def supports_native_boolean(self) -> bool:
+        """Whether a canonical BOOLEAN column round-trips through this data source's type system.
+        True for most sources (native BOOLEAN, or a bit/bool that maps back). Oracle < 23ai has
+        no SQL BOOLEAN and stores it as NUMBER, which can't be distinguished from any other
+        number on read-back, so the Oracle test helper overrides this. Test-only: the production
+        dialect gates SQL by server version directly (OracleSqlDialect._is_pre_23ai)."""
+        return True
 
     def get_qualified_name_from_test_table(self, test_table: TestTable) -> str:
         return self.data_source_impl.sql_dialect.qualify_dataset_name(
@@ -1713,7 +1730,7 @@ class DataSourceTestHelper:
         }
         # Data sources without a native, round-trippable BOOLEAN (e.g. Oracle < 23ai stores
         # it as NUMBER) report the column back as NUMERIC on read-back.
-        if not self.data_source_impl.sql_dialect.supports_native_boolean():
+        if not self.supports_native_boolean():
             mappings["boolean_default"] = SodaDataTypeName.NUMERIC
         return mappings
 

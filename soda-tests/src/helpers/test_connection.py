@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
+from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import DataSourceYamlSource
@@ -45,11 +46,9 @@ class TestConnection:
         return DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
     def _connection_test_query(self, data_source_impl: DataSourceImpl) -> str:
-        # A trivial query to verify the live connection. Oracle requires a FROM clause
-        # (FROM DUAL is valid on every Oracle version); other data sources accept a bare SELECT.
-        if data_source_impl.type_name == "oracle":
-            return "SELECT 1 FROM DUAL"
-        return "SELECT 1"
+        # A trivial query to verify the live connection, using the shared single source of
+        # truth for a literal SELECT (Oracle needs FROM DUAL; other sources accept a bare SELECT).
+        return DataSourceTestHelper.build_select_literal_query(data_source_impl.type_name, 1)
 
     def test(self, monkeypatch: Optional[pytest.MonkeyPatch] = None):
         if self.monkeypatches:

@@ -152,7 +152,7 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
     }
     # Data sources without a native, round-trippable BOOLEAN (e.g. Oracle < 23ai stores
     # BOOLEAN as NUMBER) report the column back as NUMERIC on read-back.
-    if not data_source_test_helper.data_source_impl.sql_dialect.supports_native_boolean():
+    if not data_source_test_helper.supports_native_boolean():
         column_mappings["boolean_default"] = SodaDataTypeName.NUMERIC
     for column in actual_columns:
         column_name = column.column_name
