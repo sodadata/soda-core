@@ -120,8 +120,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def literal_date(self, date: date):
         """Technically dates can be passed directly as strings, but this is more explicit."""
-        date_string = date.strftime("%Y-%m-%d")
-        return f"CAST('{date_string}' AS DATE)"
+        return f"CAST('{date.isoformat()}' AS DATE)"
 
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat(timespec='milliseconds')}'"
