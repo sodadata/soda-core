@@ -68,3 +68,11 @@ def test_datetime2_precision_exactly_max_is_no_op():
     dialect = FabricSqlDialect()
     column = CREATE_TABLE_COLUMN(name="ts", type=SqlDataType(name="datetime2", datetime_precision=6))
     assert dialect._build_create_table_column_type(column) == "datetime2(6)"
+
+
+def test_is_system_schema():
+    dialect = FabricSqlDialect()
+    assert dialect.is_system_schema("sys") is True
+    assert dialect.is_system_schema("SYS") is True
+    assert dialect.is_system_schema("queryinsights") is True
+    assert dialect.is_system_schema("dbo") is False

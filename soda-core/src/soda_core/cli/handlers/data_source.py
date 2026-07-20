@@ -1,7 +1,10 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from os.path import dirname, exists
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -10,6 +13,10 @@ from soda_core.common.logs import Logs
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
+
+if TYPE_CHECKING:
+    from soda_core.common.data_source_impl import DataSourceImpl
+    from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
@@ -126,3 +133,87 @@ def build_test_connection_log_uploader(
         dataset="",
     )
     return Logs(gatherer=logs_queue)
+
+
+def _discover_dqns(
+    data_source_impl: DataSourceImpl,
+    include: Optional[list[str]],
+    exclude: Optional[list[str]],
+) -> list[str]:
+    """Open the connection, discover everything visible and return the DQNs.
+
+    Resolution only parses YAML, so the handler owns the connection lifecycle.
+    Query failures propagate raw to the CLI wiring, which logs the traceback.
+    """
+    from soda_core.discovery.discovery import discover_dataset_dqns
+
+    try:
+        data_source_impl.open_connection()
+        # Empty prefixes: discover everything visible to the connection.
+        return discover_dataset_dqns(
+            data_source_impl=data_source_impl,
+            prefixes=[],
+            include=include,
+            exclude=exclude,
+        )
+    finally:
+        data_source_impl.close_connection()
+
+
+def handle_discover_data_source(
+    data_source_impl: DataSourceImpl,
+    soda_cloud: SodaCloud,
+    scan_definition_name: str,
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
+) -> ExitCode:
+    """Discover datasets and send the results to Soda Cloud.
+
+    Receives fully resolved dependencies — including the mandatory scan
+    definition name (``resolve_scan_definition_name``). Engine failures
+    propagate raw: the CLI wiring (``dependencies.run_with_failure_reporting``)
+    is the single logging site and maps them to failure reporting. A rejected
+    results upload is not an engine failure: it returns
+    ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
+    """
+    from soda_core.discovery.discovery_payload import build_discovery_payload
+
+    soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
+
+    scan_start_timestamp: datetime = datetime.now(timezone.utc)
+    dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
+    scan_end_timestamp: datetime = datetime.now(timezone.utc)
+
+    payload: SodaCoreInsertScanResultsDTO = build_discovery_payload(
+        dqns=dqns,
+        data_source_name=data_source_impl.name,
+        scan_definition_name=scan_definition_name,
+        scan_start_timestamp=scan_start_timestamp,
+        scan_end_timestamp=scan_end_timestamp,
+    )
+    if not soda_cloud.insert_scan_results(payload):
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
+        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+    soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud.")
+    return ExitCode.OK
+
+
+def handle_discover_data_source_locally(
+    data_source_impl: DataSourceImpl,
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
+) -> ExitCode:
+    """Discover datasets and print their DQNs to the console.
+
+    Local sibling of ``handle_discover_data_source``: no Soda Cloud, so no
+    scan lifecycle and no failure reporting. Failures propagate raw — the CLI
+    wiring is the single logging site and maps them to ``LOG_ERRORS``.
+    """
+    soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
+    dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
+
+    for dqn in dqns:
+        soda_logger.info(dqn)
+    soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets (nothing sent to Soda Cloud).")
+    return ExitCode.OK

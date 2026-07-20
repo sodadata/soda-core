@@ -402,6 +402,8 @@ class DataSourceImpl(ABC):
         self,
         prefixes: list[str],
         object_types: Optional[list[TableType]] = None,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
     ) -> list[FullyQualifiedObjectName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_name = self.extract_database_from_prefix(prefixes)
@@ -411,8 +413,17 @@ class DataSourceImpl(ABC):
             database_name=database_name,
             schema_name=schema_name,
             types_to_return=object_types,
+            include_table_name_like_filters=include_table_name_like_filters,
+            exclude_table_name_like_filters=exclude_table_name_like_filters,
         )
-        return fully_qualified_object_names
+        # Omit data source internal/system schemas (e.g. postgres' pg_catalog
+        # and information_schema) from discovery.
+        return [
+            fully_qualified_object_name
+            for fully_qualified_object_name in fully_qualified_object_names
+            if fully_qualified_object_name.schema_name is None
+            or not self.sql_dialect.is_system_schema(fully_qualified_object_name.schema_name)
+        ]
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
         # Noop by default, only some data sources need to implement this
