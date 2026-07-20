@@ -34,7 +34,7 @@ def test_time_delta_inherits_sqlserver_datediff_form():
     sql = SynapseSqlDialect().build_expression_sql(
         TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "days", 1)
     )
-    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400"
+    assert sql == "(DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400)"
 
 
 def test_add_interval_inherits_sqlserver_dateadd_form():
