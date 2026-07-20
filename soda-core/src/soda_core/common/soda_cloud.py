@@ -1538,7 +1538,8 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if isinstance(o, datetime):
         return convert_datetime_to_str(o)
     if isinstance(o, date):
-        return o.strftime("%Y-%m-%d")
+        # Not strftime("%Y-%m-%d"): C strftime does not zero-pad years < 1000 on glibc.
+        return o.isoformat()
     if isinstance(o, time):
         return o.strftime("%H:%M:%S")
     if isinstance(o, timedelta):
@@ -1754,15 +1755,16 @@ def _build_check_result_cloud_dict(
 ) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        # Wire path: ``Check.full_path`` is the yaml-internal ``path`` for
-        # subtypes that emit byte-identical historical paths, and
-        # ``"{collection_id}.{path}"`` for subtypes that need a prefix so
-        # the backend's ``firstSegmentOf(checkPath)`` can match the
-        # subtype's identifier. Selector matching still uses ``check.path``.
-        # Falls back to ``path`` when ``full_path`` is empty (the
+        # Wire path: ``Check.check_path`` is the yaml-internal ``relative_path``
+        # for subtypes that emit byte-identical historical paths (contracts),
+        # and the option-3 form
+        # ``"{wire_source}.{collection_id}:{relative_path}"`` for subtypes that
+        # need a prefix, so the backend can parse out the subtype's identifier.
+        # Selector matching still uses ``check.relative_path``.
+        # Falls back to ``relative_path`` when ``check_path`` is empty (the
         # dataclass default) — protects external constructors of
-        # ``Check(...)`` that don't set ``full_path`` explicitly.
-        "checkPath": check_result.check.full_path or check_result.check.path,
+        # ``Check(...)`` that don't set ``check_path`` explicitly.
+        "checkPath": check_result.check.check_path or check_result.check.relative_path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,

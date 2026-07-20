@@ -13,8 +13,8 @@ from soda_core.cli.handlers.dependencies import (
     run_with_failure_reporting,
 )
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.discovery.discovery import discover_dataset_dqns
 from soda_core.discovery.discovery_payload import build_discovery_payload
-from soda_core.discovery.discovery_run import DiscoveryRun
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -34,7 +34,7 @@ def test_discovery_posts_dqn_only_v4_payload(data_source_test_helper: DataSource
 
     # Scope discovery to the test schema for determinism (shared CI DB has many schemas).
     prefixes = data_source_test_helper._create_dataset_prefix()
-    dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=prefixes)
+    dqns = discover_dataset_dqns(data_source_test_helper.data_source_impl, prefixes=prefixes)
 
     payload = build_discovery_payload(
         dqns=dqns,
@@ -61,9 +61,28 @@ def test_discovery_includes_views(data_source_test_helper: DataSourceTestHelper)
     view_name = data_source_test_helper.create_view_from_test_table(test_table).unique_name
 
     prefixes = data_source_test_helper._create_dataset_prefix()
-    dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=prefixes)
+    dqns = discover_dataset_dqns(data_source_test_helper.data_source_impl, prefixes=prefixes)
 
     assert any(dqn.lower().endswith(view_name.lower()) for dqn in dqns), f"View {view_name} not found in {dqns}"
+    # Positive control: the base table is still discovered.
+    table_suffix = test_table.unique_name.lower()
+    assert any(dqn.lower().endswith(table_suffix) for dqn in dqns)
+
+
+def test_discovery_includes_materialized_views(data_source_test_helper: DataSourceTestHelper):
+    """v3 parity: materialized views are a distinct object_types entry and a
+    distinct FullyQualified*Name branch from plain views, so pin them end-to-end
+    too (only the fake-data-source unit test covered the MV branch otherwise)."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    # Skips internally when the data source cannot create materialized views.
+    mv_name = data_source_test_helper.create_materialized_view_from_test_table(test_table).unique_name
+
+    prefixes = data_source_test_helper._create_dataset_prefix()
+    dqns = discover_dataset_dqns(data_source_test_helper.data_source_impl, prefixes=prefixes)
+
+    assert any(
+        dqn.lower().endswith(mv_name.lower()) for dqn in dqns
+    ), f"Materialized view {mv_name} not found in {dqns}"
     # Positive control: the base table is still discovered.
     table_suffix = test_table.unique_name.lower()
     assert any(dqn.lower().endswith(table_suffix) for dqn in dqns)
@@ -85,7 +104,7 @@ def test_discovery_excludes_system_schemas(data_source_test_helper: DataSourceTe
     # Database-only prefix: without the system-schema filter this returns
     # ~70 pg_catalog and information_schema tables.
     database_only_prefixes = data_source_test_helper.dataset_prefix[:1]
-    dqns = DiscoveryRun.execute(data_source_test_helper.data_source_impl, prefixes=database_only_prefixes)
+    dqns = discover_dataset_dqns(data_source_test_helper.data_source_impl, prefixes=database_only_prefixes)
 
     # Positive control: the user table is still discovered.
     expected_suffix = test_table.unique_name.lower()

@@ -362,8 +362,9 @@ class SqlDialect:
         return "(" + (",".join([self.literal(e) for e in l])) + ")"
 
     def literal_date(self, date: date):
-        date_string = date.strftime("%Y-%m-%d")
-        return f"DATE '{date_string}'"
+        # Not strftime("%Y-%m-%d"): C strftime does not zero-pad years < 1000 on glibc,
+        # producing literals like DATE '200-12-17' that Spark/Databricks reject.
+        return f"DATE '{date.isoformat()}'"
 
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat()}'"

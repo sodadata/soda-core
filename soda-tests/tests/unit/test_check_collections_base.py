@@ -9,6 +9,7 @@ parsing or data sources.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -226,6 +227,35 @@ def test_execute_check_collections_handles_parse_failures():
     assert len(session_result.results) == 1
     assert session_result.results[0].status is CheckCollectionStatus.ERROR
     assert isinstance(session_result.results[0].error, RuntimeError)
+
+
+def test_execute_check_collections_logs_isolated_parse_failure(caplog):
+    """An isolated parse failure must be LOGGED, not only stored on ``result.error``.
+
+    Regression guard: ``build_error_result`` used to stash the exception on
+    ``result.error`` with ``log_records=None`` and never emit it. The only
+    reader of ``result.error`` is the Soda Cloud ``mark_scan_as_failed``
+    path (gated on ``soda_scan_id``), so a local run — every
+    ``abort_on_first_error=False`` caller, i.e. always for data standards
+    and any multi-file contract run — exited 3 in total silence.
+    """
+    caplog.set_level(logging.ERROR)
+    sources = [_LabelledSource("bad", kind=_RAISING_KIND)]
+    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert session_result.results[0].status is CheckCollectionStatus.ERROR
+    assert "parse failure for bad" in caplog.text
+
+
+def test_execute_check_collections_logs_isolated_verify_failure(caplog):
+    """Same contract for a verify()-time failure under per-item isolation."""
+    caplog.set_level(logging.ERROR)
+    exc = RuntimeError("verify exploded")
+    sources = [_LabelledSource("a", raise_on_verify=exc)]
+    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert session_result.results[0].status is CheckCollectionStatus.ERROR
+    assert "verify exploded" in caplog.text
 
 
 def test_execute_check_collections_records_error_for_unknown_kind():
