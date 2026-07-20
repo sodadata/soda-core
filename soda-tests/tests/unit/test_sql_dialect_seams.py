@@ -44,6 +44,18 @@ def test_literal_timestamp_typed_pads_components():
     assert dialect().literal_timestamp_typed(datetime(2025, 1, 2, 3, 4, 5)) == "TIMESTAMP '2025-01-02 03:04:05'"
 
 
+def test_literal_timestamp_typed_normalizes_tz_aware_to_utc():
+    """A tz-aware datetime is converted to UTC before rendering; strftime alone
+    would drop tzinfo and emit local wall-clock against a UTC-typed column."""
+    from datetime import timedelta, timezone
+
+    plus_two = timezone(timedelta(hours=2))
+    assert (
+        dialect().literal_timestamp_typed(datetime(2025, 1, 2, 5, 4, 5, tzinfo=plus_two))
+        == "TIMESTAMP '2025-01-02 03:04:05'"
+    )
+
+
 # ---------------------------------------------------------------------------
 # sql_expr_is_not_nan — base has no NaN values to filter
 # ---------------------------------------------------------------------------

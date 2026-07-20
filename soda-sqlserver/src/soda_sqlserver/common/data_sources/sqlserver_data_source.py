@@ -185,7 +185,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         rowversion type), so cast the string form to DATETIME2 to keep the
         arithmetic operand typed —
         https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetime2-transact-sql."""
-        return f"CAST('{dt.strftime('%Y-%m-%d %H:%M:%S')}' AS DATETIME2)"
+        return f"CAST('{self._typed_timestamp_str(dt)}' AS DATETIME2)"
 
     # Singular unit names for DATEADD.
     _TIME_BUCKET_UNIT_NAMES: dict = {
@@ -207,7 +207,9 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
         multiplier: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
-        return f"DATEDIFF(second, {start_sql}, {end_sql}) / {multiplier}"
+        # Parenthesized so the form stays self-contained if a caller embeds
+        # TIME_DELTA in larger arithmetic (every other dialect wraps in FLOOR/cast).
+        return f"(DATEDIFF(second, {start_sql}, {end_sql}) / {multiplier})"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)

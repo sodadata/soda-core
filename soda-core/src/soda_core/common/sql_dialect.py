@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from abc import abstractmethod
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
 from typing import Any, ClassVar, Optional, Tuple
@@ -383,6 +383,19 @@ class SqlDialect:
         # See Fabric for an example
         return self.literal_datetime(datetime)
 
+    @staticmethod
+    def _typed_timestamp_str(dt: datetime) -> str:
+        """Render the wall-clock string for a typed timestamp literal, in UTC.
+
+        A tz-aware datetime is normalized to UTC first (``strftime`` alone drops
+        tzinfo and would emit local wall-clock against a UTC-typed column). A
+        naive datetime is assumed to already be UTC and rendered as-is.
+        Sub-second precision is truncated.
+        """
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
     def literal_timestamp_typed(self, dt: datetime) -> str:
         """Typed timestamp literal for use inside timestamp arithmetic
         (TIME_DELTA / ADD_INTERVAL operands), where some engines refuse a bare
@@ -390,7 +403,7 @@ class SqlDialect:
         Not a replacement for ``literal_datetime``, which renders comparison
         literals.
         """
-        return f"TIMESTAMP '{dt.strftime('%Y-%m-%d %H:%M:%S')}'"
+        return f"TIMESTAMP '{self._typed_timestamp_str(dt)}'"
 
     def literal_boolean(self, boolean: bool):
         return "TRUE" if boolean is True else "FALSE"

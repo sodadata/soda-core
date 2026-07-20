@@ -87,7 +87,7 @@ def test_time_delta_renders_datediff_seconds_form():
     sql = SqlServerSqlDialect().build_expression_sql(
         TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "days", 1)
     )
-    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400"
+    assert sql == "(DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400)"
 
 
 def test_time_delta_datediff_count_2_hours():
@@ -98,7 +98,7 @@ def test_time_delta_datediff_count_2_hours():
     sql = SqlServerSqlDialect().build_expression_sql(
         TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "hours", 2)
     )
-    assert sql == "DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 7200"
+    assert sql == "(DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 7200)"
 
 
 def test_add_interval_renders_dateadd_singular_unit():
@@ -157,4 +157,14 @@ def test_literal_timestamp_typed_truncates_sub_seconds():
     from datetime import datetime
 
     sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3, 999999))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+
+
+def test_literal_timestamp_typed_normalizes_tz_aware_to_utc():
+    # A tz-aware non-UTC datetime must render its UTC wall-clock, not local time
+    # with the zone silently dropped.
+    from datetime import datetime, timedelta, timezone
+
+    plus_two = timezone(timedelta(hours=2))
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 3, 2, 3, tzinfo=plus_two))
     assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
