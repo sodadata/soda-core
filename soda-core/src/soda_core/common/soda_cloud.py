@@ -1691,35 +1691,37 @@ def _build_check_collection_results_json_dict(
         if r.measurement_dicts:
             all_measurement_dicts.extend(r.measurement_dicts)
 
-    payload = to_jsonnable(  # type: ignore
-        {
-            "scanId": os.environ.get("SODA_SCAN_ID", None),
-            "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
-            "defaultDataSource": head.data_source.name if head.data_source else None,
-            "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
-            "dataTimestamp": head.data_timestamp,
-            "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
-            "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
-            "hasErrors": any(r.has_errors for r in results),
-            "hasWarns": any(r.is_warned for r in results),
-            "hasFailures": any(r.is_failed for r in results),
-            # Empty checks list serialises as ``None`` to match the legacy
-            # combined-builder behaviour the backend already accepts.
-            "checks": checks if checks else None,
-            "logs": logs,
-            "sourceOwner": "soda-core",
-            # ``contract`` is contract-handler-routing on the backend.
-            # Non-null forces the contract ingestion path; null lets the
-            # routing fall through to scan-def-type dispatch for
-            # non-contract subtypes.
-            "contract": (
-                _build_contract_cloud_json_dict(head.check_collection) if wire_source == "soda-contract" else None
-            ),
-            "postProcessingStages": post_processing_stages,
-            "resultsIngestionMode": ingestion_mode.value,
-            "tokenUsage": token_usage,
-        }
-    )
+    payload: dict = {
+        "scanId": os.environ.get("SODA_SCAN_ID", None),
+        "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+        "defaultDataSource": head.data_source.name if head.data_source else None,
+        "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
+        "dataTimestamp": head.data_timestamp,
+        "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
+        "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
+        "hasErrors": any(r.has_errors for r in results),
+        "hasWarns": any(r.is_warned for r in results),
+        "hasFailures": any(r.is_failed for r in results),
+        # Empty checks list serialises as ``None`` to match the legacy
+        # combined-builder behaviour the backend already accepts.
+        "checks": checks if checks else None,
+        "logs": logs,
+        "sourceOwner": "soda-core",
+        # ``contract`` is contract-handler-routing on the backend.
+        # Non-null forces the contract ingestion path; null lets the
+        # routing fall through to scan-def-type dispatch for
+        # non-contract subtypes.
+        "contract": (
+            _build_contract_cloud_json_dict(head.check_collection) if wire_source == "soda-contract" else None
+        ),
+        "postProcessingStages": post_processing_stages,
+        "resultsIngestionMode": ingestion_mode.value,
+        "tokenUsage": token_usage,
+    }
+    # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
+    # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
+    # the ``metrics`` subscript-assign below is on a known-subscriptable type.
+    to_jsonnable(payload)
 
     # Emit ``metrics`` only when non-empty: contract-only payloads must omit
     # the key entirely (not null, not []). Run the measurement dicts through

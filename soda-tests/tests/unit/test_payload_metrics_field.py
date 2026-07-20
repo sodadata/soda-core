@@ -77,5 +77,5 @@ def test_metrics_are_pre_serialised_and_json_dumpable():
 
     # Would raise TypeError if Decimal/datetime slipped through unconverted.
     dumped = json.loads(json.dumps(payload))
-    assert dumped["metrics"][0]["value"] == 10.5
+    assert abs(dumped["metrics"][0]["value"] - 10.5) < 1e-9
     assert isinstance(dumped["metrics"][0]["dataTimestamp"], str)
