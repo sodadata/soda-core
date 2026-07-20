@@ -22,7 +22,7 @@ class _FakeDataSource:
         self.name = "postgres"
         self.sql_dialect = _FakeDialect()
         self._objects = objects
-        self.received_kwargs = None
+        self.received_kwargs: dict = {}
 
     def discover_qualified_objects(
         self,
