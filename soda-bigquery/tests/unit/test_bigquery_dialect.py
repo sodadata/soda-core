@@ -112,13 +112,15 @@ def _make_union(node_cls):
     )
 
 
-def test_union_renders_as_union_all():
+def test_union_renders_as_union_distinct():
+    # Plain UNION must keep set semantics: BigQuery rejects bare UNION, so it
+    # renders as UNION DISTINCT (not UNION ALL, which would silently keep dups).
     from soda_core.common.sql_ast import UNION
 
     dialect = BigQuerySqlDialect()
     sql = dialect.build_union_sql(_make_union(UNION), add_semicolon=False)
-    assert "\nUNION ALL\n" in sql
-    assert "\nUNION\n" not in sql
+    assert "\nUNION DISTINCT\n" in sql
+    assert "\nUNION ALL\n" not in sql
 
 
 def test_union_all_still_renders_union_all():
@@ -127,6 +129,7 @@ def test_union_all_still_renders_union_all():
     dialect = BigQuerySqlDialect()
     sql = dialect.build_union_sql(_make_union(UNION_ALL), add_semicolon=False)
     assert "\nUNION ALL\n" in sql
+    assert "\nUNION DISTINCT\n" not in sql
 
 
 def test_get_large_numeric_cast_type_name_is_numeric():

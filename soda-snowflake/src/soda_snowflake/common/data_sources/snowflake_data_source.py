@@ -182,12 +182,12 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character", "text"]
 
-    # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
     def get_large_numeric_cast_type_name(self) -> Optional[str]:
         """CAST aggregate args to FLOAT so math over NUMBER columns runs in float,
         not scaled NUMBER."""
         return "FLOAT"
 
+    # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
             "varchar": SodaDataTypeName.VARCHAR,

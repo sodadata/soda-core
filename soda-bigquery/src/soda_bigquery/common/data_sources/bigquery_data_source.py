@@ -173,12 +173,15 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return "NUMERIC"
 
     def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
-        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT); render
-        as UNION ALL. Safe: profiling's unioned sets carry disjoint constant
-        metric_ labels, so ALL vs DISTINCT is identical.
+        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT).
+        Render UNION_ALL as UNION ALL and plain UNION as UNION DISTINCT so the
+        set semantics of a plain UNION are preserved for any caller — profiling's
+        unioned sets carry disjoint constant metric_ labels, so for that caller
+        ALL vs DISTINCT is identical either way.
         """
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
-        return "\nUNION ALL\n".join(
+        union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION DISTINCT"
+        return f"\n{union_sql}\n".join(
             [
                 f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)"
                 for select_element in union.select_elements

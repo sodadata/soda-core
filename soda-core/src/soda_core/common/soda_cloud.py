@@ -938,6 +938,9 @@ class SodaCloud:
         Exactly one of ``date_time_range`` or ``limit`` must be provided (the
         ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+        NOTE: ``limit`` is applied per batch, so with more than one batch the merged
+        result can exceed ``limit``. Current callers pass a limit only with single
+        identities (one batch), so this doesn't bite today.
 
         Returns measurements grouped by metric identity (default), or the flat
         result list when ``group_by_identity`` is False. Measurements without a
@@ -985,6 +988,9 @@ class SodaCloud:
 
         Exactly one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+        NOTE: ``limit`` is applied per batch, so with more than one batch the merged
+        result can exceed ``limit``. Current callers pass a limit only with single
+        identities (one batch), so this doesn't bite today.
 
         Returns check results grouped by ``measurementId`` (default), or the flat
         result list when ``group_by_measurement_id`` is False.
