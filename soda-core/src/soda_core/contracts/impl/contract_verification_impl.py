@@ -726,7 +726,11 @@ class MissingAndValidity:
                     AND([NOT(IN(column_expression, literal_values)), IS_NOT_NULL(column_expression)])
                 )
             elif not self.valid_values:
-                invalid_clauses.append(AND([LITERAL(True)]))
+                # No value is valid -> every row is invalid. Use a portable always-true predicate
+                # (1 = 1) rather than a bare boolean literal: a standalone TRUE/FALSE is not a valid
+                # condition on data sources without a native boolean type in predicate position
+                # (e.g. pre-23ai Oracle, where it would render as `1` -> ORA-00920).
+                invalid_clauses.append(EQ(LITERAL(1), LITERAL(1)))
             else:
                 invalid_clauses.append(NOT(IN(column_expression, literal_values)))
         if isinstance(self.invalid_values, list):
@@ -734,7 +738,9 @@ class MissingAndValidity:
             if None in self.invalid_values:
                 invalid_clauses.append(AND([IN(column_expression, literal_values), IS_NULL(column_expression)]))
             elif not self.invalid_values:
-                invalid_clauses.append(AND([LITERAL(False)]))
+                # No value is explicitly invalid -> always-false predicate (1 = 0); see the
+                # valid_values note above on why a bare boolean literal is not portable.
+                invalid_clauses.append(EQ(LITERAL(1), LITERAL(0)))
             else:
                 invalid_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.valid_format, RegexFormat) and isinstance(self.valid_format.regex, str):
