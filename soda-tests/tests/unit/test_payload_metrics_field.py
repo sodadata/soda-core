@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from soda_core.common.soda_cloud import _build_check_collection_results_json_dict
 from soda_core.contracts.contract_verification import (
@@ -62,3 +64,18 @@ def test_measurement_dicts_present_emits_metrics_array():
 
     assert "metrics" in payload, f"'metrics' key missing from payload. Keys: {list(payload.keys())}"
     assert payload["metrics"] == measurement_dicts, f"Expected metrics={measurement_dicts}, got {payload['metrics']}"
+
+
+def test_metrics_are_pre_serialised_and_json_dumpable():
+    """Measurement dicts are attached after the payload's own to_jsonnable wrap,
+    so they must be run through to_jsonnable explicitly — a realistic dict with
+    Decimal/datetime values must round-trip through json.dumps without a helper."""
+    now = datetime(2026, 7, 20, 8, 30, 0, tzinfo=timezone.utc)
+    measurement_dicts = [{"identity": "m1", "value": Decimal("10.5"), "dataTimestamp": now}]
+    result = _make_result(measurement_dicts=measurement_dicts)
+    payload = _build_check_collection_results_json_dict([result])
+
+    # Would raise TypeError if Decimal/datetime slipped through unconverted.
+    dumped = json.loads(json.dumps(payload))
+    assert dumped["metrics"][0]["value"] == 10.5
+    assert isinstance(dumped["metrics"][0]["dataTimestamp"], str)

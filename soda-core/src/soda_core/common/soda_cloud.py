@@ -1687,9 +1687,8 @@ def _build_check_collection_results_json_dict(
 
     all_measurement_dicts: list[dict] = []
     for r in results:
-        measurement_dicts = getattr(r, "measurement_dicts", None)
-        if measurement_dicts:
-            all_measurement_dicts.extend(measurement_dicts)
+        if r.measurement_dicts:
+            all_measurement_dicts.extend(r.measurement_dicts)
 
     payload = to_jsonnable(  # type: ignore
         {
@@ -1722,9 +1721,15 @@ def _build_check_collection_results_json_dict(
     )
 
     # Emit ``metrics`` only when non-empty: contract-only payloads must omit
-    # the key entirely (not null, not []).
+    # the key entirely (not null, not []). Run the measurement dicts through
+    # ``to_jsonnable`` explicitly: they are attached after the payload's own
+    # ``to_jsonnable`` wrap above and can carry Decimal/datetime/timedelta
+    # values, so serialising them here (rather than relying on the debug-log
+    # side effect at the send site) is what keeps the send JSON-safe.
+    # ``remove_null_values_in_dicts`` stays at its default True, matching the
+    # null-stripping the payload dict already gets.
     if all_measurement_dicts:
-        payload["metrics"] = all_measurement_dicts
+        payload["metrics"] = to_jsonnable(all_measurement_dicts)
 
     return payload
 
