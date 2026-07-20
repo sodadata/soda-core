@@ -26,7 +26,7 @@ from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
-from soda_core.common.logs import Location, Logs
+from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
@@ -806,6 +806,16 @@ class CheckCollectionImpl:
                 f"collection_id (used to prefix checkPath for backend routing)."
             )
 
+        if self.collection_id and (("." in self.collection_id) or (":" in self.collection_id)):
+            raise ValueError(
+                f"collection_id {self.collection_id!r} must not contain '.' or ':' (reserved check-path delimiters)"
+            )
+
+        if self.wire_source and (("." in self.wire_source) or (":" in self.wire_source)):
+            raise ValueError(
+                f"wire_source {self.wire_source!r} must not contain '.' or ':' (reserved check-path delimiters)"
+            )
+
         if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None
@@ -851,7 +861,7 @@ class CheckCollectionImpl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.path}'")
+                        logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
@@ -1059,6 +1069,30 @@ class CheckCollectionImpl:
         Used by per-item isolation in ``execute_check_collections``.
         """
         now = datetime.now(tz=timezone.utc)
+        # Surface the failure instead of only stashing it on ``result.error``.
+        # This is the isolation boundary for ``abort_on_first_error=False``
+        # callers — always data standards, and any multi-file contract run.
+        # They never re-raise, and the only other reader of ``result.error`` is
+        # the Cloud ``mark_scan_as_failed`` path (gated on a scan_id), so
+        # without this a local run exits non-zero having printed nothing.
+        #
+        # Capture into this placeholder's OWN Logs rather than emitting bare:
+        # constructing a Logs leaves it active, so after the construct phase the
+        # active target is the LAST-constructed collection. A bare emit here
+        # would file this file's error under an unrelated sibling — and ship it
+        # inside that sibling's Cloud log payload. ``preserve_active_logs``
+        # stops the throwaway target leaking past this call.
+        # No emoticon here: the console formatter already prefixes ERROR records
+        # with one. Yaml parse errors also already carry their own
+        # ", in <file>[line,column]" suffix, so only name the source when the
+        # message does not locate itself.
+        source_description = getattr(yaml_source, "file_path", None) or getattr(yaml_source, "description", None)
+        message = str(exception) or type(exception).__name__
+        locates_itself = bool(source_description) and str(source_description) in message
+        location = f", in {source_description}" if source_description and not locates_itself else ""
+        with preserve_active_logs():
+            error_logs = Logs()
+            logger.error(f"{message}{location}")
         # Invariant: this placeholder Contract is never uploaded to Soda Cloud.
         # ``build_error_result`` is only invoked when the YAML failed to parse
         # before a real ``Contract`` could be constructed; the result it
@@ -1087,7 +1121,10 @@ class CheckCollectionImpl:
             measurements=[],
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
-            log_records=None,
+            # Carries the error line captured above, so the placeholder is
+            # self-diagnosing (a FAILED scan in Cloud no longer ships an empty
+            # log payload) instead of leaving ``result.error`` the only record.
+            log_records=error_logs.get_log_records(),
             post_processing_stages=[],
         )
         result.error = exception
@@ -1231,7 +1268,7 @@ class CheckCollectionImpl:
         # ``result.get_errors()`` with no re-collection.
         for check_result in offending:
             logger.error(
-                f"Source mismatch — check '{check_result.check.full_path}' has "
+                f"Source mismatch — check '{check_result.check.check_path}' has "
                 f"source={check_result.check.source!r} but parent collection "
                 f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
                 f"a backend-side source-mismatch failure on the whole batch."

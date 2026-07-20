@@ -236,7 +236,7 @@ def test_failed_rows_rows_tested_query_returns_zero(data_source_test_helper: Dat
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT 0
+                    {data_source_test_helper.select_literal_query(0)}
         """,
     )
 
@@ -270,7 +270,7 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT NULL
+                    {data_source_test_helper.select_literal_query("NULL")}
         """,
     )
 
@@ -313,7 +313,7 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT 999
+                    {data_source_test_helper.select_literal_query(999)}
         """,
     )
 
@@ -365,7 +365,7 @@ def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT 4
+                    {data_source_test_helper.select_literal_query(4)}
                   threshold:
                     metric: percent
                     must_be_less_than: 10
@@ -420,7 +420,7 @@ def test_two_failed_rows_checks_resolve_to_distinct_metrics(
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT 100
+                    {data_source_test_helper.select_literal_query(100)}
               - failed_rows:
                   qualifier: gap_over_8
                   query: |
@@ -428,7 +428,7 @@ def test_two_failed_rows_checks_resolve_to_distinct_metrics(
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 8
                   rows_tested_query: |
-                    SELECT 200
+                    {data_source_test_helper.select_literal_query(200)}
         """,
     )
 

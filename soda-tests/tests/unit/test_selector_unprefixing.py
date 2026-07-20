@@ -1,12 +1,15 @@
-"""Lock the separation between ``Check.path`` (selector) and
-``Check.full_path`` (wire).
+"""Lock the separation between ``Check.relative_path`` (selector field) and
+``Check.check_path`` (full wire path used by --check-paths / the FE).
 
-Selector matching uses the stripped, yaml-internal ``Check.path``. The wire
-path with the collection prefix is wire-only and never affects
-``--check-selector`` resolution. This keeps user-facing CLI behavior
-identical between contracts and data-standard subtypes — a user writing
-``--check-selector path=columns.email.checks.missing`` matches the check
-on both subtypes without having to know the collection name.
+``relative_path=`` always matches the stripped yaml-internal path on both
+contract and data-standard subtypes.  ``check_path=`` matches the full wire
+path (which for data standards carries the option-3 prefix
+``"{wire_source}.{collection_id}:{relative_path}"``).  A ``relative_path=``
+selector with a prefixed value does NOT match — that would silently fan-out
+to a check the user did not target.
+
+``from_check_paths`` is the entry-point used by the CLI and the FE; it emits
+``check_path`` selectors so the full prefixed path is matched exactly.
 """
 
 from __future__ import annotations
@@ -16,92 +19,80 @@ from unittest.mock import MagicMock
 from soda_core.contracts.impl.check_selector import CheckSelector
 
 
-def _make_check_impl(*, path: str, wire_source: str, collection_id):
-    """Build a minimal CheckImpl-shaped stub the selector matchers read.
+def _make_check_impl(*, relative_path: str, check_path: str | None = None):
+    """Build a minimal CheckImpl-shaped stub.
 
-    The selector code reads ``check_impl.path``, ``check_impl.type``,
-    ``check_impl.name``, ``check_impl.column_impl``,
-    ``check_impl.check_yaml.qualifier``, and ``check_impl.attributes`` —
-    we mirror exactly that surface.
+    ``relative_path`` — stripped yaml-internal path (selector field).
+    ``check_path``    — full wire path; defaults to ``relative_path``
+                        (contract behaviour, where both are identical).
     """
     check_impl = MagicMock()
-    check_impl.path = path
+    check_impl.relative_path = relative_path
+    check_impl.check_path = check_path if check_path is not None else relative_path
     check_impl.type = "missing"
     check_impl.name = "No missing values"
     check_impl.column_impl = None
     check_impl.check_yaml = MagicMock()
     check_impl.check_yaml.qualifier = None
     check_impl.attributes = {}
-    # The back-ref the production ``full_path`` property reads — exposed so
-    # this stub can also answer ``full_path`` if a caller needs it.
-    check_impl.contract_impl = MagicMock()
-    check_impl.contract_impl.wire_source = wire_source
-    check_impl.contract_impl.collection_id = collection_id
     return check_impl
 
 
-def test_selector_matches_stripped_path_for_contract():
-    """Baseline (today's behavior): contract subtype, selector matches
-    against the stripped path. Locks that the rename of the wire-bound
-    field to ``full_path`` did not accidentally redirect the selector.
+def test_relative_path_selector_matches_stripped_path_for_contract():
+    """``relative_path=`` matches the stripped path on contract subtypes."""
+    selector = CheckSelector.parse("relative_path=columns.email.checks.missing")
+    check = _make_check_impl(relative_path="columns.email.checks.missing")
+    assert selector.matches(check)
+
+
+def test_relative_path_selector_matches_stripped_path_for_data_standard():
+    """``relative_path=`` matches the stripped path on data-standard subtypes
+    even though their ``check_path`` carries the option-3 prefix.
     """
-    selector = CheckSelector.parse("path=columns.email.checks.missing")
+    selector = CheckSelector.parse("relative_path=columns.email.checks.missing")
     check = _make_check_impl(
-        path="columns.email.checks.missing",
-        wire_source="soda-contract",
-        collection_id=None,
+        relative_path="columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert selector.matches(check)
 
 
-def test_selector_matches_stripped_path_for_data_standard():
-    """Data-standard subtype: selector still matches against ``Check.path``
-    (the stripped yaml-internal path). The collection_id prefix exists on
-    ``full_path`` only — never on the selector side.
+def test_relative_path_selector_does_not_match_prefixed_form():
+    """A ``relative_path=`` selector with a collection-prefixed value must NOT
+    match — the prefix is wire-only and never appears in ``relative_path``.
     """
-    selector = CheckSelector.parse("path=columns.email.checks.missing")
+    selector = CheckSelector.parse("relative_path=data-standard.my_pii_standard:columns.email.checks.missing")
     check = _make_check_impl(
-        path="columns.email.checks.missing",
-        wire_source="data-standard",
-        collection_id="my_pii_standard",
-    )
-    assert selector.matches(check)
-
-
-def test_selector_does_not_match_full_path_with_prefix():
-    """The wire-prefixed form ``"{collection_id}.{path}"`` must NOT match
-    the selector — the prefix is wire-only. A user writing
-    ``--check-selector path=my_pii_standard.columns.email.checks.missing``
-    against a data-standard impl is asking for a path that does not exist
-    in the stripped form, and gets no match.
-    """
-    selector = CheckSelector.parse("path=my_pii_standard.columns.email.checks.missing")
-    check = _make_check_impl(
-        path="columns.email.checks.missing",
-        wire_source="data-standard",
-        collection_id="my_pii_standard",
+        relative_path="columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert not selector.matches(check)
 
 
-def test_selector_wildcard_matches_stripped_path_for_data_standard():
-    """Wildcard matching still works against the stripped path on
-    non-contract subtypes.
-    """
-    selector = CheckSelector.parse("path=columns.email.*")
+def test_check_path_selector_matches_full_path_for_data_standard():
+    """``check_path=`` matches a data-standard check by its full option-3 wire path."""
+    selector = CheckSelector.parse("check_path=data-standard.my_pii_standard:columns.email.checks.missing")
     check = _make_check_impl(
-        path="columns.email.checks.missing",
-        wire_source="data-standard",
-        collection_id="my_pii_standard",
+        relative_path="columns.email.checks.missing",
+        check_path="data-standard.my_pii_standard:columns.email.checks.missing",
     )
     assert selector.matches(check)
 
 
-def test_check_selector_supported_fields_does_not_include_full_path():
-    """``full_path`` is wire-only — it must not appear in the public
-    selector surface. If a future change exposes it, the selector behavior
-    pins above start matching wire-prefixed forms, breaking the contract
-    that selectors are subtype-agnostic.
+def test_check_path_selector_matches_bare_path_for_contract():
+    """For contracts ``check_path == relative_path``, so a bare path still
+    matches via the ``check_path`` selector.
     """
-    assert "full_path" not in CheckSelector.SUPPORTED_FIELDS
-    assert "path" in CheckSelector.SUPPORTED_FIELDS
+    selector = CheckSelector.parse("check_path=columns.email.checks.missing")
+    check = _make_check_impl(relative_path="columns.email.checks.missing")
+    assert selector.matches(check)
+
+
+def test_from_check_paths_targets_check_path_field():
+    """``from_check_paths`` must emit ``check_path`` selectors — not ``path``
+    or ``relative_path`` — so the full wire path is matched exactly.
+    """
+    selectors = CheckSelector.from_check_paths(["data-standard.my_std:columns.email.checks.missing"])
+    assert len(selectors) == 1
+    assert selectors[0].field == "check_path"
+    assert selectors[0].value == "data-standard.my_std:columns.email.checks.missing"

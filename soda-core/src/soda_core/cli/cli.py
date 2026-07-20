@@ -503,11 +503,13 @@ def _setup_data_source_test_command(data_source_parsers) -> None:
 def _setup_data_source_discover_command(data_source_parsers) -> None:
     discover_parser = data_source_parsers.add_parser("discover", help="Discover datasets in a data source")
     discover_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
+    # nargs="+" so a bare `--include`/`--exclude` is a parse error rather than an empty
+    # list that silently falls through to "match everything".
     discover_parser.add_argument(
-        "--include", type=str, nargs="*", help="Dataset name patterns to include (SQL %% wildcard)."
+        "--include", type=str, nargs="+", help="Dataset name patterns to include (SQL %% wildcard)."
     )
     discover_parser.add_argument(
-        "--exclude", type=str, nargs="*", help="Dataset name patterns to exclude (SQL %% wildcard)."
+        "--exclude", type=str, nargs="+", help="Dataset name patterns to exclude (SQL %% wildcard)."
     )
     discover_parser.add_argument(
         "--scan-definition-name",
@@ -538,7 +540,7 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # The data source and the mandatory scan definition name (arg >
             # SODA_SCAN_DEFINITION) resolve inside the wrapped command: their
             # failures take the standard mark-with-logs mapping.
-            # Discovery constructs no inner Logs (DiscoveryRun emits via soda_logger,
+            # Discovery constructs no inner Logs (discover_dataset_dqns emits via soda_logger,
             # which already lands in the active wrapper collector), so the wrapper's
             # ``logs`` is accepted and ignored here.
             exit_code = run_with_failure_reporting(

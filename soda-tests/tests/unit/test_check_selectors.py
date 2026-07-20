@@ -11,15 +11,25 @@ def _make_check_impl(
     type="missing",
     name="No missing values",
     column_name="id",
-    path="columns.id.checks.missing",
+    relative_path="columns.id.checks.missing",
+    full_path=None,
     qualifier=None,
     attributes=None,
+    wire_source="soda-contract",
+    collection_id=None,
 ):
-    """Create a mock CheckImpl with the given attributes."""
+    """Create a mock CheckImpl with the given attributes.
+
+    ``relative_path`` is the stripped yaml-internal path (selector side).
+    ``full_path`` is the wire path including any collection prefix; defaults
+    to ``relative_path`` (contract behaviour where both are identical).
+    ``wire_source`` and ``collection_id`` are set on ``check_impl.contract_impl``.
+    """
     check_impl = MagicMock()
     check_impl.type = type
     check_impl.name = name
-    check_impl.path = path
+    check_impl.relative_path = relative_path
+    check_impl.check_path = full_path if full_path is not None else relative_path
     check_impl.attributes = attributes or {}
 
     if column_name:
@@ -30,6 +40,9 @@ def _make_check_impl(
     check_yaml = MagicMock()
     check_yaml.qualifier = qualifier
     check_impl.check_yaml = check_yaml
+
+    check_impl.contract_impl.wire_source = wire_source
+    check_impl.contract_impl.collection_id = collection_id
 
     return check_impl
 
@@ -92,17 +105,13 @@ class TestCheckSelectorParse:
         assert selectors == []
 
     def test_parse_all_supported_fields(self):
-        for field in ["type", "name", "column", "path", "qualifier"]:
-            selector = CheckSelector.parse(f"{field}=value")
-            assert selector.field == field
+        for field in CheckSelector.SUPPORTED_FIELDS:
+            assert CheckSelector.parse(f"{field}=value").field == field
 
     def test_from_check_paths(self):
         selectors = CheckSelector.from_check_paths(["columns.id.checks.missing", "checks.schema"])
-        assert len(selectors) == 2
-        assert selectors[0].field == "path"
-        assert selectors[0].value == "columns.id.checks.missing"
-        assert selectors[1].field == "path"
-        assert selectors[1].value == "checks.schema"
+        assert [s.field for s in selectors] == ["check_path", "check_path"]
+        assert [s.value for s in selectors] == ["columns.id.checks.missing", "checks.schema"]
 
     def test_from_check_paths_none(self):
         selectors = CheckSelector.from_check_paths(None)
@@ -111,6 +120,10 @@ class TestCheckSelectorParse:
     def test_from_check_paths_empty(self):
         selectors = CheckSelector.from_check_paths([])
         assert selectors == []
+
+    def test_parse_new_fields(self):
+        for field in ("source", "collection", "standard", "relative_path", "check_path"):
+            assert CheckSelector.parse(f"{field}=x").field == field
 
 
 # --- Matching tests ---
@@ -144,7 +157,7 @@ class TestCheckSelectorMatches:
 
     def test_match_path(self):
         selector = CheckSelector.parse("path=columns.id.checks.missing")
-        check = _make_check_impl(path="columns.id.checks.missing")
+        check = _make_check_impl(relative_path="columns.id.checks.missing")
         assert selector.matches(check)
 
     def test_match_qualifier(self):
@@ -171,6 +184,28 @@ class TestCheckSelectorMatches:
         selector = CheckSelector.parse("attributes.priority=1")
         check = _make_check_impl(attributes={"priority": 1})
         assert selector.matches(check)
+
+    def test_match_source(self):
+        sel = CheckSelector.parse("source=data-standard")
+        assert sel.matches(_make_check_impl(wire_source="data-standard"))
+        assert not sel.matches(_make_check_impl(wire_source="soda-contract"))
+
+    def test_match_collection_and_standard_alias(self):
+        for field in ("collection", "standard"):
+            sel = CheckSelector.parse(f"{field}=my_std")
+            assert sel.matches(_make_check_impl(collection_id="my_std"))
+            assert not sel.matches(_make_check_impl(collection_id="other"))
+
+    def test_collection_does_not_match_none(self):
+        assert not CheckSelector.parse("collection=my_std").matches(_make_check_impl(collection_id=None))
+
+    def test_collection_wildcard(self):
+        assert CheckSelector.parse("standard=pii_*").matches(_make_check_impl(collection_id="pii_v2"))
+        assert not CheckSelector.parse("standard=pii_*").matches(_make_check_impl(collection_id="gdpr_v1"))
+
+    def test_source_wildcard(self):
+        assert CheckSelector.parse("source=data-*").matches(_make_check_impl(wire_source="data-standard"))
+        assert not CheckSelector.parse("source=data-*").matches(_make_check_impl(wire_source="soda-contract"))
 
 
 # --- Wildcard tests ---
@@ -199,7 +234,7 @@ class TestCheckSelectorWildcard:
 
     def test_wildcard_path(self):
         selector = CheckSelector.parse("path=columns.*.checks.missing")
-        check = _make_check_impl(path="columns.id.checks.missing")
+        check = _make_check_impl(relative_path="columns.id.checks.missing")
         assert selector.matches(check)
 
     def test_wildcard_with_brackets_treated_literally(self):
@@ -261,9 +296,9 @@ class TestCheckSelectorAllMatch:
 
     def test_check_paths_converted_to_selectors(self):
         selectors = CheckSelector.from_check_paths(["columns.id.checks.missing", "checks.schema"])
-        check1 = _make_check_impl(path="columns.id.checks.missing")
-        check2 = _make_check_impl(path="checks.schema")
-        check3 = _make_check_impl(path="columns.name.checks.invalid")
+        check1 = _make_check_impl(relative_path="columns.id.checks.missing")
+        check2 = _make_check_impl(relative_path="checks.schema")
+        check3 = _make_check_impl(relative_path="columns.name.checks.invalid")
         assert CheckSelector.all_match(selectors, check1)
         assert CheckSelector.all_match(selectors, check2)
         assert not CheckSelector.all_match(selectors, check3)
@@ -273,13 +308,36 @@ class TestCheckSelectorAllMatch:
         attr_selectors = CheckSelector.parse_all(["attributes.severity=critical"])
         all_selectors = path_selectors + attr_selectors
 
-        check_match = _make_check_impl(path="columns.id.checks.missing", attributes={"severity": "critical"})
-        check_wrong_path = _make_check_impl(path="checks.schema", attributes={"severity": "critical"})
-        check_wrong_attr = _make_check_impl(path="columns.id.checks.missing", attributes={"severity": "low"})
+        check_match = _make_check_impl(relative_path="columns.id.checks.missing", attributes={"severity": "critical"})
+        check_wrong_path = _make_check_impl(relative_path="checks.schema", attributes={"severity": "critical"})
+        check_wrong_attr = _make_check_impl(relative_path="columns.id.checks.missing", attributes={"severity": "low"})
 
         assert CheckSelector.all_match(all_selectors, check_match)
         assert not CheckSelector.all_match(all_selectors, check_wrong_path)
         assert not CheckSelector.all_match(all_selectors, check_wrong_attr)
+
+    def test_check_paths_match_full_check_path_for_data_standard(self):
+        selectors = CheckSelector.from_check_paths(["data-standard.my_std:columns.email.checks.missing"])
+        ds_check = _make_check_impl(
+            relative_path="columns.email.checks.missing",
+            full_path="data-standard.my_std:columns.email.checks.missing",  # _make_check_impl maps this to check_path
+        )
+        assert CheckSelector.all_match(selectors, ds_check)
+
+    def test_check_paths_do_not_match_relative_for_data_standard(self):
+        # A bare relative path must NOT select a data-standard check (no silent fan-out).
+        selectors = CheckSelector.from_check_paths(["columns.email.checks.missing"])
+        ds_check = _make_check_impl(
+            relative_path="columns.email.checks.missing",
+            full_path="data-standard.my_std:columns.email.checks.missing",
+        )
+        assert not CheckSelector.all_match(selectors, ds_check)
+
+    def test_check_paths_match_bare_for_contract(self):
+        # Contracts: check_path == relative_path, so bare paths still match.
+        selectors = CheckSelector.from_check_paths(["columns.id.checks.missing"])
+        contract_check = _make_check_impl(relative_path="columns.id.checks.missing")  # full_path defaults to it
+        assert CheckSelector.all_match(selectors, contract_check)
 
 
 # --- List attribute tests ---

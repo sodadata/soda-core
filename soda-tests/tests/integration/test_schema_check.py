@@ -19,6 +19,42 @@ test_table_specification = (
     .build()
 )
 
+_boolean_schema_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("schema_boolean")
+    .column_varchar("id")
+    .column_boolean("is_active")
+    .build()
+)
+
+
+def test_schema_boolean_data_type_oracle(data_source_test_helper: DataSourceTestHelper):
+    """A contract declaring ``data_type: boolean`` must pass the schema check on Oracle, including
+    pre-23ai (18c/19c) where BOOLEAN has no native SQL type and is stored as NUMBER (which reads
+    back as ``number``). Guarded by OracleSqlDialect.data_type_names_are_same_or_synonym."""
+    if data_source_test_helper.data_source_impl.type_name != "oracle":
+        pytest.skip("Oracle-specific: pre-23ai Oracle stores BOOLEAN as NUMBER")
+
+    test_table = data_source_test_helper.ensure_test_table(_boolean_schema_test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - schema:
+            columns:
+              - name: id
+              - name: is_active
+                data_type: boolean
+        """,
+    )
+
 
 @pytest.mark.parametrize("table_type", [TableType.TABLE, TableType.MATERIALIZED_VIEW, TableType.VIEW])
 def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: TableType):

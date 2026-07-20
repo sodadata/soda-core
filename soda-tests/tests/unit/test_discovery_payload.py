@@ -34,6 +34,22 @@ def test_payload_is_dqn_only_v4():
     assert all(set(entry.keys()) == {"datasetQualifiedName"} for entry in payload["metadata"])
 
 
+def test_payload_empty_discovery_yields_empty_metadata(monkeypatch):
+    # A data source with nothing to discover: metadata is empty but the envelope
+    # is still valid (version + @NotNull-validated timestamps present).
+    monkeypatch.delenv("SODA_SCAN_DATA_TIMESTAMP", raising=False)
+    payload = build_discovery_payload(
+        dqns=[],
+        data_source_name="postgres",
+        scan_definition_name="postgres_schema_discovery_scan",
+    )
+    assert payload["metadata"] == []
+    assert payload["version"] == "4"
+    for key in ("dataTimestamp", "scanStartTimestamp", "scanEndTimestamp"):
+        assert isinstance(payload[key], str)
+    assert SodaCoreInsertScanResultsDTO.__required_keys__ <= set(payload.keys())
+
+
 def test_payload_includes_scan_id_when_env_set(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-1")
     payload = build_discovery_payload(

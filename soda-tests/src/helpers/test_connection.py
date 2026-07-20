@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
+from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import DataSourceYamlSource
@@ -44,6 +45,11 @@ class TestConnection:
     def create_data_source_impl(self, data_source_yaml_source: DataSourceYamlSource) -> DataSourceImpl:
         return DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
+    def _connection_test_query(self, data_source_impl: DataSourceImpl) -> str:
+        # A trivial query to verify the live connection, using the shared single source of
+        # truth for a literal SELECT (Oracle needs FROM DUAL; other sources accept a bare SELECT).
+        return DataSourceTestHelper.build_select_literal_query(data_source_impl.type_name, 1)
+
     def test(self, monkeypatch: Optional[pytest.MonkeyPatch] = None):
         if self.monkeypatches:
             for module, mock in self.monkeypatches.items():
@@ -77,14 +83,15 @@ class TestConnection:
                 # do not try to query if connection failed
                 return
 
+            test_query = self._connection_test_query(data_source_impl)
             if self.query_should_succeed:
-                data_source_impl.execute_query("SELECT 1")
+                data_source_impl.execute_query(test_query)
                 if logs.has_errors:
                     error_msg = "Query failed unexpectedly with error: " + logs.get_errors_str()
                     raise RuntimeError(error_msg)
             else:
                 with pytest.raises(Exception) as exc_info:
-                    data_source_impl.execute_query("SELECT 1")
+                    data_source_impl.execute_query(test_query)
                 assert self.expected_query_error in str(exc_info.value)
                 return
         finally:
