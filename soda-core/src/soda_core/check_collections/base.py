@@ -90,6 +90,11 @@ class CheckCollectionResult:
     # producing real output (used by ``execute_check_collections`` per-item
     # error isolation). Real verifications leave this as None.
     error: Optional[BaseException] = None
+    # Raw measurement dicts emitted as ``metrics: [...]`` in the scan-results
+    # payload. Populated by metric-monitoring callers; contracts leave this empty.
+    # list[dict] rather than list[Measurement] so callers can attach pre-serialised
+    # cloud-shape dicts without depending on the engine's internal Measurement class.
+    measurement_dicts: list[dict] = field(default_factory=list)
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
