@@ -153,6 +153,15 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def information_schema_namespace_elements(self, data_source_namespace: BigQueryDataSourceNamespace) -> list[str]:
         return [data_source_namespace.project_id, data_source_namespace.dataset, "INFORMATION_SCHEMA"]
 
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: Optional[bool] = None) -> str:
+        # BigQuery datasets are project-scoped, so qualify the dataset with the project
+        # (prefixes[0]) — otherwise it lands in the client's default (compute) project
+        # instead of the storage project. The base implementation uses the dataset name alone.
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        project_id, dataset = prefixes
+        qualified_schema_name: str = f"{self.quote_for_ddl(project_id)}.{self.quote_for_ddl(dataset)}"
+        return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema_name}" + (";" if add_semicolon else "")
+
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
