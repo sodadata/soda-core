@@ -923,6 +923,39 @@ def test_execute_dataset_query_builds_envelope_and_returns_body():
     assert kwargs["request_log_name"] == "get_something"
 
 
+def test_execute_dataset_query_includes_additional_query_fields_without_mutating_them():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(200, {}))
+    additional_query_fields = {
+        "window": {
+            "start": "2026-07-01T00:00:00+00:00",
+            "end": "2026-07-14T23:59:59+00:00",
+        }
+    }
+
+    soda_cloud.execute_dataset_query(
+        query_type="rcaGetDatasetContext",
+        dataset_identifier="postgres_ds/public/orders",
+        request_log_name="rca_dataset_context",
+        additional_query_fields=additional_query_fields,
+    )
+
+    query_json_dict = soda_cloud._execute_query.call_args.args[0]
+    assert query_json_dict == {
+        "type": "rcaGetDatasetContext",
+        "dataset": {"datasource": "postgres_ds", "prefixes": ["public"], "name": "orders"},
+        "window": {
+            "start": "2026-07-01T00:00:00+00:00",
+            "end": "2026-07-14T23:59:59+00:00",
+        },
+    }
+    assert additional_query_fields == {
+        "window": {
+            "start": "2026-07-01T00:00:00+00:00",
+            "end": "2026-07-14T23:59:59+00:00",
+        }
+    }
+
+
 def test_execute_dataset_query_maps_datasource_not_found():
     soda_cloud = _soda_cloud_with_query_response(_query_response(400, {"code": "datasource_not_found"}))
     with pytest.raises(DataSourceNotFoundException):

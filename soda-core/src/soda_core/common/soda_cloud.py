@@ -1098,12 +1098,14 @@ class SodaCloud:
         dataset_identifier: str,
         request_log_name: str,
         error_codes: Optional[dict[str, type[SodaCloudException]]] = None,
+        additional_query_fields: Optional[dict] = None,
     ) -> dict:
         """Issue a dataset-scoped CQRS query and return the parsed JSON body.
 
         Builds the standard ``{type, dataset: {datasource, prefixes, name}}`` envelope,
-        issues it through :meth:`execute_query`, and maps the failures every dataset
-        query shares to typed exceptions: a missing data source or dataset
+        merges any feature-specific ``additional_query_fields``, issues it through
+        :meth:`execute_query`, and maps the failures every dataset query shares to typed exceptions:
+        a missing data source or dataset
         (``datasource_not_found`` / ``dataset_not_found``), any non-200 status, and
         missing or non-JSON response bodies (e.g. a gateway HTML error page).
 
@@ -1112,15 +1114,17 @@ class SodaCloud:
         stays with the caller.
         """
         parsed = DatasetIdentifier.parse(dataset_identifier)
-        response = self._execute_query(
-            {
-                "type": query_type,
-                "dataset": {
-                    "datasource": parsed.data_source_name,
-                    "prefixes": parsed.prefixes,
-                    "name": parsed.dataset_name,
-                },
+        query_json_dict = {
+            **(additional_query_fields or {}),
+            "type": query_type,
+            "dataset": {
+                "datasource": parsed.data_source_name,
+                "prefixes": parsed.prefixes,
+                "name": parsed.dataset_name,
             },
+        }
+        response = self._execute_query(
+            query_json_dict,
             request_log_name=request_log_name,
         )
         if response is None:
