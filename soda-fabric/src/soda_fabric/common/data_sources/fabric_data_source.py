@@ -56,6 +56,11 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         # which discovery includes.
         return schema_name.lower() in ["sys", "queryinsights"] or super().is_system_schema(schema_name)
 
+    def supports_percentile_within_group(self) -> bool:
+        # The Fabric Warehouse engine always supports the APPROX_PERCENTILE_DISC
+        # aggregate, so pin the capability and ignore the SQL-Server-version probe.
+        return True
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 

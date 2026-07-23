@@ -68,10 +68,61 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def open_connection(self) -> None:
+        super().open_connection()
+        # Only the plain SQL Server dialect needs a runtime capability probe;
+        # Fabric/Synapse pin their percentile support in the dialect itself.
+        if type(self.sql_dialect) is SqlServerSqlDialect:
+            self.sql_dialect.set_approx_percentile_disc_supported(self._probe_approx_percentile_disc_support())
+
+    def _probe_approx_percentile_disc_support(self) -> bool:
+        try:
+            row = self.execute_query(
+                "SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS INT), "
+                "CAST(SERVERPROPERTY('EngineEdition') AS INT)",
+                log_query=False,
+            ).rows[0]
+            return self._engine_supports_approx_percentile_disc(row[0], row[1])
+        except Exception as e:
+            # Never fail a scan over a capability probe; fall back to assuming
+            # support (v3 behavior) and let the actual query surface any error.
+            logger.warning(f"Could not probe SQL Server APPROX_PERCENTILE_DISC support: {e}")
+            return True
+
+    @staticmethod
+    def _engine_supports_approx_percentile_disc(
+        major_version: Optional[int], engine_edition: Optional[int]
+    ) -> bool:
+        # APPROX_PERCENTILE_DISC aggregate is available on SQL Server 2022+
+        # (ProductMajorVersion >= 16) and on Azure SQL Database (EngineEdition 5)
+        # and Azure SQL Managed Instance (EngineEdition 8), which report a legacy
+        # ProductMajorVersion. Synapse dedicated pools (6) are handled by the
+        # Synapse dialect, which pins support to False.
+        return (major_version is not None and major_version >= 16) or engine_edition in (5, 8)
+
 
 class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
+
+    def __init__(self):
+        super().__init__()
+        # None until the data source probes the engine on connect; see
+        # SqlServerDataSourceImpl._probe_approx_percentile_disc_support.
+        self._approx_percentile_disc_supported: Optional[bool] = None
+
+    def supports_percentile_within_group(self) -> bool:
+        # T-SQL exposes percentiles as an aggregate only via APPROX_PERCENTILE_DISC,
+        # which requires SQL Server 2022+ (ProductMajorVersion >= 16) or Azure SQL
+        # Database / Managed Instance. The capability is probed on connect and
+        # injected here; when unprobed (pure SQL rendering with no live connection)
+        # we assume support so rendering-only paths are unaffected.
+        if self._approx_percentile_disc_supported is None:
+            return True
+        return self._approx_percentile_disc_supported
+
+    def set_approx_percentile_disc_supported(self, supported: bool) -> None:
+        self._approx_percentile_disc_supported = supported
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []

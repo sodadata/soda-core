@@ -136,8 +136,33 @@ def test_percentile_within_group_renders_approx_percentile_disc():
     assert sql == "APPROX_PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY [c])"
 
 
-def test_supports_percentile_within_group_is_true():
+def test_supports_percentile_within_group_defaults_true_when_unprobed():
+    # A dialect with no live connection (pure SQL rendering) hasn't probed the
+    # engine; it assumes support to preserve rendering behavior.
     assert SqlServerSqlDialect().supports_percentile_within_group() is True
+
+
+def test_supports_percentile_within_group_reflects_injected_capability():
+    # APPROX_PERCENTILE_DISC needs SQL Server 2022+/Azure; the data source probes
+    # the engine on connect and injects the result into the dialect seam.
+    dialect = SqlServerSqlDialect()
+    dialect.set_approx_percentile_disc_supported(False)
+    assert dialect.supports_percentile_within_group() is False
+    dialect.set_approx_percentile_disc_supported(True)
+    assert dialect.supports_percentile_within_group() is True
+
+
+def test_engine_supports_approx_percentile_disc_matrix():
+    from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerDataSourceImpl
+
+    f = SqlServerDataSourceImpl._engine_supports_approx_percentile_disc
+    assert f(16, 3) is True  # SQL Server 2022, Enterprise (on-prem)
+    assert f(17, 2) is True  # future major, Standard
+    assert f(15, 3) is False  # SQL Server 2019 — no aggregate APPROX_PERCENTILE_DISC
+    assert f(12, 5) is True  # Azure SQL Database (reports legacy major 12)
+    assert f(12, 8) is True  # Azure SQL Managed Instance
+    assert f(15, 4) is False  # SQL Server 2019 Express
+    assert f(None, None) is False  # unknown engine — be safe
 
 
 # ---------------------------------------------------------------------------

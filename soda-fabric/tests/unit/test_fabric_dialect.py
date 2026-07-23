@@ -111,6 +111,14 @@ def test_supports_percentile_within_group_is_true():
     assert FabricSqlDialect().supports_percentile_within_group() is True
 
 
+def test_supports_percentile_within_group_pinned_true_ignores_probe():
+    # The Fabric engine always supports APPROX_PERCENTILE_DISC, so it pins the
+    # capability and ignores the SQL-Server-version probe seam entirely.
+    dialect = FabricSqlDialect()
+    dialect.set_approx_percentile_disc_supported(False)
+    assert dialect.supports_percentile_within_group() is True
+
+
 def test_literal_timestamp_typed_inherits_datetime2_cast():
     from datetime import datetime
 
