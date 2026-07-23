@@ -205,3 +205,29 @@ def test_add_interval_renders_timestamp_add():
         ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
     )
     assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) DAY)"
+
+
+def test_add_interval_weeks_renders_as_days_times_seven():
+    # BigQuery TIMESTAMP_ADD accepts only MICROSECOND..DAY parts; WEEK is invalid
+    # there (though valid for TIMESTAMP_DIFF), so weekly buckets must be expressed
+    # as INTERVAL <count> * 7 DAY.
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) * 7 DAY)"
+
+
+def test_time_delta_weeks_keeps_week_part():
+    # The TIMESTAMP_DIFF path DOES accept WEEK; it must stay unchanged.
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "weeks", 1)
+    )
+    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', WEEK)"

@@ -241,6 +241,11 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        # BigQuery TIMESTAMP_ADD only accepts MICROSECOND..DAY parts — WEEK is invalid here
+        # (it is valid for TIMESTAMP_DIFF, hence the asymmetry with _build_time_delta_sql).
+        # Express weekly buckets as INTERVAL <count> * 7 DAY.
+        if add_interval.unit == "weeks":
+            return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} * 7 DAY)"
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
         return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} {unit_name})"
 
