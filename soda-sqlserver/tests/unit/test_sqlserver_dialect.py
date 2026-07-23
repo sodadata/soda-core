@@ -136,35 +136,46 @@ def test_percentile_within_group_renders_approx_percentile_disc():
     assert sql == "APPROX_PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY [c])"
 
 
-def test_supports_percentile_within_group_defaults_true_when_unprobed():
-    # A dialect with no live connection (pure SQL rendering) hasn't probed the
-    # engine; it assumes support to preserve rendering behavior.
+def test_supports_percentile_within_group_defaults_true_without_server_facts():
+    # A dialect with no live connection (pure SQL rendering, snapshot replay) has
+    # no server facts; it assumes the newest engine to preserve rendering behavior.
     assert SqlServerSqlDialect().supports_percentile_within_group() is True
 
 
-def test_supports_percentile_within_group_reflects_injected_capability():
-    # APPROX_PERCENTILE_DISC needs SQL Server 2022+/Azure; the data source probes
-    # the engine on connect and injects the result into the dialect seam.
+def _dialect_with_server_facts(server_major_version, engine_edition) -> SqlServerSqlDialect:
+    # Mimics SqlServerDataSourceImpl._sync_dialect_server_info at connection open.
     dialect = SqlServerSqlDialect()
-    dialect.set_approx_percentile_disc_supported(False)
-    assert dialect.supports_percentile_within_group() is False
-    dialect.set_approx_percentile_disc_supported(True)
-    assert dialect.supports_percentile_within_group() is True
+    dialect.server_major_version = server_major_version
+    dialect.engine_edition = engine_edition
+    return dialect
 
 
-def test_engine_supports_approx_percentile_disc_matrix():
-    from soda_sqlserver.common.data_sources.sqlserver_data_source import (
-        SqlServerDataSourceImpl,
-    )
-
-    f = SqlServerDataSourceImpl._engine_supports_approx_percentile_disc
+def test_supports_percentile_within_group_derived_from_server_facts():
+    # APPROX_PERCENTILE_DISC needs SQL Server 2022+ (ProductMajorVersion >= 16),
+    # Azure SQL Database (EngineEdition 5), or Managed Instance (EngineEdition 8);
+    # the dialect derives the capability from the synced raw facts.
+    f = lambda major, edition: _dialect_with_server_facts(major, edition).supports_percentile_within_group()
     assert f(16, 3) is True  # SQL Server 2022, Enterprise (on-prem)
     assert f(17, 2) is True  # future major, Standard
     assert f(15, 3) is False  # SQL Server 2019 — no aggregate APPROX_PERCENTILE_DISC
     assert f(12, 5) is True  # Azure SQL Database (reports legacy major 12)
     assert f(12, 8) is True  # Azure SQL Managed Instance
     assert f(15, 4) is False  # SQL Server 2019 Express
-    assert f(None, None) is False  # unknown engine — be safe
+    assert f(None, 3) is False  # version detection failed; on-prem edition proves nothing
+    assert f(None, None) is True  # no facts at all — indistinguishable from offline, assume newest
+
+
+def test_parse_server_major_version():
+    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
+        SqlServerDataSourceConnection,
+    )
+
+    parse = SqlServerDataSourceConnection._parse_server_major_version
+    assert parse("15.00.4123") == 15
+    assert parse("12.00.2000") == 12
+    assert parse("garbage") is None
+    assert parse("") is None
+    assert parse(None) is None
 
 
 # ---------------------------------------------------------------------------

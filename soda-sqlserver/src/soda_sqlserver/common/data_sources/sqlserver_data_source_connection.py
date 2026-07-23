@@ -107,6 +107,10 @@ def handle_datetimeoffset(dto_value):
 
 class SqlServerDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
+        # Set before super().__init__(), which auto-opens the connection and
+        # populates these from the live server in _create_connection.
+        self.server_major_version: Optional[int] = None
+        self.engine_edition: Optional[int] = None
         super().__init__(name, connection_properties)
 
     # Normalize pyodbc.Row objects so downstream consumers see plain tuples.
@@ -190,9 +194,42 @@ class SqlServerDataSourceConnection(DataSourceConnection):
 
             self.connection.add_output_converter(-155, handle_datetimeoffset)
             self.connection.add_output_converter(-150, handle_datetime)
+            self._detect_server_info(self.connection)
             return self.connection
         except Exception as e:
             raise DataSourceConnectionException(e) from e
+
+    @staticmethod
+    def _parse_server_major_version(dbms_version: Optional[str]) -> Optional[int]:
+        """Parse the leading integer of an ODBC SQL_DBMS_VER string, e.g. '15.00.4123' -> 15."""
+        if not dbms_version:
+            return None
+        try:
+            return int(str(dbms_version).split(".")[0])
+        except (ValueError, IndexError):
+            return None
+
+    def _detect_server_info(self, connection) -> None:
+        """Detect raw engine facts once per connect; the data source syncs them onto
+        the dialect, which derives version-dependent capabilities from them (e.g.
+        APPROX_PERCENTILE_DISC needs SQL Server 2022+ or Azure SQL DB/MI).
+
+        The product version comes from the driver's login handshake — no extra
+        round-trip; EngineEdition costs one query. Detection is never fatal for an
+        otherwise healthy connect: on failure a warning is logged and the fact stays
+        None, which capability checks treat as "assume the newest engine".
+        """
+        try:
+            self.server_major_version = self._parse_server_major_version(connection.getinfo(pyodbc.SQL_DBMS_VER))
+        except Exception as e:
+            logger.warning(f"Could not determine SQL Server product version: {e}")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT CAST(SERVERPROPERTY('EngineEdition') AS INT)")
+                row = cursor.fetchone()
+            self.engine_edition = row[0] if row is not None else None
+        except Exception as e:
+            logger.warning(f"Could not determine SQL Server engine edition: {e}")
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]

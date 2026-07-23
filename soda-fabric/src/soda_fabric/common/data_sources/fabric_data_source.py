@@ -58,7 +58,7 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
 
     def supports_percentile_within_group(self) -> bool:
         # The Fabric Warehouse engine always supports the APPROX_PERCENTILE_DISC
-        # aggregate, so pin the capability and ignore the SQL-Server-version probe.
+        # aggregate, so pin the capability regardless of any synced server facts.
         return True
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:

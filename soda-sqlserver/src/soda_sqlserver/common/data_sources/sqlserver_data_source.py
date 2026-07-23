@@ -56,9 +56,19 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
 logger: logging.Logger = soda_logger
 
 
+# APPROX_PERCENTILE_DISC needs SQL Server 2022+ on-prem, or Azure SQL Database /
+# Managed Instance (which report a legacy ProductMajorVersion).
+SQLSERVER_2022_MAJOR_VERSION = 16
+AZURE_SQL_DATABASE_ENGINE_EDITION = 5
+AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION = 8
+
+
 class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceModel):
     def __init__(self, data_source_model: SqlServerDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
+        # A live connection supplied at construction (e.g. a bulk-insert copy)
+        # already carries detected server facts; propagate them right away.
+        self._sync_dialect_server_info()
 
     def _create_sql_dialect(self) -> SqlDialect:
         return SqlServerSqlDialect()
@@ -70,35 +80,32 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 
     def open_connection(self) -> None:
         super().open_connection()
-        # Only the plain SQL Server dialect needs a runtime capability probe;
-        # Fabric/Synapse pin their percentile support in the dialect itself.
-        if type(self.sql_dialect) is SqlServerSqlDialect:
-            self.sql_dialect.set_approx_percentile_disc_supported(self._probe_approx_percentile_disc_support())
+        self._sync_dialect_server_info()
 
-    def _probe_approx_percentile_disc_support(self) -> bool:
-        try:
-            row = self.execute_query(
-                "SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS INT), "
-                "CAST(SERVERPROPERTY('EngineEdition') AS INT)",
-                log_query=False,
-            ).rows[0]
-            return self._engine_supports_approx_percentile_disc(row[0], row[1])
-        except Exception as e:
-            # Never fail a scan over a capability probe; fall back to assuming
-            # support (v3 behavior) and let the actual query surface any error.
-            logger.warning(f"Could not probe SQL Server APPROX_PERCENTILE_DISC support: {e}")
-            return True
+    def _sync_dialect_server_info(self) -> None:
+        """Copy the connection's detected engine facts onto the dialect, which
+        derives version-dependent capabilities from them (see
+        SqlServerSqlDialect.supports_percentile_within_group).
 
-    @staticmethod
-    def _engine_supports_approx_percentile_disc(
-        major_version: Optional[int], engine_edition: Optional[int]
-    ) -> bool:
-        # APPROX_PERCENTILE_DISC aggregate is available on SQL Server 2022+
-        # (ProductMajorVersion >= 16) and on Azure SQL Database (EngineEdition 5)
-        # and Azure SQL Managed Instance (EngineEdition 8), which report a legacy
-        # ProductMajorVersion. Synapse dedicated pools (6) are handled by the
-        # Synapse dialect, which pins support to False.
-        return (major_version is not None and major_version >= 16) or engine_edition in (5, 8)
+        Runs at connection-open time only; the dialect must NOT read the connection
+        during SQL generation — in snapshot replay the connection is a lazy wrapper
+        whose attribute access opens a real connection, so touching it while
+        building SQL breaks replay.
+
+        Gate on the concrete connection type rather than duck-typing the attributes:
+        a replay SnapshotDataSourceConnection is NOT a SqlServerDataSourceConnection,
+        so isinstance() is False and we never touch its attributes (which would fire
+        its __getattr__ fallback and open a real connection). Replay then keeps the
+        dialect's None defaults (assume newest engine), which is exactly what
+        recorded snapshots expect.
+        """
+        conn = self.data_source_connection
+        if isinstance(conn, SqlServerDataSourceConnection):
+            # Guaranteed by every _create_sql_dialect in this hierarchy; the assert
+            # only narrows the declared SqlDialect type for the assignments.
+            assert isinstance(self.sql_dialect, SqlServerSqlDialect)
+            self.sql_dialect.server_major_version = conn.server_major_version
+            self.sql_dialect.engine_edition = conn.engine_edition
 
 
 class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
@@ -107,22 +114,27 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def __init__(self):
         super().__init__()
-        # None until the data source probes the engine on connect; see
-        # SqlServerDataSourceImpl._probe_approx_percentile_disc_support.
-        self._approx_percentile_disc_supported: Optional[bool] = None
+        # Raw engine facts, synced from the live connection at open by
+        # SqlServerDataSourceImpl._sync_dialect_server_info. None means no live
+        # server facts (pure SQL rendering, unit tests, snapshot replay);
+        # capability checks then assume the newest engine.
+        self.server_major_version: Optional[int] = None
+        self.engine_edition: Optional[int] = None
 
     def supports_percentile_within_group(self) -> bool:
-        # T-SQL exposes percentiles as an aggregate only via APPROX_PERCENTILE_DISC,
-        # which requires SQL Server 2022+ (ProductMajorVersion >= 16) or Azure SQL
-        # Database / Managed Instance. The capability is probed on connect and
-        # injected here; when unprobed (pure SQL rendering with no live connection)
-        # we assume support so rendering-only paths are unaffected.
-        if self._approx_percentile_disc_supported is None:
-            return True
-        return self._approx_percentile_disc_supported
-
-    def set_approx_percentile_disc_supported(self, supported: bool) -> None:
-        self._approx_percentile_disc_supported = supported
+        # T-SQL exposes percentiles as an aggregate only via APPROX_PERCENTILE_DISC:
+        # SQL Server 2022+ (ProductMajorVersion >= 16), Azure SQL Database, or Azure
+        # SQL Managed Instance (both report a legacy ProductMajorVersion, hence the
+        # edition check). Synapse dedicated pools have no percentile aggregate at
+        # all; the Synapse dialect pins this to False.
+        if self.server_major_version is None and self.engine_edition is None:
+            return True  # no live server facts: assume the newest engine
+        return (
+            self.server_major_version is not None and self.server_major_version >= SQLSERVER_2022_MAJOR_VERSION
+        ) or self.engine_edition in (
+            AZURE_SQL_DATABASE_ENGINE_EDITION,
+            AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION,
+        )
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
