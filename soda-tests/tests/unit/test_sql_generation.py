@@ -400,6 +400,29 @@ def test_AS_method_works_on_any_sql_expression():
     assert isinstance(LITERAL(None).AS("x"), ALIAS)
 
 
+def test_sql_ast_union_renders_bare_union_on_base_dialect():
+    """Pins base-dialect UNION rendering (BigQuery overrides to UNION ALL)."""
+    sql_dialect: SqlDialect = SqlDialect()
+    union = UNION(
+        [
+            [SELECT(STAR()), FROM("a")],
+            [SELECT(STAR()), FROM("b")],
+        ]
+    )
+    sql = sql_dialect.build_union_sql(union, add_semicolon=False)
+    assert "\nUNION\n" in sql
+    assert "UNION ALL" not in sql
+
+
+def test_get_large_numeric_cast_type_name_base_is_none():
+    assert SqlDialect().get_large_numeric_cast_type_name() is None
+
+
+def test_sql_expr_timestamp_coerce_base_is_identity():
+    """Base dialect is identity; only BigQuery wraps in TIMESTAMP()."""
+    assert SqlDialect().sql_expr_timestamp_coerce("ts") == "ts"
+
+
 def _missing_and_validity(**overrides):
     """Build a MissingAndValidity with all fields defaulted to None, bypassing the YAML
     constructor, so a single validity field can be exercised in isolation."""

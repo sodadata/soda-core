@@ -118,10 +118,19 @@ class DatasetConfigurationDTO(BaseModel):
     collect_failed_rows: Optional[bool] = Field(None, alias="collectFailedRows")
     dataset_qualified_name: Optional[str] = Field(None, alias="datasetQualifiedName")
 
-    # MM and profiling skipped for now, extra=allow will take care of it, this needs to be added as a full structure later
-    # metric_monitoring_configuration: Optional[list[dict[str, Any]]] = Field(None, alias="metricMonitoringConfiguration")
-    # profiling_configuration: Optional[dict[str, Any]] = Field(None, alias="profilingConfiguration")
+    # Kept as raw dicts on purpose: the metric-monitoring plugin's monitor_config
+    # owns the parsing, so soda-core stays free of metric-monitoring semantics
+    # (same rationale as timePartitionConfiguration below).
+    metric_monitoring_configuration: Optional[list[dict]] = Field(None, alias="metricMonitoringConfiguration")
 
+    # Kept as a raw dict on purpose: the soda-profiling extension owns the parsing
+    # (soda_profiling.profiling_config), so soda-core stays free of profiling
+    # semantics (same rationale as metricMonitoringConfiguration above and
+    # timePartitionConfiguration below).
+    profiling_configuration: Optional[dict] = Field(None, alias="profilingConfiguration")
+    # Kept as a raw dict on purpose: the partition-detector plugin owns the parsing,
+    # so soda-core stays free of partition semantics.
+    time_partition_configuration: Optional[dict] = Field(None, alias="timePartitionConfiguration")
     samples_columns: Optional[list[str]] = Field(None, alias="samplesColumns")
     table: Optional[str] = Field(None, alias="table")
     test_row_sampler_configuration: Optional[TestRowSamplerConfigurationDTO] = Field(

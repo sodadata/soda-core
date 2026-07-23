@@ -13,15 +13,20 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     COLUMN,
     CONCAT_WS,
     COUNT,
     DISTINCT,
     LITERAL,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
     STRING_HASH,
+    TIME_DELTA,
     TUPLE,
+    UNION,
+    UNION_ALL,
     VALUES,
     WITH,
 )
@@ -140,6 +145,18 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "bool": SodaDataTypeName.BOOLEAN,
+            # BigQuery DATETIME is a naive (timezone-less) civil timestamp → canonical TIMESTAMP.
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "bignumeric": SodaDataTypeName.NUMERIC,
+            # Defensive aliases — unreachable via INFORMATION_SCHEMA (BigQuery canonicalizes
+            # them to INT64/NUMERIC/BIGNUMERIC/BOOL); consistent with _get_data_type_name_synonyms.
+            "int": SodaDataTypeName.BIGINT,
+            "integer": SodaDataTypeName.BIGINT,
+            "bigint": SodaDataTypeName.BIGINT,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "decimal": SodaDataTypeName.NUMERIC,
+            "bigdecimal": SodaDataTypeName.NUMERIC,
+            "boolean": SodaDataTypeName.BOOLEAN,
         }
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -149,6 +166,35 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
         ]
+
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """CAST aggregate args to NUMERIC so math over INT64 runs in NUMERIC(38,9),
+        not FLOAT64."""
+        return "NUMERIC"
+
+    def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
+        """BigQuery rejects bare UNION (requires UNION ALL | UNION DISTINCT).
+        Render UNION_ALL as UNION ALL and plain UNION as UNION DISTINCT so the
+        set semantics of a plain UNION are preserved for any caller — profiling's
+        unioned sets carry disjoint constant metric_ labels, so for that caller
+        ALL vs DISTINCT is identical either way.
+        """
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION DISTINCT"
+        return f"\n{union_sql}\n".join(
+            [
+                f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)"
+                for select_element in union.select_elements
+            ]
+        ) + (";" if add_semicolon else "")
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """Strip the parameter suffix BigQuery INFORMATION_SCHEMA reports (e.g.
+        ``NUMERIC(20, 4)``) so type-map lookups match; mirrors the DuckDB dialect."""
+        paranthesis_index = data_type.find("(")
+        if paranthesis_index != -1:
+            return data_type[:paranthesis_index]
+        return data_type
 
     def information_schema_namespace_elements(self, data_source_namespace: BigQueryDataSourceNamespace) -> list[str]:
         return [data_source_namespace.project_id, data_source_namespace.dataset, "INFORMATION_SCHEMA"]
@@ -180,6 +226,41 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """BigQuery has no ordered-set aggregates; render as
+        ``APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}]``."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        quantile_number: int = int(percentile_within_group.percentile * 1000)
+        return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
+
+    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD.
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "WEEK",
+        "days": "DAY",
+        "hours": "HOUR",
+        "seconds": "SECOND",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[time_delta.unit]
+        sql: str = f"TIMESTAMP_DIFF({end_sql}, {start_sql}, {unit_name})"
+        if time_delta.count != 1:
+            sql = f"CAST(FLOOR({sql} / {time_delta.count}) AS INT)"
+        return sql
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        # BigQuery TIMESTAMP_ADD only accepts MICROSECOND..DAY parts — WEEK is invalid here
+        # (it is valid for TIMESTAMP_DIFF, hence the asymmetry with _build_time_delta_sql).
+        # Express weekly buckets as INTERVAL <count> * 7 DAY.
+        if add_interval.unit == "weeks":
+            return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} * 7 DAY)"
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} {unit_name})"
 
     def supports_data_type_character_maximum_length(self) -> bool:
         return False
@@ -233,6 +314,12 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp('{datetime_in_iso8601}')"
+
+    def sql_expr_timestamp_coerce(self, expr: str) -> str:
+        # BigQuery coerces bare string comparison literals to the column's type, and an
+        # ISO string with a UTC offset cannot cast to DATETIME. Wrapping the column makes
+        # both sides TIMESTAMP-typed.
+        return f"timestamp({expr})"
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"date_trunc(timestamp({timestamp_literal}), day)"

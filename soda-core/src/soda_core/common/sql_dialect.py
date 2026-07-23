@@ -23,6 +23,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -84,6 +85,7 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     RAW_SQL,
     REGEX_LIKE,
@@ -91,6 +93,7 @@ from soda_core.common.sql_ast import (
     STAR,
     STRING_HASH,
     SUM,
+    TIME_DELTA,
     TUPLE,
     UNION,
     UNION_ALL,
@@ -848,6 +851,12 @@ class SqlDialect:
             return self._build_cast_sql(expression)
         elif isinstance(expression, WINDOW_FUNCTION):
             return self._build_window_function_sql(expression)
+        elif isinstance(expression, PERCENTILE_WITHIN_GROUP):
+            return self._build_percentile_within_group_sql(expression)
+        elif isinstance(expression, TIME_DELTA):
+            return self._build_time_delta_sql(expression)
+        elif isinstance(expression, ADD_INTERVAL):
+            return self._build_add_interval_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -1058,6 +1067,35 @@ class SqlDialect:
             over_clauses.append(f"ORDER BY {', '.join(order_by_parts)}")
         over_sql: str = " ".join(over_clauses)
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """Ordered-set aggregate; valid on postgres/duckdb/snowflake. BigQuery
+        overrides with APPROX_QUANTILES."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Time between two timestamps in buckets of ``count`` ``unit``s.
+
+        Epoch-floor form, valid on postgres/duckdb and unit-safe because every
+        supported unit is fixed-length. Snowflake and BigQuery override.
+        """
+        from soda_core.common.sql_ast import seconds_per_time_bucket
+
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        seconds: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
+        return f"FLOOR(EXTRACT(EPOCH FROM {end_sql} - {start_sql}) / {seconds})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """Add ``count_expression`` intervals of one ``unit`` to a timestamp.
+
+        NOTE: no parens are added around the count — the count expression's
+        own rendering provides them (SqlExpressionStr renders ``(...)``).
+        """
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        return f"{timestamp_sql} + INTERVAL '1 {add_interval.unit}' * {count_sql}"
 
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:
@@ -1448,6 +1486,23 @@ class SqlDialect:
     def format_metadata_data_type(self, data_type: str) -> str:
         """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
         return data_type
+
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """Native type name to CAST aggregate arguments (AVG/SUM/VAR_SAMP/STDDEV_SAMP)
+        to, or None when the engine needs no cast.
+
+        A raw native name, not SodaDataTypeName: e.g. Snowflake needs "FLOAT", which
+        its canonical DECIMAL mapping cannot express.
+        """
+        return None
+
+    def sql_expr_timestamp_coerce(self, expr: str) -> str:
+        """Wrap *expr* so it compares as a timestamp against string window-bound literals.
+
+        Base: identity — most engines coerce ISO-8601 string literals against their
+        temporal column types themselves. See BigQuerySqlDialect for the exception.
+        """
+        return expr
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false

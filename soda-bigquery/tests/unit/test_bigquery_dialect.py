@@ -78,6 +78,187 @@ def test_extract_numeric_precision_case_insensitive():
     assert dialect.extract_numeric_precision(row, columns=[]) == 76
 
 
+# Soda-type reverse map: DATETIME/BIGNUMERIC are reachable metadata type names;
+# raw map consumers (profiling classification, is_date_like_column, DWH reverse
+# map) silently skip columns whose type name is missing.
+
+
+def test_reverse_map_covers_datetime_and_bignumeric():
+    from soda_core.common.metadata_types import SodaDataTypeName
+
+    dialect = BigQuerySqlDialect()
+    reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
+    assert reverse_map["datetime"] == SodaDataTypeName.TIMESTAMP
+    assert reverse_map["bignumeric"] == SodaDataTypeName.NUMERIC
+
+
+def test_reverse_map_defensive_aliases():
+    from soda_core.common.metadata_types import SodaDataTypeName
+
+    dialect = BigQuerySqlDialect()
+    reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
+    assert reverse_map["int"] == SodaDataTypeName.BIGINT
+    assert reverse_map["integer"] == SodaDataTypeName.BIGINT
+    assert reverse_map["bigint"] == SodaDataTypeName.BIGINT
+    assert reverse_map["tinyint"] == SodaDataTypeName.SMALLINT
+    assert reverse_map["decimal"] == SodaDataTypeName.NUMERIC
+    assert reverse_map["bigdecimal"] == SodaDataTypeName.NUMERIC
+    assert reverse_map["boolean"] == SodaDataTypeName.BOOLEAN
+
+
+# format_metadata_data_type parameter stripping
+
+
+def test_format_metadata_data_type_strips_parameters():
+    dialect = BigQuerySqlDialect()
+    assert dialect.format_metadata_data_type("numeric(20, 4)") == "numeric"
+    assert dialect.format_metadata_data_type("NUMERIC(20, 4)") == "NUMERIC"
+    assert dialect.format_metadata_data_type("string(10)") == "string"
+    assert dialect.format_metadata_data_type("bignumeric(40, 10)") == "bignumeric"
+
+
+def test_format_metadata_data_type_passes_bare_names_through():
+    dialect = BigQuerySqlDialect()
+    assert dialect.format_metadata_data_type("int64") == "int64"
+    assert dialect.format_metadata_data_type("string") == "string"
+    assert dialect.format_metadata_data_type("struct<a int64>") == "struct<a int64>"
+
+
+# UNION rendering (see BigQuerySqlDialect.build_union_sql for the rationale)
+
+
+def _make_union(node_cls):
+    from soda_core.common.sql_dialect import FROM, SELECT, STAR
+
+    return node_cls(
+        [
+            [SELECT(STAR()), FROM("a")],
+            [SELECT(STAR()), FROM("b")],
+        ]
+    )
+
+
+def test_union_renders_as_union_distinct():
+    # Plain UNION must keep set semantics: BigQuery rejects bare UNION, so it
+    # renders as UNION DISTINCT (not UNION ALL, which would silently keep dups).
+    from soda_core.common.sql_ast import UNION
+
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_union_sql(_make_union(UNION), add_semicolon=False)
+    assert "\nUNION DISTINCT\n" in sql
+    assert "\nUNION ALL\n" not in sql
+
+
+def test_union_all_still_renders_union_all():
+    from soda_core.common.sql_ast import UNION_ALL
+
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_union_sql(_make_union(UNION_ALL), add_semicolon=False)
+    assert "\nUNION ALL\n" in sql
+    assert "\nUNION DISTINCT\n" not in sql
+
+
+def test_get_large_numeric_cast_type_name_is_numeric():
+    assert BigQuerySqlDialect().get_large_numeric_cast_type_name() == "NUMERIC"
+
+
+def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
+    assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "timestamp(`dt`)"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — BigQuery has no ordered-set aggregates; rendered
+# as APPROX_QUANTILES({expr}, 1000)[{int(p*1000)}].
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_renders_approx_quantiles_q1():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.25))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[250]"
+
+
+def test_percentile_within_group_renders_approx_quantiles_median():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.5))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[500]"
+
+
+def test_percentile_within_group_renders_approx_quantiles_q3():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = BigQuerySqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.75))
+    assert sql == "APPROX_QUANTILES(`c`, 1000)[750]"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes:
+# TIMESTAMP_DIFF with singular unit names + CAST(FLOOR(../count) AS INT) when
+# count != 1; TIMESTAMP_ADD with an INTERVAL taking the count expression.
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_timestamp_diff_singular_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "days", 1)
+    )
+    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', DAY)"
+
+
+def test_time_delta_timestamp_diff_count_2_wraps_cast_floor():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "hours", 2)
+    )
+    assert sql == "CAST(FLOOR(TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', HOUR) / 2) AS INT)"
+
+
+def test_add_interval_renders_timestamp_add():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) DAY)"
+
+
+def test_add_interval_weeks_renders_as_days_times_seven():
+    # BigQuery TIMESTAMP_ADD accepts only MICROSECOND..DAY parts; WEEK is invalid
+    # there (though valid for TIMESTAMP_DIFF), so weekly buckets must be expressed
+    # as INTERVAL <count> * 7 DAY.
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) * 7 DAY)"
+
+
+def test_time_delta_weeks_keeps_week_part():
+    # The TIMESTAMP_DIFF path DOES accept WEEK; it must stay unchanged.
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "weeks", 1)
+    )
+    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', WEEK)"
+
+
 # ---------------------------------------------------------------------------
 # BigQuery string literal escaping — literal_string wraps values in triple
 # single quotes ('''...'''). If a bare ''' survives inside the content it

@@ -98,3 +98,60 @@ def test_non_text_types_unaffected():
     assert metadatas[0].sql_data_type.name == "numeric"
     assert metadatas[0].sql_data_type.numeric_precision == 38
     assert metadatas[0].sql_data_type.numeric_scale == 2
+
+
+def test_reverse_map_defensive_string_aliases():
+    from soda_core.common.metadata_types import SodaDataTypeName
+
+    dialect = SnowflakeSqlDialect()
+    reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
+    assert reverse_map["nchar"] == SodaDataTypeName.CHAR
+    assert reverse_map["nvarchar"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["nvarchar2"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["char varying"] == SodaDataTypeName.VARCHAR
+    assert reverse_map["nchar varying"] == SodaDataTypeName.VARCHAR
+
+
+def test_get_large_numeric_cast_type_name_is_float():
+    assert SnowflakeSqlDialect().get_large_numeric_cast_type_name() == "FLOAT"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes:
+# TIMESTAMPDIFF counts crossed boundaries of the given unit, so the dialect
+# computes in SECONDS and divides by the float seconds-per-interval;
+# add-interval is TIMESTAMPADD.
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_timestampdiff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "days", 1)
+    )
+    assert sql == "FLOOR(TIMESTAMPDIFF(second, '2020-06-20T00:00:00', (\"ts\")) / 86400.0)"
+
+
+def test_time_delta_timestampdiff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "hours", 2)
+    )
+    assert sql == "FLOOR(TIMESTAMPDIFF(second, '2020-06-20T00:00:00', (\"ts\")) / 7200.0)"
+
+
+def test_add_interval_renders_timestampadd():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SnowflakeSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMPADD(days, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00')"

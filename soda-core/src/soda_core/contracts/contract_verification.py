@@ -404,6 +404,22 @@ class CheckResult:
     def is_excluded(self) -> bool:
         return self.outcome == CheckOutcome.EXCLUDED
 
+    def build_soda_cloud_check_dict(self, contract: "Contract", wire_source: str) -> Optional[dict]:
+        """Per-CheckResult override of the emitted Soda Cloud check dict.
+
+        The checks-side counterpart of ``CheckCollectionResult.measurement_dicts``:
+        non-contract check-collection subtypes whose wire shape is inexpressible
+        through the generic ``_build_check_result_cloud_dict`` builder (e.g.
+        metric monitoring's ``type: "anomalyDetection"`` checks with
+        candidate/metrics/scanTime/diagnostics-passthrough fields) subclass
+        ``CheckResult`` and return the fully-built dict here; the payload
+        builder uses a non-None return as-is.
+
+        Default ``None``: ``_build_check_results_cloud_json_dicts`` falls back
+        to the generic builder.
+        """
+        return None
+
     def get_soda_cloud_measure(self) -> Optional[str]:
         """Unit/type marker Soda Cloud uses to format this check's value.
 

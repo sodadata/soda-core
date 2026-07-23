@@ -65,6 +65,11 @@ class MockSodaCloud(SodaCloud):
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
         self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
+        # Fixture-driven historic-data responses, keyed by identity.
+        # Only consulted when at least one fixture is registered, so existing
+        # tests using the `responses` list are unaffected.
+        self.historic_measurements: dict[str, list[dict]] = {}
+        self.historic_check_results: dict[str, list[dict]] = {}
 
     def _http_post(
         self,
@@ -96,6 +101,9 @@ class MockSodaCloud(SodaCloud):
         if data is not None and hasattr(data, "read"):
             data = data.read()
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
+        historic_response = self._try_handle_historic_request(json)
+        if historic_response is not None:
+            return historic_response
         if self.responses:
             response = self.responses.pop(0)
             if isinstance(response, MockResponse):
@@ -107,6 +115,51 @@ class MockSodaCloud(SodaCloud):
                 return response
         logging.debug(f"MockSodaCloud responds to {method} {url} with default empty 200 OK response")
         return MockResponse(status_code=200, headers={}, json_object={})
+
+    def add_historic_measurements(self, metric_identity: str, measurements: list[dict]):
+        """Register fixture measurements returned for `sodaCoreHistoricMeasurements2`
+        requests that include `metric_identity` in their `metricIdentities`."""
+        self.historic_measurements.setdefault(metric_identity, []).extend(measurements)
+
+    def add_historic_check_results(self, check_identity: str, check_results: list[dict]):
+        """Register fixture check results returned for `sodaCoreHistoricCheckResults2`
+        requests that include `check_identity` in their `checkIdentities`."""
+        self.historic_check_results.setdefault(check_identity, []).extend(check_results)
+
+    # Mirrors the Soda Cloud backend constraint: historic-data queries accept at
+    # most 500 identities per request. Requests above that get a 400, so tests
+    # prove SodaCloud batches (soda_cloud.HISTORIC_IDENTITIES_MAX_BATCH_SIZE).
+    HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
+
+    def _try_handle_historic_request(self, request_json: Optional[dict]) -> Optional[MockResponse]:
+        """Serve `sodaCoreHistoricMeasurements2`/`sodaCoreHistoricCheckResults2` from
+        the registered fixtures. Returns None (fall through to the `responses` list)
+        when the request is not a historic-data query or no fixtures are registered."""
+        if not isinstance(request_json, dict):
+            return None
+        request_type = request_json.get("type")
+        if request_type == "sodaCoreHistoricMeasurements2":
+            fixtures, identities_key = self.historic_measurements, "metricIdentities"
+        elif request_type == "sodaCoreHistoricCheckResults2":
+            fixtures, identities_key = self.historic_check_results, "checkIdentities"
+        else:
+            return None
+        if not fixtures:
+            return None
+
+        identities = request_json.get(identities_key) or []
+        if len(identities) > self.HISTORIC_IDENTITIES_MAX_BATCH_SIZE:
+            return MockResponse(
+                status_code=400,
+                json_object={
+                    "code": "too_many_identities",
+                    "message": f"Maximum {self.HISTORIC_IDENTITIES_MAX_BATCH_SIZE} identities per request",
+                },
+            )
+        results: list[dict] = []
+        for identity in identities:
+            results.extend(fixtures.get(identity, []))
+        return MockResponse(status_code=200, json_object={"results": results})
 
     def _is_send_scan_results_request(self, request_json: Optional[dict]) -> bool:
         return (

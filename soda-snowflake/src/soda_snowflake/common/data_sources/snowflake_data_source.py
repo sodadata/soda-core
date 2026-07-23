@@ -11,7 +11,17 @@ from soda_core.common.metadata_types import (
     SamplerType,
     SodaDataTypeName,
 )
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, RANDOM, TUPLE, VALUES
+from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
+    COLUMN,
+    COUNT,
+    DISTINCT,
+    RANDOM,
+    TIME_DELTA,
+    TUPLE,
+    VALUES,
+    seconds_per_time_bucket,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -121,6 +131,20 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
 
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Snowflake TIMESTAMPDIFF only counts crossed boundaries of the given
+        unit, so compute the difference in SECONDS and divide by the float
+        seconds-per-interval."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        multiplier: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
+        return f"FLOOR(TIMESTAMPDIFF(second, {start_sql}, {end_sql}) / {multiplier})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        return f"TIMESTAMPADD({add_interval.unit}, {count_sql}, {timestamp_sql})"
+
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         # Implements data type synonyms
         # Each list should represent a list of synonyms
@@ -158,6 +182,11 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character", "text"]
 
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """CAST aggregate args to FLOAT so math over NUMBER columns runs in float,
+        not scaled NUMBER."""
+        return "FLOAT"
+
     # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
@@ -166,6 +195,13 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
             "character": SodaDataTypeName.CHAR,
             "text": SodaDataTypeName.TEXT,
             "string": SodaDataTypeName.VARCHAR,
+            # Defensive aliases — unreachable via INFORMATION_SCHEMA (Snowflake
+            # canonicalizes every string type to TEXT).
+            "nchar": SodaDataTypeName.CHAR,
+            "nvarchar": SodaDataTypeName.VARCHAR,
+            "nvarchar2": SodaDataTypeName.VARCHAR,
+            "char varying": SodaDataTypeName.VARCHAR,
+            "nchar varying": SodaDataTypeName.VARCHAR,
             "smallint": SodaDataTypeName.SMALLINT,
             "integer": SodaDataTypeName.INTEGER,
             "int": SodaDataTypeName.INTEGER,

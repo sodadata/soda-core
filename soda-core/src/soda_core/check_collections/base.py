@@ -1194,13 +1194,52 @@ class CheckCollectionImpl:
 
         return [line for joined_line in summary_lines for line in joined_line.split("\n")]
 
+    def log_table_extra_columns(self, check_result: CheckResult) -> dict:
+        """Optional per-row extra columns for the results table logged by
+        ``build_log_summary``.
+
+        Default ``{}``: the table is unchanged for every collection type
+        that doesn't override this (contract verification, regular metric
+        monitoring, ...). Subtypes whose rows are otherwise visually
+        identical (e.g. metric-monitoring BACKFILL — one row per backfilled
+        window) override it to return e.g. ``{"Window": "2026-07-09"}``:
+        NEW keys become columns inserted right after "Check" (participating
+        in the row sort at that position); keys that already exist in the
+        row (e.g. "Diagnostics") replace that cell's value in place.
+        """
+        return {}
+
+    def log_table_header_overrides(self) -> dict[str, str]:
+        """Optional header renames for the results table logged by
+        ``build_log_summary``.
+
+        Default ``{}``: headers are unchanged for every collection type that
+        doesn't override this (contract verification, ...). Subtypes for
+        which the standard header is a misnomer override it, e.g. metric
+        monitoring returns ``{"Check": "Monitor"}`` so its table renders the
+        "Check" column as "Monitor". This is a rename applied only when the
+        table is rendered: row-dict keys (and the row sort) keep the internal
+        names, so ``log_table_extra_columns`` overrides keep targeting e.g.
+        ``"Diagnostics"`` regardless of how the header is displayed.
+        """
+        return {}
+
     def build_summary_table(self, check_results: list[CheckResult]) -> str:
         from tabulate import tabulate
 
-        overview_table_data = [check_result.log_table_row() for check_result in check_results]
+        overview_table_data: list[dict] = []
+        extra_column_names: list[str] = []  # caller-supplied NEW columns, in first-seen order
+        for check_result in check_results:
+            row = check_result.log_table_row()
+            extra_columns = self.log_table_extra_columns(check_result)
+            if extra_columns:
+                row = _merge_log_table_extra_columns(row, extra_columns, extra_column_names)
+            overview_table_data.append(row)
 
-        # Sort by column name, check name and check outcome
-        overview_table_data.sort(key=lambda row: (row["Column"], row["Check"], row["Outcome"]))
+        # Sort by column name, check name, caller-supplied extra columns (none
+        # by default) and check outcome
+        sort_columns = ["Column", "Check", *extra_column_names, "Outcome"]
+        overview_table_data.sort(key=lambda row: tuple(str(row.get(column, "")) for column in sort_columns))
 
         # Re-iterate rows data and remove column name if it is the same as the previous row
         previous_column_name: Optional[str] = None
@@ -1209,6 +1248,14 @@ class CheckCollectionImpl:
                 row["Column"] = ""  # Clear column name if it is the same as the previous row
             else:
                 previous_column_name = row["Column"]
+
+        # Apply header renames (default {}) only at render time so the rows
+        # above keep their internal keys for sorting and cell overrides.
+        header_overrides: dict[str, str] = self.log_table_header_overrides()
+        if header_overrides:
+            overview_table_data = [
+                {header_overrides.get(key, key): value for key, value in row.items()} for row in overview_table_data
+            ]
 
         return tabulate(overview_table_data, headers="keys", tablefmt="grid")
 
@@ -1298,3 +1345,26 @@ class CheckCollectionImpl:
                 state=PostProcessingStageState.FAILED,
                 error=get_exception_stacktrace(exc),
             )
+
+
+def _merge_log_table_extra_columns(row: dict, extra_columns: dict, extra_column_names: list[str]) -> dict:
+    """Merge one row's ``log_table_extra_columns`` result into the row dict.
+
+    Keys already present in the row (e.g. "Diagnostics") replace that cell's
+    value in place; NEW keys become columns inserted right after "Check" and
+    are recorded in ``extra_column_names`` (first-seen order) so
+    ``build_summary_table`` can let them participate in the row sort.
+    """
+    new_columns = {key: value for key, value in extra_columns.items() if key not in row}
+    for column_name in new_columns:
+        if column_name not in extra_column_names:
+            extra_column_names.append(column_name)
+    merged: dict = {}
+    for key, value in row.items():
+        merged[key] = extra_columns.get(key, value)
+        if key == "Check":
+            merged.update(new_columns)
+    # A row without a "Check" cell still gets the new columns (appended).
+    for key, value in new_columns.items():
+        merged.setdefault(key, value)
+    return merged

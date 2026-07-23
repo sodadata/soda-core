@@ -5,12 +5,13 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
 from time import sleep
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import requests
 from pydantic import ValidationError
@@ -193,6 +194,32 @@ class ContractType(Enum):
 class VerificationIngestionMode(Enum):
     FULL = "full"
     PARTIAL = "partial"
+
+
+# Soda Cloud rejects historic-data queries with more than 500 identities per
+# request; get_historic_measurements/get_historic_check_results batch and merge.
+HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
+
+
+@dataclass(frozen=True)
+class HistoricDateTimeRange:
+    """Scan-time window for historic-data queries."""
+
+    from_date_time: datetime
+    to_date_time: datetime
+
+
+def _convert_scan_time_to_str(dt: datetime) -> str:
+    """Serialize a scan-time boundary for the historic-data endpoints: naive
+    datetimes are interpreted as UTC; output is the UTC isoformat with
+    milliseconds, e.g. ``2026-07-05T12:00:00.000+00:00``.
+
+    Deliberately NOT ``convert_datetime_to_str`` (seconds precision) — the
+    historic-data endpoints expect millisecond precision.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
@@ -898,6 +925,138 @@ class SodaCloud:
                 f"Failed to parse datasets configurations for datasets '{dataset_identifiers}': {str(e)}"
             ) from e
 
+    def get_historic_measurements(
+        self,
+        metric_identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange] = None,
+        group_by_identity: bool = True,
+        limit: Optional[int] = None,
+        drop_measurements_without_value: bool = True,
+    ) -> Union[list[dict], dict[str, list[dict]]]:
+        """Fetch historic measurements for the given metric identities.
+
+        Exactly one of ``date_time_range`` or ``limit`` must be provided (the
+        ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
+        Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+        NOTE: ``limit`` is applied per batch, so with more than one batch the merged
+        result can exceed ``limit``. Current callers pass a limit only with single
+        identities (one batch), so this doesn't bite today.
+
+        Returns measurements grouped by metric identity (default), or the flat
+        result list when ``group_by_identity`` is False. Measurements without a
+        ``value`` key are dropped by default.
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricMeasurements2",
+            identities_key="metricIdentities",
+            identities=metric_identities,
+            date_time_range=date_time_range,
+            limit=limit,
+            request_log_name="get_historic_measurements",
+        )
+        if drop_measurements_without_value:
+            results = [measurement for measurement in results if "value" in measurement]
+        if group_by_identity:
+            return self._group_results_by_key(results, "identity")
+        return results
+
+    def get_last_measurement(self, metric_identity: str) -> Optional[dict]:
+        """Fetch the most recent measurement for a single metric identity.
+
+        ``sodaCoreHistoricMeasurements2`` with ``limit: 1``,
+        first-result-or-None. Non-200 raises like the sibling historic-data
+        methods (callers isolate per metric).
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricMeasurements2",
+            identities_key="metricIdentities",
+            identities=[metric_identity],
+            date_time_range=None,
+            limit=1,
+            request_log_name="get_last_measurement",
+        )
+        return results[0] if results else None
+
+    def get_historic_check_results(
+        self,
+        check_identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange] = None,
+        group_by_measurement_id: bool = True,
+        limit: Optional[int] = None,
+    ) -> Union[list[dict], dict[str, list[dict]]]:
+        """Fetch historic check results for the given check identities.
+
+        Exactly one of ``date_time_range`` or ``limit`` must be provided.
+        Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
+        NOTE: ``limit`` is applied per batch, so with more than one batch the merged
+        result can exceed ``limit``. Current callers pass a limit only with single
+        identities (one batch), so this doesn't bite today.
+
+        Returns check results grouped by ``measurementId`` (default), or the flat
+        result list when ``group_by_measurement_id`` is False.
+        """
+        results: list[dict] = self._fetch_historic_results(
+            query_type="sodaCoreHistoricCheckResults2",
+            identities_key="checkIdentities",
+            identities=check_identities,
+            date_time_range=date_time_range,
+            limit=limit,
+            request_log_name="get_historic_check_results",
+        )
+        if group_by_measurement_id:
+            return self._group_results_by_key(results, "measurementId")
+        return results
+
+    def _fetch_historic_results(
+        self,
+        query_type: str,
+        identities_key: str,
+        identities: list[str],
+        date_time_range: Optional[HistoricDateTimeRange],
+        limit: Optional[int],
+        request_log_name: str,
+    ) -> list[dict]:
+        """Shared query execution for the two historic-data endpoints: builds the
+        date-range XOR limit query args, batches identities, merges ``results``."""
+        if (date_time_range is None) == (limit is None):
+            raise SodaCloudException(
+                f"'{query_type}' requires exactly one of date_time_range or limit "
+                f"(got date_time_range={date_time_range}, limit={limit})"
+            )
+        query_args: dict = {}
+        if date_time_range is not None:
+            query_args["minScanTime"] = _convert_scan_time_to_str(date_time_range.from_date_time)
+            query_args["maxScanTime"] = _convert_scan_time_to_str(date_time_range.to_date_time)
+        else:
+            query_args["limit"] = limit
+
+        all_results: list[dict] = []
+        for batch_start in range(0, len(identities), HISTORIC_IDENTITIES_MAX_BATCH_SIZE):
+            batch: list[str] = identities[batch_start : batch_start + HISTORIC_IDENTITIES_MAX_BATCH_SIZE]
+            response: Optional[Response] = self._execute_query(
+                {
+                    "type": query_type,
+                    identities_key: batch,
+                    **query_args,
+                },
+                request_log_name=request_log_name,
+            )
+            if response is None:
+                raise SodaCloudException(f"No response from Soda Cloud for '{query_type}'")
+            body: dict = self._parse_json_body(response)
+            if response.status_code != 200:
+                detail = body.get("message") or body.get("code") or response.text or response.status_code
+                raise SodaCloudException(f"Failed '{query_type}': {detail}")
+            all_results.extend(body.get("results") or [])
+        return all_results
+
+    @staticmethod
+    def _group_results_by_key(results: list[dict], key: str) -> dict[str, list[dict]]:
+        grouped: dict[str, list[dict]] = {}
+        for result in results:
+            grouped.setdefault(result.get(key), []).append(result)
+        return grouped
+
     def fetch_contract(
         self,
         dataset_identifier: DatasetIdentifier,
@@ -1559,10 +1718,20 @@ def _build_check_results_cloud_json_dicts(
     contract: Contract = contract_verification_result.check_collection
     if not check_results:
         return None
-    return [
-        _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
-        for check_result in check_results
-    ]
+    check_dicts: list[dict] = []
+    for check_result in check_results:
+        # Per-CheckResult override hook (see CheckResult.build_soda_cloud_check_dict):
+        # a non-None return is used as-is; the base class returns None.
+        override_dict: Optional[dict] = check_result.build_soda_cloud_check_dict(
+            contract=contract, wire_source=wire_source
+        )
+        if override_dict is not None:
+            check_dicts.append(override_dict)
+        else:
+            check_dicts.append(
+                _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
+            )
+    return check_dicts
 
 
 def _build_scan_definition_name(
