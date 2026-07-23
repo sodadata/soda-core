@@ -153,7 +153,9 @@ def test_supports_percentile_within_group_reflects_injected_capability():
 
 
 def test_engine_supports_approx_percentile_disc_matrix():
-    from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerDataSourceImpl
+    from soda_sqlserver.common.data_sources.sqlserver_data_source import (
+        SqlServerDataSourceImpl,
+    )
 
     f = SqlServerDataSourceImpl._engine_supports_approx_percentile_disc
     assert f(16, 3) is True  # SQL Server 2022, Enterprise (on-prem)
