@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from soda_bigquery.common.data_sources.bigquery_data_source import BigQuerySqlDialect
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
@@ -23,6 +25,16 @@ def test_create_schema_if_not_exists_sql_is_project_qualified():
 def test_create_schema_if_not_exists_sql_default_appends_semicolon():
     dialect = BigQuerySqlDialect()
     assert dialect.create_schema_if_not_exists_sql(["proj", "ds"]).endswith("`proj`.`ds`;")
+
+
+def test_create_schema_if_not_exists_sql_warns_on_unexpected_prefix_count(caplog):
+    """Prefixes are normally [project, dataset]; a different shape is a caller bug and
+    should be logged as a warning to make it easy to trace."""
+    dialect = BigQuerySqlDialect()
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(ValueError):
+            dialect.create_schema_if_not_exists_sql(["only_one_prefix"])
+    assert any("prefixes" in record.getMessage() for record in caplog.records)
 
 
 # ---------------------------------------------------------------------------
