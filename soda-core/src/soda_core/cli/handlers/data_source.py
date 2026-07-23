@@ -135,6 +135,31 @@ def build_test_connection_log_uploader(
     return Logs(gatherer=logs_queue)
 
 
+def _discover_dqns(
+    data_source_impl: DataSourceImpl,
+    include: Optional[list[str]],
+    exclude: Optional[list[str]],
+) -> list[str]:
+    """Open the connection, discover everything visible and return the DQNs.
+
+    Resolution only parses YAML, so the handler owns the connection lifecycle.
+    Query failures propagate raw to the CLI wiring, which logs the traceback.
+    """
+    from soda_core.discovery.discovery import discover_dataset_dqns
+
+    try:
+        data_source_impl.open_connection()
+        # Empty prefixes: discover everything visible to the connection.
+        return discover_dataset_dqns(
+            data_source_impl=data_source_impl,
+            prefixes=[],
+            include=include,
+            exclude=exclude,
+        )
+    finally:
+        data_source_impl.close_connection()
+
+
 def handle_discover_data_source(
     data_source_impl: DataSourceImpl,
     soda_cloud: SodaCloud,
@@ -152,24 +177,11 @@ def handle_discover_data_source(
     ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
     """
     from soda_core.discovery.discovery_payload import build_discovery_payload
-    from soda_core.discovery.discovery_run import DiscoveryRun
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
-    try:
-        # Resolution only parses YAML; the handler owns the connection lifecycle.
-        # Query failures propagate raw to the wiring, which logs the traceback.
-        data_source_impl.open_connection()
-        # Empty prefixes: discover everything visible to the connection.
-        dqns: list[str] = DiscoveryRun.execute(
-            data_source_impl=data_source_impl,
-            prefixes=[],
-            include=include,
-            exclude=exclude,
-        )
-    finally:
-        data_source_impl.close_connection()
+    dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
     scan_end_timestamp: datetime = datetime.now(timezone.utc)
 
     payload: SodaCoreInsertScanResultsDTO = build_discovery_payload(
@@ -198,21 +210,8 @@ def handle_discover_data_source_locally(
     scan lifecycle and no failure reporting. Failures propagate raw — the CLI
     wiring is the single logging site and maps them to ``LOG_ERRORS``.
     """
-    from soda_core.discovery.discovery_run import DiscoveryRun
-
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
-    try:
-        # Resolution only parses YAML; the handler owns the connection lifecycle.
-        data_source_impl.open_connection()
-        # Empty prefixes: discover everything visible to the connection.
-        dqns: list[str] = DiscoveryRun.execute(
-            data_source_impl=data_source_impl,
-            prefixes=[],
-            include=include,
-            exclude=exclude,
-        )
-    finally:
-        data_source_impl.close_connection()
+    dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
 
     for dqn in dqns:
         soda_logger.info(dqn)

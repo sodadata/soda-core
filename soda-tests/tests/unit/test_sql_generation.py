@@ -204,6 +204,26 @@ def test_sql_ast_insert_into_with_datetimes():
     )
 
 
+def test_sql_ast_insert_into_pads_date_years_below_1000():
+    """C strftime("%Y") drops leading zeros for years < 1000 on glibc, which used to
+    render DATE '200-12-17' — an INVALID_TYPED_LITERAL for Spark/Databricks. Date
+    literals must always carry a 4-digit, zero-padded year."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.literal(date(200, 12, 17)) == "DATE '0200-12-17'"
+
+    my_insert_into_statement = sql_dialect.build_insert_into_sql(
+        INSERT_INTO(
+            fully_qualified_table_name='"customers"',
+            columns=[COLUMN("id"), COLUMN("birth_date")],
+            values=[VALUES_ROW([LITERAL(1), LITERAL(date(200, 12, 17))])],
+        )
+    )
+    assert my_insert_into_statement == (
+        'INSERT INTO "customers" ("id", "birth_date") VALUES\n' "(1, DATE '0200-12-17');"
+    )
+
+
 def test_sql_ast_insert_into_via_select():
     sql_dialect: SqlDialect = SqlDialect()
     my_insert_into_statement = sql_dialect.build_insert_into_via_select_sql(
@@ -401,3 +421,47 @@ def test_get_large_numeric_cast_type_name_base_is_none():
 def test_sql_expr_timestamp_coerce_base_is_identity():
     """Base dialect is identity; only BigQuery wraps in TIMESTAMP()."""
     assert SqlDialect().sql_expr_timestamp_coerce("ts") == "ts"
+
+
+def _missing_and_validity(**overrides):
+    """Build a MissingAndValidity with all fields defaulted to None, bypassing the YAML
+    constructor, so a single validity field can be exercised in isolation."""
+    from soda_core.contracts.impl.contract_verification_impl import MissingAndValidity
+
+    mv = MissingAndValidity.__new__(MissingAndValidity)
+    for field in (
+        "missing_values",
+        "missing_format",
+        "invalid_values",
+        "invalid_format",
+        "valid_values",
+        "valid_format",
+        "valid_min",
+        "valid_max",
+        "valid_length",
+        "valid_min_length",
+        "valid_max_length",
+        "valid_reference_data",
+    ):
+        setattr(mv, field, None)
+    for key, value in overrides.items():
+        setattr(mv, key, value)
+    return mv
+
+
+def test_empty_valid_values_renders_portable_always_true_predicate():
+    """`valid_values: []` means every value is invalid. It must render as a portable
+    always-true predicate (`1 = 1`), not a bare boolean literal: a standalone TRUE/FALSE is not
+    a valid condition on data sources without a native boolean type in predicate position
+    (e.g. pre-23ai Oracle, where it would render as `1` and raise ORA-00920)."""
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(valid_values=[]).is_invalid_expr(COLUMN("c"))
+    assert sql_dialect.build_expression_sql(expr) == "1 = 1"
+
+
+def test_empty_invalid_values_renders_portable_always_false_predicate():
+    """`invalid_values: []` means nothing is explicitly invalid -> a portable always-false
+    predicate (`1 = 0`), for the same portability reason as the empty-valid_values case."""
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(invalid_values=[]).is_invalid_expr(COLUMN("c"))
+    assert sql_dialect.build_expression_sql(expr) == "1 = 0"

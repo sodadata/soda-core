@@ -60,6 +60,8 @@ def test_random():
         ("pg_toast", True),
         ("pg_temp_1", True),
         ("information_schema", True),
+        ("PG_CATALOG", True),
+        ("INFORMATION_SCHEMA", True),
         ("public", False),
         ("pguser", False),
     ],

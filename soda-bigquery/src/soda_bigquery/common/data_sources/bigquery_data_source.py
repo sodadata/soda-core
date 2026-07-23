@@ -199,6 +199,19 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def information_schema_namespace_elements(self, data_source_namespace: BigQueryDataSourceNamespace) -> list[str]:
         return [data_source_namespace.project_id, data_source_namespace.dataset, "INFORMATION_SCHEMA"]
 
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: Optional[bool] = None) -> str:
+        # BigQuery datasets are project-scoped, so qualify the dataset with the project
+        # (prefixes[0]) — otherwise it lands in the client's default (compute) project
+        # instead of the storage project. The base implementation uses the dataset name alone.
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        # Prefixes are produced by the BigQuery data source as [project, dataset]; a different
+        # shape is a caller bug, so fail fast with a clear, traceable error.
+        if len(prefixes) != 2:
+            raise ValueError(f"BigQuery CREATE SCHEMA expects [project, dataset] prefixes, got {prefixes}")
+        project_id, dataset = prefixes
+        qualified_schema_name: str = f"{self.quote_for_ddl(project_id)}.{self.quote_for_ddl(dataset)}"
+        return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema_name}" + (";" if add_semicolon else "")
+
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
@@ -317,10 +330,16 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def literal_string(self, value: str) -> Optional[str]:
         if value is None:
             return None
-        # BigQuery triple-quoted strings ('''...''') allow multiline content and
-        # embedded single quotes without escaping.  The only sequence that needs
-        # escaping inside triple-quoted strings is ''' itself and backslashes.
-        escaped = value.replace("\\", "\\\\").replace("'''", "\\'''")
+        # BigQuery triple-quoted strings ('''...''') allow multiline content, so the
+        # wrapper keeps raw newlines in multi-line check SQL from needing escaping.
+        # Escape the backslash first, then EVERY single quote as \'. Escaping every
+        # quote guarantees that no unescaped ''' can appear inside the content and
+        # prematurely close the string (which would make BigQuery see two adjacent
+        # string literals -> "concatenated string literals must be separated by
+        # whitespace or comments"). Only escaping ''' runs was not enough: values
+        # ending in a quote, or containing runs of 4/5/7/8 quotes, still produced a
+        # bare ''' at or near the wrapper boundary.
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'")
         return "'''" + escaped + "'''"
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:

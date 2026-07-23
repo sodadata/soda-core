@@ -1697,7 +1697,8 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if isinstance(o, datetime):
         return convert_datetime_to_str(o)
     if isinstance(o, date):
-        return o.strftime("%Y-%m-%d")
+        # Not strftime("%Y-%m-%d"): C strftime does not zero-pad years < 1000 on glibc.
+        return o.isoformat()
     if isinstance(o, time):
         return o.strftime("%H:%M:%S")
     if isinstance(o, timedelta):
@@ -1856,44 +1857,51 @@ def _build_check_collection_results_json_dict(
 
     all_measurement_dicts: list[dict] = []
     for r in results:
-        measurement_dicts = getattr(r, "measurement_dicts", None)
-        if measurement_dicts:
-            all_measurement_dicts.extend(measurement_dicts)
+        if r.measurement_dicts:
+            all_measurement_dicts.extend(r.measurement_dicts)
 
-    payload = to_jsonnable(  # type: ignore
-        {
-            "scanId": os.environ.get("SODA_SCAN_ID", None),
-            "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
-            "defaultDataSource": head.data_source.name if head.data_source else None,
-            "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
-            "dataTimestamp": head.data_timestamp,
-            "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
-            "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
-            "hasErrors": any(r.has_errors for r in results),
-            "hasWarns": any(r.is_warned for r in results),
-            "hasFailures": any(r.is_failed for r in results),
-            # Empty checks list serialises as ``None`` to match the legacy
-            # combined-builder behaviour the backend already accepts.
-            "checks": checks if checks else None,
-            "logs": logs,
-            "sourceOwner": "soda-core",
-            # ``contract`` is contract-handler-routing on the backend.
-            # Non-null forces the contract ingestion path; null lets the
-            # routing fall through to scan-def-type dispatch for
-            # non-contract subtypes.
-            "contract": (
-                _build_contract_cloud_json_dict(head.check_collection) if wire_source == "soda-contract" else None
-            ),
-            "postProcessingStages": post_processing_stages,
-            "resultsIngestionMode": ingestion_mode.value,
-            "tokenUsage": token_usage,
-        }
-    )
+    payload: dict = {
+        "scanId": os.environ.get("SODA_SCAN_ID", None),
+        "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+        "defaultDataSource": head.data_source.name if head.data_source else None,
+        "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
+        "dataTimestamp": head.data_timestamp,
+        "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
+        "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
+        "hasErrors": any(r.has_errors for r in results),
+        "hasWarns": any(r.is_warned for r in results),
+        "hasFailures": any(r.is_failed for r in results),
+        # Empty checks list serialises as ``None`` to match the legacy
+        # combined-builder behaviour the backend already accepts.
+        "checks": checks if checks else None,
+        "logs": logs,
+        "sourceOwner": "soda-core",
+        # ``contract`` is contract-handler-routing on the backend.
+        # Non-null forces the contract ingestion path; null lets the
+        # routing fall through to scan-def-type dispatch for
+        # non-contract subtypes.
+        "contract": (
+            _build_contract_cloud_json_dict(head.check_collection) if wire_source == "soda-contract" else None
+        ),
+        "postProcessingStages": post_processing_stages,
+        "resultsIngestionMode": ingestion_mode.value,
+        "tokenUsage": token_usage,
+    }
+    # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
+    # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
+    # the ``metrics`` subscript-assign below is on a known-subscriptable type.
+    to_jsonnable(payload)
 
     # Emit ``metrics`` only when non-empty: contract-only payloads must omit
-    # the key entirely (not null, not []).
+    # the key entirely (not null, not []). Run the measurement dicts through
+    # ``to_jsonnable`` explicitly: they are attached after the payload's own
+    # ``to_jsonnable`` wrap above and can carry Decimal/datetime/timedelta
+    # values, so serialising them here (rather than relying on the debug-log
+    # side effect at the send site) is what keeps the send JSON-safe.
+    # ``remove_null_values_in_dicts`` stays at its default True, matching the
+    # null-stripping the payload dict already gets.
     if all_measurement_dicts:
-        payload["metrics"] = all_measurement_dicts
+        payload["metrics"] = to_jsonnable(all_measurement_dicts)
 
     return payload
 
@@ -1918,15 +1926,16 @@ def _build_check_result_cloud_dict(
 ) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        # Wire path: ``Check.full_path`` is the yaml-internal ``path`` for
-        # subtypes that emit byte-identical historical paths, and
-        # ``"{collection_id}.{path}"`` for subtypes that need a prefix so
-        # the backend's ``firstSegmentOf(checkPath)`` can match the
-        # subtype's identifier. Selector matching still uses ``check.path``.
-        # Falls back to ``path`` when ``full_path`` is empty (the
+        # Wire path: ``Check.check_path`` is the yaml-internal ``relative_path``
+        # for subtypes that emit byte-identical historical paths (contracts),
+        # and the option-3 form
+        # ``"{wire_source}.{collection_id}:{relative_path}"`` for subtypes that
+        # need a prefix, so the backend can parse out the subtype's identifier.
+        # Selector matching still uses ``check.relative_path``.
+        # Falls back to ``relative_path`` when ``check_path`` is empty (the
         # dataclass default) — protects external constructors of
-        # ``Check(...)`` that don't set ``full_path`` explicitly.
-        "checkPath": check_result.check.full_path or check_result.check.path,
+        # ``Check(...)`` that don't set ``check_path`` explicitly.
+        "checkPath": check_result.check.check_path or check_result.check.relative_path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,

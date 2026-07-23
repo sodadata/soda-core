@@ -1,3 +1,5 @@
+from datetime import date
+
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, STAR
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
@@ -8,6 +10,12 @@ def test_random():
     sql_dialect: SqlServerSqlDialect = SqlServerSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == "SELECT ABS(CAST(CHECKSUM(NEWID()) AS FLOAT)) / 2147483648.0\nFROM [a];"
+
+
+def test_literal_date_pads_year_to_four_digits():
+    """C strftime("%Y") drops leading zeros for years < 1000 on glibc; the CAST
+    string must always carry a 4-digit, zero-padded year."""
+    assert SqlServerSqlDialect().literal(date(200, 12, 17)) == "CAST('0200-12-17' AS DATE)"
 
 
 def test_count_renders_as_count_big():

@@ -254,7 +254,7 @@ def _run_discover_cloud_flow_without_scan_definition_name():
     return e.value.code
 
 
-@patch("soda_core.discovery.discovery_run.DiscoveryRun")
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
 @patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")
 @patch("soda_core.cli.handlers.dependencies.SodaCloudYamlSource")
 @patch("soda_core.cli.handlers.dependencies.SodaCloud")
@@ -264,7 +264,7 @@ def test_cli_discover_cloud_flow_without_scan_definition_name_marks_managed_scan
     mock_soda_cloud_cls,
     mock_sc_yaml_source_cls,
     mock_ds_yaml_source_cls,
-    mock_discovery_run_cls,
+    mock_discover_dataset_dqns,
     monkeypatch,
 ):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
@@ -282,7 +282,7 @@ def test_cli_discover_cloud_flow_without_scan_definition_name_marks_managed_scan
     assert kwargs["scan_id"] == "scan-123"
     assert any("scan definition name is required" in record.getMessage() for record in kwargs["logs"])
     # The name resolves before the handler runs: no discovery query is attempted.
-    mock_discovery_run_cls.execute.assert_not_called()
+    mock_discover_dataset_dqns.assert_not_called()
 
 
 @patch("soda_core.cli.handlers.dependencies.DataSourceYamlSource")

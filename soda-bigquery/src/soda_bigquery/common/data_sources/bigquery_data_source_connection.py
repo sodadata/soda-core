@@ -126,8 +126,9 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         self.location = config.location
         self.client_options = config.client_options
 
-        # Storage project ID is currently not used, because the project is configured via the DQN in the data contract.
-        # When we implement discovery, we'll need to use this value.
+        # Diagnostics-warehouse writes are qualified with the storage project (see
+        # BigQueryDataSourceExtension.build_dwh_prefixes); it defaults to the compute project
+        # when not configured. Reads target the project carried by the contract's DQN.
         self.storage_project_id = config.storage_project_id if config.storage_project_id else self.project_id
 
         self.labels = config.labels
