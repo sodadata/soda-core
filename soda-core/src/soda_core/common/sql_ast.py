@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import weakref
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Number
 from typing import Any, Optional
 
@@ -172,12 +172,12 @@ class WITH(BaseSqlExpression):
 class CTE(BaseSqlExpression):
     alias: str
     alias_columns: list[COLUMN] | None = None
-    cte_query: list | str | VALUES | None = None
+    cte_query: list | str | VALUES | UNION | None = None
 
     def __post_init__(self):
         super().__post_init__()
 
-    def AS(self, cte_query: list | str) -> CTE:
+    def AS(self, cte_query: list | str | VALUES | UNION) -> CTE:
         self.cte_query = cte_query
         self.handle_parent_node_update(cte_query)
         return self
@@ -399,6 +399,24 @@ class FUNCTION(SqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.args)
+
+
+@dataclass
+class WINDOW_FUNCTION(SqlExpression):
+    """Window function: ``name(args) OVER ([PARTITION BY cols] [ORDER BY cols])``."""
+
+    name: str
+    args: list[SqlExpression | str] = field(default_factory=list)
+    partition_by: list[COLUMN] | None = None
+    order_by: list | None = None  # elements are ORDER_BY_ASC / ORDER_BY_DESC
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.args)
+        if self.partition_by:
+            self.handle_parent_node_update(self.partition_by)
+        if self.order_by:
+            self.handle_parent_node_update(self.order_by)
 
 
 @dataclass
