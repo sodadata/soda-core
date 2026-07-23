@@ -9,6 +9,31 @@ def test_random():
     assert sql == "SELECT RAND()\nFROM `a`;"
 
 
+def test_create_schema_if_not_exists_sql_is_project_qualified():
+    """CREATE SCHEMA must be qualified with the project (prefixes[0]) so the
+    dataset lands in the intended project — the storage project in a split compute/storage
+    setup — rather than the client's default (compute) project. The base implementation
+    qualifies with the dataset name only, which created the diagnostics dataset in the wrong
+    project and made every diagnostics-warehouse write fail."""
+    dialect = BigQuerySqlDialect()
+    sql = dialect.create_schema_if_not_exists_sql(["mm-storage-project", "soda_diagnostics"], add_semicolon=False)
+    assert sql == "CREATE SCHEMA IF NOT EXISTS `mm-storage-project`.`soda_diagnostics`"
+
+
+def test_create_schema_if_not_exists_sql_default_appends_semicolon():
+    dialect = BigQuerySqlDialect()
+    assert dialect.create_schema_if_not_exists_sql(["proj", "ds"]).endswith("`proj`.`ds`;")
+
+
+def test_create_schema_if_not_exists_sql_raises_on_unexpected_prefix_count():
+    """Prefixes must be [project, dataset]; any other shape is a caller bug and must raise a
+    clear error rather than silently crashing on the tuple unpack."""
+    dialect = BigQuerySqlDialect()
+    for bad_prefixes in (["only_one_prefix"], ["a", "b", "c"]):
+        with pytest.raises(ValueError, match="prefixes"):
+            dialect.create_schema_if_not_exists_sql(bad_prefixes)
+
+
 # ---------------------------------------------------------------------------
 # BigQuery NUMERIC / BIGNUMERIC precision & scale — INFORMATION_SCHEMA.COLUMNS
 # doesn't expose precision/scale for either type, so the dialect hardcodes the
