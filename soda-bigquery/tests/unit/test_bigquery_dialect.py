@@ -12,7 +12,7 @@ def test_random():
 
 
 def test_create_schema_if_not_exists_sql_is_project_qualified():
-    """SAS-13229: CREATE SCHEMA must be qualified with the project (prefixes[0]) so the
+    """CREATE SCHEMA must be qualified with the project (prefixes[0]) so the
     dataset lands in the intended project — the storage project in a split compute/storage
     setup — rather than the client's default (compute) project. The base implementation
     qualifies with the dataset name only, which created the diagnostics dataset in the wrong
