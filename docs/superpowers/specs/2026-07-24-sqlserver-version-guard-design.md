@@ -70,9 +70,19 @@ The current `open_connection` override (probe + boolean push) is replaced by
 - `__init__` when a live connection is passed in (the
   `create_copy_with_different_connection` path — Oracle has the same two call sites).
 
-It copies both attributes onto the dialect when
-`isinstance(conn, SqlServerDataSourceConnection)` and
-`isinstance(self.sql_dialect, SqlServerSqlDialect)`. The current
+It copies both attributes onto the dialect, guarded by
+`isinstance(conn, SqlServerDataSourceConnection)`. This guard is load-bearing, not
+defensive: in snapshot replay the connection is a `SnapshotDataSourceConnection`
+lazy wrapper (`soda-tests/src/helpers/snapshot_connection.py`) whose `__getattr__`
+opens a real connection on attribute access — duck-typing the attributes would break
+replay (same rationale as documented on Oracle's `_sync_dialect_server_version`).
+Skipping the sync there is also correct: replay has no live server facts, and the
+dialect's `None` default is what recorded snapshots expect.
+
+The dialect side needs no runtime guard — every `_create_sql_dialect` in the
+hierarchy returns a `SqlServerSqlDialect` subclass — but the sync uses
+`assert isinstance(self.sql_dialect, SqlServerSqlDialect)` purely to narrow the
+declared `SqlDialect` type for the attribute assignment. The current
 `type(...) is SqlServerSqlDialect` exact-type guard disappears: syncing facts onto
 Fabric/Synapse dialects is inert because they override the capability method.
 
