@@ -158,10 +158,10 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         # (prefixes[0]) — otherwise it lands in the client's default (compute) project
         # instead of the storage project. The base implementation uses the dataset name alone.
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
-        # Prefixes are normally produced by the BigQuery data source as [project, dataset]; a
-        # different shape points at a caller bug, so warn to make it easy to trace.
+        # Prefixes are produced by the BigQuery data source as [project, dataset]; a different
+        # shape is a caller bug, so fail fast with a clear, traceable error.
         if len(prefixes) != 2:
-            logger.warning(f"Expected [project, dataset] prefixes for BigQuery CREATE SCHEMA, got {prefixes}")
+            raise ValueError(f"BigQuery CREATE SCHEMA expects [project, dataset] prefixes, got {prefixes}")
         project_id, dataset = prefixes
         qualified_schema_name: str = f"{self.quote_for_ddl(project_id)}.{self.quote_for_ddl(dataset)}"
         return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema_name}" + (";" if add_semicolon else "")
