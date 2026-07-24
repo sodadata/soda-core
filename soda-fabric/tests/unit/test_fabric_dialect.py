@@ -112,8 +112,6 @@ def test_supports_percentile_within_group_is_true():
 
 
 def test_supports_percentile_within_group_pinned_true_ignores_server_facts():
-    # The Fabric engine always supports APPROX_PERCENTILE_DISC, so it pins the
-    # capability even when synced server facts would gate plain SQL Server.
     dialect = FabricSqlDialect()
     dialect.server_major_version = 15
     dialect.engine_edition = 3

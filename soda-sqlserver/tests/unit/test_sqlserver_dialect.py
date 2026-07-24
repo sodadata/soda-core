@@ -137,13 +137,10 @@ def test_percentile_within_group_renders_approx_percentile_disc():
 
 
 def test_supports_percentile_within_group_defaults_true_without_server_facts():
-    # A dialect with no live connection (pure SQL rendering, snapshot replay) has
-    # no server facts; it assumes the newest engine to preserve rendering behavior.
     assert SqlServerSqlDialect().supports_percentile_within_group() is True
 
 
 def _dialect_with_server_facts(server_major_version, engine_edition) -> SqlServerSqlDialect:
-    # Mimics SqlServerDataSourceImpl._sync_dialect_server_info at connection open.
     dialect = SqlServerSqlDialect()
     dialect.server_major_version = server_major_version
     dialect.engine_edition = engine_edition
@@ -151,9 +148,6 @@ def _dialect_with_server_facts(server_major_version, engine_edition) -> SqlServe
 
 
 def test_supports_percentile_within_group_derived_from_server_facts():
-    # APPROX_PERCENTILE_DISC needs SQL Server 2022+ (ProductMajorVersion >= 16),
-    # Azure SQL Database (EngineEdition 5), or Managed Instance (EngineEdition 8);
-    # the dialect derives the capability from the synced raw facts.
     f = lambda major, edition: _dialect_with_server_facts(major, edition).supports_percentile_within_group()
     assert f(16, 3) is True  # SQL Server 2022, Enterprise (on-prem)
     assert f(17, 2) is True  # future major, Standard
