@@ -377,6 +377,7 @@ class Check(ABC):
                 "filter": Partition.get_partition_name(self.partition),
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
+                "queries": [query.query_name for query in self._get_all_related_queries()],
                 "outcome": self.outcome.value if self.outcome else None,
                 "outcomeReasons": self.outcome_reasons,
                 "archetype": self.archetype,
