@@ -1119,7 +1119,9 @@ class DataSource:
             return self.database
             return f'"{self.database}"."{self.schema}"'
         """
-        return self.schema
+        if self.schema:
+            return f'"{self.schema}"'
+        return None
 
     def update_schema(self, schema_name):
         self.schema = schema_name
