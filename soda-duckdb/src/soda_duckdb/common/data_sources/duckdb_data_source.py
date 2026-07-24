@@ -12,6 +12,7 @@ from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
 )
@@ -20,7 +21,11 @@ from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
 )
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBExistingConnectionProperties,
+    DuckDBObjectStorageConnectionProperties,
     DuckDBStandardConnectionProperties,
+    ObjectStorageAccessKeyAuth,
+    ObjectStorageAssumeRoleAuth,
+    ObjectStorageProperties,
 )
 
 DuckDBColumn = namedtuple(
@@ -234,6 +239,18 @@ class DuckDBDataSourceConnection(DataSourceConnection):
         ".json": "read_json_auto",
     }
 
+    # DuckDB table-function per object-storage dataset `format`.
+    OBJECT_STORAGE_FORMAT_READ_FUNCTIONS = {
+        "parquet": "read_parquet",
+        "csv": "read_csv_auto",
+        "json": "read_json_auto",
+    }
+
+    # STS session name used when assuming a role for object-storage credentials.
+    OBJECT_STORAGE_ROLE_SESSION_NAME = "soda-object-storage"
+    # Name of the DuckDB S3 secret created for object-storage access.
+    OBJECT_STORAGE_SECRET_NAME = "soda_object_storage"
+
     def _create_connection(
         self,
         config: DuckDBConnectionProperties,
@@ -243,9 +260,15 @@ class DuckDBDataSourceConnection(DataSourceConnection):
         try:
             if isinstance(config, DuckDBExistingConnectionProperties):
                 return DuckDBDataSourceConnectionWrapper(config.duckdb_connection)
+            # Must precede DuckDBStandardConnectionProperties: object-storage props subclass it.
+            elif isinstance(config, DuckDBObjectStorageConnectionProperties):
+                return self._create_object_storage_connection(config)
             elif isinstance(config, DuckDBStandardConnectionProperties):
                 if (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format(config))) is not None:
                     connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(":default:"))
+                    # `:default:` cannot accept a `config=` kwarg, so the configuration dict
+                    # (e.g. httpfs / extension settings) must be applied via SET after connecting.
+                    self._apply_configuration(connection, config.configuration)
                     connection.sql(
                         f"CREATE TABLE {self.extract_dataset_name(config)} AS SELECT * FROM {read_function}('{config.database}')"
                     )
@@ -272,6 +295,116 @@ class DuckDBDataSourceConnection(DataSourceConnection):
         except Exception as e:
             raise DataSourceConnectionException(e)
 
+    # ------------------------------------------------------------------ #
+    # Object storage (S3)                                                 #
+    # ------------------------------------------------------------------ #
+
+    def _create_object_storage_connection(
+        self, config: DuckDBObjectStorageConnectionProperties
+    ) -> "DuckDBDataSourceConnectionWrapper":
+        """Open a (typically in-memory) DuckDB connection, wire up S3 access via
+        httpfs + a DuckDB S3 secret, and register one view per configured dataset."""
+        import duckdb
+
+        connection = duckdb.connect(database=config.database, config=config.configuration)
+        self._setup_object_storage(connection, config.object_storage)
+        return DuckDBDataSourceConnectionWrapper(connection)
+
+    def _setup_object_storage(self, connection, object_storage: ObjectStorageProperties) -> None:
+        if object_storage.provider != "s3":
+            # Defensive: the model already restricts provider to "s3" via a Literal.
+            raise DataSourceConnectionException(
+                f"Unsupported object_storage provider '{object_storage.provider}'; only 's3' is supported"
+            )
+        self._install_httpfs(connection)
+        self._create_s3_secret(connection, object_storage)
+        self._create_object_storage_views(connection, object_storage.datasets)
+
+    def _install_httpfs(self, connection) -> None:
+        # httpfs is not statically bundled in the pip DuckDB wheel; INSTALL fetches it
+        # from the DuckDB extension repository (or a local cache) and LOAD activates it.
+        connection.execute("INSTALL httpfs")
+        connection.execute("LOAD httpfs")
+
+    def _create_s3_secret(self, connection, object_storage: ObjectStorageProperties) -> None:
+        access_key_id, secret_access_key, session_token = self._resolve_object_storage_credentials(object_storage)
+        region = object_storage.region
+
+        if self._duckdb_supports_create_secret():
+            secret_parts = [
+                "TYPE S3",
+                f"KEY_ID '{self._escape_sql_literal(access_key_id)}'",
+                f"SECRET '{self._escape_sql_literal(secret_access_key)}'",
+            ]
+            if session_token:
+                secret_parts.append(f"SESSION_TOKEN '{self._escape_sql_literal(session_token)}'")
+            if region:
+                secret_parts.append(f"REGION '{self._escape_sql_literal(region)}'")
+            connection.execute(
+                f"CREATE OR REPLACE SECRET {self.OBJECT_STORAGE_SECRET_NAME} ({', '.join(secret_parts)})"
+            )
+        else:
+            # Fallback for DuckDB versions predating the Secrets API (< 0.10).
+            connection.execute(f"SET s3_access_key_id='{self._escape_sql_literal(access_key_id)}'")
+            connection.execute(f"SET s3_secret_access_key='{self._escape_sql_literal(secret_access_key)}'")
+            if session_token:
+                connection.execute(f"SET s3_session_token='{self._escape_sql_literal(session_token)}'")
+            if region:
+                connection.execute(f"SET s3_region='{self._escape_sql_literal(region)}'")
+
+    def _resolve_object_storage_credentials(self, object_storage: ObjectStorageProperties) -> tuple:
+        """Return (access_key_id, secret_access_key, session_token) for the configured auth."""
+        auth = object_storage.auth
+        if isinstance(auth, ObjectStorageAssumeRoleAuth):
+            return self._assume_role_credentials(auth, object_storage.region)
+        elif isinstance(auth, ObjectStorageAccessKeyAuth):
+            return auth.access_key_id, auth.secret_access_key.get_secret_value(), auth.session_token
+        raise DataSourceConnectionException(f"Unsupported object_storage auth type: {type(auth).__name__}")
+
+    def _assume_role_credentials(self, auth: ObjectStorageAssumeRoleAuth, region: str) -> tuple:
+        import boto3
+
+        sts_client = boto3.client("sts", region_name=region)
+        assume_role_kwargs = {"RoleArn": auth.role_arn, "RoleSessionName": self.OBJECT_STORAGE_ROLE_SESSION_NAME}
+        if auth.external_id:
+            assume_role_kwargs["ExternalId"] = auth.external_id
+        credentials = sts_client.assume_role(**assume_role_kwargs)["Credentials"]
+        return credentials["AccessKeyId"], credentials["SecretAccessKey"], credentials["SessionToken"]
+
+    def _create_object_storage_views(self, connection, datasets) -> None:
+        for dataset in datasets:
+            read_function = self.OBJECT_STORAGE_FORMAT_READ_FUNCTIONS[dataset.format]
+            view_name = self._quote_view_identifier(dataset.name)
+            path_literal = self._escape_sql_literal(dataset.path)
+            # Views are lazy (no in-memory materialization of S3 data) and appear in
+            # information_schema.tables, so the existing discovery/profiling/scan flows pick them up.
+            connection.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM {read_function}('{path_literal}')")
+
+    @staticmethod
+    def _duckdb_supports_create_secret() -> bool:
+        """DuckDB's CREATE SECRET / Secrets API was introduced in 0.10.0."""
+        import duckdb
+
+        try:
+            major, minor = (int(part) for part in duckdb.__version__.split(".")[:2])
+        except (ValueError, AttributeError):
+            return False
+        return (major, minor) >= (0, 10)
+
+    def _apply_configuration(self, connection, configuration: Optional[dict]) -> None:
+        for key, value in (configuration or {}).items():
+            connection.execute(f"SET {key}='{self._escape_sql_literal(str(value))}'")
+
+    @staticmethod
+    def _escape_sql_literal(value: str) -> str:
+        """Escape a value for use inside a single-quoted SQL string literal."""
+        return value.replace("'", "''")
+
+    @staticmethod
+    def _quote_view_identifier(name: str) -> str:
+        """Double-quote a view identifier, escaping embedded double quotes."""
+        return '"' + name.replace('"', '""') + '"'
+
     def _fetch_session_timezone(self) -> tzinfo:
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT current_setting('TimeZone')")
@@ -290,6 +423,25 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
         return DuckDBSqlDialect()
+
+    def _is_object_storage_source(self) -> bool:
+        """Object-storage datasets are registered as DuckDB VIEWs
+        (see DuckDBDataSourceConnection._create_object_storage_views), not TABLEs."""
+        return isinstance(self.data_source_model.connection_properties, DuckDBObjectStorageConnectionProperties)
+
+    def discover_qualified_objects(
+        self,
+        prefixes: list[str],
+        object_types: Optional[list[TableType]] = None,
+    ) -> list[FullyQualifiedObjectName]:
+        # Object-storage sources expose each configured dataset as a VIEW, but the default
+        # discovery/metadata path enumerates TABLEs only. When the caller does not request
+        # object types explicitly, include VIEWs so those datasets are actually found.
+        # Standard/local-file DuckDB sources materialize TABLEs and keep the TABLE-only default,
+        # so their discovery behavior is unchanged.
+        if object_types is None and self._is_object_storage_source():
+            object_types = [TableType.TABLE, TableType.VIEW]
+        return super().discover_qualified_objects(prefixes=prefixes, object_types=object_types)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DuckDBDataSourceConnection(
