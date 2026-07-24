@@ -71,6 +71,7 @@ class TrinoDataSource(DataSource):
         self.source = data_source_properties.get("source", trino.constants.DEFAULT_SOURCE)
         self.http_headers = data_source_properties.get("http_headers", None)
         self.client_tags = data_source_properties.get("client_tags", None)
+        self.verify_ssl = data_source_properties.get("verify_ssl", None)
 
     def connect(self):
         # Default to BasicAuthentication so we don't break current users.
@@ -96,6 +97,7 @@ class TrinoDataSource(DataSource):
             http_headers=self.http_headers,
             source=self.source,
             client_tags=self.client_tags,
+            verify=self.verify_ssl,
         )
 
     def regex_replace_flags(self) -> str:
