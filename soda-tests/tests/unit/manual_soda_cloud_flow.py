@@ -27,8 +27,7 @@ def test_manual_soda_cloud_flow_ecommerce_orders_contract_and_results_upload_to_
     schema_name: str = data_source_test_helper.dataset_prefix[1]
     qualified_table_name: str = f'{schema_name}."ecommerce_orders"'
 
-    contract_yaml_str: str = dedent(
-        f"""
+    contract_yaml_str: str = dedent(f"""
         dataset: {data_source_name}/{database_name}/{schema_name}/ecommerce_orders
         variables:
           start_timestamp:
@@ -167,19 +166,16 @@ def test_manual_soda_cloud_flow_ecommerce_orders_contract_and_results_upload_to_
                     - Bank Transfer
                     - Credit Card
                   qualifier: v2
-    """
-    ).strip()
+    """).strip()
 
     print(f"contract_yaml_str: \n{contract_yaml_str}")
 
-    soda_cloud_yaml_str = dedent(
-        """
+    soda_cloud_yaml_str = dedent("""
         soda_cloud:
           host: ${env.SODA_CLOUD_HOST}
           api_key_id: ${env.SODA_CLOUD_API_KEY_ID}
           api_key_secret: ${env.SODA_CLOUD_API_KEY_SECRET}
-    """
-    ).strip()
+    """).strip()
 
     soda_cloud: SodaCloud = SodaCloud.from_yaml_source(
         SodaCloudYamlSource.from_str(soda_cloud_yaml_str), provided_variable_values={}
@@ -199,16 +195,13 @@ def test_manual_soda_cloud_flow_ecommerce_orders_contract_and_results_upload_to_
 
 
 def drop_ecommerce_orders_table(data_source_impl: DataSourceImpl, schema: str):
-    data_source_impl.execute_update(
-        f"""
+    data_source_impl.execute_update(f"""
         drop table if exists {schema}.ecommerce_orders;
-    """
-    )
+    """)
 
 
 def create_ecommerce_orders_table(data_source_impl: DataSourceImpl, schema: str):
-    data_source_impl.execute_update(
-        f"""
+    data_source_impl.execute_update(f"""
         create table {schema}.ecommerce_orders
         (
             order_id         integer not null primary key,
@@ -223,13 +216,11 @@ def create_ecommerce_orders_table(data_source_impl: DataSourceImpl, schema: str)
             vat              numeric,
             created_at       timestamp
         );
-    """
-    )
+    """)
 
 
 def insert_ecommerce_orders_data(data_source_impl, schema: str):
-    data_source_impl.execute_update(
-        f"""
+    data_source_impl.execute_update(f"""
         insert into {schema}.ecommerce_orders (order_id, customer_id, order_date, region, product_category, quantity, price, payment_method, is_fraud, vat, created_at) values
         (2000, 213, '2025-05-01', 'North', 'Clothing', 2, 480.51, 'PayPal', FALSE, 21, '2025-06-18 16:05:06'),
         (2001, 229, '2025-05-02', 'East', 'Books', 5, 190.47, 'PayPal', TRUE, 21, '2025-06-18 16:05:06'),
@@ -343,5 +334,4 @@ def insert_ecommerce_orders_data(data_source_impl, schema: str):
         (3048, 236, '2025-05-09', 'South', 'Books', 5, 422.19, 'PayPal', FALSE, 21, '2025-06-18 16:05:06'),
         (3049, 244, '2025-05-19', 'West', 'Electronics', 1, 237.75, 'Credit Card', TRUE, 21, '2025-06-18 16:05:06'),
         (3050, 250, '2025-05-29', 'West', 'Books', 4, 233.76, 'Bank Transfer', FALSE, 21, '2025-06-18 16:05:06');
-        """
-    )
+        """)

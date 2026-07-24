@@ -5,6 +5,7 @@ These tests do not start a SparkSession against any cluster — they verify that
   - ``_create_connection`` for active-session mode either returns
     ``SparkSession.getActiveSession()`` or raises a clear error when none is active.
 """
+
 from __future__ import annotations
 
 import pytest

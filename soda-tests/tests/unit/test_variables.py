@@ -238,8 +238,7 @@ def test_missing_variable(logs: Logs):
 
 
 def test_variables_example1_in_docs(logs: Logs):
-    contract_yaml: ContractYaml = parse_contract(
-        contract_yaml_str="""
+    contract_yaml: ContractYaml = parse_contract(contract_yaml_str="""
             dataset: postgres_adventureworks/adventureworks/${var.DATASET_SCHEMA}/${var.DATASET_PREFIX}_employee
 
             variables:
@@ -250,8 +249,7 @@ def test_variables_example1_in_docs(logs: Logs):
 
             columns:
               - name: id
-    """
-    )
+    """)
 
     assert dedent_and_strip(contract_yaml.dataset) == "postgres_adventureworks/adventureworks/advw/dim_employee"
     assert "" == logs.get_errors_str()
