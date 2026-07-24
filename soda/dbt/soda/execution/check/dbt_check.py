@@ -14,7 +14,10 @@ class DbtCheck(Check):
         self.cloud_check_type = "generic"
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        return {"value": 0}
+        cloud_diagnostics = {
+            "value": self.check_value if hasattr(self, "check_value") else 0,
+        }
+        return cloud_diagnostics
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         # Not much to evaluate since this is done by dbt
@@ -32,7 +35,7 @@ class DbtCheck(Check):
             },
             "name": self.name,
             "type": self.cloud_check_type,
-            "definition": self.check_cfg.name,
+            "definition": self.expression if self.expression is not None else self.check_cfg.name,
             "location": {
                 "filePath": self.check_cfg.file_path,
                 "line": 0,
