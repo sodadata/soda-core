@@ -18,7 +18,7 @@ class PostgresDataSourceFixture(DataSourceFixture):
         return {
             "data_source postgres": {
                 "type": "postgres",
-                "host": "localhost",
+                "host": os.getenv("POSTGRES_HOST", "localhost"),
                 "username": os.getenv("POSTGRES_USERNAME", "sodasql"),
                 "password": os.getenv("POSTGRES_PASSWORD"),
                 "database": os.getenv("POSTGRES_DATABASE", "sodasql"),
