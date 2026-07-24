@@ -82,6 +82,14 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
+    def supports_percentile_within_group(self) -> bool:
+        """Synapse dedicated SQL pools have no percentile aggregate: T-SQL
+        PERCENTILE_DISC is window-only and APPROX_PERCENTILE_DISC's applies-to
+        list excludes Synapse (https://learn.microsoft.com/en-us/sql/t-sql/
+        functions/approx-percentile-disc-transact-sql). Consumers skip the
+        Q1/median/Q3 metrics."""
+        return False
+
     def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:
         values_sql: str = "\n" + "\nUNION ALL ".join(
             [self._build_insert_into_values_row_sql(value) for value in insert_into.values]

@@ -9,6 +9,7 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     AND,
     COLUMN,
     COUNT,
@@ -30,16 +31,19 @@ from soda_core.common.sql_ast import (
     LIMIT,
     OFFSET,
     ORDER_BY_ASC,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
     SELECT,
     STAR,
     STRING_HASH,
+    TIME_DELTA,
     TUPLE,
     VALUES,
     WHERE,
     WITH,
     SqlExpressionStr,
+    seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -52,9 +56,19 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
 logger: logging.Logger = soda_logger
 
 
+# APPROX_PERCENTILE_DISC needs SQL Server 2022+ on-prem, or Azure SQL Database /
+# Managed Instance (which report a legacy ProductMajorVersion).
+SQLSERVER_2022_MAJOR_VERSION = 16
+AZURE_SQL_DATABASE_ENGINE_EDITION = 5
+AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION = 8
+
+
 class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceModel):
     def __init__(self, data_source_model: SqlServerDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
+        # A live connection supplied at construction (e.g. a bulk-insert copy)
+        # already carries detected server facts; propagate them right away.
+        self._sync_dialect_server_info()
 
     def _create_sql_dialect(self) -> SqlDialect:
         return SqlServerSqlDialect()
@@ -64,10 +78,63 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def open_connection(self) -> None:
+        super().open_connection()
+        self._sync_dialect_server_info()
+
+    def _sync_dialect_server_info(self) -> None:
+        """Copy the connection's detected engine facts onto the dialect, which
+        derives version-dependent capabilities from them (see
+        SqlServerSqlDialect.supports_percentile_within_group).
+
+        Runs at connection-open time only; the dialect must NOT read the connection
+        during SQL generation — in snapshot replay the connection is a lazy wrapper
+        whose attribute access opens a real connection, so touching it while
+        building SQL breaks replay.
+
+        Gate on the concrete connection type rather than duck-typing the attributes:
+        a replay SnapshotDataSourceConnection is NOT a SqlServerDataSourceConnection,
+        so isinstance() is False and we never touch its attributes (which would fire
+        its __getattr__ fallback and open a real connection). Replay then keeps the
+        dialect's None defaults (assume newest engine), which is exactly what
+        recorded snapshots expect.
+        """
+        conn = self.data_source_connection
+        if isinstance(conn, SqlServerDataSourceConnection):
+            # Guaranteed by every _create_sql_dialect in this hierarchy; the assert
+            # only narrows the declared SqlDialect type for the assignments.
+            assert isinstance(self.sql_dialect, SqlServerSqlDialect)
+            self.sql_dialect.server_major_version = conn.server_major_version
+            self.sql_dialect.engine_edition = conn.engine_edition
+
 
 class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
+
+    def __init__(self):
+        super().__init__()
+        # Raw engine facts, synced from the live connection at open by
+        # SqlServerDataSourceImpl._sync_dialect_server_info. None means no live
+        # server facts (pure SQL rendering, unit tests, snapshot replay);
+        # capability checks then assume the newest engine.
+        self.server_major_version: Optional[int] = None
+        self.engine_edition: Optional[int] = None
+
+    def supports_percentile_within_group(self) -> bool:
+        # T-SQL exposes percentiles as an aggregate only via APPROX_PERCENTILE_DISC:
+        # SQL Server 2022+ (ProductMajorVersion >= 16), Azure SQL Database, or Azure
+        # SQL Managed Instance (both report a legacy ProductMajorVersion, hence the
+        # edition check). Synapse dedicated pools have no percentile aggregate at
+        # all; the Synapse dialect pins this to False.
+        if self.server_major_version is None and self.engine_edition is None:
+            return True  # no live server facts: assume the newest engine
+        return (
+            self.server_major_version is not None and self.server_major_version >= SQLSERVER_2022_MAJOR_VERSION
+        ) or self.engine_edition in (
+            AZURE_SQL_DATABASE_ENGINE_EDITION,
+            AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION,
+        )
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
@@ -175,6 +242,50 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATEADD(DAY, 1, {timestamp_literal})"
+
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        """T-SQL has no TIMESTAMP '...' literal (TIMESTAMP is the deprecated
+        rowversion type), so cast the string form to DATETIME2 to keep the
+        arithmetic operand typed —
+        https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetime2-transact-sql."""
+        return f"CAST('{self._typed_timestamp_str(dt)}' AS DATETIME2)"
+
+    # Singular unit names for DATEADD.
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "WEEK",
+        "days": "DAY",
+        "hours": "HOUR",
+        "seconds": "SECOND",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """T-SQL DATEDIFF counts crossed boundaries of the given unit, so
+        compute the difference in SECONDS and divide by the seconds-per-
+        interval. T-SQL int/int division truncates toward zero, which equals
+        the FLOOR of the other dialects only for deltas >= 0 — callers must
+        guarantee non-negative deltas (the MM window filter does).
+
+        DATEDIFF(second, ...) returns int and overflows for spans > ~68
+        years; switch to DATEDIFF_BIG if that ever bites."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        multiplier: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
+        # Parenthesized so the form stays self-contained if a caller embeds
+        # TIME_DELTA in larger arithmetic (every other dialect wraps in FLOOR/cast).
+        return f"(DATEDIFF(second, {start_sql}, {end_sql}) / {multiplier})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"DATEADD({unit_name}, {count_sql}, {timestamp_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """T-SQL PERCENTILE_DISC is a window function only; the aggregate form
+        is APPROX_PERCENTILE_DISC (SQL Server 2022+/Azure SQL/Fabric,
+        https://learn.microsoft.com/en-us/sql/t-sql/functions/approx-percentile-disc-transact-sql)."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"APPROX_PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):

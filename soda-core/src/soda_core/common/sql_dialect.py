@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from abc import abstractmethod
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
 from typing import Any, ClassVar, Optional, Tuple
@@ -382,6 +382,28 @@ class SqlDialect:
         # We assume that all timestamps are stored in UTC.
         # See Fabric for an example
         return self.literal_datetime(datetime)
+
+    @staticmethod
+    def _typed_timestamp_str(dt: datetime) -> str:
+        """Render the wall-clock string for a typed timestamp literal, in UTC.
+
+        A tz-aware datetime is normalized to UTC first (``strftime`` alone drops
+        tzinfo and would emit local wall-clock against a UTC-typed column). A
+        naive datetime is assumed to already be UTC and rendered as-is.
+        Sub-second precision is truncated.
+        """
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        """Typed timestamp literal for use inside timestamp arithmetic
+        (TIME_DELTA / ADD_INTERVAL operands), where some engines refuse a bare
+        string literal (duckdb in particular). Truncates sub-second precision.
+        Not a replacement for ``literal_datetime``, which renders comparison
+        literals.
+        """
+        return f"TIMESTAMP '{self._typed_timestamp_str(dt)}'"
 
     def literal_boolean(self, boolean: bool):
         return "TRUE" if boolean is True else "FALSE"
@@ -1068,6 +1090,13 @@ class SqlDialect:
         over_sql: str = " ".join(over_clauses)
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
 
+    def supports_percentile_within_group(self) -> bool:
+        """False when the engine has no percentile aggregate at all — exact or
+        approximate (Synapse). Consumers skip the Q1/median/Q3 metrics instead
+        of rendering PERCENTILE_WITHIN_GROUP.
+        """
+        return True
+
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """Ordered-set aggregate; valid on postgres/duckdb/snowflake. BigQuery
         overrides with APPROX_QUANTILES."""
@@ -1503,6 +1532,14 @@ class SqlDialect:
         temporal column types themselves. See BigQuerySqlDialect for the exception.
         """
         return expr
+
+    def sql_expr_is_not_nan(self, expr: str) -> Optional[str]:
+        """NaN-exclusion predicate for float aggregates, or None when the
+        engine needs no filter (base). Spark/Databricks store IEEE NaN in
+        float/double columns and propagate it into aggregate results, so they
+        return ``NOT ISNAN({expr})``.
+        """
+        return None
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false

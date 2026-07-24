@@ -12,6 +12,7 @@ from soda_core.common.sql_ast import (
     COUNT,
     DISTINCT,
     FROM,
+    PERCENTILE_WITHIN_GROUP,
     REGEX_LIKE,
     TUPLE,
     VALUES,
@@ -209,6 +210,23 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
 
     def supports_materialized_views(self) -> bool:
         return True
+
+    # TIME_DELTA / ADD_INTERVAL deliberately have NO overrides: Redshift
+    # supports both the base epoch-floor form and interval-literal arithmetic
+    # incl. plural units and interval * numeric
+    # (https://docs.aws.amazon.com/redshift/latest/dg/r_interval_data_types.html).
+    # Both are pinned in tests/unit/test_redshift_dialect.py.
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """Redshift restricts exact PERCENTILE_DISC (leader-node/window-only
+        limitations); render the documented approximate aggregate
+        APPROXIMATE PERCENTILE_DISC
+        (https://docs.aws.amazon.com/redshift/latest/dg/r_APPROXIMATE_PERCENTILE_DISC.html)."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return (
+            f"APPROXIMATE PERCENTILE_DISC({percentile_within_group.percentile}) "
+            f"WITHIN GROUP (ORDER BY {expression_sql})"
+        )
 
     def table_columns(self) -> str:
         return self.default_casify("svv_columns")

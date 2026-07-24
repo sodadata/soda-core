@@ -118,3 +118,85 @@ def test_drop_table_does_not_emit_cascade():
     sql_dialect = DatabricksSqlDialect()
     sql = sql_dialect.build_drop_table_sql(DROP_TABLE(fully_qualified_table_name="`c`.`s`.`t`", cascade=True))
     assert "CASCADE" not in sql
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes.
+# Spark DATEDIFF(unit, ...) counts crossed boundaries, so the dialect computes
+# in SECONDS and divides by the seconds-per-interval. 3-arg DATEDIFF and
+# TIMESTAMPADD are documented on Databricks (DBR 10.4+) and OSS Spark 3.3+
+# (SPARK-38389 / SPARK-38195).
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_datediff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = DatabricksSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "days", 1)
+    )
+    assert sql == "FLOOR(DATEDIFF(SECOND, '2020-06-20T00:00:00', (`ts`)) / 86400)"
+
+
+def test_time_delta_datediff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = DatabricksSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "hours", 2)
+    )
+    assert sql == "FLOOR(DATEDIFF(SECOND, '2020-06-20T00:00:00', (`ts`)) / 7200)"
+
+
+def test_add_interval_renders_timestampadd_singular_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = DatabricksSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMPADD(DAY, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00')"
+
+
+def test_add_interval_weeks_unit_name():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = DatabricksSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "TIMESTAMPADD(WEEK, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00')"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — Databricks supports the base ordered-set form
+# percentile_disc(p) WITHIN GROUP (ORDER BY expr) since DBR 11.3
+# (https://docs.databricks.com/en/sql/language-manual/functions/percentile_disc.html),
+# so there is deliberately NO override; this pins the inherited rendering.
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_inherits_base_within_group_form():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = DatabricksSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.25))
+    assert sql == "PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY `c`)"
+
+
+def test_supports_percentile_within_group_is_true():
+    assert DatabricksSqlDialect().supports_percentile_within_group() is True
+
+
+# ---------------------------------------------------------------------------
+# sql_expr_is_not_nan — Spark stores IEEE NaN in float/double columns and
+# propagates it into aggregates.
+# ---------------------------------------------------------------------------
+
+
+def test_sql_expr_is_not_nan_renders_not_isnan():
+    assert DatabricksSqlDialect().sql_expr_is_not_nan("`c`") == "NOT ISNAN(`c`)"

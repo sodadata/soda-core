@@ -69,3 +69,134 @@ def test_clamp_skips_non_datetime_types():
     column = CREATE_TABLE_COLUMN(name="age", type=SqlDataType(name="int", datetime_precision=9))
     # The base strip pass zeroes datetime_precision on non-datetime types before render.
     assert dialect._build_create_table_column_type(column) == "int"
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes.
+# DATEDIFF counts crossed boundaries of the given unit, so the dialect
+# computes in SECONDS and divides by the seconds-per-interval; add-interval
+# is DATEADD.
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_datediff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "days", 1)
+    )
+    assert sql == "(DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 86400)"
+
+
+def test_time_delta_datediff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("[ts]"), "hours", 2)
+    )
+    assert sql == "(DATEDIFF(second, '2020-06-20T00:00:00.000', ([ts])) / 7200)"
+
+
+def test_add_interval_renders_dateadd_singular_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "DATEADD(DAY, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00.000')"
+
+
+def test_add_interval_weeks_unit_name():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = SqlServerSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "DATEADD(WEEK, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00.000')"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — T-SQL PERCENTILE_DISC is window-only; the
+# aggregate form is APPROX_PERCENTILE_DISC.
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_renders_approx_percentile_disc():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = SqlServerSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.25))
+    assert sql == "APPROX_PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY [c])"
+
+
+def test_supports_percentile_within_group_defaults_true_without_server_facts():
+    assert SqlServerSqlDialect().supports_percentile_within_group() is True
+
+
+def _dialect_with_server_facts(server_major_version, engine_edition) -> SqlServerSqlDialect:
+    dialect = SqlServerSqlDialect()
+    dialect.server_major_version = server_major_version
+    dialect.engine_edition = engine_edition
+    return dialect
+
+
+def test_supports_percentile_within_group_derived_from_server_facts():
+    f = lambda major, edition: _dialect_with_server_facts(major, edition).supports_percentile_within_group()
+    assert f(16, 3) is True  # SQL Server 2022, Enterprise (on-prem)
+    assert f(17, 2) is True  # future major, Standard
+    assert f(15, 3) is False  # SQL Server 2019 — no aggregate APPROX_PERCENTILE_DISC
+    assert f(12, 5) is True  # Azure SQL Database (reports legacy major 12)
+    assert f(12, 8) is True  # Azure SQL Managed Instance
+    assert f(15, 4) is False  # SQL Server 2019 Express
+    assert f(None, 3) is False  # version detection failed; on-prem edition proves nothing
+    assert f(None, None) is True  # no facts at all — indistinguishable from offline, assume newest
+
+
+def test_parse_server_major_version():
+    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
+        SqlServerDataSourceConnection,
+    )
+
+    parse = SqlServerDataSourceConnection._parse_server_major_version
+    assert parse("15.00.4123") == 15
+    assert parse("12.00.2000") == 12
+    assert parse("garbage") is None
+    assert parse("") is None
+    assert parse(None) is None
+
+
+# ---------------------------------------------------------------------------
+# literal_timestamp_typed — T-SQL has no TIMESTAMP '...' literal (TIMESTAMP is
+# the deprecated rowversion type); CAST(... AS DATETIME2) is the typed form.
+# ---------------------------------------------------------------------------
+
+
+def test_literal_timestamp_typed_casts_to_datetime2():
+    from datetime import datetime
+
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+
+
+def test_literal_timestamp_typed_truncates_sub_seconds():
+    from datetime import datetime
+
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3, 999999))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+
+
+def test_literal_timestamp_typed_normalizes_tz_aware_to_utc():
+    # A tz-aware non-UTC datetime must render its UTC wall-clock, not local time
+    # with the zone silently dropped.
+    from datetime import datetime, timedelta, timezone
+
+    plus_two = timezone(timedelta(hours=2))
+    sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 3, 2, 3, tzinfo=plus_two))
+    assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"

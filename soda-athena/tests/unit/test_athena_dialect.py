@@ -89,3 +89,77 @@ class TestCollapseAthenaPrefixes:
             "s3tablescatalog/a/b",
             "my_schema",
         )
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — MM time-bucket nodes. Athena engine v3 is
+# Trino-based (https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html):
+# seconds date_diff divided by the float seconds-per-interval, cast to int
+# (date_add's value argument must be integer-typed); date_add with lowercase
+# unit names.
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_renders_date_diff_seconds_form():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = AthenaSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "days", 1)
+    )
+    assert sql == (
+        "cast(floor(date_diff('second', From_iso8601_timestamp('2020-06-20T00:00:00'), (\"ts\")) / 86400.0) as int)"
+    )
+
+
+def test_time_delta_date_diff_count_2_hours():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = AthenaSqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr('"ts"'), "hours", 2)
+    )
+    assert sql == (
+        "cast(floor(date_diff('second', From_iso8601_timestamp('2020-06-20T00:00:00'), (\"ts\")) / 7200.0) as int)"
+    )
+
+
+def test_add_interval_renders_date_add_lowercase_unit():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = AthenaSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "date_add('day', ((soda_partition__ + 1) * 1), From_iso8601_timestamp('2020-06-20T00:00:00'))"
+
+
+def test_add_interval_weeks_unit_name():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = AthenaSqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
+    )
+    assert sql == "date_add('week', ((soda_partition__ + 1) * 1), From_iso8601_timestamp('2020-06-20T00:00:00'))"
+
+
+# ---------------------------------------------------------------------------
+# PERCENTILE_WITHIN_GROUP — the Trino-based Athena engine does not accept the
+# base WITHIN GROUP form; approx_percentile(expr, p) is its aggregate.
+# ---------------------------------------------------------------------------
+
+
+def test_percentile_within_group_renders_approx_percentile():
+    from soda_core.common.sql_ast import COLUMN, PERCENTILE_WITHIN_GROUP
+
+    sql = AthenaSqlDialect().build_expression_sql(PERCENTILE_WITHIN_GROUP(COLUMN("c"), 0.5))
+    assert sql == 'approx_percentile("c", 0.5)'
+
+
+def test_supports_percentile_within_group_is_true():
+    assert AthenaSqlDialect().supports_percentile_within_group() is True

@@ -11,7 +11,14 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import INSERT_INTO_VIA_SELECT, STRING_HASH
+from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
+    INSERT_INTO_VIA_SELECT,
+    PERCENTILE_WITHIN_GROUP,
+    STRING_HASH,
+    TIME_DELTA,
+    seconds_per_time_bucket,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_trino.common.data_sources.trino_data_source_connection import (
@@ -303,6 +310,36 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATE_ADD('day', 1, {timestamp_literal})"
+
+    # Lowercase singular unit names for date_add, as listed in the Trino
+    # datetime-functions doc (https://trino.io/docs/current/functions/datetime.html).
+    _TIME_BUCKET_UNIT_NAMES: dict = {
+        "weeks": "week",
+        "days": "day",
+        "hours": "hour",
+        "seconds": "second",
+    }
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Seconds date_diff divided by the float seconds-per-interval, cast
+        to int. The cast matters: floor() returns double on Trino and
+        date_add's value argument must be integer-typed."""
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        secs_per_interval: float = seconds_per_time_bucket(time_delta.unit, time_delta.count) / 1.0
+        return f"cast(floor(date_diff('second', {start_sql}, {end_sql}) / {secs_per_interval}) as int)"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
+        return f"date_add('{unit_name}', {count_sql}, {timestamp_sql})"
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """Trino has no ordered-set aggregates (the base WITHIN GROUP form is
+        not Trino syntax); approx_percentile is its percentile aggregate."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
 
     def build_select_sql(self, select_elements: list, add_semicolon: Optional[bool] = None) -> str:
         # Trino requires OFFSET before LIMIT (standard SQL order).
