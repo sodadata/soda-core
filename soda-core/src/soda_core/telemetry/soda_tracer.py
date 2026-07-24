@@ -36,7 +36,7 @@ def get_decorators(function):
                 name = n.func.attr if isinstance(n.func, ast.Attribute) else n.func.id
 
                 for a in n.args:
-                    print(ast.dump(a))
+                    logger.debug("Decorator arg AST: %s", ast.dump(a))
             else:
                 group = n.attr if isinstance(n, ast.Attribute) else n.id
                 name = None
