@@ -234,8 +234,8 @@ def test_add_interval_renders_timestamp_add():
 
 
 def test_add_interval_weeks_renders_as_days_times_seven():
-    # BigQuery TIMESTAMP_ADD accepts only MICROSECOND..DAY parts; WEEK is invalid
-    # there (though valid for TIMESTAMP_DIFF), so weekly buckets must be expressed
+    # BigQuery TIMESTAMP functions accept only MICROSECOND..DAY parts (WEEK is a
+    # DATE_DIFF/DATETIME_DIFF-only part), so weekly intervals must be expressed
     # as INTERVAL <count> * 7 DAY.
     from datetime import datetime
 
@@ -362,15 +362,3 @@ def test_time_delta_single_week_still_floors_by_seven_days():
     )
     assert "WEEK" not in sql
     assert sql.endswith("DAY) / 7) AS INT)")
-
-
-def test_add_interval_weekly_renders_seven_day_multiple():
-    from datetime import datetime
-
-    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
-
-    sql = BigQuerySqlDialect().build_expression_sql(
-        ADD_INTERVAL(LITERAL(datetime(2020, 6, 1)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 2"))
-    )
-    assert "WEEK" not in sql
-    assert "* 7 DAY)" in sql

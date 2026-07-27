@@ -196,6 +196,15 @@ def test_cast_raw_string_type_passes_through():
     assert AthenaSqlDialect().build_expression_sql(CAST(COLUMN("c"), "varchar")) == 'CAST("c" AS varchar)'
 
 
+def test_cast_raw_string_float_also_renders_real():
+    """SodaDataTypeName is a str-enum, so a raw 'float' cast type compares
+    equal to SodaDataTypeName.FLOAT and takes the override too — desirable,
+    since a passed-through 'float' would be invalid Trino DML anyway."""
+    from soda_core.common.sql_ast import CAST, COLUMN
+
+    assert AthenaSqlDialect().build_expression_sql(CAST(COLUMN("c"), "float")) == 'CAST("c" AS real)'
+
+
 def test_ddl_float_type_name_stays_hive_float():
     """The DDL map keeps the Hive name — CREATE EXTERNAL TABLE consumers
     resolve through it and Hive has no 'real'."""
