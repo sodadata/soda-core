@@ -133,8 +133,13 @@ def test_payload_carries_run_logs():
     import logging
 
     record = logging.LogRecord(
-        name="soda", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="Discovered 2 datasets", args=(), exc_info=None,
+        name="soda",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Discovered 2 datasets",
+        args=(),
+        exc_info=None,
     )
     payload = build_discovery_payload(
         dqns=["postgres/soda/public/customers"],
