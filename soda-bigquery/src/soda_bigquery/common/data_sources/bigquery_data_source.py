@@ -234,9 +234,11 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         quantile_number: int = int(percentile_within_group.percentile * 1000)
         return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
 
-    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD.
+    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD. WEEK is deliberately
+    # absent: BigQuery's TIMESTAMP functions only accept MICROSECOND..DAY parts
+    # (WEEK is a DATE_DIFF/DATETIME_DIFF-only part), so weekly arithmetic
+    # renders day-denominated in both builders below.
     _TIME_BUCKET_UNIT_NAMES: dict = {
-        "weeks": "WEEK",
         "days": "DAY",
         "hours": "HOUR",
         "seconds": "SECOND",
@@ -245,18 +247,21 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
         start_sql: str = self.build_expression_sql(time_delta.start)
         end_sql: str = self.build_expression_sql(time_delta.end)
-        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[time_delta.unit]
+        # Weekly buckets index as day-buckets of 7×count: floor(days / 7·count)
+        # is the same partition index.
+        unit, count = time_delta.unit, time_delta.count
+        if unit == "weeks":
+            unit, count = "days", count * 7
+        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[unit]
         sql: str = f"TIMESTAMP_DIFF({end_sql}, {start_sql}, {unit_name})"
-        if time_delta.count != 1:
-            sql = f"CAST(FLOOR({sql} / {time_delta.count}) AS INT)"
+        if count != 1:
+            sql = f"CAST(FLOOR({sql} / {count}) AS INT)"
         return sql
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
-        # BigQuery TIMESTAMP_ADD only accepts MICROSECOND..DAY parts — WEEK is invalid here
-        # (it is valid for TIMESTAMP_DIFF, hence the asymmetry with _build_time_delta_sql).
-        # Express weekly buckets as INTERVAL <count> * 7 DAY.
+        # Weekly intervals render as INTERVAL <count> * 7 DAY.
         if add_interval.unit == "weeks":
             return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} * 7 DAY)"
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]

@@ -55,6 +55,12 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
 
 
 class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
+    def supports_percentiles_with_other_distinct_aggregates(self) -> bool:
+        # Redshift: "Using LISTAGG/PERCENTILE_CONT/MEDIAN aggregate functions
+        # with other distinct aggregate function not supported" — consumers
+        # batch percentile aggregates into their own SELECT.
+        return False
+
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.CHAR, SodaDataTypeName.VARCHAR),  # Char is mapped to varchar in the cursor description.

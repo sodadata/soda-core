@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from datetime import timezone, tzinfo
+from datetime import datetime, timezone, tzinfo
 from typing import Literal, Optional, Union
 
 import pyathena
+from pyathena.converter import DefaultTypeConverter
 from pydantic import Field, SecretStr, model_validator
 from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -19,6 +20,25 @@ logger: logging.Logger = soda_logger
 
 
 DEFAULT_CATALOG = "awsdatacatalog"
+
+
+def _to_datetime_lenient(varchar_value: Optional[str]) -> Optional[datetime]:
+    """pyathena's default timestamp converter requires fractional seconds,
+    but Athena renders timestamp(0) values (e.g. second-precision literals
+    fed through date arithmetic) without them — which would fail the whole
+    fetch. Accept both forms."""
+    if varchar_value is None:
+        return None
+    try:
+        return datetime.strptime(varchar_value, "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        return datetime.strptime(varchar_value, "%Y-%m-%d %H:%M:%S")
+
+
+class LenientTypeConverter(DefaultTypeConverter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.mappings["timestamp"] = _to_datetime_lenient
 
 
 class AthenaConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -81,6 +101,7 @@ class AthenaDataSourceConnection(DataSourceConnection):
         )
 
         self.connection = pyathena.connect(
+            converter=LenientTypeConverter(),
             profile_name=self.aws_credentials.profile_name,
             aws_access_key_id=self.aws_credentials.access_key_id,
             aws_secret_access_key=self.aws_credentials.secret_access_key,

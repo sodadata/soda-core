@@ -534,6 +534,28 @@ class AVERAGE(SqlExpression):
 
 
 @dataclass
+class STDDEV_SAMP(SqlExpression):
+    """Sample standard deviation aggregate."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class VAR_SAMP(SqlExpression):
+    """Sample variance aggregate."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
 class MAX(SqlExpression):
     expression: SqlExpression | str
 

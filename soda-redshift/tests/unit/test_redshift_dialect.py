@@ -77,3 +77,9 @@ def test_percentile_within_group_renders_approximate_percentile_disc():
 
 def test_supports_percentile_within_group_is_true():
     assert RedshiftSqlDialect().supports_percentile_within_group() is True
+
+
+def test_percentiles_cannot_share_select_with_other_distinct_aggregates():
+    """Redshift refuses PERCENTILE_CONT/DISC/MEDIAN combined with other
+    DISTINCT aggregates in one SELECT; consumers batch them separately."""
+    assert RedshiftSqlDialect().supports_percentiles_with_other_distinct_aggregates() is False

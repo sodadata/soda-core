@@ -121,6 +121,14 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         self.server_major_version: Optional[int] = None
         self.engine_edition: Optional[int] = None
 
+    def _build_stddev_samp_sql(self, stddev_samp) -> str:
+        # T-SQL names the sample standard deviation aggregate STDEV.
+        return f"STDEV({self.build_expression_sql(stddev_samp.expression)})"
+
+    def _build_var_samp_sql(self, var_samp) -> str:
+        # T-SQL names the sample variance aggregate VAR.
+        return f"VAR({self.build_expression_sql(var_samp.expression)})"
+
     def supports_percentile_within_group(self) -> bool:
         # T-SQL exposes percentiles as an aggregate only via APPROX_PERCENTILE_DISC:
         # SQL Server 2022+ (ProductMajorVersion >= 16), Azure SQL Database, or Azure

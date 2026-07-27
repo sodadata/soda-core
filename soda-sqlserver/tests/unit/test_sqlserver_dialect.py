@@ -200,3 +200,21 @@ def test_literal_timestamp_typed_normalizes_tz_aware_to_utc():
     plus_two = timezone(timedelta(hours=2))
     sql = SqlServerSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 3, 2, 3, tzinfo=plus_two))
     assert sql == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
+
+
+# ---------------------------------------------------------------------------
+# Sample-stat aggregates — T-SQL names them STDEV/VAR (STDDEV_SAMP/VAR_SAMP
+# are not recognized functions).
+# ---------------------------------------------------------------------------
+
+
+def test_stddev_samp_renders_stdev():
+    from soda_core.common.sql_ast import COLUMN, STDDEV_SAMP
+
+    assert SqlServerSqlDialect().build_expression_sql(STDDEV_SAMP(COLUMN("c"))) == "STDEV([c])"
+
+
+def test_var_samp_renders_var():
+    from soda_core.common.sql_ast import COLUMN, VAR_SAMP
+
+    assert SqlServerSqlDialect().build_expression_sql(VAR_SAMP(COLUMN("c"))) == "VAR([c])"

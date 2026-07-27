@@ -163,3 +163,71 @@ def test_percentile_within_group_renders_approx_percentile():
 
 def test_supports_percentile_within_group_is_true():
     assert AthenaSqlDialect().supports_percentile_within_group() is True
+
+
+# ---------------------------------------------------------------------------
+# CAST — Athena splits its SQL across two parsers: DDL is Hive (FLOAT exists,
+# REAL does not) while DML/expressions are Trino (REAL exists, FLOAT does
+# not). The canonical type map serves DDL, so canonical FLOAT casts render the
+# Trino name 'real' via the _build_cast_sql override.
+# ---------------------------------------------------------------------------
+
+
+def test_cast_canonical_float_renders_trino_real():
+    from soda_core.common.metadata_types import SodaDataTypeName
+    from soda_core.common.sql_ast import CAST, COLUMN
+
+    sql = AthenaSqlDialect().build_expression_sql(CAST(COLUMN("c"), SodaDataTypeName.FLOAT))
+    assert sql == 'CAST("c" AS real)'
+
+
+def test_cast_other_canonical_types_keep_the_map():
+    from soda_core.common.metadata_types import SodaDataTypeName
+    from soda_core.common.sql_ast import CAST, COLUMN
+
+    dialect = AthenaSqlDialect()
+    assert dialect.build_expression_sql(CAST(COLUMN("c"), SodaDataTypeName.DOUBLE)) == 'CAST("c" AS double)'
+    assert dialect.build_expression_sql(CAST(COLUMN("c"), SodaDataTypeName.VARCHAR)) == 'CAST("c" AS varchar)'
+
+
+def test_cast_raw_string_type_passes_through():
+    from soda_core.common.sql_ast import CAST, COLUMN
+
+    assert AthenaSqlDialect().build_expression_sql(CAST(COLUMN("c"), "varchar")) == 'CAST("c" AS varchar)'
+
+
+def test_cast_raw_string_float_also_renders_real():
+    """SodaDataTypeName is a str-enum, so a raw 'float' cast type compares
+    equal to SodaDataTypeName.FLOAT and takes the override too — desirable,
+    since a passed-through 'float' would be invalid Trino DML anyway."""
+    from soda_core.common.sql_ast import CAST, COLUMN
+
+    assert AthenaSqlDialect().build_expression_sql(CAST(COLUMN("c"), "float")) == 'CAST("c" AS real)'
+
+
+def test_ddl_float_type_name_stays_hive_float():
+    """The DDL map keeps the Hive name — CREATE EXTERNAL TABLE consumers
+    resolve through it and Hive has no 'real'."""
+    from soda_core.common.metadata_types import SodaDataTypeName
+
+    assert AthenaSqlDialect().get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.FLOAT) == "float"
+
+
+# ---------------------------------------------------------------------------
+# Result timestamp parsing — Athena renders timestamp(0) values without a
+# fractional part, which pyathena's default converter rejects.
+# ---------------------------------------------------------------------------
+
+
+def test_lenient_timestamp_converter_accepts_both_precisions():
+    from datetime import datetime
+
+    from soda_athena.common.data_sources.athena_data_source_connection import (
+        LenientTypeConverter,
+    )
+
+    converter = LenientTypeConverter()
+    convert = converter.mappings["timestamp"]
+    assert convert("2026-07-04 00:00:00.123000") == datetime(2026, 7, 4, 0, 0, 0, 123000)
+    assert convert("2026-07-04 00:00:00") == datetime(2026, 7, 4)
+    assert convert(None) is None
