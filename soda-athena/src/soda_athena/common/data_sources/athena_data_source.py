@@ -18,6 +18,7 @@ from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     ALTER_TABLE_ADD_COLUMN,
+    CAST,
     COLUMN,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
@@ -354,6 +355,17 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         form; approx_percentile is its percentile aggregate."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
+
+    def _build_cast_sql(self, cast: CAST) -> str:
+        """Athena splits its SQL across two parsers: DDL is Hive (FLOAT is the
+        float32 type; REAL does not exist) while DML/expressions are Trino
+        (REAL is the float32 type; FLOAT does not exist). The canonical type
+        map serves DDL (see get_data_source_data_type_name_by_soda_data_type_names
+        and its create-table consumers), so canonical FLOAT casts must render
+        the Trino name here instead."""
+        if cast.to_type == SodaDataTypeName.FLOAT:
+            return f"CAST({self.build_expression_sql(cast.expression)} AS real)"
+        return super()._build_cast_sql(cast)
 
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
