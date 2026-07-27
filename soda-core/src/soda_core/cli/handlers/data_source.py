@@ -166,6 +166,7 @@ def handle_discover_data_source(
     scan_definition_name: str,
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
+    logs: Optional[Logs] = None,
 ) -> ExitCode:
     """Discover datasets and send the results to Soda Cloud.
 
@@ -190,6 +191,7 @@ def handle_discover_data_source(
         scan_definition_name=scan_definition_name,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
+        log_records=logs.get_log_records() if logs else None,
     )
     if not soda_cloud.insert_scan_results(payload):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
