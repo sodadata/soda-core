@@ -202,3 +202,23 @@ def test_ddl_float_type_name_stays_hive_float():
     from soda_core.common.metadata_types import SodaDataTypeName
 
     assert AthenaSqlDialect().get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.FLOAT) == "float"
+
+
+# ---------------------------------------------------------------------------
+# Result timestamp parsing — Athena renders timestamp(0) values without a
+# fractional part, which pyathena's default converter rejects.
+# ---------------------------------------------------------------------------
+
+
+def test_lenient_timestamp_converter_accepts_both_precisions():
+    from datetime import datetime
+
+    from soda_athena.common.data_sources.athena_data_source_connection import (
+        LenientTypeConverter,
+    )
+
+    converter = LenientTypeConverter()
+    convert = converter.mappings["timestamp"]
+    assert convert("2026-07-04 00:00:00.123000") == datetime(2026, 7, 4, 0, 0, 0, 123000)
+    assert convert("2026-07-04 00:00:00") == datetime(2026, 7, 4)
+    assert convert(None) is None

@@ -247,18 +247,6 @@ def test_add_interval_weeks_renders_as_days_times_seven():
     assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) * 7 DAY)"
 
 
-def test_time_delta_weeks_keeps_week_part():
-    # The TIMESTAMP_DIFF path DOES accept WEEK; it must stay unchanged.
-    from datetime import datetime
-
-    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
-
-    sql = BigQuerySqlDialect().build_expression_sql(
-        TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "weeks", 1)
-    )
-    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', WEEK)"
-
-
 # ---------------------------------------------------------------------------
 # BigQuery string literal escaping — literal_string wraps values in triple
 # single quotes ('''...'''). If a bare ''' survives inside the content it
@@ -343,3 +331,46 @@ def test_literal_string_embedded_scan_id_query_roundtrips():
 
 def test_literal_string_none_returns_none():
     assert BigQuerySqlDialect().literal_string(None) is None
+
+
+# ---------------------------------------------------------------------------
+# TIME_DELTA / ADD_INTERVAL — weekly arithmetic renders day-denominated:
+# BigQuery TIMESTAMP functions only accept MICROSECOND..DAY parts (WEEK is a
+# DATE_DIFF/DATETIME_DIFF-only part).
+# ---------------------------------------------------------------------------
+
+
+def test_time_delta_weekly_buckets_render_day_denominated():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 1)), SqlExpressionStr("`ts`"), "weeks", 2)
+    )
+    assert "WEEK" not in sql
+    assert sql.endswith("DAY) / 14) AS INT)")
+
+
+def test_time_delta_single_week_still_floors_by_seven_days():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        TIME_DELTA(LITERAL(datetime(2020, 6, 1)), SqlExpressionStr("`ts`"), "weeks", 1)
+    )
+    assert "WEEK" not in sql
+    assert sql.endswith("DAY) / 7) AS INT)")
+
+
+def test_add_interval_weekly_renders_seven_day_multiple():
+    from datetime import datetime
+
+    from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
+
+    sql = BigQuerySqlDialect().build_expression_sql(
+        ADD_INTERVAL(LITERAL(datetime(2020, 6, 1)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 2"))
+    )
+    assert "WEEK" not in sql
+    assert "* 7 DAY)" in sql

@@ -91,6 +91,7 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     SELECT,
     STAR,
+    STDDEV_SAMP,
     STRING_HASH,
     SUM,
     TIME_DELTA,
@@ -99,6 +100,7 @@ from soda_core.common.sql_ast import (
     UNION_ALL,
     VALUES,
     VALUES_ROW,
+    VAR_SAMP,
     WHERE,
     WINDOW_FUNCTION,
     WITH,
@@ -867,6 +869,10 @@ class SqlDialect:
             return self._build_min_sql(expression)
         elif isinstance(expression, AVERAGE):
             return self._build_average_sql(expression)
+        elif isinstance(expression, STDDEV_SAMP):
+            return self._build_stddev_samp_sql(expression)
+        elif isinstance(expression, VAR_SAMP):
+            return self._build_var_samp_sql(expression)
         elif isinstance(expression, COALESCE):
             return self._build_coalesce_sql(expression)
         elif isinstance(expression, CAST):
@@ -1090,6 +1096,12 @@ class SqlDialect:
         over_sql: str = " ".join(over_clauses)
         return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
 
+    def supports_percentiles_with_other_distinct_aggregates(self) -> bool:
+        """Whether percentile aggregates (PERCENTILE_CONT/DISC, MEDIAN) can
+        share one SELECT with other DISTINCT aggregates. Redshift refuses the
+        combination; consumers batch percentile aggregates separately there."""
+        return True
+
     def supports_percentile_within_group(self) -> bool:
         """False when the engine has no percentile aggregate at all — exact or
         approximate (Synapse). Consumers skip the Q1/median/Q3 metrics instead
@@ -1191,6 +1203,15 @@ class SqlDialect:
 
     def _build_average_sql(self, average: AVERAGE) -> str:
         return f"AVG({self.build_expression_sql(average.expression)})"
+
+    def _build_stddev_samp_sql(self, stddev_samp: STDDEV_SAMP) -> str:
+        """Sample standard deviation; the T-SQL family overrides with STDEV
+        (STDDEV_SAMP is not a recognized function there)."""
+        return f"STDDEV_SAMP({self.build_expression_sql(stddev_samp.expression)})"
+
+    def _build_var_samp_sql(self, var_samp: VAR_SAMP) -> str:
+        """Sample variance; the T-SQL family overrides with VAR."""
+        return f"VAR_SAMP({self.build_expression_sql(var_samp.expression)})"
 
     def _build_coalesce_sql(self, coalesce: COALESCE) -> str:
         args: str = ", ".join([self.build_expression_sql(expression) for expression in coalesce.args])
