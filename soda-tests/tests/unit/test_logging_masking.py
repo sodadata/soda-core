@@ -38,17 +38,26 @@ def test_mask_exception_survives_retry_wrapper_traceback() -> None:
         assert masked is e
 
 
+def _value_error_containing(secret: str) -> ValueError:
+    # Raise and catch inside this throwaway helper so the returned exception's
+    # traceback contains only this frame, not the caller's. On Python 3.13+
+    # ``frame.f_locals`` is a write-through proxy (PEP 667), so masking a frame's
+    # locals rewrites the live variables; keeping the raise here means the caller's
+    # assertion variables can't be clobbered by the masking under test.
+    try:
+        raise ValueError(f"connection failed for {secret}")
+    except ValueError as e:
+        return e
+
+
 def test_mask_exception_masks_registered_secret_in_args() -> None:
     """Masking still redacts registered secrets in the exception args."""
     secret = "s3cr3t-token-value"
     _masked_values.add(secret)
     try:
-        try:
-            raise ValueError(f"connection failed for {secret}")
-        except ValueError as e:
-            masked = _mask_exception(e)
+        masked = _mask_exception(_value_error_containing(secret))
         assert masked is not None
-        assert secret not in masked.args[0]
+        assert "s3cr3t-token-value" not in masked.args[0]
         assert "***" in masked.args[0]
     finally:
         _masked_values.discard(secret)
