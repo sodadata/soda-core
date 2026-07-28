@@ -1869,9 +1869,6 @@ def _build_check_collection_results_json_dict(
         "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
         "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
         "hasErrors": any(r.has_errors for r in results),
-        # "hasWarnings" is the field the backend maps for scan-state
-        # derivation (COMPLETED_WITH_WARNINGS); unknown keys are silently
-        # dropped, so any other spelling loses the warning severity.
         "hasWarnings": any(r.is_warned for r in results),
         "hasFailures": any(r.is_failed for r in results),
         # Empty checks list serialises as ``None`` to match the legacy
