@@ -136,12 +136,21 @@ def _mask_exception(e: Optional[BaseException]) -> Optional[BaseException]:
     tb = e.__traceback__
     while tb is not None:
         frame = tb.tb_frame
-        # Mask local variables in the frame that are strings
+        # Mask local variables in the frame that are strings.
+        # Iterate over a snapshot (``list(...)``): assigning ``frame.f_locals[...]``
+        # re-syncs the frame's fast locals, mutating the very mapping being iterated,
+        # which raises "dictionary keys changed during iteration" on Python < 3.13 for
+        # some frames (e.g. the closure frames added by the SQL Server deadlock-retry
+        # wrapper). Masking is best-effort and cosmetic, so it must never break logging:
+        # a failure here previously propagated out of the logging handler and silently
+        # dropped the record, swallowing the very error being logged.
         if frame.f_locals:
-            for var_name, var_value in frame.f_locals.items():
-                if isinstance(var_value, str):
-                    masked_value = _mask_message(var_value)
-                    frame.f_locals[var_name] = masked_value
+            try:
+                for var_name, var_value in list(frame.f_locals.items()):
+                    if isinstance(var_value, str):
+                        frame.f_locals[var_name] = _mask_message(var_value)
+            except Exception:
+                pass
         tb = tb.tb_next
 
     # Recursively mask chained exceptions
