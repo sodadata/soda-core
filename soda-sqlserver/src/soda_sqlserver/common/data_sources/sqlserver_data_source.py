@@ -335,6 +335,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         order_by: list[str],
         limit: int,
         offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
     ) -> str:
         where_clauses = []
 
@@ -345,7 +346,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             SELECT(columns or [STAR()]),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
-            *[ORDER_BY_ASC(c) for c in order_by],
+            *[self._order_by_key(c, normalize_key_columns) for c in order_by],
             OFFSET(offset),
             LIMIT(limit),
         ]

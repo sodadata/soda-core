@@ -195,6 +195,41 @@ class DataSourceImpl(ABC):
             return self.sql_dialect.supports_materialized_views()
         return self._can_create_materialized_view
 
+    @property
+    def orders_text_case_insensitively(self) -> bool:
+        """Whether this data source's SQL orders text columns case-insensitively.
+
+        Default False (codepoint/collation order — unchanged behavior). A source whose
+        ORDER BY on text is case-insensitive (e.g. Salesforce/SOQL) returns True. A consumer
+        that merges two independently-ordered streams can use this to decide whether to
+        case-fold so both sides agree on one order.
+        """
+        return False
+
+    @property
+    def supports_row_hashing(self) -> bool:
+        """Whether this data source's query language can compute a row hash (e.g. MD5/CAST).
+
+        Default True. A source that cannot express a hash in queries (e.g. Salesforce/SOQL)
+        returns False, so a feature that relies on hashing can degrade gracefully rather than
+        emit a misleading result from a value it could not actually compute.
+        """
+        return True
+
+    def validate_orderable_key_columns(
+        self, dataset_prefixes: list[str], dataset_name: str, key_columns: list[str]
+    ) -> list[str]:
+        """Return human-readable problems if any key column cannot be used as an ordered/paged
+        reconciliation key on this data source; empty list means all keys are usable.
+
+        A paginated reconciliation read (rows_diff/reference_diff) ORDER BYs the key columns.
+        Most SQL sources can order by any column, so the default returns no problems and existing
+        behavior is unchanged. A source whose query language forbids ordering by some field types
+        (e.g. Salesforce/SOQL cannot ORDER BY a long-text field) overrides this to fail early —
+        at check setup, before any cursor opens — instead of erroring mid-stream.
+        """
+        return []
+
     def try_create_view(self, sql: str) -> bool:
         """Attempt to create a view. Returns False and caches the result if creation
         is not supported, so subsequent calls skip without retrying."""

@@ -441,6 +441,7 @@ class SqlDialect:
         order_by: list[str],
         limit: int,
         offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
     ) -> str:
         where_clauses = []
 
@@ -451,12 +452,33 @@ class SqlDialect:
             SELECT(columns or [STAR()]),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
-            *[ORDER_BY_ASC(c) for c in order_by],
+            *[self._order_by_key(c, normalize_key_columns) for c in order_by],
             LIMIT(limit),
             OFFSET(offset),
         ]
 
         return self.build_select_sql(statements)
+
+    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> ORDER_BY_ASC:
+        """ORDER BY element for one key column.
+
+        Default-off: only columns the reconciliation explicitly asked to normalize get
+        case-folded (for cross-source text-key parity); every other column renders exactly
+        as before, so existing paginated SQL is byte-for-byte unchanged.
+        """
+        if column in normalize_key_columns:
+            return ORDER_BY_ASC(SqlExpressionStr(self.order_by_key_expression(self.build_expression_sql(column))))
+        return ORDER_BY_ASC(column)
+
+    def order_by_key_expression(self, column_expression_sql: str) -> str:
+        """Case-fold a reconciliation key column for case-insensitive ORDER BY.
+
+        Invoked only when a reconciliation activates text-key normalization (default-off),
+        so existing ORDER BY rendering is untouched. Standard SQL case-folds with LOWER(); a
+        dialect that already orders text case-insensitively (e.g. Salesforce/SOQL) overrides
+        this to identity — and in practice such a side is never asked to normalize.
+        """
+        return f"LOWER({column_expression_sql})"
 
     #########################################################
     # CREATE TABLE
