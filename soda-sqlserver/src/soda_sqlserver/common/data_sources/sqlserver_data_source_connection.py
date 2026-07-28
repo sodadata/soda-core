@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import logging
+import random
 import struct
+import time
 from abc import ABC
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Any, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 import pyodbc
 from pydantic import Field, SecretStr
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -106,6 +109,48 @@ def handle_datetimeoffset(dto_value):
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):
+    # SQL Server resolves lock conflicts by killing one participant with error 1205
+    # (SQLSTATE 40001) and rolling its transaction back; Microsoft's guidance is to
+    # rerun the killed transaction. Concurrent DDL and catalog scans in the same
+    # database can deadlock on the system base tables, so statements are retried a
+    # few times before the error is propagated. The pause is drawn uniformly from
+    # an exponentially growing window (full jitter) so that the parties of a killed
+    # deadlock don't retry in lockstep and immediately deadlock again.
+    DEADLOCK_MAX_ATTEMPTS: int = 3
+    DEADLOCK_RETRY_BACKOFF_SECONDS: float = 0.1
+
+    def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
+        execute = super().execute_query
+        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
+        execute = super().execute_update
+        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+
+    @staticmethod
+    def _is_deadlock_error(e: pyodbc.Error) -> bool:
+        # pyodbc error args are (sqlstate, message); 40001 is the serialization
+        # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
+        return bool(e.args) and e.args[0] == "40001"
+
+    def _execute_with_deadlock_retry(self, operation: Callable[[], Any]) -> Any:
+        for attempt in range(1, self.DEADLOCK_MAX_ATTEMPTS + 1):
+            try:
+                return operation()
+            except pyodbc.Error as e:
+                if not self._is_deadlock_error(e) or attempt == self.DEADLOCK_MAX_ATTEMPTS:
+                    raise
+                logger.warning(
+                    f"Deadlock victim on '{self.name}' "
+                    f"(attempt {attempt}/{self.DEADLOCK_MAX_ATTEMPTS}), retrying: {e}"
+                )
+                try:
+                    self.connection.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback after deadlock on '{self.name}' failed: {rollback_error}")
+                backoff_cap = self.DEADLOCK_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                time.sleep(random.uniform(0, backoff_cap))
+
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         # Set before super().__init__(), which auto-opens the connection and
         # populates these from the live server in _create_connection.
