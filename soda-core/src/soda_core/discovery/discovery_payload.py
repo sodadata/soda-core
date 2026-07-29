@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from logging import LogRecord
 from typing import Optional
 
 from soda_core.common.datetime_conversions import (
@@ -9,6 +10,7 @@ from soda_core.common.datetime_conversions import (
     convert_str_to_datetime,
 )
 from soda_core.common.env_config_helper import EnvConfigHelper
+from soda_core.common.soda_cloud import build_log_cloud_json_dict
 from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
@@ -30,6 +32,7 @@ def build_discovery_payload(
     data_timestamp: Optional[datetime] = None,
     scan_start_timestamp: Optional[datetime] = None,
     scan_end_timestamp: Optional[datetime] = None,
+    log_records: Optional[list[LogRecord]] = None,
 ) -> SodaCoreInsertScanResultsDTO:
     """Build a DQN-only sodaCoreInsertScanResults body for discovery.
 
@@ -38,8 +41,11 @@ def build_discovery_payload(
     missing timestamps default to now (UTC) and the data timestamp falls back to
     ``SODA_SCAN_DATA_TIMESTAMP`` / scan start. ``hasErrors`` is False because the
     discovery handler only sends the payload after a successful discovery run.
-    Timestamps are serialized like soda-core's ``to_jsonnable`` (ISO-8601 UTC).
-    Sent via ``SodaCloud.insert_scan_results``."""
+    ``log_records`` are the run's collected logs; they travel inside the payload
+    (``SodaCoreInsertScanResultsCommand.logs``) so a successful scan has logs in
+    Soda Cloud too — failures are reported with logs separately, via
+    ``mark_scan_as_failed``. Timestamps are serialized like soda-core's
+    ``to_jsonnable`` (ISO-8601 UTC). Sent via ``SodaCloud.insert_scan_results``."""
     now: datetime = datetime.now(timezone.utc)
     scan_start_timestamp = scan_start_timestamp or now
     scan_end_timestamp = scan_end_timestamp or now
@@ -56,6 +62,9 @@ def build_discovery_payload(
         "scanEndTimestamp": convert_datetime_to_str(scan_end_timestamp),
         "hasErrors": False,
         "metadata": [{"datasetQualifiedName": dqn} for dqn in dqns],
+        "logs": [build_log_cloud_json_dict(record, index) for index, record in enumerate(log_records)]
+        if log_records
+        else [],
         "checks": [],
         "metrics": [],
         "profiling": [],

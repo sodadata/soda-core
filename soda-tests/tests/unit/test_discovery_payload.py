@@ -127,3 +127,36 @@ def test_payload_data_timestamp_falls_back_to_scan_start_on_unparseable_env(monk
         scan_end_timestamp=datetime(2026, 7, 10, 8, 30, 5, tzinfo=timezone.utc),
     )
     assert payload["dataTimestamp"] == "2026-07-10T08:30:00+00:00"
+
+
+def test_payload_carries_run_logs():
+    import logging
+
+    record = logging.LogRecord(
+        name="soda",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Discovered 2 datasets",
+        args=(),
+        exc_info=None,
+    )
+    payload = build_discovery_payload(
+        dqns=["postgres/soda/public/customers"],
+        data_source_name="postgres",
+        scan_definition_name="postgres_schema_discovery_scan",
+        log_records=[record],
+    )
+    assert len(payload["logs"]) == 1
+    assert payload["logs"][0]["message"] == "Discovered 2 datasets"
+    assert payload["logs"][0]["level"] == "info"
+    assert payload["logs"][0]["index"] == 0
+
+
+def test_payload_logs_default_to_empty():
+    payload = build_discovery_payload(
+        dqns=[],
+        data_source_name="postgres",
+        scan_definition_name="postgres_schema_discovery_scan",
+    )
+    assert payload["logs"] == []

@@ -1,6 +1,6 @@
 import logging
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from soda_core.cli.cli import create_cli_parser
@@ -48,11 +48,15 @@ def test_cli_arg_mapping_for_data_source_discover(
     mock_resolve_data_source.assert_called_once_with("ds.yaml")
     run_args, _ = mock_run_with_failure_reporting.call_args
     assert run_args[0] is soda_cloud
+    # The wrapper's Logs collector is threaded through to the handler so the
+    # success payload can carry the run's logs; ANY because the collector is
+    # constructed inside the wrapper.
     mock_handler.assert_called_once_with(
         data_source_impl,
         soda_cloud,
         include=["cust%"],
         exclude=["tmp%"],
+        logs=ANY,
         scan_definition_name="my_scan",
     )
 
