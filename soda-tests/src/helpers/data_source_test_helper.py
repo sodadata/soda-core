@@ -1550,6 +1550,18 @@ class DataSourceTestHelper:
         """For shorter notation in the tests, we can just point it to the dialect."""
         return self.data_source_impl.sql_dialect.quote_column(column_name)
 
+    def column_name(self, column_name: str) -> str:
+        """Resolve a logical (spec) column name to this data source's actual field name.
+
+        Identity for SQL data sources: a spec column ``id`` is provisioned as a column
+        literally named ``id``, so a reconciliation test can reference it as ``id``.
+        Data sources whose provisioned field names differ from the spec name (e.g.
+        Salesforce, which must suffix custom fields with ``__c``) override this, so a
+        shared reconciliation test can keep referencing columns by their spec name and
+        still resolve to the real field name on every data source.
+        """
+        return column_name
+
     @staticmethod
     def build_select_literal_query(data_source_type: str, expression: object) -> str:
         """Single source of truth for a standalone SELECT of a literal/constant in tests.
