@@ -462,21 +462,21 @@ class SqlDialect:
     def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> ORDER_BY_ASC:
         """ORDER BY element for one key column.
 
-        Default-off: only columns the reconciliation explicitly asked to normalize get
-        case-folded (for cross-source text-key parity); every other column renders exactly
-        as before, so existing paginated SQL is byte-for-byte unchanged.
+        Default-off: only columns the caller explicitly asked to normalize get case-folded (for
+        cross-source text-key parity); every other column renders exactly as before, so existing
+        paginated SQL is byte-for-byte unchanged.
         """
         if column in normalize_key_columns:
             return ORDER_BY_ASC(SqlExpressionStr(self.order_by_key_expression(self.build_expression_sql(column))))
         return ORDER_BY_ASC(column)
 
     def order_by_key_expression(self, column_expression_sql: str) -> str:
-        """Case-fold a reconciliation key column for case-insensitive ORDER BY.
+        """Case-fold a key column for case-insensitive ORDER BY.
 
-        Invoked only when a reconciliation activates text-key normalization (default-off),
-        so existing ORDER BY rendering is untouched. Standard SQL case-folds with LOWER(); a
-        dialect that already orders text case-insensitively (e.g. Salesforce/SOQL) overrides
-        this to identity — and in practice such a side is never asked to normalize.
+        Invoked only when the caller activates text-key normalization (default-off), so existing
+        ORDER BY rendering is untouched. Standard SQL case-folds with LOWER(); a dialect that
+        already orders text case-insensitively (e.g. Salesforce/SOQL) overrides this to identity —
+        and in practice such a side is never asked to normalize.
         """
         return f"LOWER({column_expression_sql})"
 
@@ -1391,6 +1391,17 @@ class SqlDialect:
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         """Checks if the given sampler type is supported by this data source."""
         return False
+
+    @property
+    def supports_row_sampling(self) -> bool:
+        """Whether this dialect can honor a row-sampling request AT ALL (any sampler type).
+
+        Distinct from :meth:`supports_sampler`, which answers per-sampler-type and returns False for
+        types a SQL source doesn't render via TABLESAMPLE even though it still applies the sample
+        another way. Defaults to True so every existing SQL data source is unaffected; a source whose
+        query language cannot express any row sample (e.g. Salesforce/SOQL) overrides this to False.
+        """
+        return True
 
     def _build_random_sql(self, random: RANDOM) -> str:
         return "RANDOM()"

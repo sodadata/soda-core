@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
@@ -216,17 +216,43 @@ class DataSourceImpl(ABC):
         """
         return True
 
+    @property
+    def reads_may_fail_transiently(self) -> bool:
+        """Whether a runtime error while streaming reads from this source should be treated as a
+        soft (recoverable) failure by a consumer rather than propagate.
+
+        Default False: conventional SQL sources keep their existing behavior — a read error
+        propagates (a genuine DB failure is surfaced/raised, unchanged). A remote/API source whose
+        streamed reads can fail transiently mid-scan (e.g. Salesforce REST queryMore / token
+        expiry) returns True, so a consumer can degrade gracefully instead of crashing on such a
+        transient failure.
+        """
+        return False
+
+    def get_value_comparator(self) -> Optional[Any]:
+        """A value comparator to use when comparing this source's values against another source's,
+        or ``None`` to let the caller use its own default.
+
+        Default ``None``: conventional SQL sources have no special needs — the caller compares
+        exactly (existing behavior, unchanged). A source that normalizes values to canonical Python
+        types which may not exactly-equal a peer driver's native types (e.g. Salesforce returns
+        numbers as ``Decimal`` and datetimes as tz-aware UTC) overrides this to return its own
+        comparator object (exposing ``equals(x, y) -> bool`` and a ``handles_cross_type: bool``),
+        which the caller then uses whenever this source participates.
+        """
+        return None
+
     def validate_orderable_key_columns(
         self, dataset_prefixes: list[str], dataset_name: str, key_columns: list[str]
     ) -> list[str]:
-        """Return human-readable problems if any key column cannot be used as an ordered/paged
-        reconciliation key on this data source; empty list means all keys are usable.
+        """Return human-readable problems if any of the given columns cannot be used as an
+        ordered/paged read key on this data source; empty list means all are usable.
 
-        A paginated reconciliation read (rows_diff/reference_diff) ORDER BYs the key columns.
-        Most SQL sources can order by any column, so the default returns no problems and existing
-        behavior is unchanged. A source whose query language forbids ordering by some field types
-        (e.g. Salesforce/SOQL cannot ORDER BY a long-text field) overrides this to fail early —
-        at check setup, before any cursor opens — instead of erroring mid-stream.
+        A paginated ordered read ORDER BYs these columns. Most SQL sources can order by any column,
+        so the default returns no problems and existing behavior is unchanged. A source whose query
+        language forbids ordering by some field types (e.g. Salesforce/SOQL cannot ORDER BY a
+        long-text field) overrides this to fail early — before any cursor opens — instead of
+        erroring mid-stream.
         """
         return []
 
