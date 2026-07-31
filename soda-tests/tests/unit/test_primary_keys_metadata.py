@@ -4,11 +4,7 @@ from unittest import mock
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    DbSchemaDataSourceNamespace,
-    SchemaDataSourceNamespace,
-)
+from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_primary_keys_query import (
     MetadataPrimaryKeysQuery,
@@ -33,34 +29,6 @@ def test_base_get_primary_keys_returns_empty_set():
     data_source_impl = mock.MagicMock(spec=DataSourceImpl)
     result = DataSourceImpl.get_primary_keys(data_source_impl, dataset_prefixes=["public"], dataset_name="orders")
     assert result == set()
-
-
-def test_build_sql_statement_schema_only():
-    query = _query()
-    sql = query.sql_dialect.build_select_sql(
-        query.build_sql_statement(table_namespace=SchemaDataSourceNamespace(schema="public"), table_name="orders")
-    )
-    assert sql == (
-        'SELECT "kcu"."column_name"\n'
-        'FROM "information_schema"."table_constraints" AS "tc"\n'
-        '     JOIN "information_schema"."key_column_usage" AS "kcu" '
-        'ON "tc"."constraint_name" = "kcu"."constraint_name"\n'
-        'WHERE "tc"."constraint_type" = \'PRIMARY KEY\' '
-        'AND "tc"."table_schema" = \'public\' '
-        'AND "tc"."table_name" = \'orders\';'
-    )
-
-
-def test_build_sql_statement_with_database():
-    query = _query()
-    sql = query.sql_dialect.build_select_sql(
-        query.build_sql_statement(
-            table_namespace=DbSchemaDataSourceNamespace(database="mydb", schema="public"),
-            table_name="orders",
-        )
-    )
-    assert '"tc"."table_catalog" = \'mydb\'' in sql
-    assert '"mydb"."information_schema"."table_constraints"' in sql
 
 
 def test_get_results_extracts_column_names():

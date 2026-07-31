@@ -123,6 +123,32 @@ def __verify_table_metadata(actual_columns: list[ColumnMetadata], sql_dialect: S
     )
 
 
+# Composite primary key (two columns) so this also exercises multi-column PK DDL and
+# multi-row information_schema introspection, not just the single-column case.
+primary_keys_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("primary_keys")
+    .column_integer(name="tenant_id")
+    .column_integer(name="id")
+    .column_varchar(name="label")
+    .primary_key(["tenant_id", "id"])
+    .build()
+)
+
+
+def test_primary_keys_metadata(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_primary_keys():
+        pytest.skip("data source does not support primary key introspection")
+
+    test_table = data_source_test_helper.ensure_test_table(primary_keys_test_table_specification)
+
+    actual: set[str] = data_source_test_helper.data_source_impl.get_primary_keys(
+        dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
+    )
+
+    assert actual == {"tenant_id", "id"}
+
+
 # Note: this test is for metadata related items only. For the full datatypes, please see test_soda_data_types.py
 def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)

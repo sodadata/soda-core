@@ -90,6 +90,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def supports_materialized_views(self) -> bool:
         return True
 
+    def supports_primary_keys(self) -> bool:
+        return True
+
     def is_system_schema(self, schema_name: str) -> bool:
         return schema_name.lower().startswith("pg_") or super().is_system_schema(schema_name)
 

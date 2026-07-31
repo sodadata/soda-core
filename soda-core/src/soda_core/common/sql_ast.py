@@ -778,6 +778,9 @@ class ORDINAL_POSITION(BaseSqlExpression):
 class CREATE_TABLE(BaseSqlExpression):
     fully_qualified_table_name: str
     columns: list[CREATE_TABLE_COLUMN]
+    # Optional list of column names forming the table's PRIMARY KEY.
+    # Defaults to None so specs without a primary key emit byte-identical DDL to before.
+    primary_key_column_names: Optional[list[str]] = None
 
     def __post_init__(self):
         super().__post_init__()

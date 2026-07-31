@@ -972,6 +972,7 @@ class DataSourceTestHelper:
             columns=columns,
             row_values=test_table_specification.row_values,
             table_type=test_table_specification.table_type,
+            primary_key_column_names=test_table_specification.primary_key_column_names,
         )
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
@@ -1072,6 +1073,7 @@ class DataSourceTestHelper:
                 CREATE_TABLE_COLUMN(name=column.name, type=column.sql_data_type)
                 for column in test_table.columns.values()
             ],
+            primary_key_column_names=test_table.primary_key_column_names,
         )
         sql: str = self.data_source_impl.sql_dialect.build_create_table_sql(my_create_table)
         self.data_source_impl.execute_update(sql)
