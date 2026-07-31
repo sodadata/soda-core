@@ -7,7 +7,7 @@ from soda_core.common.metadata_types import (
     DbSchemaDataSourceNamespace,
     SchemaDataSourceNamespace,
 )
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import AND, COLUMN, EQ, FROM, JOIN, LITERAL, SELECT, WHERE
 from soda_core.common.sql_dialect import SqlDialect
 
 
