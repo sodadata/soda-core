@@ -113,9 +113,38 @@ class MetadataPrimaryKeysQuery:
                 table_name=self.table_key_column_usage(),
                 table_prefix=information_schema,
                 alias="kcu",
-                on_condition=EQ(
-                    COLUMN(self.column_constraint_name(), "tc"),
-                    COLUMN(self.column_constraint_name(), "kcu"),
+                # constraint_name is unique only within (constraint_catalog, constraint_schema),
+                # NOT globally. Joining on constraint_name alone lets key_column_usage rows from a
+                # DIFFERENT schema/table whose PK constraint happens to share the same name (e.g.
+                # Postgres auto-names every PK "<table>_pkey"; MySQL names every PK "PRIMARY") join
+                # in and leak phantom PK columns onto the target table. Match schema + table (and
+                # catalog when present) as well so the join stays within one constraint namespace.
+                # Do not "simplify" this back to constraint_name only.
+                on_condition=AND(
+                    [
+                        EQ(
+                            COLUMN(self.column_constraint_name(), "tc"),
+                            COLUMN(self.column_constraint_name(), "kcu"),
+                        ),
+                        EQ(
+                            COLUMN(self.sql_dialect.column_table_schema(), "tc"),
+                            COLUMN(self.sql_dialect.column_table_schema(), "kcu"),
+                        ),
+                        EQ(
+                            COLUMN(self.sql_dialect.column_table_name(), "tc"),
+                            COLUMN(self.sql_dialect.column_table_name(), "kcu"),
+                        ),
+                        *(
+                            [
+                                EQ(
+                                    COLUMN(self.sql_dialect.column_table_catalog(), "tc"),
+                                    COLUMN(self.sql_dialect.column_table_catalog(), "kcu"),
+                                )
+                            ]
+                            if database_name
+                            else []
+                        ),
+                    ]
                 ),
             ),
             WHERE(
