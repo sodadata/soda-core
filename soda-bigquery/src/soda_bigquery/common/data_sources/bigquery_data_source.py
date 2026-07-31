@@ -1,3 +1,4 @@
+import copy
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -259,10 +260,15 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     ) -> str:
         # A BigQuery primary key requires its columns to be NOT NULL, so force that on the
         # participating columns before the base builder renders the column and PK clauses.
-        primary_key_column_names = getattr(create_table, "primary_key_column_names", None) or []
-        for column in create_table.columns:
-            if column.name in primary_key_column_names:
-                column.nullable = False
+        # CREATE_TABLE_COLUMN objects are reused across renders (e.g. cross-source flows render
+        # the same source columns on two dialects), so mutate a deep copy rather than the caller's
+        # objects — otherwise nullable=False leaks onto the shared column list.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        if primary_key_column_names:
+            create_table = copy.deepcopy(create_table)
+            for column in create_table.columns:
+                if column.name in primary_key_column_names:
+                    column.nullable = False
         return super().build_create_table_sql(create_table, add_semicolon=add_semicolon)
 
     def default_casify(self, identifier: str) -> str:

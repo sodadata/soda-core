@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Callable, Optional
 
@@ -82,13 +83,18 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
-        create_table_sql = self._build_create_table_statement_sql(create_table)
         # A NOT ENFORCED primary key still requires its columns to be NOT NULL, so force that
-        # on the participating columns before rendering them.
-        primary_key_column_names = getattr(create_table, "primary_key_column_names", None) or []
-        for column in create_table.columns:
-            if column.name in primary_key_column_names:
-                column.nullable = False
+        # on the participating columns before rendering them. CREATE_TABLE_COLUMN objects are
+        # reused across renders (e.g. cross-source flows render the same source columns on two
+        # dialects), so mutate a deep copy rather than the caller's objects — otherwise
+        # nullable=False leaks onto the shared column list.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        if primary_key_column_names:
+            create_table = copy.deepcopy(create_table)
+            for column in create_table.columns:
+                if column.name in primary_key_column_names:
+                    column.nullable = False
+        create_table_sql = self._build_create_table_statement_sql(create_table)
         column_clauses: list[str] = [self._build_create_table_column(column) for column in create_table.columns]
         primary_key_clause: Optional[str] = self._build_create_table_primary_key(create_table)
         if primary_key_clause is not None:

@@ -8,6 +8,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
+    DataSourceNamespace,
     SamplerType,
     SodaDataTypeName,
 )
@@ -23,6 +24,9 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
@@ -41,6 +45,51 @@ TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
 TIMESTAMP_WITH_LOCAL_TIME_ZONE = "timestamp with local time zone"
 
 
+class SnowflakeMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
+    """Primary-key introspection for Snowflake.
+
+    Snowflake exposes primary keys via SHOW PRIMARY KEYS, not
+    information_schema.key_column_usage: its INFORMATION_SCHEMA has a
+    TABLE_CONSTRAINTS view but NO KEY_COLUMN_USAGE view, so the base
+    information_schema JOIN would raise a compilation error. SHOW is not a
+    SELECT, so execute() is overridden directly rather than building an AST
+    statement via build_sql_statement.
+    """
+
+    # SHOW PRIMARY KEYS output columns (0-based positions):
+    # https://docs.snowflake.com/en/sql-reference/sql/show-primary-keys#output
+    _SCHEMA_NAME_COLUMN = 2
+    _TABLE_NAME_COLUMN = 3
+    _COLUMN_NAME_COLUMN = 4
+
+    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        if not dataset_names:
+            return {}
+        namespace: DataSourceNamespace = self._build_namespace(dataset_prefixes)
+        database_name: str | None = namespace.get_database_for_metadata_query()
+        schema_name: str = namespace.get_schema_for_metadata_query()
+        qualified_schema: str = (
+            f"{self.sql_dialect.quote_default(database_name)}.{self.sql_dialect.quote_default(schema_name)}"
+            if database_name
+            else self.sql_dialect.quote_default(schema_name)
+        )
+        # Bulk: one SHOW returns every table's PK columns for the whole schema.
+        query_result = self.data_source_connection.execute_query(f"SHOW PRIMARY KEYS IN SCHEMA {qualified_schema}")
+
+        # dataset_names arrive in the case Snowflake stores/returns them (SHOW PRIMARY KEYS
+        # returns the same stored casing as the columns metadata the extension keys tables by),
+        # so match exactly rather than re-casing.
+        requested: set[str] = set(dataset_names)
+        primary_keys_by_table: dict[str, set[str]] = {}
+        for row in query_result.rows:
+            table_name = row[self._TABLE_NAME_COLUMN]
+            column_name = row[self._COLUMN_NAME_COLUMN]
+            if table_name not in requested or table_name is None or column_name is None:
+                continue
+            primary_keys_by_table.setdefault(table_name, set()).add(column_name)
+        return primary_keys_by_table
+
+
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
     def __init__(self, data_source_model: SnowflakeDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
@@ -53,8 +102,15 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return SnowflakeMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
     def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
-        # Snowflake exposes primary keys through the standard information_schema constraint views.
+        # Snowflake exposes primary keys via SHOW PRIMARY KEYS, not information_schema.key_column_usage
+        # (Snowflake's INFORMATION_SCHEMA has TABLE_CONSTRAINTS but no KEY_COLUMN_USAGE view). See
+        # SnowflakeMetadataPrimaryKeysQuery.
         return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
