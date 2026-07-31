@@ -53,6 +53,10 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        # Snowflake exposes primary keys through the standard information_schema constraint views.
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
+
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
         if warehouse and contract_impl.datasource_warehouse != warehouse:
             if contract_impl.datasource_warehouse is None:
@@ -102,6 +106,9 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         string_literal: str = value.replace("\\", "\\\\")
         string_literal = string_literal.replace("'", "''")
         return string_literal
+
+    def supports_primary_keys(self) -> bool:
+        return True
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()

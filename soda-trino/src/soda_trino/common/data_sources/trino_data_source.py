@@ -81,6 +81,11 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
         (SodaDataTypeName.SMALLINT, SodaDataTypeName.INTEGER),
     )
 
+    # Primary-key introspection stays opt-out (supports_primary_keys inherits False from the
+    # base dialect): Trino's information_schema has no table_constraints/key_column_usage views,
+    # its CREATE TABLE grammar has no PRIMARY KEY clause, and no common connector (Hive, Iceberg,
+    # PostgreSQL) surfaces primary keys through the query layer.
+
     def supports_materialized_views(self) -> bool:
         # TODO  this should inherit from the connection
         return True

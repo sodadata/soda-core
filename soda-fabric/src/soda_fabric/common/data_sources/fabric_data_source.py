@@ -40,6 +40,13 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
 
+    def supports_primary_keys(self) -> bool:
+        # Fabric Warehouse only supports non-enforced primary keys, and only via
+        # ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY NONCLUSTERED (...) NOT ENFORCED —
+        # it rejects an inline PRIMARY KEY clause in CREATE TABLE. Primary-key introspection
+        # stays opt-out here until a post-create ALTER hook exists to declare the key.
+        return False
+
     @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         if expected == SodaDataTypeName.TIMESTAMP and actual == SodaDataTypeName.VARCHAR:

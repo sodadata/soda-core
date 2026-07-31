@@ -12,6 +12,9 @@ from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
 )
@@ -86,6 +89,11 @@ class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
+
+    def supports_primary_keys(self) -> bool:
+        # DuckDB enforces primary keys and reports them through the information_schema
+        # constraint views, with the standard PRIMARY KEY (...) DDL.
+        return True
 
     def get_database_prefix_index(self) -> int | None:
         return None
@@ -287,6 +295,17 @@ class DuckDBDataSourceConnection(DataSourceConnection):
         return Path(config.database).stem
 
 
+class DuckDBMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
+    """Primary-key introspection for DuckDB.
+
+    DuckDB's information_schema exposes the constraint columns through
+    ``constraint_column_usage`` rather than the ANSI ``key_column_usage`` view.
+    """
+
+    def table_key_column_usage(self) -> str:
+        return self.sql_dialect.default_casify("constraint_column_usage")
+
+
 class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
         return DuckDBSqlDialect()
@@ -295,6 +314,15 @@ class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
         return DuckDBDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return DuckDBMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        # DuckDB exposes primary keys through the information_schema constraint views.
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     @classmethod
     def from_existing_cursor(cls, cursor: DuckDBPyConnection, name: str) -> DataSourceImpl:

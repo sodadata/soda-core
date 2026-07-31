@@ -78,6 +78,11 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        # SQL Server exposes primary keys through the standard information_schema constraint views.
+        # Fabric and Synapse inherit this delegate; each dialect opts in via supports_primary_keys().
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
+
     def open_connection(self) -> None:
         super().open_connection()
         self._sync_dialect_server_info()
@@ -120,6 +125,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         # capability checks then assume the newest engine.
         self.server_major_version: Optional[int] = None
         self.engine_edition: Optional[int] = None
+
+    def supports_primary_keys(self) -> bool:
+        # SQL Server enforces primary keys and reports them through the standard
+        # information_schema constraint views, with the standard PRIMARY KEY (...) DDL.
+        return True
 
     def _build_stddev_samp_sql(self, stddev_samp) -> str:
         # T-SQL names the sample standard deviation aggregate STDEV.

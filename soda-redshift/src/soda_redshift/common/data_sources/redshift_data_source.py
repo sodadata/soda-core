@@ -53,8 +53,17 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        # Redshift exposes primary keys through the standard information_schema constraint views.
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
+
 
 class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
+    def supports_primary_keys(self) -> bool:
+        # Redshift stores declared primary keys as informational (never enforced) constraints,
+        # surfaced through the standard information_schema constraint views.
+        return True
+
     def supports_percentiles_with_other_distinct_aggregates(self) -> bool:
         # Redshift: "Using LISTAGG/PERCENTILE_CONT/MEDIAN aggregate functions
         # with other distinct aggregate function not supported" — consumers

@@ -17,6 +17,8 @@ from soda_core.common.sql_ast import (
     COLUMN,
     CONCAT_WS,
     COUNT,
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
     LITERAL,
     PERCENTILE_WITHIN_GROUP,
@@ -31,6 +33,9 @@ from soda_core.common.sql_ast import (
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 logger: logging.Logger = soda_logger
@@ -53,6 +58,19 @@ class BigQueryDataSourceNamespace(DataSourceNamespace):
 
     def get_schema_for_metadata_query(self) -> str:
         return self.dataset
+
+
+class BigQueryMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
+    """Primary-key introspection for BigQuery.
+
+    BigQuery's INFORMATION_SCHEMA is qualified as
+    ``<project>.<dataset>.INFORMATION_SCHEMA.TABLE_CONSTRAINTS`` and its namespace
+    elements are read from a BigQueryDataSourceNamespace, so the dataset prefixes
+    ([project, dataset]) are mapped onto that namespace here.
+    """
+
+    def _build_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
+        return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])
 
 
 class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel):
@@ -90,6 +108,15 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return BigQueryMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        # BigQuery exposes primary keys through the dataset-qualified INFORMATION_SCHEMA constraint views.
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
@@ -211,6 +238,32 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         project_id, dataset = prefixes
         qualified_schema_name: str = f"{self.quote_for_ddl(project_id)}.{self.quote_for_ddl(dataset)}"
         return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema_name}" + (";" if add_semicolon else "")
+
+    def supports_primary_keys(self) -> bool:
+        # BigQuery stores non-enforced primary keys and reports them through the
+        # dataset-qualified INFORMATION_SCHEMA constraint views.
+        return True
+
+    def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
+        # BigQuery only accepts a primary key declared as NOT ENFORCED.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        if not primary_key_column_names:
+            return None
+        quoted_columns: str = ", ".join(
+            self._quote_column_for_create_table(column_name) for column_name in primary_key_column_names
+        )
+        return f"\tPRIMARY KEY ({quoted_columns}) NOT ENFORCED"
+
+    def build_create_table_sql(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
+        # A BigQuery primary key requires its columns to be NOT NULL, so force that on the
+        # participating columns before the base builder renders the column and PK clauses.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None) or []
+        for column in create_table.columns:
+            if column.name in primary_key_column_names:
+                column.nullable = False
+        return super().build_create_table_sql(create_table, add_semicolon=add_semicolon)
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
