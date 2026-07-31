@@ -15,6 +15,9 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
@@ -258,6 +261,19 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return MetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_name: str) -> set[str]:
+        """Returns the set of primary key column names for the given table.
+
+        The base implementation returns an empty set: primary key introspection is opt-in per
+        data source. Data sources with a standard information_schema constraints layer can override
+        by delegating to create_metadata_primary_keys_query().execute(...)."""
+        return set()
 
     @property
     def bulk_columns_metadata_available(self) -> bool:
