@@ -234,9 +234,7 @@ class TestTableSpecificationBuilder:
         """Declare the table's PRIMARY KEY as one or more column names.
 
         Accepts a single-column key (``["id"]``) or a composite key
-        (``["tenant_id", "id"]``). Default is no primary key (None), so every
-        existing spec that never calls this method is unaffected and its
-        CREATE TABLE DDL stays byte-identical.
+        (``["tenant_id", "id"]``). When not called, the table has no primary key.
         """
         self._primary_key_column_names = column_names
         return self

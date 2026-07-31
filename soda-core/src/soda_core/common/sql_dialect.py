@@ -475,10 +475,8 @@ class SqlDialect:
         return create_table_sql + (";" if add_semicolon else "")
 
     def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
-        """Build the standard-SQL ``PRIMARY KEY (<cols>)`` table constraint clause.
-
-        Returns ``None`` when the spec declares no primary key, so that DDL for
-        primary-key-less tables is byte-identical to before this change.
+        """Build the standard-SQL ``PRIMARY KEY (<cols>)`` table constraint clause,
+        or ``None`` when no primary key is declared (no clause is emitted).
         """
         primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
         if not primary_key_column_names:

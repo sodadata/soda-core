@@ -93,8 +93,7 @@ class ColumnMetadata:
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
 
-    # Whether this column is part of the table's PRIMARY KEY.
-    # Defaults to False; data sources that don't introspect primary keys leave it unset.
+    # False both for non-key columns and for data sources that don't introspect primary keys.
     is_primary_key: bool = False
 
 
