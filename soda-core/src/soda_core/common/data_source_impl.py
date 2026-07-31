@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type, runtime_checkable
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
@@ -31,6 +31,21 @@ logger: logging.Logger = soda_logger
 
 if TYPE_CHECKING:
     from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+
+@runtime_checkable
+class ValueComparatorProtocol(Protocol):
+    """Cross-source value-equality contract a DataSourceImpl may supply via get_value_comparator().
+
+    When this source participates in a cross-source comparison, a comparator matches mixed
+    representations of the same underlying value (e.g. Decimal vs float, tz-aware vs naive datetime).
+    ``handles_cross_type`` advertises whether it does such cross-type matching. Structural — any object
+    exposing these two members conforms; the concrete comparators live in the extensions that need
+    them (e.g. soda-salesforce, soda-reconciliation)."""
+
+    handles_cross_type: bool
+
+    def equals(self, x: Any, y: Any) -> bool: ...
 
 
 class DataSourceImpl(ABC):
@@ -229,7 +244,7 @@ class DataSourceImpl(ABC):
         """
         return False
 
-    def get_value_comparator(self) -> Optional[Any]:
+    def get_value_comparator(self) -> Optional[ValueComparatorProtocol]:
         """A value comparator to use when comparing this source's values against another source's,
         or ``None`` to let the caller use its own default.
 
