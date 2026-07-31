@@ -12,6 +12,13 @@ from typing_extensions import deprecated
 
 logger: logging.Logger = soda_logger
 
+# The CTE alias soda-core's check collections wrap a dataset's scan in
+# (WITH "_soda_filtered_dataset" AS (SELECT * FROM <dataset> [WHERE <filter>])). Exposed as one
+# source of truth so a translator/connector that must recognize this generated SQL — e.g.
+# soda-salesforce, which maps it to SOQL — can import it instead of hardcoding the literal; a rename
+# then breaks that import (and its tests) loudly rather than silently rerouting the read.
+SODA_FILTERED_CTE_NAME = "_soda_filtered_dataset"
+
 
 class BaseSqlExpression:
     # The child→parent back-reference must be weak. Otherwise INSERT_INTO,
