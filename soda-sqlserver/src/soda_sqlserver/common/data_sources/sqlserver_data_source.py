@@ -30,7 +30,6 @@ from soda_core.common.sql_ast import (
     LENGTH,
     LIMIT,
     OFFSET,
-    ORDER_BY_ASC,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
