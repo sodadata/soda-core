@@ -135,18 +135,45 @@ primary_keys_test_table_specification = (
     .build()
 )
 
+# Single-column primary key table, used together with the composite-PK table to
+# exercise multi-table grouping in a single bulk query.
+single_primary_key_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("primary_key_single")
+    .column_integer(name="id")
+    .column_varchar(name="label")
+    .primary_key(["id"])
+    .build()
+)
+
+
+def _find_pk_key(primary_keys_by_table: dict[str, set[str]], table_name: str) -> str | None:
+    """Find the key in the dict matching the table name (case-insensitive)."""
+    for key in primary_keys_by_table:
+        if key.lower() == table_name.lower():
+            return key
+    return None
+
 
 def test_primary_keys_metadata(data_source_test_helper: DataSourceTestHelper):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_primary_keys():
         pytest.skip("data source does not support primary key introspection")
 
-    test_table = data_source_test_helper.ensure_test_table(primary_keys_test_table_specification)
+    composite_table = data_source_test_helper.ensure_test_table(primary_keys_test_table_specification)
+    single_table = data_source_test_helper.ensure_test_table(single_primary_key_test_table_specification)
 
-    actual: set[str] = data_source_test_helper.data_source_impl.get_primary_keys(
-        dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
+    actual: dict[str, set[str]] = data_source_test_helper.data_source_impl.get_primary_keys(
+        dataset_prefixes=composite_table.dataset_prefix,
+        dataset_names=[composite_table.unique_name, single_table.unique_name],
     )
 
-    assert actual == {"tenant_id", "id"}
+    composite_key = _find_pk_key(actual, composite_table.unique_name)
+    assert composite_key is not None, f"Table {composite_table.unique_name} not found. Available: {list(actual.keys())}"
+    assert actual[composite_key] == {"tenant_id", "id"}
+
+    single_key = _find_pk_key(actual, single_table.unique_name)
+    assert single_key is not None, f"Table {single_table.unique_name} not found. Available: {list(actual.keys())}"
+    assert actual[single_key] == {"id"}
 
 
 # Note: this test is for metadata related items only. For the full datatypes, please see test_soda_data_types.py

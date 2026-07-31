@@ -23,18 +23,29 @@ def test_column_metadata_carries_is_primary_key():
     assert pk_column.is_primary_key is True
 
 
-def test_base_get_primary_keys_returns_empty_set():
-    # The base implementation must return an empty set (safe default),
+def test_base_get_primary_keys_returns_empty_dict():
+    # The base implementation must return an empty dict (safe default),
     # so data sources without an override don't break.
     data_source_impl = mock.MagicMock(spec=DataSourceImpl)
-    result = DataSourceImpl.get_primary_keys(data_source_impl, dataset_prefixes=["public"], dataset_name="orders")
-    assert result == set()
+    result = DataSourceImpl.get_primary_keys(data_source_impl, dataset_prefixes=["public"], dataset_names=["orders"])
+    assert result == {}
 
 
-def test_get_results_extracts_column_names():
+def test_get_results_groups_columns_by_table():
     query = _query()
-    query_result = QueryResult(columns=[("column_name",)], rows=[("id",), ("tenant_id",)])
-    assert query.get_results(query_result) == {"id", "tenant_id"}
+    # Two tables, one with a composite primary key, to prove grouping.
+    query_result = QueryResult(
+        columns=[("table_name",), ("column_name",)],
+        rows=[
+            ("orders", "tenant_id"),
+            ("orders", "id"),
+            ("customers", "id"),
+        ],
+    )
+    assert query.get_results(query_result) == {
+        "orders": {"tenant_id", "id"},
+        "customers": {"id"},
+    }
 
-    empty_result = QueryResult(columns=[("column_name",)], rows=[])
-    assert query.get_results(empty_result) == set()
+    empty_result = QueryResult(columns=[("table_name",), ("column_name",)], rows=[])
+    assert query.get_results(empty_result) == {}

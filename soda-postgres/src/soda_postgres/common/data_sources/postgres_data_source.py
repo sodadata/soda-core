@@ -67,9 +67,9 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_name: str) -> set[str]:
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
         # Postgres exposes primary keys through the standard information_schema constraint views.
-        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_name)
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
 
 class PostgresSqlDataType(SqlDataType):

@@ -267,13 +267,14 @@ class DataSourceImpl(ABC):
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_name: str) -> set[str]:
-        """Returns the set of primary key column names for the given table.
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+        """Returns the primary key column names for the given tables in a single query,
+        keyed by table name: {table_name: {pk_column_names}}.
 
-        The base implementation returns an empty set: primary key introspection is opt-in per
+        The base implementation returns an empty dict: primary key introspection is opt-in per
         data source. Data sources with a standard information_schema constraints layer can override
         by delegating to create_metadata_primary_keys_query().execute(...)."""
-        return set()
+        return {}
 
     @property
     def bulk_columns_metadata_available(self) -> bool:
