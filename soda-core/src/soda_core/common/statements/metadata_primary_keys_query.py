@@ -116,15 +116,15 @@ class MetadataPrimaryKeysQuery:
         return [
             SELECT(
                 [
-                    COLUMN(self.sql_dialect.column_table_name(), "tc"),
-                    COLUMN(self.sql_dialect.column_column_name(), "kcu"),
+                    COLUMN(self.sql_dialect.column_table_name(), "constraints"),
+                    COLUMN(self.sql_dialect.column_column_name(), "key_columns"),
                 ]
             ),
-            FROM(self.table_table_constraints(), alias="tc").IN(information_schema),
+            FROM(self.table_table_constraints(), alias="constraints").IN(information_schema),
             JOIN(
                 table_name=self.table_key_column_usage(),
                 table_prefix=information_schema,
-                alias="kcu",
+                alias="key_columns",
                 # constraint_name is unique only within (constraint_catalog, constraint_schema),
                 # NOT globally. Joining on constraint_name alone lets key_column_usage rows from a
                 # DIFFERENT schema/table whose PK constraint happens to share the same name (e.g.
@@ -135,22 +135,22 @@ class MetadataPrimaryKeysQuery:
                 on_condition=AND(
                     [
                         EQ(
-                            COLUMN(self.column_constraint_name(), "tc"),
-                            COLUMN(self.column_constraint_name(), "kcu"),
+                            COLUMN(self.column_constraint_name(), "constraints"),
+                            COLUMN(self.column_constraint_name(), "key_columns"),
                         ),
                         EQ(
-                            COLUMN(self.sql_dialect.column_table_schema(), "tc"),
-                            COLUMN(self.sql_dialect.column_table_schema(), "kcu"),
+                            COLUMN(self.sql_dialect.column_table_schema(), "constraints"),
+                            COLUMN(self.sql_dialect.column_table_schema(), "key_columns"),
                         ),
                         EQ(
-                            COLUMN(self.sql_dialect.column_table_name(), "tc"),
-                            COLUMN(self.sql_dialect.column_table_name(), "kcu"),
+                            COLUMN(self.sql_dialect.column_table_name(), "constraints"),
+                            COLUMN(self.sql_dialect.column_table_name(), "key_columns"),
                         ),
                         *(
                             [
                                 EQ(
-                                    COLUMN(self.sql_dialect.column_table_catalog(), "tc"),
-                                    COLUMN(self.sql_dialect.column_table_catalog(), "kcu"),
+                                    COLUMN(self.sql_dialect.column_table_catalog(), "constraints"),
+                                    COLUMN(self.sql_dialect.column_table_catalog(), "key_columns"),
                                 )
                             ]
                             if database_name
@@ -163,13 +163,13 @@ class MetadataPrimaryKeysQuery:
                 AND(
                     [
                         EQ(
-                            COLUMN(self.column_constraint_type(), "tc"),
+                            COLUMN(self.column_constraint_type(), "constraints"),
                             LITERAL(self.primary_key_constraint_type_value()),
                         ),
                         *(
                             [
                                 EQ(
-                                    COLUMN(self.sql_dialect.column_table_catalog(), "tc"),
+                                    COLUMN(self.sql_dialect.column_table_catalog(), "constraints"),
                                     LITERAL(self.sql_dialect.metadata_casify(database_name)),
                                 )
                             ]
@@ -177,11 +177,11 @@ class MetadataPrimaryKeysQuery:
                             else []
                         ),
                         EQ(
-                            COLUMN(self.sql_dialect.column_table_schema(), "tc"),
+                            COLUMN(self.sql_dialect.column_table_schema(), "constraints"),
                             LITERAL(self.sql_dialect.metadata_casify(schema_name)),
                         ),
                         IN(
-                            COLUMN(self.sql_dialect.column_table_name(), "tc"),
+                            COLUMN(self.sql_dialect.column_table_name(), "constraints"),
                             [LITERAL(self.sql_dialect.metadata_casify(name)) for name in table_names],
                         ),
                     ]
