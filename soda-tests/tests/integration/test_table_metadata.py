@@ -148,14 +148,6 @@ single_primary_key_test_table_specification = (
 )
 
 
-def _find_pk_key(primary_keys_by_table: dict[str, set[str]], table_name: str) -> str | None:
-    """Find the key in the dict matching the table name (case-insensitive)."""
-    for key in primary_keys_by_table:
-        if key.lower() == table_name.lower():
-            return key
-    return None
-
-
 def test_primary_keys_metadata(data_source_test_helper: DataSourceTestHelper):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_primary_keys():
         pytest.skip("data source does not support primary key introspection")
@@ -168,13 +160,17 @@ def test_primary_keys_metadata(data_source_test_helper: DataSourceTestHelper):
         dataset_names=[composite_table.unique_name, single_table.unique_name],
     )
 
-    composite_key = _find_pk_key(actual, composite_table.unique_name)
-    assert composite_key is not None, f"Table {composite_table.unique_name} not found. Available: {list(actual.keys())}"
-    assert actual[composite_key] == {"tenant_id", "id"}
+    # Exact-match lookup, mirroring the production consumer's `primary_keys_by_table.get(dataset_name)`
+    # so a casing mismatch between the requested name and the information_schema key fails here too.
+    assert (
+        composite_table.unique_name in actual
+    ), f"Table {composite_table.unique_name} not found. Available: {list(actual.keys())}"
+    assert actual[composite_table.unique_name] == {"tenant_id", "id"}
 
-    single_key = _find_pk_key(actual, single_table.unique_name)
-    assert single_key is not None, f"Table {single_table.unique_name} not found. Available: {list(actual.keys())}"
-    assert actual[single_key] == {"id"}
+    assert (
+        single_table.unique_name in actual
+    ), f"Table {single_table.unique_name} not found. Available: {list(actual.keys())}"
+    assert actual[single_table.unique_name] == {"id"}
 
 
 # Single-column primary key on a DIFFERENT column than the default-schema table, used by the
@@ -245,26 +241,24 @@ def test_primary_keys_metadata_do_not_leak_across_schemas(data_source_test_helpe
             dataset_prefixes=default_prefix,
             dataset_names=[table_name],
         )
-        default_key = _find_pk_key(default_pks, table_name)
         assert (
-            default_key is not None
+            table_name in default_pks
         ), f"Table {table_name} not found in default schema. Available: {list(default_pks.keys())}"
-        assert default_pks[default_key] == {
+        assert default_pks[table_name] == {
             "id"
-        }, f"Default-schema PK leaked columns from the other schema: {default_pks[default_key]}"
+        }, f"Default-schema PK leaked columns from the other schema: {default_pks[table_name]}"
 
         # Symmetrically, the other schema must report only its own PK (`tenant_id`), not `id`.
         other_pks: dict[str, set[str]] = data_source_impl.get_primary_keys(
             dataset_prefixes=other_prefix,
             dataset_names=[table_name],
         )
-        other_key = _find_pk_key(other_pks, table_name)
         assert (
-            other_key is not None
+            table_name in other_pks
         ), f"Table {table_name} not found in other schema. Available: {list(other_pks.keys())}"
-        assert other_pks[other_key] == {
+        assert other_pks[table_name] == {
             cross_schema_other_pk_column
-        }, f"Other-schema PK leaked columns from the default schema: {other_pks[other_key]}"
+        }, f"Other-schema PK leaked columns from the default schema: {other_pks[table_name]}"
     finally:
         # drop_schema_if_exists issues DROP SCHEMA ... CASCADE, which also removes the table.
         data_source_test_helper.drop_schema_if_exists(other_schema_name)
