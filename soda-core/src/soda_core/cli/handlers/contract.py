@@ -1,6 +1,9 @@
 from os.path import dirname, exists
 from pathlib import Path
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
+
+if TYPE_CHECKING:
+    from soda_core.common.soda_cloud import SodaCloud
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common._deprecation import deprecated_kwarg
@@ -70,8 +73,31 @@ def handle_verify_contract(
         return interpret_contract_verification_result(contract_verification_result)
 
     except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
+        # Shared delivery-aware reporting (as discover/monitor do): marks the managed scan failed and
+        # returns 3 when Cloud has the failure (or ad-hoc), 4 when it doesn't so the launcher reports.
+        # Local import avoids a soda_cloud <-> contracts.api cycle.
+        from soda_core.cli.handlers.failure_reporting import (
+            report_scan_execution_failure,
+        )
+
         soda_logger.exception(f"An unexpected exception occurred: {exc}")
-        return ExitCode.LOG_ERRORS
+        soda_cloud = _resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
+        return report_scan_execution_failure(soda_cloud, log_records=None)
+
+
+def _resolve_soda_cloud_for_failure_report(
+    soda_cloud_file_path: Optional[str], variables: Optional[Dict[str, str]]
+) -> "Optional[SodaCloud]":
+    """Soda Cloud channel for reporting an early verify failure, or None when Cloud isn't configured
+    or can't be built (report_scan_execution_failure then returns 3 for ad-hoc, 4 for a managed run)."""
+    from soda_core.common.soda_cloud import SodaCloud
+
+    if not soda_cloud_file_path:
+        return None
+    try:
+        return SodaCloud.from_config(soda_cloud_file_path, variables)
+    except Exception:
+        return None
 
 
 def contract_verification_is_not_sent_to_cloud(

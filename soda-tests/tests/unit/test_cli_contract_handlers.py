@@ -63,6 +63,65 @@ def test_handle_verify_contract_exit_codes(
     assert exit_code == expected_exit_code
 
 
+def _run_handle_verify_contract():
+    return handle_verify_contract(
+        contract_file_path="contract.yaml",
+        dataset_identifier=None,
+        data_source_file_paths=["ds.yaml"],
+        soda_cloud_file_path="sc.yaml",
+        variables={},
+        publish=True,
+        verbose=False,
+        use_runner=True,
+        blocking_timeout_in_minutes=10,
+        check_paths=None,
+        check_selectors=[],
+        diagnostics_warehouse_file_path=None,
+    )
+
+
+# Exception-path exit codes: the mocked mark_scan_as_failed return value is the Cloud delivery
+# signal that decides exit 3 vs 4. Patching SodaCloud.from_config at its source covers both the
+# handler's report client and verify_contract's own.
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_early_failure_undelivered_exits_results_not_sent(
+    mock_execute, mock_from_config, monkeypatch
+):
+    """A managed scan whose early failure could NOT be reported to Cloud must exit
+    RESULTS_NOT_SENT_TO_CLOUD (4) so the launcher marks the scan failed itself,
+    instead of the old LOG_ERRORS (3) that made the job look succeeded."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_execute.side_effect = Exception("parse error: invalid YAML")
+    mock_from_config.return_value.mark_scan_as_failed.return_value = False
+
+    assert _run_handle_verify_contract() == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_early_failure_delivered_exits_log_errors(mock_execute, mock_from_config, monkeypatch):
+    """A managed scan whose early failure WAS reported to Cloud stays LOG_ERRORS (3):
+    Cloud already shows the failure with logs, so the job legitimately completed."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_execute.side_effect = Exception("parse error: invalid YAML")
+    mock_from_config.return_value.mark_scan_as_failed.return_value = True
+
+    assert _run_handle_verify_contract() == ExitCode.LOG_ERRORS
+
+
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_early_failure_adhoc_exits_log_errors(mock_execute, mock_from_config, monkeypatch):
+    """An ad-hoc run (no SODA_SCAN_ID) has no Cloud scan to update, so an early
+    failure exits LOG_ERRORS (3) regardless of Cloud delivery."""
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    mock_execute.side_effect = Exception("parse error: invalid YAML")
+    mock_from_config.return_value.mark_scan_as_failed.return_value = False
+
+    assert _run_handle_verify_contract() == ExitCode.LOG_ERRORS
+
+
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 @patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
 def test_handle_verify_contract_use_agent_kwarg_deprecated(mock_execute, mock_cloud_client):
