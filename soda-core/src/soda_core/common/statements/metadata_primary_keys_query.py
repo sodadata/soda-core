@@ -42,7 +42,19 @@ class MetadataPrimaryKeysQuery:
         return self.get_results(query_result)
 
     def _build_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
-        schema_name: str | None = self._extract_from_prefix(prefixes, self.sql_dialect.get_schema_prefix_index())
+        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
+        schema_name: str | None = self._extract_from_prefix(prefixes, schema_index)
+        # A dialect that declares a schema prefix index REQUIRES a schema to scope the metadata
+        # query. If the prefix list is too short to hold it, _extract_from_prefix returns None and
+        # the query would emit `table_schema = NULL` (matching nothing, silently returning no PKs).
+        # Fail loud instead so the misconfiguration surfaces rather than looking like "no PKs".
+        # The database is not subject to this check: schema-only dialects legitimately have no
+        # database, and db+schema dialects tolerate a missing database in the filter.
+        if schema_index is not None and schema_name is None:
+            raise ValueError(
+                f"Cannot resolve a schema from dataset prefixes {prefixes!r}: this data source "
+                f"requires a schema at prefix index {schema_index}, but the prefixes are too short."
+            )
         database_name: str | None = self._extract_from_prefix(prefixes, self.sql_dialect.get_database_prefix_index())
         return (
             SchemaDataSourceNamespace(schema=schema_name)

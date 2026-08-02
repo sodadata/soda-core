@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata
@@ -9,6 +10,15 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_primary_keys_query import (
     MetadataPrimaryKeysQuery,
 )
+
+
+class _SchemaOnlyDialect(SqlDialect, sqlglot_dialect="schema-only"):
+    # Schema-only dialect (DuckDB shape): schema at index 0, no database.
+    def get_database_prefix_index(self) -> int | None:
+        return None
+
+    def get_schema_prefix_index(self) -> int | None:
+        return 0
 
 
 def _query(sql_dialect: SqlDialect | None = None) -> MetadataPrimaryKeysQuery:
@@ -49,3 +59,34 @@ def test_get_results_groups_columns_by_table():
 
     empty_result = QueryResult(columns=[("table_name",), ("column_name",)], rows=[])
     assert query.get_results(empty_result) == {}
+
+
+def test_build_namespace_raises_when_schema_prefix_missing():
+    # Base SqlDialect requires a schema at prefix index 1 (Postgres shape, db+schema).
+    # A prefix list too short to hold that index must fail loud, not emit table_schema = NULL.
+    query = _query()
+    with pytest.raises(ValueError) as excinfo:
+        query._build_namespace(["only_database"])
+    message = str(excinfo.value)
+    assert "only_database" in message
+    assert "schema" in message.lower()
+
+
+def test_build_namespace_resolves_schema_for_db_schema_dialect():
+    # A valid db+schema prefix list must not raise and must carry both parts.
+    namespace = _query()._build_namespace(["my_db", "my_schema"])
+    assert namespace.get_database_for_metadata_query() == "my_db"
+    assert namespace.get_schema_for_metadata_query() == "my_schema"
+
+
+def test_build_namespace_resolves_schema_for_schema_only_dialect():
+    # Schema-only dialect: schema at index 0, missing database is expected (not an error).
+    namespace = _query(_SchemaOnlyDialect())._build_namespace(["my_schema"])
+    assert namespace.get_database_for_metadata_query() is None
+    assert namespace.get_schema_for_metadata_query() == "my_schema"
+
+
+def test_build_namespace_raises_for_schema_only_dialect_with_empty_prefixes():
+    # Even schema-only dialects require the schema; an empty prefix list must fail loud.
+    with pytest.raises(ValueError):
+        _query(_SchemaOnlyDialect())._build_namespace([])

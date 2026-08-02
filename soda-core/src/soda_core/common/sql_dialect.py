@@ -478,7 +478,7 @@ class SqlDialect:
         """Build the standard-SQL ``PRIMARY KEY (<cols>)`` table constraint clause,
         or ``None`` when no primary key is declared (no clause is emitted).
         """
-        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        primary_key_column_names = create_table.primary_key_column_names
         if not primary_key_column_names:
             return None
         quoted_columns: str = ", ".join(
