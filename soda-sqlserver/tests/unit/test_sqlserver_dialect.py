@@ -218,3 +218,33 @@ def test_var_samp_renders_var():
     from soda_core.common.sql_ast import COLUMN, VAR_SAMP
 
     assert SqlServerSqlDialect().build_expression_sql(VAR_SAMP(COLUMN("c"))) == "VAR([c])"
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — SQL Server uses OFFSET/FETCH + the base
+# _order_by_key case-fold seam (previously unexercised here). Pin default-off
+# (unchanged SQL) and the LOWER() normalize-on path for a flagged key column.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset()):
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    return SqlServerSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["code", "label"],
+        filter=None,
+        order_by=order_by,
+        limit=10,
+        offset=20,
+        normalize_key_columns=normalize_key_columns,
+    )
+
+
+def test_paginated_sql_default_off_leaves_order_by_untouched():
+    assert "LOWER" not in _paginated(order_by=["code"]).upper()
+
+
+def test_paginated_sql_normalizes_only_the_flagged_key_column():
+    sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
+    assert sql.upper().count("LOWER(") == 1  # only "code" folded; "label" stays raw

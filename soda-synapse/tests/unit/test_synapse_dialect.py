@@ -76,3 +76,42 @@ def test_literal_timestamp_typed_inherits_datetime2_cast():
         SynapseSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
         == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
     )
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — Synapse has no OFFSET/FETCH, so it hand-rolls a
+# ROW_NUMBER() window fold. This whole branch was previously unexercised; pin
+# the rn window, the LOWER() key-normalization seam (default-off), and the
+# empty-order_by fallback.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset()):
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    return SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["code", "label"],  # explicit → no get_column_names resolver needed
+        filter=None,
+        order_by=order_by,
+        limit=10,
+        offset=20,
+        normalize_key_columns=normalize_key_columns,
+    )
+
+
+def test_paginated_row_number_fold_windows_and_default_off():
+    sql = _paginated(order_by=["code"])
+    assert "ROW_NUMBER() OVER (ORDER BY [code] ASC) AS __soda_rn" in sql
+    assert "WHERE __soda_rn > 20 AND __soda_rn <= 30" in sql
+    assert "LOWER" not in sql.upper()  # default-off → no case-fold
+
+
+def test_paginated_row_number_fold_normalizes_only_flagged_key():
+    sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
+    assert "LOWER([code]) ASC" in sql
+    assert sql.upper().count("LOWER(") == 1  # "label" stays raw
+
+
+def test_paginated_empty_order_by_falls_back_to_select_null():
+    assert "ORDER BY (SELECT NULL)" in _paginated(order_by=[])

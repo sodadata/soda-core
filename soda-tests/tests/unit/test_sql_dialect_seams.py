@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -72,3 +73,44 @@ def test_sql_expr_is_not_nan_base_is_none():
 
 def test_supports_percentile_within_group_base_is_true():
     assert dialect().supports_percentile_within_group() is True
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — the cross-source recon key-normalization seam.
+# Default-off (empty normalize set) must render byte-for-byte prior SQL; a
+# flagged key column is case-folded with LOWER() so a case-insensitive peer
+# (e.g. Salesforce/SOQL) and this SQL source order text the same way. This is
+# the OSS seam the extension recon feature depends on — pin it soda-core-side.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset()):
+    return dialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["code", "label"],
+        filter=None,
+        order_by=order_by,
+        limit=10,
+        offset=0,
+        normalize_key_columns=normalize_key_columns,
+    )
+
+
+def test_paginated_sql_default_off_leaves_order_by_untouched():
+    assert "LOWER" not in _paginated(order_by=["code"]).upper()
+
+
+def test_paginated_sql_normalizes_only_the_flagged_key_column():
+    sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
+    # "code" is folded with LOWER(); the co-ordered non-flagged "label" stays raw.
+    assert sql.upper().count("LOWER(") == 1
+
+
+def test_order_by_key_expression_case_folds_with_lower():
+    assert dialect().order_by_key_expression('"c"') == 'LOWER("c")'
+
+
+def test_supports_row_sampling_base_is_true():
+    # The recon sampling fail-loud guard fires only when this is False; base SQL sources must
+    # report True so a sampled recon on them is never flipped to NOT_EVALUATED.
+    assert dialect().supports_row_sampling is True
