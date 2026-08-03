@@ -1,4 +1,3 @@
-import copy
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -254,22 +253,6 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
             self._quote_column_for_create_table(column_name) for column_name in primary_key_column_names
         )
         return f"\tPRIMARY KEY ({quoted_columns}) NOT ENFORCED"
-
-    def build_create_table_sql(
-        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
-    ) -> str:
-        # A BigQuery primary key requires its columns to be NOT NULL, so force that on the
-        # participating columns before the base builder renders the column and PK clauses.
-        # CREATE_TABLE_COLUMN objects are reused across renders (e.g. cross-source flows render
-        # the same source columns on two dialects), so mutate a deep copy rather than the caller's
-        # objects — otherwise nullable=False leaks onto the shared column list.
-        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
-        if primary_key_column_names:
-            create_table = copy.deepcopy(create_table)
-            for column in create_table.columns:
-                if column.name in primary_key_column_names:
-                    column.nullable = False
-        return super().build_create_table_sql(create_table, add_semicolon=add_semicolon)
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
