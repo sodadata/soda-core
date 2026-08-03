@@ -123,6 +123,7 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         order_by: list[str],
         limit: int,
         offset: int,
+        distinct: bool = False,
     ) -> str:
         # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
         # ROW_NUMBER(). The earlier implementation joined `t.<key> = p.<key>` to drop the rn
@@ -161,6 +162,30 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # Use a `__soda_`-prefixed alias so we don't collide with a real column named `rn`
         # (possible when `columns` was resolved from the table's metadata).
         rn_alias = "__soda_rn"
+
+        if distinct:
+            # DISTINCT has to be applied *before* ROW_NUMBER: the window function makes every
+            # row unique, so a DISTINCT alongside it would be a no-op. It also can't be applied
+            # on the outer SELECT, because T-SQL rejects `SELECT DISTINCT ... ORDER BY <rn>`
+            # (ORDER BY items must appear in the select list of a DISTINCT select) and rn must
+            # stay projected out. So we de-duplicate in an extra leading CTE and paginate that.
+            # Requires the `order_by` columns to be part of `columns` — true for the callers
+            # that ask for distinct (reference_diff orders by exactly the projected columns).
+            return (
+                f"WITH deduplicated AS (\n"
+                f"    SELECT DISTINCT {columns_csv}\n"
+                f"    FROM {qualified_table}\n"
+                f"    {where_sql}\n"
+                f"),\n"
+                f"paginated AS (\n"
+                f"    SELECT {columns_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS {rn_alias}\n"
+                f"    FROM deduplicated\n"
+                f")\n"
+                f"SELECT {columns_csv}\n"
+                f"FROM paginated\n"
+                f"WHERE {rn_alias} > {offset} AND {rn_alias} <= {offset + limit}\n"
+                f"ORDER BY {rn_alias};"
+            )
 
         return (
             f"WITH paginated AS (\n"

@@ -1,7 +1,8 @@
 from datetime import date
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import SqlDataType
-from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, STAR
+from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, LIMIT, STAR
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerSqlDialect
 
@@ -218,3 +219,64 @@ def test_var_samp_renders_var():
     from soda_core.common.sql_ast import COLUMN, VAR_SAMP
 
     assert SqlServerSqlDialect().build_expression_sql(VAR_SAMP(COLUMN("c"))) == "VAR([c])"
+
+
+# ---------------------------------------------------------------------------
+# Paginated select — statement-level DISTINCT.
+# T-SQL grammar is `SELECT [ALL | DISTINCT] [TOP n] <fields>`, so DISTINCT must
+# precede TOP when both are rendered.
+# ---------------------------------------------------------------------------
+
+
+def _customers() -> DatasetIdentifier:
+    return DatasetIdentifier(data_source_name="ds", prefixes=["soda_db", "dbo"], dataset_name="CUSTOMERS")
+
+
+def test_select_all_paginated_sql_is_not_distinct_by_default():
+    assert SqlServerSqlDialect().select_all_paginated_sql(
+        dataset_identifier=_customers(),
+        columns=["id", "name"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=10,
+        offset=20,
+    ) == (
+        "SELECT [id],\n"
+        "       [name]\n"
+        "FROM [soda_db].[dbo].[CUSTOMERS]\n"
+        "WHERE (country = 'BE')\n"
+        "ORDER BY [id] ASC\n"
+        "OFFSET 20 ROWS\n"
+        "FETCH NEXT 10 ROWS ONLY;"
+    )
+
+
+def test_select_all_paginated_sql_distinct():
+    assert SqlServerSqlDialect().select_all_paginated_sql(
+        dataset_identifier=_customers(),
+        columns=["id", "name"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=10,
+        offset=20,
+        distinct=True,
+    ) == (
+        "SELECT DISTINCT [id],\n"
+        "       [name]\n"
+        "FROM [soda_db].[dbo].[CUSTOMERS]\n"
+        "WHERE (country = 'BE')\n"
+        "ORDER BY [id] ASC\n"
+        "OFFSET 20 ROWS\n"
+        "FETCH NEXT 10 ROWS ONLY;"
+    )
+
+
+def test_select_top_is_rendered_after_distinct():
+    """A LIMIT without OFFSET renders as TOP n; it must land after DISTINCT, not before."""
+    sql = SqlServerSqlDialect().build_select_sql([SELECT(["id"], distinct=True), FROM("customers"), LIMIT(3)])
+    assert sql == ("SELECT DISTINCT TOP 3 [id]\n" "FROM [customers];")
+
+
+def test_select_top_without_distinct_is_unchanged():
+    sql = SqlServerSqlDialect().build_select_sql([SELECT(["id"]), FROM("customers"), LIMIT(3)])
+    assert sql == ("SELECT TOP 3 [id]\n" "FROM [customers];")

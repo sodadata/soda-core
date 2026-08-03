@@ -440,14 +440,22 @@ class SqlDialect:
         order_by: list[str],
         limit: int,
         offset: int,
+        distinct: bool = False,
     ) -> str:
+        """Render one page of a SELECT over a dataset.
+
+        ``distinct=True`` renders ``SELECT DISTINCT``, de-duplicating on the projected
+        columns. Callers must render distinct through this parameter rather than by
+        rewriting the returned SQL: dialects are free to emit shapes (CTEs, ROW_NUMBER
+        pagination) in which the leading ``SELECT`` token is not the one to modify.
+        """
         where_clauses = []
 
         if filter:
             where_clauses.append(SqlExpressionStr(filter))
 
         statements = [
-            SELECT(columns or [STAR()]),
+            SELECT(columns or [STAR()], distinct=distinct),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
             *[ORDER_BY_ASC(c) for c in order_by],
@@ -744,8 +752,11 @@ class SqlDialect:
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
+        is_distinct: bool = False
         for select_element in select_elements:
             if isinstance(select_element, SELECT):
+                if select_element.distinct:
+                    is_distinct = True
                 if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
                 for select_field in select_element.fields:
@@ -760,10 +771,11 @@ class SqlDialect:
         # return "SELECT " + (", ".join(select_fields_sql))
         # For now, we opt for SELECT statement readability...
 
+        select_keyword: str = "SELECT DISTINCT" if is_distinct else "SELECT"
         select_sql_lines: list[str] = []
         for i in range(0, len(select_field_sqls)):
             if i == 0:
-                sql_line = f"SELECT {select_field_sqls[0]}"
+                sql_line = f"{select_keyword} {select_field_sqls[0]}"
             else:
                 sql_line = f"       {select_field_sqls[i]}"
             # Append comma all lines except the last one

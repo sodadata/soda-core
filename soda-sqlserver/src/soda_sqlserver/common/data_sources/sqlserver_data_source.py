@@ -171,7 +171,12 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             limit_element: LIMIT = [
                 select_element for select_element in select_elements if isinstance(select_element, LIMIT)
             ][0]
-            select_sql_lines[0] = select_sql_lines[0].replace("SELECT ", f"SELECT TOP {limit_element.limit} ")
+            # T-SQL grammar is `SELECT [ALL | DISTINCT] [TOP n] <fields>`, so TOP goes after
+            # DISTINCT when the base rendered a distinct select.
+            select_prefix: str = "SELECT DISTINCT " if select_sql_lines[0].startswith("SELECT DISTINCT ") else "SELECT "
+            select_sql_lines[0] = select_sql_lines[0].replace(
+                select_prefix, f"{select_prefix}TOP {limit_element.limit} ", 1
+            )
         return select_sql_lines
 
     def __requires_select_top(self, select_elements: list) -> bool:
@@ -330,6 +335,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         order_by: list[str],
         limit: int,
         offset: int,
+        distinct: bool = False,
     ) -> str:
         where_clauses = []
 
@@ -337,7 +343,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             where_clauses.append(SqlExpressionStr(filter))
 
         statements = [
-            SELECT(columns or [STAR()]),
+            SELECT(columns or [STAR()], distinct=distinct),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
             *[ORDER_BY_ASC(c) for c in order_by],

@@ -70,6 +70,10 @@ class BaseSqlExpression:
 @dataclass
 class SELECT(BaseSqlExpression):
     fields: SqlExpression | str | list[SqlExpression | str]
+    # Statement-level DISTINCT: renders `SELECT DISTINCT <fields>` (de-duplicates the whole
+    # projected row). Not to be confused with the `DISTINCT` expression node below, which is
+    # the argument-level form used inside aggregates such as `COUNT(DISTINCT(col))`.
+    distinct: bool = False
 
     def __post_init__(self):
         super().__post_init__()
