@@ -169,6 +169,7 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # Use the safe quoter so column / order-by identifiers can't break out of `[...]`.
         quoted_columns = [self._quote_identifier_safe(c) for c in columns]
         columns_csv = ", ".join(quoted_columns)
+
         # An empty `order_by` is allowed by the base `SqlDialect.select_all_paginated_sql`
         # contract — produce a deterministic-enough fallback that T-SQL accepts inside the
         # OVER(...) clause. `(SELECT NULL)` is the standard idiom for "any order".

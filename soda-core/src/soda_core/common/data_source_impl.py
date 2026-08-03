@@ -54,7 +54,8 @@ class ValueComparatorProtocol(Protocol):
 
     handles_cross_type: bool
 
-    def equals(self, x: Any, y: Any) -> bool: ...
+    def equals(self, x: Any, y: Any) -> bool:
+        ...
 
 
 class DataSourceImpl(ABC):
