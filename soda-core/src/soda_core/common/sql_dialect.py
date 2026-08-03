@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import dataclasses
 import logging
 from abc import abstractmethod
@@ -464,6 +465,7 @@ class SqlDialect:
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        create_table = self._create_table_with_primary_key_columns_not_null(create_table)
         create_table_sql = self._build_create_table_statement_sql(create_table)
 
         column_clauses: list[str] = [self._build_create_table_column(column) for column in create_table.columns]
@@ -473,6 +475,23 @@ class SqlDialect:
 
         create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _create_table_with_primary_key_columns_not_null(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS
+    ) -> CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS:
+        # A primary-key column is NOT NULL by definition. Most databases imply this when a PRIMARY
+        # KEY is declared, but some (DB2, and NOT ENFORCED keys on BigQuery/Synapse) reject a
+        # primary key on a nullable column, so mark the columns NOT NULL explicitly. Returns a copy
+        # so the caller's object is never mutated; returned unchanged when there is no primary key.
+        primary_key_column_names = create_table.primary_key_column_names
+        if not primary_key_column_names:
+            return create_table
+        create_table = copy.deepcopy(create_table)
+        pk_names: set[str] = set(primary_key_column_names)
+        for column in create_table.columns:
+            if column.name in pk_names:
+                column.nullable = False
+        return create_table
 
     def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
         """Build the standard-SQL ``PRIMARY KEY (<cols>)`` table constraint clause,
