@@ -111,6 +111,12 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
 
+    def supports_primary_keys(self) -> bool:
+        # Unity Catalog stores non-enforced primary keys (PK columns are implicitly NOT NULL)
+        # and reports them through the standard information_schema constraint views.
+        # The Hive metastore has neither; DatabricksHiveSqlDialect opts back out.
+        return True
+
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["int", "integer"],
@@ -411,6 +417,11 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect, sqlglot_dialect="databricks"):
+    def supports_primary_keys(self) -> bool:
+        # The Hive metastore neither declares primary keys nor exposes them through
+        # information_schema, so primary-key introspection stays opt-out here.
+        return False
+
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])

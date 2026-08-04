@@ -193,6 +193,10 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     SUPPORTS_DROP_TABLE_CASCADE = False
 
+    # Primary-key introspection stays opt-out (supports_primary_keys inherits False from the
+    # base dialect): Athena runs over Glue/Hive-style catalogs that neither declare primary keys
+    # in CREATE TABLE nor expose them through information_schema constraint views.
+
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),

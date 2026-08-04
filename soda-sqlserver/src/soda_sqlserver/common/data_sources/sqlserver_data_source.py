@@ -121,6 +121,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         self.server_major_version: Optional[int] = None
         self.engine_edition: Optional[int] = None
 
+    def supports_primary_keys(self) -> bool:
+        # SQL Server enforces primary keys and reports them through the standard
+        # information_schema constraint views, with the standard PRIMARY KEY (...) DDL.
+        return True
+
     def _build_stddev_samp_sql(self, stddev_samp) -> str:
         # T-SQL names the sample standard deviation aggregate STDEV.
         return f"STDEV({self.build_expression_sql(stddev_samp.expression)})"

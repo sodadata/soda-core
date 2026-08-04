@@ -64,16 +64,33 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # issue a metadata round-trip per page during a paginated scan.
         self._columns_cache: dict[tuple[tuple[str, ...], str], list[str]] = {}
 
+    def supports_primary_keys(self) -> bool:
+        # Synapse dedicated SQL pools store primary keys as non-enforced NONCLUSTERED
+        # constraints, reported through the standard information_schema constraint views.
+        return True
+
+    def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
+        # Synapse only accepts a primary key declared as NONCLUSTERED ... NOT ENFORCED.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        if not primary_key_column_names:
+            return None
+        quoted_columns: str = ", ".join(
+            self._quote_column_for_create_table(column_name) for column_name in primary_key_column_names
+        )
+        return f"\tPRIMARY KEY NONCLUSTERED ({quoted_columns}) NOT ENFORCED"
+
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
+        # This override reimplements the base builder (for the HEAP option below), so apply the
+        # base's NOT NULL-on-primary-key handling explicitly (a NOT ENFORCED key still requires it).
+        create_table = self._create_table_with_primary_key_columns_not_null(create_table)
         create_table_sql = self._build_create_table_statement_sql(create_table)
-        create_table_sql = (
-            create_table_sql
-            + "(\n"
-            + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
-            + "\n)"
-        )
+        column_clauses: list[str] = [self._build_create_table_column(column) for column in create_table.columns]
+        primary_key_clause: Optional[str] = self._build_create_table_primary_key(create_table)
+        if primary_key_clause is not None:
+            column_clauses.append(primary_key_clause)
+        create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
         # Synapse uses clustered columnstore indexes by default, which don't support varchar(MAX).
         # Use HEAP to create a heap table instead.
         create_table_sql = create_table_sql + "\nWITH (HEAP)"

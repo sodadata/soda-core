@@ -211,9 +211,13 @@ def test_primary_keys_metadata_do_not_leak_across_schemas(data_source_test_helpe
 
     # Second schema, sharing the database/catalog but a distinct schema name, holding a table with
     # the SAME name (so the auto-generated PK constraint name collides) but a DIFFERENT PK column.
-    database_name = default_prefix[0]
-    other_schema_name = f"{default_prefix[1]}_pkleak"
-    other_prefix = [database_name, other_schema_name]
+    # Derive the schema position from the dialect rather than assuming a [database, schema] prefix:
+    # schema-scoped data sources (e.g. DuckDB) carry a single-element [schema] prefix, so a hard
+    # default_prefix[1] would IndexError. Rebuild the prefix with only the schema element renamed.
+    schema_index = sql_dialect.get_schema_prefix_index()
+    other_schema_name = f"{default_prefix[schema_index]}_pkleak"
+    other_prefix = list(default_prefix)
+    other_prefix[schema_index] = other_schema_name
 
     def _create_table_sql(prefix: list[str]) -> str:
         qualified_name = sql_dialect.qualify_dataset_name(prefix, table_name)

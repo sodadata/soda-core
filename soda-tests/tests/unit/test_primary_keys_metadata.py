@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from unittest import mock
-
 import pytest
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -33,12 +31,51 @@ def test_column_metadata_carries_is_primary_key():
     assert pk_column.is_primary_key is True
 
 
-def test_base_get_primary_keys_returns_empty_dict():
-    # The base implementation must return an empty dict (safe default),
-    # so data sources without an override don't break.
-    data_source_impl = mock.MagicMock(spec=DataSourceImpl)
+class _FakePrimaryKeysDataSource:
+    """DataSourceImpl double for the get_primary_keys gate: a dialect flag, a canned query,
+    and a counter proving whether the query was built at all."""
+
+    class _Dialect:
+        def __init__(self, supports: bool):
+            self._supports = supports
+
+        def supports_primary_keys(self) -> bool:
+            return self._supports
+
+    class _Query:
+        def __init__(self, result: dict):
+            self._result = result
+            self.execute_calls: list[tuple] = []
+
+        def execute(self, dataset_prefixes, dataset_names):
+            self.execute_calls.append((dataset_prefixes, dataset_names))
+            return self._result
+
+    def __init__(self, supports_primary_keys: bool, query_result: dict | None = None):
+        self.sql_dialect = self._Dialect(supports_primary_keys)
+        self.query = self._Query(query_result or {})
+        self.create_query_calls = 0
+
+    def create_metadata_primary_keys_query(self):
+        self.create_query_calls += 1
+        return self.query
+
+
+def test_get_primary_keys_returns_empty_dict_when_dialect_opts_out():
+    # The supports_primary_keys() gate is enforced centrally: a data source whose active
+    # dialect opts out (e.g. Databricks Hive metastore, Fabric) returns {} WITHOUT building
+    # or executing a query — its catalog may not even have the constraint views.
+    data_source_impl = _FakePrimaryKeysDataSource(supports_primary_keys=False)
     result = DataSourceImpl.get_primary_keys(data_source_impl, dataset_prefixes=["public"], dataset_names=["orders"])
     assert result == {}
+    assert data_source_impl.create_query_calls == 0
+
+
+def test_get_primary_keys_delegates_to_query_when_dialect_opts_in():
+    data_source_impl = _FakePrimaryKeysDataSource(supports_primary_keys=True, query_result={"orders": ["id"]})
+    result = DataSourceImpl.get_primary_keys(data_source_impl, dataset_prefixes=["public"], dataset_names=["orders"])
+    assert result == {"orders": ["id"]}
+    assert data_source_impl.query.execute_calls == [(["public"], ["orders"])]
 
 
 def test_get_results_groups_columns_by_table_in_key_order():

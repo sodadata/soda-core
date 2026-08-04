@@ -153,6 +153,13 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         # Instance override — see class-level comment above.
         self.SUPPORTS_DROP_TABLE_CASCADE = use_catalog
 
+    def supports_primary_keys(self) -> bool:
+        # Open-source Spark SQL (the local, Hive-metastore-backed engine this data source runs
+        # against) has no information_schema and cannot declare a PRIMARY KEY in CREATE TABLE,
+        # so primary-key introspection stays opt-out — overriding the Unity Catalog default
+        # inherited from DatabricksSqlDialect.
+        return False
+
     def get_database_prefix_index(self) -> int | None:
         return 0 if self.use_catalog else None
 

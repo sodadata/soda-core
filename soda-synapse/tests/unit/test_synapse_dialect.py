@@ -1,4 +1,5 @@
-from soda_core.common.sql_ast import COUNT, STAR
+from soda_core.common.metadata_types import SqlDataType
+from soda_core.common.sql_ast import COUNT, CREATE_TABLE, CREATE_TABLE_COLUMN, STAR
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_synapse.common.data_sources.synapse_data_source import SynapseSqlDialect
 
@@ -7,6 +8,26 @@ def test_random():
     sql_dialect: SynapseSqlDialect = SynapseSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == "SELECT ABS(CAST(CHECKSUM(NEWID()) AS FLOAT)) / 2147483648.0\nFROM [a];"
+
+
+def test_primary_key_create_table_is_nonclustered_not_enforced_with_not_null_columns():
+    # Synapse only accepts a NONCLUSTERED ... NOT ENFORCED primary key, and its columns
+    # must be NOT NULL. The custom HEAP create-table builder still emits the PK clause.
+    dialect = SynapseSqlDialect()
+    create_table = CREATE_TABLE(
+        fully_qualified_table_name="db.dbo.orders",
+        columns=[
+            CREATE_TABLE_COLUMN(name="tenant_id", type=SqlDataType("int")),
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType("int")),
+            CREATE_TABLE_COLUMN(name="label", type=SqlDataType("varchar", character_maximum_length=10)),
+        ],
+        primary_key_column_names=["tenant_id", "id"],
+    )
+    sql = dialect.build_create_table_sql(create_table)
+    assert "[tenant_id] int NOT NULL" in sql
+    assert "[id] int NOT NULL" in sql
+    assert "PRIMARY KEY NONCLUSTERED ([tenant_id], [id]) NOT ENFORCED" in sql
+    assert sql.rstrip(";").endswith("WITH (HEAP)")
 
 
 def test_count_renders_as_count_big():
