@@ -272,6 +272,11 @@ class DataSourceImpl(ABC):
         table name: {table_name: [pk_column_names]}, each list ordered by the column's position
         within the primary key so composite keys keep their declared order.
 
+        The result keys carry the data source's own metadata casing, which can differ from the
+        requested dataset_names (e.g. Databricks lowercases identifiers even for a quoted CREATE) —
+        look up via sql_dialect.metadata_casify(requested_name). Tables without a primary key, and
+        requested tables that don't exist, are simply absent from the result.
+
         The base implementation returns an empty dict: primary key introspection is opt-in per
         data source. Data sources with a standard information_schema constraints layer can override
         by delegating to create_metadata_primary_keys_query().execute(...)."""

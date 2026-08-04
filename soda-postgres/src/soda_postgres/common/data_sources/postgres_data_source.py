@@ -31,12 +31,18 @@ from soda_core.common.sql_ast import (
     WHERE,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
+)
+from soda_postgres.statements.postgres_metadata_primary_keys_query import (
+    PostgresMetadataPrimaryKeysQuery,
 )
 from soda_postgres.statements.postgres_metadata_tables_query import (
     PostgresMetadataTablesQuery,
@@ -67,8 +73,14 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return PostgresMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
     def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # Postgres exposes primary keys through the standard information_schema constraint views.
+        # Reads pg_catalog, not information_schema: the latter is privilege-filtered and returns
+        # nothing for a read-only user. See PostgresMetadataPrimaryKeysQuery.
         return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
 

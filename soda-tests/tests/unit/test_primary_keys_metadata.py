@@ -91,3 +91,28 @@ def test_build_namespace_raises_for_schema_only_dialect_with_empty_prefixes():
     # Even schema-only dialects require the schema; an empty prefix list must fail loud.
     with pytest.raises(ValueError):
         _query(_SchemaOnlyDialect())._build_namespace([])
+
+
+def test_build_sql_statement_joins_on_schema_and_table_not_just_constraint_name():
+    """Guards the constraint-namespace JOIN: constraint_name is unique only within
+    (constraint_catalog, constraint_schema), so the table_constraints -> key_column_usage
+    JOIN must also match schema + table (+ catalog when a database is present) or PK
+    columns leak across schemas (see the cross-schema integration test). A regression
+    dropping one of these join conditions must fail here, not only on live postgres."""
+    query = _query()
+    namespace = query._build_namespace(["my_db", "my_schema"])
+    sql = SqlDialect().build_select_sql(query.build_sql_statement(namespace, ["orders", "customers"]))
+
+    join_conditions = [
+        '"constraints"."constraint_name" = "key_columns"."constraint_name"',
+        '"constraints"."table_schema" = "key_columns"."table_schema"',
+        '"constraints"."table_name" = "key_columns"."table_name"',
+        '"constraints"."table_catalog" = "key_columns"."table_catalog"',
+    ]
+    for join_condition in join_conditions:
+        assert join_condition in sql, f"missing JOIN condition: {join_condition}\n{sql}"
+
+    # The ordinal keeps composite keys in declared order.
+    assert '"key_columns"."ordinal_position"' in sql
+    # Both filters and the table IN-list are present.
+    assert "'my_schema'" in sql and "'my_db'" in sql and "'orders'" in sql and "'customers'" in sql
