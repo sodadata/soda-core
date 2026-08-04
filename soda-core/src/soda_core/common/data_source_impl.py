@@ -15,6 +15,9 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
@@ -258,6 +261,26 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return MetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
+        """Returns the primary key column names for the given tables in a single query, keyed by
+        table name: {table_name: [pk_column_names]}, each list ordered by the column's position
+        within the primary key so composite keys keep their declared order.
+
+        The result keys carry the data source's own metadata casing, which can differ from the
+        requested dataset_names (e.g. Databricks lowercases identifiers even for a quoted CREATE) —
+        look up via sql_dialect.metadata_casify(requested_name). Tables without a primary key, and
+        requested tables that don't exist, are simply absent from the result.
+
+        The base implementation returns an empty dict: primary key introspection is opt-in per
+        data source. Data sources with a standard information_schema constraints layer can override
+        by delegating to create_metadata_primary_keys_query().execute(...)."""
+        return {}
 
     @property
     def bulk_columns_metadata_available(self) -> bool:

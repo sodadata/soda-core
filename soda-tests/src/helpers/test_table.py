@@ -35,6 +35,7 @@ class TestTableSpecificationBuilder:
         self._columns: list[ColumnMetadata] = []
         self._rows: Optional[list[tuple]] = None
         self._table_type: TableType = TableType.TABLE
+        self._primary_key_column_names: Optional[list[str]] = None
 
     def table_purpose(self, table_purpose: str) -> TestTableSpecificationBuilder:
         """
@@ -229,6 +230,15 @@ class TestTableSpecificationBuilder:
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.BOOLEAN)
 
+    def primary_key(self, column_names: list[str]) -> TestTableSpecificationBuilder:
+        """Declare the table's PRIMARY KEY as one or more column names.
+
+        Accepts a single-column key (``["id"]``) or a composite key
+        (``["tenant_id", "id"]``). When not called, the table has no primary key.
+        """
+        self._primary_key_column_names = column_names
+        return self
+
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """
         Python objects that will be translated to data source specific literals
@@ -299,6 +309,7 @@ class TestTableSpecificationBuilder:
             row_values=row_values,
             unique_name=unique_name,
             table_type=self._table_type,
+            primary_key_column_names=self._primary_key_column_names,
         )
 
     def __test_table_hash(self) -> str:
@@ -313,6 +324,10 @@ class TestTableSpecificationBuilder:
                 consistent_hash_builder.add(test_column.sql_data_type.numeric_precision)
                 consistent_hash_builder.add(test_column.sql_data_type.numeric_scale)
                 consistent_hash_builder.add(test_column.sql_data_type.datetime_precision)
+        if self._primary_key_column_names:
+            consistent_hash_builder.add("primary_key")
+            for pk_column_name in self._primary_key_column_names:
+                consistent_hash_builder.add(pk_column_name)
         if isinstance(self._rows, Iterable):
             for row in self._rows:
                 consistent_hash_builder.add("row")
@@ -358,6 +373,8 @@ class TestTableSpecification:
     row_values: Optional[list[tuple]]
     unique_name: Optional[str]
     table_type: TableType
+    # Column names forming the table's PRIMARY KEY; None means no primary key.
+    primary_key_column_names: Optional[list[str]] = None
 
 
 class TestTable:
@@ -373,6 +390,7 @@ class TestTable:
         columns: list[TestColumn],
         row_values: Optional[list[tuple]],
         table_type: TableType = TableType.TABLE,
+        primary_key_column_names: Optional[list[str]] = None,
     ):
         self.data_source_name: str = data_source_name
         self.dataset_prefix: list[str] = dataset_prefix
@@ -385,6 +403,8 @@ class TestTable:
         self.columns: dict[str, TestColumn] = {column.name: column for column in columns}
         self.row_values: Optional[list[tuple]] = row_values
         self.table_type: TableType = table_type
+        # Column names forming the table's PRIMARY KEY; None means no primary key.
+        self.primary_key_column_names: Optional[list[str]] = primary_key_column_names
 
     def data_type(self, column_name: str) -> str:
         return self.columns[column_name].sql_data_type.name
