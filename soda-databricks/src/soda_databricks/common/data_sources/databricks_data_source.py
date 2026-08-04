@@ -65,11 +65,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         else:
             return super().create_metadata_tables_query()
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # Unity Catalog exposes primary keys through the standard information_schema constraint
-        # views; the Hive metastore does not, and gates itself off via DatabricksHiveSqlDialect.
-        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
-
     def _is_hive_catalog(self):
         # Check the connection "catalog"
         catalog: Optional[str] = self.data_source_model.connection_properties.catalog

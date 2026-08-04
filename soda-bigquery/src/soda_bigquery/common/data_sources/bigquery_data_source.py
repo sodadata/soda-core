@@ -110,13 +110,10 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])
 
     def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        # BigQuery exposes primary keys through the dataset-qualified INFORMATION_SCHEMA constraint views.
         return BigQueryMetadataPrimaryKeysQuery(
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
-
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # BigQuery exposes primary keys through the dataset-qualified INFORMATION_SCHEMA constraint views.
-        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(

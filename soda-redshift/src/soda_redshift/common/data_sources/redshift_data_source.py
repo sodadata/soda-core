@@ -60,14 +60,11 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
         )
 
     def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        # Reads pg_catalog, not information_schema: Redshift's Postgres-8-lineage constraint
+        # views only list tables the current user owns. See RedshiftMetadataPrimaryKeysQuery.
         return RedshiftMetadataPrimaryKeysQuery(
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
-
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # Reads pg_catalog, not information_schema: Redshift's Postgres-8-lineage constraint
-        # views only list tables the current user owns. See RedshiftMetadataPrimaryKeysQuery.
-        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
 
 class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):

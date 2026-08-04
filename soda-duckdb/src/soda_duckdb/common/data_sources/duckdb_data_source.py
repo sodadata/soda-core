@@ -301,10 +301,6 @@ class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # DuckDB exposes primary keys through the ANSI information_schema.key_column_usage view.
-        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
-
     @classmethod
     def from_existing_cursor(cls, cursor: DuckDBPyConnection, name: str) -> DataSourceImpl:
         ds_model = DuckDBDataSourceModel(

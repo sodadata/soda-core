@@ -277,10 +277,14 @@ class DataSourceImpl(ABC):
         look up via sql_dialect.metadata_casify(requested_name). Tables without a primary key, and
         requested tables that don't exist, are simply absent from the result.
 
-        The base implementation returns an empty dict: primary key introspection is opt-in per
-        data source. Data sources with a standard information_schema constraints layer can override
-        by delegating to create_metadata_primary_keys_query().execute(...)."""
-        return {}
+        Gated on sql_dialect.supports_primary_keys() so callers can invoke this unconditionally:
+        a data source that cannot introspect primary keys (or whose active dialect opts out, e.g.
+        the Databricks Hive metastore) returns an empty dict without issuing a query. Data sources
+        specialize via supports_primary_keys() and create_metadata_primary_keys_query(), not by
+        overriding this method."""
+        if not self.sql_dialect.supports_primary_keys():
+            return {}
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     @property
     def bulk_columns_metadata_available(self) -> bool:

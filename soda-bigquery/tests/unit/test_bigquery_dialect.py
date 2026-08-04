@@ -15,7 +15,9 @@ def test_random():
 
 
 def test_primary_key_create_table_requires_not_enforced_and_not_null():
-    # BigQuery only accepts a NOT ENFORCED primary key, and its columns must be NOT NULL.
+    # BigQuery only accepts a NOT ENFORCED primary key. The NOT NULL on the key columns is
+    # Soda's uniform DDL choice applied by the base builder (PK columns are non-null by
+    # definition), not a BigQuery grammar requirement.
     dialect = BigQuerySqlDialect()
     create_table = CREATE_TABLE(
         fully_qualified_table_name="proj.ds.orders",

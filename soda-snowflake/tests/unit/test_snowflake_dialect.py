@@ -155,3 +155,84 @@ def test_add_interval_renders_timestampadd():
         ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
     )
     assert sql == "TIMESTAMPADD(days, ((soda_partition__ + 1) * 1), '2020-06-20T00:00:00')"
+
+
+class _StubConnection:
+    """Returns canned QueryResults in order and records every SQL statement issued."""
+
+    def __init__(self, results: list[QueryResult]):
+        self._results = list(results)
+        self.executed: list[str] = []
+
+    def execute_query(self, sql: str) -> QueryResult:
+        self.executed.append(sql)
+        return self._results.pop(0)
+
+
+# SHOW PRIMARY KEYS output columns, per
+# https://docs.snowflake.com/en/sql-reference/sql/show-primary-keys#output
+_SHOW_COLUMNS = (
+    ("created_on",),
+    ("database_name",),
+    ("schema_name",),
+    ("table_name",),
+    ("column_name",),
+    ("key_sequence",),
+    ("constraint_name",),
+)
+
+
+def _show_row(table_name: str, column_name: str, key_sequence: int) -> tuple:
+    return ("ts", "MY_DB", "MY_SCHEMA", table_name, column_name, key_sequence, f"{table_name}_pk")
+
+
+def test_primary_keys_queries_table_constraints_then_shows_per_table():
+    """Two-step flow: TABLE_CONSTRAINTS narrows to PK-bearing tables (no SHOW row cap), then one
+    SHOW PRIMARY KEYS IN TABLE per such table. Requested tables without a PK get no SHOW and are
+    absent; composite keys come back ordered by key_sequence even when SHOW rows arrive
+    out of order."""
+    from soda_snowflake.common.data_sources.snowflake_data_source import (
+        SnowflakeMetadataPrimaryKeysQuery,
+    )
+
+    connection = _StubConnection(
+        [
+            # Step 1: TABLE_CONSTRAINTS — NO_PK is requested but has no PK constraint.
+            QueryResult(columns=(("TABLE_NAME",),), rows=[("ORDERS",), ("CUSTOMERS",)]),
+            # Step 2: one SHOW per PK-bearing table; ORDERS rows deliberately out of key order.
+            QueryResult(
+                columns=_SHOW_COLUMNS, rows=[_show_row("ORDERS", "ID", 2), _show_row("ORDERS", "TENANT_ID", 1)]
+            ),
+            QueryResult(columns=_SHOW_COLUMNS, rows=[_show_row("CUSTOMERS", "ID", 1)]),
+        ]
+    )
+    query = SnowflakeMetadataPrimaryKeysQuery(sql_dialect=SnowflakeSqlDialect(), data_source_connection=connection)
+
+    result = query.execute(dataset_prefixes=["MY_DB", "MY_SCHEMA"], dataset_names=["ORDERS", "CUSTOMERS", "NO_PK"])
+
+    assert result == {"ORDERS": ["TENANT_ID", "ID"], "CUSTOMERS": ["ID"]}
+
+    constraints_sql = connection.executed[0]
+    assert "TABLE_CONSTRAINTS" in constraints_sql
+    assert "KEY_COLUMN_USAGE" not in constraints_sql
+    assert "'PRIMARY KEY'" in constraints_sql
+    assert "'ORDERS'" in constraints_sql and "'CUSTOMERS'" in constraints_sql and "'NO_PK'" in constraints_sql
+
+    assert connection.executed[1] == 'SHOW PRIMARY KEYS IN TABLE "MY_DB"."MY_SCHEMA"."ORDERS"'
+    assert connection.executed[2] == 'SHOW PRIMARY KEYS IN TABLE "MY_DB"."MY_SCHEMA"."CUSTOMERS"'
+    assert len(connection.executed) == 3
+
+
+def test_primary_keys_show_parsing_locates_columns_by_name():
+    """SHOW output is parsed by column NAME from the cursor description, not by position — a
+    reordered SHOW output must still parse correctly (and a missing column fails loud)."""
+    from soda_snowflake.common.data_sources.snowflake_data_source import (
+        SnowflakeMetadataPrimaryKeysQuery,
+    )
+
+    reordered_columns = (("key_sequence",), ("column_name",), ("table_name",))
+    show_result = QueryResult(
+        columns=reordered_columns,
+        rows=[(2, "ID", "ORDERS"), (1, "TENANT_ID", "ORDERS")],
+    )
+    assert SnowflakeMetadataPrimaryKeysQuery._ordered_key_columns(show_result) == ["TENANT_ID", "ID"]
