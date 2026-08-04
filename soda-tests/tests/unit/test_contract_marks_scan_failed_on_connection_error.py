@@ -26,6 +26,10 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_verify_contract
+from soda_core.cli.handlers.dependencies import (
+    resolve_soda_cloud_for_failure_report,
+    run_with_failure_reporting,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -285,27 +289,34 @@ def test_uncaught_exception_during_construction_reraises_without_marking_scan_fa
 
 
 def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud) -> ExitCode:
-    """Run the real CLI handler end-to-end (real session, real duckdb data source),
-    with ``SodaCloud.from_config`` pinned to the given mock."""
+    """Run the real CLI flow end-to-end (real session, real duckdb data source),
+    with ``SodaCloud.from_config`` pinned to the given mock. Mirrors the cli.py
+    verify wiring: channel resolution first, then the bare command wrapped in
+    ``run_with_failure_reporting`` (the single Cloud-marking site)."""
     contract_path = tmp_path / "contract.yaml"
     contract_path.write_text(_CONTRACT_YAML)
     data_source_path = tmp_path / "ds.yaml"
     data_source_path.write_text(_DATA_SOURCE_YAML)
 
     with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
-        return handle_verify_contract(
-            contract_file_path=str(contract_path),
-            dataset_identifier=None,
-            data_source_file_paths=[str(data_source_path)],
-            soda_cloud_file_path="sc.yaml",
-            variables={},
-            publish=True,
-            verbose=False,
-            use_runner=False,
-            blocking_timeout_in_minutes=10,
-            check_paths=None,
-            check_selectors=[],
-            diagnostics_warehouse_file_path=None,
+        soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
+        return run_with_failure_reporting(
+            soda_cloud,
+            lambda logs: handle_verify_contract(
+                contract_file_path=str(contract_path),
+                dataset_identifier=None,
+                data_source_file_paths=[str(data_source_path)],
+                soda_cloud_file_path="sc.yaml",
+                variables={},
+                publish=True,
+                verbose=False,
+                use_runner=False,
+                blocking_timeout_in_minutes=10,
+                check_paths=None,
+                check_selectors=[],
+                diagnostics_warehouse_file_path=None,
+                logs=logs,
+            ),
         )
 
 

@@ -60,6 +60,26 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
     return soda_cloud
 
 
+def resolve_soda_cloud_for_failure_report(
+    soda_cloud_file_path: Optional[str], variables: Optional[dict[str, str]] = None
+) -> Optional[SodaCloud]:
+    """Soda Cloud channel for ``run_with_failure_reporting``, or None when Cloud isn't
+    configured or can't be built (``report_scan_execution_failure`` then returns 3 for an
+    ad-hoc run, 4 for a managed one).
+
+    The swallow-to-None variant of ``resolve_soda_cloud``, for commands where running
+    without Cloud is legal (e.g. a local contract verify). A broken config is not lost:
+    the wrapped command re-raises the real config error (it builds its own client from
+    the same file) and the boundary reports it through the None channel.
+    """
+    if not soda_cloud_file_path:
+        return None
+    try:
+        return SodaCloud.from_config(soda_cloud_file_path, variables)
+    except Exception:
+        return None
+
+
 def resolve_data_source(data_source_file_path: Optional[str]) -> DataSourceImpl:
     """Parse a data source configuration file into a ``DataSourceImpl``.
 

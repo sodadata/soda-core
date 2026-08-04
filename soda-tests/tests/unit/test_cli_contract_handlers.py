@@ -7,6 +7,10 @@ from soda_core.cli.handlers.contract import (
     handle_test_contract,
     handle_verify_contract,
 )
+from soda_core.cli.handlers.dependencies import (
+    resolve_soda_cloud_for_failure_report,
+    run_with_failure_reporting,
+)
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
@@ -64,19 +68,26 @@ def test_handle_verify_contract_exit_codes(
 
 
 def _run_handle_verify_contract():
-    return handle_verify_contract(
-        contract_file_path="contract.yaml",
-        dataset_identifier=None,
-        data_source_file_paths=["ds.yaml"],
-        soda_cloud_file_path="sc.yaml",
-        variables={},
-        publish=True,
-        verbose=False,
-        use_runner=True,
-        blocking_timeout_in_minutes=10,
-        check_paths=None,
-        check_selectors=[],
-        diagnostics_warehouse_file_path=None,
+    # Mirrors the cli.py verify wiring: resolve the reporting channel first, then wrap
+    # the bare command in run_with_failure_reporting (the single Cloud-marking site).
+    soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
+    return run_with_failure_reporting(
+        soda_cloud,
+        lambda logs: handle_verify_contract(
+            contract_file_path="contract.yaml",
+            dataset_identifier=None,
+            data_source_file_paths=["ds.yaml"],
+            soda_cloud_file_path="sc.yaml",
+            variables={},
+            publish=True,
+            verbose=False,
+            use_runner=True,
+            blocking_timeout_in_minutes=10,
+            check_paths=None,
+            check_selectors=[],
+            diagnostics_warehouse_file_path=None,
+            logs=logs,
+        ),
     )
 
 
