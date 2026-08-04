@@ -1,5 +1,6 @@
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+
 from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
 
@@ -83,3 +84,55 @@ def test_percentiles_cannot_share_select_with_other_distinct_aggregates():
     """Redshift refuses PERCENTILE_CONT/DISC/MEDIAN combined with other
     DISTINCT aggregates in one SELECT; consumers batch them separately."""
     assert RedshiftSqlDialect().supports_percentiles_with_other_distinct_aggregates() is False
+
+
+def test_primary_keys_query_reads_pg_catalog_not_information_schema():
+    """The PK query must read pg_catalog.pg_constraint: Redshift's Postgres-8-lineage
+    information_schema constraint views only list tables the current user owns, so a
+    read-only monitoring user silently gets zero primary keys through them (same reason
+    the schemas/tables/columns queries read SVV/pg_catalog views)."""
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
+        RedshiftMetadataPrimaryKeysQuery,
+    )
+
+    dialect = RedshiftSqlDialect()
+    query = RedshiftMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
+    namespace = query._build_namespace(["soda_test", "MySchema"])
+    sql = dialect.build_select_sql(query.build_sql_statement(namespace, ["orders"]))
+
+    assert "information_schema" not in sql
+    assert '"pg_catalog"."pg_constraint"' in sql
+    # pg_get_constraintdef carries the key columns in declared order (Redshift has no
+    # array_position to sort a conkey join).
+    assert "pg_get_constraintdef(constraints.oid)" in sql
+    # Schema filter is case-insensitive, so a schema spelled in a different case doesn't
+    # silently match nothing.
+    assert 'LOWER("schemas"."nspname") = \'myschema\'' in sql
+
+
+def test_primary_keys_constraint_definition_parsing_preserves_order():
+    from soda_core.common.data_source_results import QueryResult
+
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
+        RedshiftMetadataPrimaryKeysQuery,
+    )
+
+    parse = RedshiftMetadataPrimaryKeysQuery._parse_primary_key_columns
+    assert parse("PRIMARY KEY (id)") == ["id"]
+    assert parse("PRIMARY KEY (tenant_id, id)") == ["tenant_id", "id"]
+    # Quoted identifiers: embedded commas and doubled-quote escapes must survive.
+    assert parse('PRIMARY KEY ("Tenant, Id", id)') == ["Tenant, Id", "id"]
+    assert parse('PRIMARY KEY ("we""ird", other)') == ['we"ird', "other"]
+
+    query = RedshiftMetadataPrimaryKeysQuery(sql_dialect=RedshiftSqlDialect(), data_source_connection=None)
+    query_result = QueryResult(
+        columns=[("table_name",), ("constraint_definition",)],
+        rows=[
+            ("orders", "PRIMARY KEY (tenant_id, id)"),
+            ("customers", "PRIMARY KEY (id)"),
+        ],
+    )
+    assert query.get_results(query_result) == {
+        "orders": ["tenant_id", "id"],
+        "customers": ["id"],
+    }

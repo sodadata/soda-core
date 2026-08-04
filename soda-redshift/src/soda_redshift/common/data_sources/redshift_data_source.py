@@ -18,12 +18,19 @@ from soda_core.common.sql_ast import (
     VALUES,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSourceConnection,
+)
+from soda_redshift.statements.redshift_metadata_primary_keys_query import (
+    RedshiftMetadataPrimaryKeysQuery,
 )
 from soda_redshift.statements.redshift_metadata_tables_query import (
     RedshiftMetadataTablesQuery,
@@ -53,15 +60,21 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return RedshiftMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
     def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
-        # Redshift exposes primary keys through the standard information_schema constraint views.
+        # Reads pg_catalog, not information_schema: Redshift's Postgres-8-lineage constraint
+        # views only list tables the current user owns. See RedshiftMetadataPrimaryKeysQuery.
         return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
 
 class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
     def supports_primary_keys(self) -> bool:
         # Redshift stores declared primary keys as informational (never enforced) constraints,
-        # surfaced through the standard information_schema constraint views.
+        # introspected from pg_catalog.pg_constraint (see RedshiftMetadataPrimaryKeysQuery).
         return True
 
     def supports_percentiles_with_other_distinct_aggregates(self) -> bool:
