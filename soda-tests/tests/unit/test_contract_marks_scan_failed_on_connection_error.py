@@ -8,12 +8,28 @@ A managed/agent scan is still in PENDING at this point, and the Cloud state mach
 forbids PENDING -> COMPLETED_WITH_ERRORS (only PENDING -> FAILED is allowed), so the
 result upload 400s with ``invalid_scan_state`` -> exit code 4. Reporting FAILED keeps
 the send valid.
+
+Cloud marking has exactly two sites, and they never overlap:
+- the send-results site substitutes a mark for the upload when the run *returned*
+  an errored result without check results (the tests above the SAS-13001 section);
+- the CLI failure boundary (``run_with_failure_reporting`` /
+  ``report_scan_execution_failure``) marks for exceptions that *escape* the run
+  (the SAS-13001 tests below). The engine layers underneath — the session's abort
+  re-raise and ``verify_contract`` — must NOT mark: a second
+  ``sodaCoreMarkScanFailed`` re-dispatches the backend's scan-ended events
+  (duplicate failed-scan notifications) and re-promotes the scan logs.
 """
 
 from unittest.mock import patch
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import handle_verify_contract
+from soda_core.cli.handlers.dependencies import (
+    resolve_soda_cloud_for_failure_report,
+    run_with_failure_reporting,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -201,11 +217,20 @@ def test_combine_uploads_path_rejected_mark_surfaces_as_send_failure(monkeypatch
     assert result.sending_results_to_soda_cloud_failed is True
 
 
-def test_uncaught_exception_during_verify_marks_scan_failed_with_logs(monkeypatch):
+def _mark_requests(mock_cloud: MockSodaCloud) -> list[dict]:
+    return [
+        r.json
+        for r in mock_cloud.requests
+        if isinstance(r.json, dict) and r.json.get("type") == "sodaCoreMarkScanFailed"
+    ]
+
+
+def test_uncaught_exception_during_verify_reraises_without_marking_scan_failed(monkeypatch):
     """A single-contract (runner) scan that raises an *uncaught* exception during verify aborts
-    and re-raises before phase 3's combined upload runs. The engine must still report the runner
-    scan as FAILED with the captured logs, otherwise the Cloud scan record shows no logs and the
-    failure is undiagnosable (SAS-13001)."""
+    and re-raises verbatim. The session must NOT mark the scan failed on the way out: the CLI
+    failure boundary owns that mark, and a session-level mark would make it a duplicate
+    (double backend scan-ended events). See the CLI-boundary tests below for where the mark
+    (with the captured logs, SAS-13001) now happens."""
     monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
 
     def _boom(self, *args, **kwargs):
@@ -227,25 +252,15 @@ def test_uncaught_exception_during_verify_marks_scan_failed_with_logs(monkeypatc
             soda_cloud_publish_results=True,
         )
 
-    request_types = [r.json.get("type") for r in mock_cloud.requests if isinstance(r.json, dict)]
-    mark_requests = [
-        r.json
-        for r in mock_cloud.requests
-        if isinstance(r.json, dict) and r.json.get("type") == "sodaCoreMarkScanFailed"
-    ]
-    assert mark_requests, (
-        "A scan that raised an uncaught exception during verify must be marked FAILED so the "
-        f"failure is visible in Cloud. Requests seen: {request_types}"
+    assert not _mark_requests(mock_cloud), (
+        "An exception escaping the session must leave the Cloud scan untouched — the CLI "
+        "failure boundary owns the single mark-scan-failed."
     )
-    assert mark_requests[0].get("scanId") == "scan-under-test"
-    # The captured engine logs must be shipped, not an empty payload — that is the whole point.
-    assert mark_requests[0].get("logs"), "mark-scan-failed must carry the captured engine logs, not an empty payload"
 
 
-def test_uncaught_exception_during_construction_marks_scan_failed_with_logs(monkeypatch):
-    """The other abort pathway: an uncaught exception during contract *construction* (phase 1, before
-    verify) must likewise mark the runner scan FAILED with the captured logs before re-raising. Both
-    the construction and verify abort points call the same reporting helper (SAS-13001)."""
+def test_uncaught_exception_during_construction_reraises_without_marking_scan_failed(monkeypatch):
+    """The other abort pathway: an uncaught exception during contract *construction* (phase 1,
+    before verify) likewise re-raises without a session-level mark."""
     monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
 
     def _boom_init(self, *args, **kwargs):
@@ -267,15 +282,145 @@ def test_uncaught_exception_during_construction_marks_scan_failed_with_logs(monk
             soda_cloud_publish_results=True,
         )
 
-    request_types = [r.json.get("type") for r in mock_cloud.requests if isinstance(r.json, dict)]
-    mark_requests = [
-        r.json
-        for r in mock_cloud.requests
-        if isinstance(r.json, dict) and r.json.get("type") == "sodaCoreMarkScanFailed"
-    ]
-    assert mark_requests, (
-        "A scan that raised an uncaught exception during construction must be marked FAILED. "
-        f"Requests seen: {request_types}"
+    assert not _mark_requests(mock_cloud), (
+        "An exception escaping phase-1 construction must leave the Cloud scan untouched — the "
+        "CLI failure boundary owns the single mark-scan-failed."
+    )
+
+
+def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data_source_yaml: str = None) -> ExitCode:
+    """Run the real CLI flow end-to-end (real session, real duckdb data source),
+    with ``SodaCloud.from_config`` pinned to the given mock. Mirrors the cli.py
+    verify wiring: channel resolution first, then the bare command wrapped in
+    ``run_with_failure_reporting`` (the single Cloud-marking site)."""
+    contract_path = tmp_path / "contract.yaml"
+    contract_path.write_text(_CONTRACT_YAML)
+    data_source_path = tmp_path / "ds.yaml"
+    data_source_path.write_text(data_source_yaml if data_source_yaml is not None else _DATA_SOURCE_YAML)
+
+    with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
+        soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
+        return run_with_failure_reporting(
+            soda_cloud,
+            lambda logs: handle_verify_contract(
+                contract_file_path=str(contract_path),
+                dataset_identifier=None,
+                data_source_file_paths=[str(data_source_path)],
+                soda_cloud_file_path="sc.yaml",
+                variables={},
+                publish=True,
+                verbose=False,
+                use_runner=False,
+                blocking_timeout_in_minutes=10,
+                check_paths=None,
+                check_selectors=[],
+                diagnostics_warehouse_file_path=None,
+                logs=logs,
+            ),
+        )
+
+
+def test_cli_boundary_marks_scan_failed_exactly_once_with_engine_logs(monkeypatch, tmp_path):
+    """SAS-13001, relocated: an uncaught verify exception reaches Cloud as exactly ONE
+    mark-scan-failed — sent by the CLI failure boundary — carrying the captured engine logs.
+    Exit code 3: the failure is visible in Cloud, the run is delivered."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    def _boom(self, *args, **kwargs):
+        soda_logger.error("Boom: could not build check collection")
+        raise RuntimeError("verify exploded")
+
+    monkeypatch.setattr(ContractImpl, "verify", _boom)
+
+    mock_cloud = MockSodaCloud()
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mark_requests = _mark_requests(mock_cloud)
+    assert len(mark_requests) == 1, (
+        f"Exactly one mark-scan-failed must reach Cloud; got {len(mark_requests)}. "
+        "A duplicate re-dispatches the backend's scan-ended events (duplicate notifications)."
     )
     assert mark_requests[0].get("scanId") == "scan-under-test"
-    assert mark_requests[0].get("logs"), "mark-scan-failed must carry the captured engine logs, not an empty payload"
+    # The captured engine logs must be shipped, not an empty payload — that is the whole point.
+    payload = str(mark_requests[0].get("logs"))
+    assert (
+        "Boom: could not build check collection" in payload
+    ), "mark-scan-failed must carry the captured engine logs, not an empty payload"
+
+
+def test_cli_boundary_rejected_mark_exits_results_not_sent(monkeypatch, tmp_path):
+    """When Cloud rejects the boundary's single mark, nothing reached Cloud: exit
+    RESULTS_NOT_SENT_TO_CLOUD (4) so the launcher's fallback marks the scan failed itself."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    def _boom(self, *args, **kwargs):
+        raise RuntimeError("verify exploded")
+
+    monkeypatch.setattr(ContractImpl, "verify", _boom)
+
+    # The only HTTP request in this flow is the boundary's mark command; make it fail.
+    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    assert len(_mark_requests(mock_cloud)) == 1
+
+
+def test_cli_boundary_construction_abort_marks_scan_failed_exactly_once_with_engine_logs(monkeypatch, tmp_path):
+    """The construction-phase counterpart of the verify-abort E2E above: a phase-1
+    construction exception escapes the session unmarked and reaches Cloud as exactly
+    ONE boundary mark carrying the captured engine logs."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    def _boom_init(self, *args, **kwargs):
+        soda_logger.error("Boom: could not construct contract")
+        raise RuntimeError("construction exploded")
+
+    monkeypatch.setattr(ContractImpl, "__init__", _boom_init)
+
+    mock_cloud = MockSodaCloud()
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mark_requests = _mark_requests(mock_cloud)
+    assert len(mark_requests) == 1
+    assert mark_requests[0].get("scanId") == "scan-under-test"
+    assert "Boom: could not construct contract" in str(mark_requests[0].get("logs"))
+
+
+def test_cli_boundary_success_path_uploads_results_without_marking(monkeypatch, tmp_path):
+    """The normal path through the boundary: a managed run that verifies cleanly
+    uploads its results and never touches mark-scan-failed — exercising the shared
+    Logs collector (wrapper -> session) on the success path."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    import duckdb
+
+    db_path = tmp_path / "test.duckdb"
+    connection = duckdb.connect(str(db_path))
+    connection.execute("CREATE TABLE my_table (id VARCHAR)")
+    connection.execute("INSERT INTO my_table VALUES ('a')")
+    connection.close()
+
+    data_source_yaml = (
+        "type: duckdb\n" "name: test_ds\n" "connection:\n" f'    database: "{db_path}"\n' "    schema: main\n"
+    )
+
+    # The insert response must carry the shared scanId — a 200 without it is
+    # deliberately marked failed-to-send (exit 4).
+    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=200, json_object={"scanId": "scan-under-test"})])
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml=data_source_yaml)
+
+    assert exit_code == ExitCode.OK
+    assert _mark_requests(mock_cloud) == []
+    request_types = [r.json.get("type") for r in mock_cloud.requests if isinstance(r.json, dict)]
+    assert "sodaCoreInsertScanResults" in request_types

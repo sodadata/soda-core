@@ -25,6 +25,7 @@ from soda_core.cli.handlers.dependencies import (
     resolve_data_source,
     resolve_scan_definition_name,
     resolve_soda_cloud,
+    resolve_soda_cloud_for_failure_report,
     run_with_failure_reporting,
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
@@ -272,20 +273,31 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             soda_logger.error(str(e))
             exit_with_code(ExitCode.LOG_ERRORS)
 
-        exit_code = handle_verify_contract(
-            contract_file_path,
-            dataset_identifier,
-            data_source_file_paths,
-            soda_cloud_file_path,
-            variables,
-            publish,
-            verbose,
-            use_runner,
-            blocking_timeout_in_minutes,
-            args.check_paths,
-            check_selectors,
-            diagnostics_warehouse_file_path,
-            metadata_dwh_file_path,
+        # The reporting channel resolves first, outside the wrapped command; the wrapper
+        # is the single Cloud-marking site for escaped failures (exit 3 delivered or
+        # ad-hoc, 4 undelivered so the launcher's fallback reports). A broken Cloud
+        # config resolves to None here; the command re-raises the real config error
+        # (verify_contract builds its own client) and the boundary reports it through
+        # the None channel.
+        soda_cloud = resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
+        exit_code = run_with_failure_reporting(
+            soda_cloud,
+            lambda logs: handle_verify_contract(
+                contract_file_path,
+                dataset_identifier,
+                data_source_file_paths,
+                soda_cloud_file_path,
+                variables,
+                publish,
+                verbose,
+                use_runner,
+                blocking_timeout_in_minutes,
+                args.check_paths,
+                check_selectors,
+                diagnostics_warehouse_file_path,
+                metadata_dwh_file_path,
+                logs=logs,
+            ),
         )
 
         exit_with_code(exit_code)

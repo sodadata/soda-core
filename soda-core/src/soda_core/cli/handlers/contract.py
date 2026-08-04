@@ -7,9 +7,9 @@ from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.exceptions import (
     ContractParserException,
     InvalidArgumentException,
-    InvalidDataSourceConfigurationException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
@@ -34,8 +34,21 @@ def handle_verify_contract(
     check_selectors: Optional[list[CheckSelector]] = None,
     diagnostics_warehouse_file_path: Optional[str] = None,
     metadata_dwh_file_path: Optional[str] = None,
+    logs: Optional[Logs] = None,
     **kwargs,
 ) -> ExitCode:
+    """Run a contract verification and map its result to an exit code.
+
+    Failures propagate raw without logging or Cloud reporting here: the CLI
+    wiring wraps this command in ``run_with_failure_reporting`` — the single
+    Cloud-marking site for escaped exceptions (delivery-aware: exit 3 when
+    Cloud has the failure or the run is ad-hoc, 4 when a managed run's failure
+    couldn't reach Cloud so the launcher's fallback reports).
+
+    ``logs`` is the wrapper's collector, threaded into the session so every
+    construction/verify record lands in the collector the failure report
+    captures from.
+    """
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
     if kwargs:
         raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
@@ -43,35 +56,32 @@ def handle_verify_contract(
         use_runner = False
     if check_selectors is None:
         check_selectors = []
-    try:
-        dwh_files: Optional[DiagnosticsWarehouseFiles] = None
-        if diagnostics_warehouse_file_path or metadata_dwh_file_path:
-            dwh_files = DiagnosticsWarehouseFiles(
-                primary_path=diagnostics_warehouse_file_path,
-                metadata_dwh_file_path=metadata_dwh_file_path,
-            )
 
-        contract_verification_result = verify_contract(
-            contract_file_path=contract_file_path,
-            dataset_identifier=dataset_identifier,
-            data_source_file_path=None,
-            data_source_file_paths=data_source_file_paths,
-            soda_cloud_file_path=soda_cloud_file_path,
-            variables=variables,
-            publish=publish,
-            verbose=verbose,
-            use_runner=use_runner,
-            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-            check_paths=check_paths,
-            check_selectors=check_selectors,
-            dwh_data_source_file_path=dwh_files,
+    dwh_files: Optional[DiagnosticsWarehouseFiles] = None
+    if diagnostics_warehouse_file_path or metadata_dwh_file_path:
+        dwh_files = DiagnosticsWarehouseFiles(
+            primary_path=diagnostics_warehouse_file_path,
+            metadata_dwh_file_path=metadata_dwh_file_path,
         )
 
-        return interpret_contract_verification_result(contract_verification_result)
+    contract_verification_result = verify_contract(
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=None,
+        data_source_file_paths=data_source_file_paths,
+        soda_cloud_file_path=soda_cloud_file_path,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        use_runner=use_runner,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        check_paths=check_paths,
+        check_selectors=check_selectors,
+        dwh_data_source_file_path=dwh_files,
+        logs=logs,
+    )
 
-    except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
-        soda_logger.exception(f"An unexpected exception occurred: {exc}")
-        return ExitCode.LOG_ERRORS
+    return interpret_contract_verification_result(contract_verification_result)
 
 
 def contract_verification_is_not_sent_to_cloud(

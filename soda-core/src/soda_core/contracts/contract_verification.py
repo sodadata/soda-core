@@ -8,7 +8,7 @@ from typing import Any, Optional, Union
 
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.logs import Location
+from soda_core.common.logs import Location, Logs
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
@@ -52,6 +52,7 @@ class ContractVerificationSession:
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
+        logs: Optional["Logs"] = None,
         **kwargs,
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg
@@ -99,6 +100,7 @@ class ContractVerificationSession:
             soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
             check_selectors=merged_selectors,
             dwh_files=dwh_files,
+            logs=logs,
         )
 
 
