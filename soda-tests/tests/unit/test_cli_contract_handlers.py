@@ -122,6 +122,27 @@ def test_handle_verify_contract_early_failure_adhoc_exits_log_errors(mock_execut
     assert _run_handle_verify_contract() == ExitCode.LOG_ERRORS
 
 
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_early_failure_marks_scan_failed_exactly_once_with_logs(
+    mock_execute, mock_from_config, monkeypatch
+):
+    """The CLI failure boundary is the single Cloud-marking site for escaped exceptions.
+    A second sodaCoreMarkScanFailed (historically sent from the session's pre-reraise
+    hook and verify_contract's except arm) re-dispatches the backend's scan-ended
+    events — duplicate failed-scan notifications — and re-promotes the scan logs."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_execute.side_effect = Exception("parse error: invalid YAML")
+    mock_cloud = mock_from_config.return_value
+    mock_cloud.mark_scan_as_failed.return_value = True
+
+    assert _run_handle_verify_contract() == ExitCode.LOG_ERRORS
+
+    assert mock_cloud.mark_scan_as_failed.call_count == 1
+    _, kwargs = mock_cloud.mark_scan_as_failed.call_args
+    assert kwargs.get("logs"), "the single mark must carry the captured log records"
+
+
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 @patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
 def test_handle_verify_contract_use_agent_kwarg_deprecated(mock_execute, mock_cloud_client):

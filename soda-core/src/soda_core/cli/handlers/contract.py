@@ -10,7 +10,6 @@ from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.exceptions import (
     ContractParserException,
     InvalidArgumentException,
-    InvalidDataSourceConfigurationException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.yaml import ContractYamlSource
@@ -46,7 +45,20 @@ def handle_verify_contract(
         use_runner = False
     if check_selectors is None:
         check_selectors = []
-    try:
+
+    # Local import avoids a soda_cloud <-> contracts.api cycle.
+    from soda_core.cli.handlers.dependencies import run_with_failure_reporting
+    from soda_core.common.logs import Logs
+
+    # The reporting channel resolves first, outside the wrapped command — it is the single
+    # Cloud-marking site for failures (delivery-aware, as discover/monitor: exit 3 when Cloud
+    # has the failure or the run is ad-hoc, 4 when a managed run's failure couldn't reach
+    # Cloud so the launcher's fallback reports). A broken Cloud config resolves to None here;
+    # the command re-raises the real config error (verify_contract builds its own client) and
+    # the boundary reports it through the None channel.
+    soda_cloud = _resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
+
+    def verify_and_interpret(logs: Logs) -> ExitCode:
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None
         if diagnostics_warehouse_file_path or metadata_dwh_file_path:
             dwh_files = DiagnosticsWarehouseFiles(
@@ -68,21 +80,14 @@ def handle_verify_contract(
             check_paths=check_paths,
             check_selectors=check_selectors,
             dwh_data_source_file_path=dwh_files,
+            # The wrapper's collector, threaded into the session so every construction/
+            # verify record lands in the collector the failure report captures from.
+            logs=logs,
         )
 
         return interpret_contract_verification_result(contract_verification_result)
 
-    except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
-        # Shared delivery-aware reporting (as discover/monitor do): marks the managed scan failed and
-        # returns 3 when Cloud has the failure (or ad-hoc), 4 when it doesn't so the launcher reports.
-        # Local import avoids a soda_cloud <-> contracts.api cycle.
-        from soda_core.cli.handlers.failure_reporting import (
-            report_scan_execution_failure,
-        )
-
-        soda_logger.exception(f"An unexpected exception occurred: {exc}")
-        soda_cloud = _resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
-        return report_scan_execution_failure(soda_cloud, log_records=None)
+    return run_with_failure_reporting(soda_cloud, verify_and_interpret)
 
 
 def _resolve_soda_cloud_for_failure_report(

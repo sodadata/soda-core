@@ -109,17 +109,22 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
 
 
 def run_with_failure_reporting(
-    soda_cloud: SodaCloud,
+    soda_cloud: Optional[SodaCloud],
     command: Callable[[Logs], ExitCode],
 ) -> ExitCode:
     """Run a command with every failure mapped to an exit code and reported to
     Soda Cloud in one place.
 
-    Receives the already-constructed reporting channel (``soda_cloud``);
-    dependency construction lives at the wiring layer, which decides what
-    resolves inside the command. Owns the ``Logs`` lifecycle — the collector
-    starts before the command, so in-command resolution failures are captured
-    too. The wrapper's own ``logs`` collector is handed to the command so a
+    This is the single Cloud-marking site for exceptions escaping a command:
+    the engine layers underneath re-raise without touching Cloud, so exactly
+    one ``sodaCoreMarkScanFailed`` reaches the backend per failed run.
+
+    Receives the already-constructed reporting channel (``soda_cloud``;
+    ``None`` when the command can run without Cloud — an escaped failure then
+    exits 4 for a managed run, 3 ad-hoc); dependency construction lives at the
+    wiring layer, which decides what resolves inside the command. Owns the
+    ``Logs`` lifecycle — the collector starts before the command, so
+    in-command resolution failures are captured too. The wrapper's own ``logs`` collector is handed to the command so a
     command that runs a check-collection session can thread it through (each
     impl built with ``logs=logs``); without this a command constructing its own
     inner ``Logs`` would displace the wrapper's collector and its downstream
