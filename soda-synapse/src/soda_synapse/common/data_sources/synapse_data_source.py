@@ -177,8 +177,18 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # (default-off empty set → unchanged). Wrap only those in the dialect's fold.
         def _order_by_term(column: str) -> str:
             quoted = self._quote_identifier_safe(column)
-            expression = self.order_by_key_expression(quoted) if column in normalize_key_columns else quoted
-            return f"{expression} ASC"
+            if column in normalize_key_columns:
+                # Case-fold, then the raw column as a deterministic tiebreaker (mirrors base
+                # `_order_by_key`): the ROW_NUMBER window's order must be total, or tied
+                # case-colliding keys get non-deterministic row numbers across the per-page query
+                # re-executions, silently skipping/duplicating rows.
+                # Fold the SAFE-quoted identifier rather than the AST hook: this paginator builds
+                # raw SQL, and the AST's `COLUMN` node renders via the inherited `quote_default`
+                # (`[id]`, no `]` escaping). `_quote_identifier_safe` escapes embedded `]`, so
+                # LOWER() must wrap it to keep the same injection defense as the tiebreaker.
+                folded = f"LOWER({quoted})"
+                return f"{folded} ASC, {quoted} ASC"
+            return f"{quoted} ASC"
 
         order_by_csv = ", ".join(_order_by_term(c) for c in order_by) if order_by else "(SELECT NULL)"
         where_sql = f"WHERE {filter}" if filter else ""

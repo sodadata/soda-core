@@ -247,4 +247,6 @@ def test_paginated_sql_default_off_leaves_order_by_untouched():
 
 def test_paginated_sql_normalizes_only_the_flagged_key_column():
     sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
-    assert sql.upper().count("LOWER(") == 1  # only "code" folded; "label" stays raw
+    # LOWER fold + raw tiebreaker so OFFSET/FETCH paging is deterministic; "label" stays raw.
+    assert "LOWER([code]) ASC, [code] ASC" in sql
+    assert sql.upper().count("LOWER(") == 1

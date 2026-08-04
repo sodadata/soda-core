@@ -452,33 +452,43 @@ class SqlDialect:
             SELECT(columns or [STAR()]),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
-            *[self._order_by_key(c, normalize_key_columns) for c in order_by],
+            *[term for c in order_by for term in self._order_by_key(c, normalize_key_columns)],
             LIMIT(limit),
             OFFSET(offset),
         ]
 
         return self.build_select_sql(statements)
 
-    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> ORDER_BY_ASC:
-        """ORDER BY element for one key column.
+    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
+        """ORDER BY element(s) for one key column.
 
         Default-off: only columns the caller explicitly asked to normalize get case-folded (for
         cross-source text-key parity); every other column renders exactly as before, so existing
         paginated SQL is byte-for-byte unchanged.
+
+        A normalized column also gets the RAW column appended as a deterministic tiebreaker.
+        LOWER() is not a total order — 'ABC' and 'abc' tie — and reconciliation re-executes this
+        query once per LIMIT/OFFSET page, so without a stable secondary sort the tied rows could
+        reorder across page boundaries and be silently skipped or duplicated in the stream.
         """
         if column in normalize_key_columns:
-            return ORDER_BY_ASC(SqlExpressionStr(self.order_by_key_expression(self.build_expression_sql(column))))
-        return ORDER_BY_ASC(column)
+            return [ORDER_BY_ASC(self.order_by_key_expression(column)), ORDER_BY_ASC(column)]
+        return [ORDER_BY_ASC(column)]
 
-    def order_by_key_expression(self, column_expression_sql: str) -> str:
-        """Case-fold a key column for case-insensitive ORDER BY.
+    def order_by_key_expression(self, column: str) -> SqlExpression:
+        """Case-fold a key column for case-insensitive ORDER BY, returned as an AST expression so
+        each dialect renders LOWER() its own way (instead of a hand-built f-string).
 
-        Invoked only when the caller activates text-key normalization (default-off), so existing
-        ORDER BY rendering is untouched. Standard SQL case-folds with LOWER(); a dialect that
-        already orders text case-insensitively (e.g. Salesforce/SOQL) overrides this to identity —
-        and in practice such a side is never asked to normalize.
+        This is the fold hook the AST-based pagination paths route through: base
+        `select_all_paginated_sql` (via `_order_by_key`), the SQL Server OFFSET/FETCH override, and
+        Oracle. (Synapse's ROW_NUMBER paginator hand-builds raw SQL and folds the safe-quoted
+        identifier directly, because the AST's `COLUMN` node quotes via `quote_default`, which does
+        not escape an embedded `]`.) Invoked only when the caller activates text-key
+        normalization (default-off), so existing ORDER BY rendering is untouched. A dialect that
+        already orders text case-insensitively (e.g. Salesforce/SOQL) overrides this to identity
+        (`COLUMN(column)`) — and in practice such a side is never asked to normalize.
         """
-        return f"LOWER({column_expression_sql})"
+        return LOWER(COLUMN(column))
 
     #########################################################
     # CREATE TABLE
@@ -1392,14 +1402,17 @@ class SqlDialect:
         """Checks if the given sampler type is supported by this data source."""
         return False
 
-    @property
     def supports_row_sampling(self) -> bool:
         """Whether this dialect can honor a row-sampling request AT ALL (any sampler type).
 
-        Distinct from :meth:`supports_sampler`, which answers per-sampler-type and returns False for
-        types a SQL source doesn't render via TABLESAMPLE even though it still applies the sample
-        another way. Defaults to True so every existing SQL data source is unaffected; a source whose
-        query language cannot express any row sample (e.g. Salesforce/SOQL) overrides this to False.
+        A plain method (not a @property), consistent with the rest of the ``supports_*`` family
+        (``supports_sampler``, ``supports_percentile_within_group``, …) so a subclass override that
+        follows that convention can't silently shadow it. Consumed by soda-reconciliation's sampling
+        fail-loud guard. Distinct from :meth:`supports_sampler`, which answers per-sampler-type and
+        returns False for types a SQL source doesn't render via TABLESAMPLE even though it still
+        applies the sample another way. Defaults to True so every existing SQL data source is
+        unaffected; a source whose query language cannot express any row sample (e.g. Salesforce/SOQL)
+        overrides this to False.
         """
         return True
 

@@ -109,8 +109,29 @@ def test_paginated_row_number_fold_windows_and_default_off():
 
 def test_paginated_row_number_fold_normalizes_only_flagged_key():
     sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
-    assert "LOWER([code]) ASC" in sql
-    assert sql.upper().count("LOWER(") == 1  # "label" stays raw
+    # LOWER fold + raw tiebreaker so the ROW_NUMBER window order is total (deterministic paging);
+    # the co-ordered non-flagged "label" stays raw.
+    assert "LOWER([code]) ASC, [code] ASC" in sql
+    assert sql.upper().count("LOWER(") == 1
+
+
+def test_paginated_normalized_fold_escapes_bracket_in_identifier():
+    # Regression: the LOWER() case-fold must escape an embedded `]` the same way the raw tiebreaker
+    # does. This paginator hand-builds SQL, so a column name containing `]` would otherwise break
+    # out of the `[...]` quoting (T-SQL injection) via the AST's non-escaping `quote_default`.
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    sql = SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["a]b"],
+        filter=None,
+        order_by=["a]b"],
+        limit=10,
+        offset=20,
+        normalize_key_columns=frozenset({"a]b"}),
+    )
+    assert "LOWER([a]]b]) ASC, [a]]b] ASC" in sql  # both halves double the `]`
+    assert "LOWER([a]b])" not in sql  # the unescaped form must never appear
 
 
 def test_paginated_empty_order_by_falls_back_to_select_null():

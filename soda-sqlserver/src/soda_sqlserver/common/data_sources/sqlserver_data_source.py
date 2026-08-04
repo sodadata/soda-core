@@ -345,7 +345,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             SELECT(columns or [STAR()]),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
-            *[self._order_by_key(c, normalize_key_columns) for c in order_by],
+            *[term for c in order_by for term in self._order_by_key(c, normalize_key_columns)],
             OFFSET(offset),
             LIMIT(limit),
         ]
