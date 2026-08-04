@@ -77,6 +77,13 @@ def resolve_soda_cloud_for_failure_report(
     try:
         return SodaCloud.from_config(soda_cloud_file_path, variables)
     except Exception:
+        # Deliberately broad: this runs outside the failure boundary, where an escaped
+        # exception would crash the CLI instead of mapping to a delivery-aware exit code.
+        soda_logger.debug(
+            f"Could not build the Soda Cloud failure-report channel from '{soda_cloud_file_path}'; "
+            f"failures will be reported by exit code only.",
+            exc_info=True,
+        )
         return None
 
 
