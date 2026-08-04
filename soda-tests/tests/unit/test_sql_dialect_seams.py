@@ -100,8 +100,7 @@ def test_paginated_sql_default_off_is_byte_identical():
     # M4: pin the exact default-path SQL so the "byte-for-byte unchanged when normalize is empty"
     # guarantee survives refactors — not just an absence-of-LOWER check.
     assert _paginated(order_by=["code"]) == (
-        'SELECT "code",\n       "label"\nFROM "s"."t"\n'
-        'ORDER BY "code" ASC\nLIMIT 10\nOFFSET 0;'
+        'SELECT "code",\n       "label"\nFROM "s"."t"\n' 'ORDER BY "code" ASC\nLIMIT 10\nOFFSET 0;'
     )
 
 
