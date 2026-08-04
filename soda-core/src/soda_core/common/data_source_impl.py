@@ -10,7 +10,6 @@ from typing import (
     Optional,
     Protocol,
     Type,
-    runtime_checkable,
 )
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -42,17 +41,20 @@ if TYPE_CHECKING:
     from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
 
-@runtime_checkable
 class ValueComparatorProtocol(Protocol):
     """Cross-source value-equality contract a DataSourceImpl may supply via get_value_comparator().
 
     When this source participates in a cross-source comparison, a comparator matches mixed
     representations of the same underlying value (e.g. Decimal vs float, tz-aware vs naive datetime).
-    ``handles_cross_type`` advertises whether it does such cross-type matching. Structural — any object
-    exposing these two members conforms; the concrete comparators live in the extensions that need
-    them (e.g. soda-salesforce, soda-reconciliation)."""
+    ``handles_cross_type`` advertises whether it does such cross-type matching. A type-only,
+    structural contract — any object exposing these two members conforms (verified by the type
+    checker, not a runtime ``isinstance``, which would only match member names, not signatures). The
+    concrete comparators live in the extensions that need them (e.g. soda-salesforce,
+    soda-reconciliation)."""
 
-    handles_cross_type: bool
+    @property
+    def handles_cross_type(self) -> bool:
+        ...
 
     def equals(self, x: Any, y: Any) -> bool:
         ...
@@ -109,6 +111,14 @@ class DataSourceImpl(ABC):
         #    so subsequent calls skip without retrying
         self._can_create_view: Optional[bool] = None
         self._can_create_materialized_view: Optional[bool] = None
+        # Column metadata is stable between DDL changes, so memoize it per (prefixes, dataset) to
+        # avoid re-querying information_schema when the same dataset's columns are resolved more
+        # than once (e.g. reconciliation resolves both the key-column types and the compared column
+        # list, on both sides). `execute_update` clears this so a mid-scan ALTER is picked up.
+        # Named distinctly from soda-salesforce's own `_columns_metadata_cache` (a Describe cache
+        # keyed by string) — soda-salesforce fully overrides get_columns_metadata and never touches
+        # this one, so the two never collide.
+        self._sql_columns_metadata_cache: dict[tuple, list[ColumnMetadata]] = {}
 
     def __init_subclass__(cls, model_class: Type[DataSourceBase], **kwargs):
         super().__init_subclass__(**kwargs)
@@ -206,7 +216,11 @@ class DataSourceImpl(ABC):
         return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query)
 
     def execute_update(self, sql: str, log_query: bool = True) -> int:
-        return self.connection.execute_update(sql=sql, log_query=log_query)
+        rows_affected: int = self.connection.execute_update(sql=sql, log_query=log_query)
+        # An UPDATE/DDL may change a table's shape (e.g. the DWH mirror ALTERs to add columns
+        # mid-scan), so drop the columns-metadata memo; the next read re-queries the live schema.
+        self._sql_columns_metadata_cache.clear()
+        return rows_affected
 
     @property
     def can_create_view(self) -> bool:
@@ -220,6 +234,11 @@ class DataSourceImpl(ABC):
             return self.sql_dialect.supports_materialized_views()
         return self._can_create_materialized_view
 
+    # The capability hooks below are all default-off / behavior-preserving. They are consumed by
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
+    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
+    # returns a ValueComparatorProtocol; the others are booleans.)
     @property
     def orders_text_case_insensitively(self) -> bool:
         """Whether this data source's SQL orders text columns case-insensitively.
@@ -328,9 +347,15 @@ class DataSourceImpl(ABC):
         return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
 
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        cache_key = (tuple(dataset_prefixes or ()), dataset_name)
+        cached = self._sql_columns_metadata_cache.get(cache_key)
+        if cached is not None:
+            return cached
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
-        return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        result = self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        self._sql_columns_metadata_cache[cache_key] = result
+        return result
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         """Builds the table namespace for column metadata queries. Override for custom namespace logic."""
