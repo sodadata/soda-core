@@ -30,9 +30,9 @@ class MetadataPrimaryKeysQuery:
         self.sql_dialect = sql_dialect
         self.data_source_connection: DataSourceConnection = data_source_connection
 
-    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
-        """Fetches the primary key column names for the given tables in a single query,
-        keyed by table name."""
+    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
+        """Fetches the primary key column names for the given tables in a single query, keyed by
+        table name, each list ordered by the column's position within the primary key."""
         if not dataset_names:
             return {}
         table_namespace: DataSourceNamespace = self._build_namespace(dataset_prefixes)
@@ -92,6 +92,11 @@ class MetadataPrimaryKeysQuery:
     def column_constraint_type(self) -> str:
         return self.sql_dialect.default_casify("constraint_type")
 
+    def column_ordinal_position(self) -> str:
+        """Column in key_column_usage giving each column's 1-based position within the constraint;
+        used to return the primary key columns in their composite-key order."""
+        return self.sql_dialect.default_casify("ordinal_position")
+
     def primary_key_constraint_type_value(self) -> str:
         """
         The value stored in information_schema.table_constraints.constraint_type for a primary key.
@@ -102,10 +107,11 @@ class MetadataPrimaryKeysQuery:
 
     def build_sql_statement(self, table_namespace: DataSourceNamespace, table_names: list[str]) -> list:
         """
-        Builds the SQL statement returning, per table, the table name and its primary key column
-        names for the given tables, using the standard information_schema.table_constraints /
-        information_schema.key_column_usage approach. The table name is selected alongside the
-        column name so results can be grouped by table.
+        Builds the SQL statement returning, per table, the table name, each primary key column name,
+        and that column's ordinal position within the primary key, for the given tables, using the
+        standard information_schema.table_constraints / information_schema.key_column_usage approach.
+        The table name is selected alongside the column name so results can be grouped by table, and
+        the ordinal position so get_results can order composite keys.
 
         Purpose of this method is to allow specific data sources to override.
         """
@@ -118,6 +124,7 @@ class MetadataPrimaryKeysQuery:
                 [
                     COLUMN(self.sql_dialect.column_table_name(), "constraints"),
                     COLUMN(self.sql_dialect.column_column_name(), "key_columns"),
+                    COLUMN(self.column_ordinal_position(), "key_columns"),
                 ]
             ),
             FROM(self.table_table_constraints(), alias="constraints").IN(information_schema),
@@ -189,16 +196,20 @@ class MetadataPrimaryKeysQuery:
             ),
         ]
 
-    def get_results(self, query_result: QueryResult) -> dict[str, set[str]]:
+    def get_results(self, query_result: QueryResult) -> dict[str, list[str]]:
         """
-        Groups the query result rows into {table_name: {primary_key_column_names}}.
-        The first selected column is the table name and the second is the primary key column name.
-        Rows with a null table name or column name are skipped.
+        Groups the query result rows into {table_name: [primary_key_column_names]}, ordered by each
+        column's position within the primary key so composite keys keep their declared order. The
+        selected columns are, in order, the table name, the primary key column name, and the ordinal
+        position within the constraint. Rows with a null table name or column name are skipped.
         """
-        primary_keys_by_table: dict[str, set[str]] = {}
+        ordered_columns_by_table: dict[str, list[tuple[int, str]]] = {}
         for row in query_result.rows:
             if not row or row[0] is None or row[1] is None:
                 continue
-            table_name, column_name = row[0], row[1]
-            primary_keys_by_table.setdefault(table_name, set()).add(column_name)
-        return primary_keys_by_table
+            table_name, column_name, ordinal_position = row[0], row[1], row[2]
+            ordered_columns_by_table.setdefault(table_name, []).append((int(ordinal_position), column_name))
+        return {
+            table_name: [column_name for _, column_name in sorted(ordered_columns)]
+            for table_name, ordered_columns in ordered_columns_by_table.items()
+        }

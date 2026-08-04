@@ -41,23 +41,24 @@ def test_base_get_primary_keys_returns_empty_dict():
     assert result == {}
 
 
-def test_get_results_groups_columns_by_table():
+def test_get_results_groups_columns_by_table_in_key_order():
     query = _query()
-    # Two tables, one with a composite primary key, to prove grouping.
+    # Two tables, one with a composite primary key. The ordinal position (third column) is fed out
+    # of row order to prove get_results orders each key by it rather than by row order.
     query_result = QueryResult(
-        columns=[("table_name",), ("column_name",)],
+        columns=[("table_name",), ("column_name",), ("ordinal_position",)],
         rows=[
-            ("orders", "tenant_id"),
-            ("orders", "id"),
-            ("customers", "id"),
+            ("orders", "id", 2),
+            ("orders", "tenant_id", 1),
+            ("customers", "id", 1),
         ],
     )
     assert query.get_results(query_result) == {
-        "orders": {"tenant_id", "id"},
-        "customers": {"id"},
+        "orders": ["tenant_id", "id"],
+        "customers": ["id"],
     }
 
-    empty_result = QueryResult(columns=[("table_name",), ("column_name",)], rows=[])
+    empty_result = QueryResult(columns=[("table_name",), ("column_name",), ("ordinal_position",)], rows=[])
     assert query.get_results(empty_result) == {}
 
 
