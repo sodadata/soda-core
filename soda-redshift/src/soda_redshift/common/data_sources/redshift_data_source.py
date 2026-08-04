@@ -22,7 +22,6 @@ from soda_core.common.statements.metadata_primary_keys_query import (
     MetadataPrimaryKeysQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
