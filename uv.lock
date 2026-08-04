@@ -2171,7 +2171,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pyathena", specifier = ">=3.35.4,<4.0" },
+    { name = "pyathena", specifier = ">=2.2.0,<4.0" },
     { name = "setuptools", specifier = ">=60" },
     { name = "soda-core", editable = "soda-core" },
 ]
