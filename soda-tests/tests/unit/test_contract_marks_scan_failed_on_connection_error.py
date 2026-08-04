@@ -288,7 +288,7 @@ def test_uncaught_exception_during_construction_reraises_without_marking_scan_fa
     )
 
 
-def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud) -> ExitCode:
+def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data_source_yaml: str = None) -> ExitCode:
     """Run the real CLI flow end-to-end (real session, real duckdb data source),
     with ``SodaCloud.from_config`` pinned to the given mock. Mirrors the cli.py
     verify wiring: channel resolution first, then the bare command wrapped in
@@ -296,7 +296,7 @@ def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud) -> E
     contract_path = tmp_path / "contract.yaml"
     contract_path.write_text(_CONTRACT_YAML)
     data_source_path = tmp_path / "ds.yaml"
-    data_source_path.write_text(_DATA_SOURCE_YAML)
+    data_source_path.write_text(data_source_yaml if data_source_yaml is not None else _DATA_SOURCE_YAML)
 
     with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
         soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
@@ -369,3 +369,58 @@ def test_cli_boundary_rejected_mark_exits_results_not_sent(monkeypatch, tmp_path
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert len(_mark_requests(mock_cloud)) == 1
+
+
+def test_cli_boundary_construction_abort_marks_scan_failed_exactly_once_with_engine_logs(monkeypatch, tmp_path):
+    """The construction-phase counterpart of the verify-abort E2E above: a phase-1
+    construction exception escapes the session unmarked and reaches Cloud as exactly
+    ONE boundary mark carrying the captured engine logs."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    def _boom_init(self, *args, **kwargs):
+        soda_logger.error("Boom: could not construct contract")
+        raise RuntimeError("construction exploded")
+
+    monkeypatch.setattr(ContractImpl, "__init__", _boom_init)
+
+    mock_cloud = MockSodaCloud()
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    mark_requests = _mark_requests(mock_cloud)
+    assert len(mark_requests) == 1
+    assert mark_requests[0].get("scanId") == "scan-under-test"
+    assert "Boom: could not construct contract" in str(mark_requests[0].get("logs"))
+
+
+def test_cli_boundary_success_path_uploads_results_without_marking(monkeypatch, tmp_path):
+    """The normal path through the boundary: a managed run that verifies cleanly
+    uploads its results and never touches mark-scan-failed — exercising the shared
+    Logs collector (wrapper -> session) on the success path."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
+
+    import duckdb
+
+    db_path = tmp_path / "test.duckdb"
+    connection = duckdb.connect(str(db_path))
+    connection.execute("CREATE TABLE my_table (id VARCHAR)")
+    connection.execute("INSERT INTO my_table VALUES ('a')")
+    connection.close()
+
+    data_source_yaml = (
+        "type: duckdb\n" "name: test_ds\n" "connection:\n" f'    database: "{db_path}"\n' "    schema: main\n"
+    )
+
+    # The insert response must carry the shared scanId — a 200 without it is
+    # deliberately marked failed-to-send (exit 4).
+    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=200, json_object={"scanId": "scan-under-test"})])
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml=data_source_yaml)
+
+    assert exit_code == ExitCode.OK
+    assert _mark_requests(mock_cloud) == []
+    request_types = [r.json.get("type") for r in mock_cloud.requests if isinstance(r.json, dict)]
+    assert "sodaCoreInsertScanResults" in request_types

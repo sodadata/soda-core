@@ -154,6 +154,19 @@ def test_handle_verify_contract_early_failure_marks_scan_failed_exactly_once_wit
     assert kwargs.get("logs"), "the single mark must carry the captured log records"
 
 
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+def test_handle_verify_contract_broken_cloud_config_managed_exits_results_not_sent(mock_from_config, monkeypatch):
+    """A managed run whose Cloud config can't even build a client has no reporting
+    channel at all (resolve_soda_cloud_for_failure_report swallows to None): nothing
+    can reach Cloud, so exit RESULTS_NOT_SENT_TO_CLOUD (4) and the launcher's
+    fallback marks the scan failed. The real config error still surfaces through the
+    boundary because verify_contract re-raises it building its own client."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_from_config.side_effect = Exception("broken cloud config")
+
+    assert _run_handle_verify_contract() == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 @patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
 def test_handle_verify_contract_use_agent_kwarg_deprecated(mock_execute, mock_cloud_client):
