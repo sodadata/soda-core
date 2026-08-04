@@ -61,8 +61,9 @@ class SnowflakeMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
     _SCHEMA_NAME_COLUMN = 2
     _TABLE_NAME_COLUMN = 3
     _COLUMN_NAME_COLUMN = 4
+    _KEY_SEQUENCE_COLUMN = 5  # 1-based position of the column within the primary key
 
-    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
         if not dataset_names:
             return {}
         namespace: DataSourceNamespace = self._build_namespace(dataset_prefixes)
@@ -80,14 +81,19 @@ class SnowflakeMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
         # returns the same stored casing as the columns metadata the extension keys tables by),
         # so match exactly rather than re-casing.
         requested: set[str] = set(dataset_names)
-        primary_keys_by_table: dict[str, set[str]] = {}
+        ordered_columns_by_table: dict[str, list[tuple[int, str]]] = {}
         for row in query_result.rows:
             table_name = row[self._TABLE_NAME_COLUMN]
             column_name = row[self._COLUMN_NAME_COLUMN]
             if table_name not in requested or table_name is None or column_name is None:
                 continue
-            primary_keys_by_table.setdefault(table_name, set()).add(column_name)
-        return primary_keys_by_table
+            ordered_columns_by_table.setdefault(table_name, []).append(
+                (int(row[self._KEY_SEQUENCE_COLUMN]), column_name)
+            )
+        return {
+            table_name: [column_name for _, column_name in sorted(ordered_columns)]
+            for table_name, ordered_columns in ordered_columns_by_table.items()
+        }
 
 
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
@@ -107,7 +113,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
         # Snowflake exposes primary keys via SHOW PRIMARY KEYS, not information_schema.key_column_usage
         # (Snowflake's INFORMATION_SCHEMA has TABLE_CONSTRAINTS but no KEY_COLUMN_USAGE view). See
         # SnowflakeMetadataPrimaryKeysQuery.

@@ -53,7 +53,7 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
         # Redshift exposes primary keys through the standard information_schema constraint views.
         return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 

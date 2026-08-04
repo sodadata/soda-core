@@ -78,7 +78,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, set[str]]:
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
         # SQL Server exposes primary keys through the standard information_schema constraint views.
         # Fabric and Synapse inherit this delegate; each dialect opts in via supports_primary_keys().
         return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
