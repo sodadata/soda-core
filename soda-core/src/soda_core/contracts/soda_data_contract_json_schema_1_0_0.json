@@ -1179,11 +1179,40 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
+                },
+                "level": {
+                    "description": "Deprecated: threshold severity when the check fails. Use the fail: and warn: severity blocks instead.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "fail": {
+                    "description": "Fail-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                },
+                "warn": {
+                    "description": "Warn-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
                 }
             },
             "if": {
                 "type": "object",
-                "minProperties": 2
+                "minProperties": 2,
+                "not": {
+                    "anyOf": [
+                        {
+                            "required": [
+                                "fail"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "warn"
+                            ]
+                        }
+                    ]
+                }
             },
             "then": {
                 "type": "object",
@@ -1196,10 +1225,154 @@
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "must_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_not_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_between"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_not_between"
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "level"
+                                ]
+                            }
+                        ]
+                    }
                 }
             ]
+        },
+        "threshold_conditions": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "A single comparison for one severity. Exactly one of the must_be_* keys.",
+            "properties": {
+                "must_be": {
+                    "description": "Check passes if the metric equals this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_not_be": {
+                    "description": "Check passes if the metric does not equal this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than": {
+                    "description": "Check passes if the metric is greater than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Check passes if the metric is greater than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than": {
+                    "description": "Check passes if the metric is less than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Check passes if the metric is less than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_between": {
+                    "description": "Check passes if the metric is between the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Check passes if the metric is outside the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                }
+            },
+            "minProperties": 1,
+            "maxProperties": 1
         },
         "threshold_between": {
             "type": "object",
@@ -1337,11 +1510,40 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
+                },
+                "level": {
+                    "description": "Deprecated: threshold severity when the check fails. Use the fail: and warn: severity blocks instead.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "fail": {
+                    "description": "Fail-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                },
+                "warn": {
+                    "description": "Warn-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
                 }
             },
             "if": {
                 "type": "object",
-                "minProperties": 2
+                "minProperties": 2,
+                "not": {
+                    "anyOf": [
+                        {
+                            "required": [
+                                "fail"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "warn"
+                            ]
+                        }
+                    ]
+                }
             },
             "then": {
                 "type": "object",
@@ -1354,8 +1556,93 @@
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "must_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_not_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_between"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_not_between"
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "level"
+                                ]
+                            }
+                        ]
+                    }
                 }
             ]
         }
