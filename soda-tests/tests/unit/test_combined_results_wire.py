@@ -110,7 +110,7 @@ def test_combined_payload_flattens_check_results():
 
 
 def test_combined_payload_or_aggregates_status_flags():
-    """``hasErrors / hasWarns / hasFailures`` are ORs over per-file values."""
+    """``hasErrors / hasWarnings / hasFailures`` are ORs over per-file values."""
     r_passed = _make_result(label="ok", status=CheckCollectionStatus.PASSED)
     r_warned = _make_result(label="warn", status=CheckCollectionStatus.WARNED)
     r_failed = _make_result(label="fail", status=CheckCollectionStatus.FAILED)
@@ -121,7 +121,7 @@ def test_combined_payload_or_aggregates_status_flags():
     )
 
     assert payload["hasErrors"] is True
-    assert payload["hasWarns"] is True
+    assert payload["hasWarnings"] is True
     assert payload["hasFailures"] is True
 
 
@@ -131,7 +131,7 @@ def test_combined_payload_status_flags_all_false_when_no_problems():
     r2 = _make_result(label="beta")
     payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
     assert payload["hasErrors"] is False
-    assert payload["hasWarns"] is False
+    assert payload["hasWarnings"] is False
     assert payload["hasFailures"] is False
 
 

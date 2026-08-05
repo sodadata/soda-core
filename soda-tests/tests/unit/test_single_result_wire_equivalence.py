@@ -111,7 +111,7 @@ def test_n1_session_fields_match_single_result():
     assert payload["dataTimestamp"] == "2026-01-01T12:00:00+00:00"
     assert payload["hasErrors"] is False
     assert payload["hasFailures"] is True
-    assert payload["hasWarns"] is False
+    assert payload["hasWarnings"] is False
     assert payload["definitionName"] == "test_ds/s/t"
     assert payload["defaultDataSource"] == "test_ds"
     assert payload["defaultDataSourceProperties"] == {"type": "postgres"}
