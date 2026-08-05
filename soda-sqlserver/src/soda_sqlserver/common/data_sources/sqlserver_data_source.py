@@ -10,7 +10,6 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
-    AND,
     COLUMN,
     COUNT,
     CREATE_TABLE,
@@ -23,7 +22,6 @@ from soda_core.common.sql_ast import (
     DROP_TABLE_IF_EXISTS,
     DROP_VIEW,
     DROP_VIEW_IF_EXISTS,
-    FROM,
     INSERT_INTO,
     INSERT_INTO_VIA_SELECT,
     INTO,
@@ -33,15 +31,11 @@ from soda_core.common.sql_ast import (
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
     REGEX_LIKE,
-    SELECT,
-    STAR,
     STRING_HASH,
     TIME_DELTA,
     TUPLE,
     VALUES,
-    WHERE,
     WITH,
-    SqlExpressionStr,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -175,7 +169,12 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             limit_element: LIMIT = [
                 select_element for select_element in select_elements if isinstance(select_element, LIMIT)
             ][0]
-            select_sql_lines[0] = select_sql_lines[0].replace("SELECT ", f"SELECT TOP {limit_element.limit} ")
+            # T-SQL grammar is `SELECT [ALL | DISTINCT] [TOP n] <fields>`, so TOP goes after
+            # DISTINCT when the base rendered a distinct select.
+            select_prefix: str = "SELECT DISTINCT " if select_sql_lines[0].startswith("SELECT DISTINCT ") else "SELECT "
+            select_sql_lines[0] = select_sql_lines[0].replace(
+                select_prefix, f"{select_prefix}TOP {limit_element.limit} ", 1
+            )
         return select_sql_lines
 
     def __requires_select_top(self, select_elements: list) -> bool:
@@ -335,17 +334,19 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),
+        distinct: bool = False,
     ) -> str:
-        where_clauses = []
-
-        if filter:
-            where_clauses.append(SqlExpressionStr(filter))
-
+        # Same elements as the base paginator (including its distinct x normalize composition),
+        # but T-SQL spells the page as OFFSET n ROWS FETCH NEXT m ROWS ONLY, so OFFSET leads.
         statements = [
-            SELECT(columns or [STAR()]),
-            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
-            WHERE.optional(AND.optional(where_clauses)),
-            *[term for c in order_by for term in self._order_by_key(c, normalize_key_columns)],
+            *self._paginated_select_statements(
+                dataset_identifier=dataset_identifier,
+                columns=columns,
+                filter=filter,
+                order_by=order_by,
+                normalize_key_columns=normalize_key_columns,
+                distinct=distinct,
+            ),
             OFFSET(offset),
             LIMIT(limit),
         ]
