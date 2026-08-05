@@ -1042,6 +1042,56 @@ class ThresholdImpl:
                 )
             )
 
+    def get_pass_intervals(self) -> list[tuple]:
+        """Pass region as a list of (lo, lo_open, hi, hi_open) intervals over the reals."""
+        inf = float("inf")
+        if self.type == ThresholdType.OUTER_RANGE:
+            # passes when below the less-bound OR above the greater-bound
+            lower_hi, lower_hi_open = (
+                (self.must_be_less_than, True)
+                if self.must_be_less_than is not None
+                else (self.must_be_less_than_or_equal, False)
+            )
+            upper_lo, upper_lo_open = (
+                (self.must_be_greater_than, True)
+                if self.must_be_greater_than is not None
+                else (self.must_be_greater_than_or_equal, False)
+            )
+            return [(-inf, True, lower_hi, lower_hi_open), (upper_lo, upper_lo_open, inf, True)]
+        if self.must_be is not None:
+            return [(self.must_be, False, self.must_be, False)]
+        if self.must_not_be is not None:
+            return [(-inf, True, self.must_not_be, True), (self.must_not_be, True, float("inf"), True)]
+        lo, lo_open = (-inf, True)
+        if self.must_be_greater_than is not None:
+            lo, lo_open = self.must_be_greater_than, True
+        elif self.must_be_greater_than_or_equal is not None:
+            lo, lo_open = self.must_be_greater_than_or_equal, False
+        hi, hi_open = (inf, True)
+        if self.must_be_less_than is not None:
+            hi, hi_open = self.must_be_less_than, True
+        elif self.must_be_less_than_or_equal is not None:
+            hi, hi_open = self.must_be_less_than_or_equal, False
+        return [(lo, lo_open, hi, hi_open)]
+
+
+def _interval_contains(outer: tuple, inner: tuple) -> bool:
+    o_lo, o_lo_open, o_hi, o_hi_open = outer
+    i_lo, i_lo_open, i_hi, i_hi_open = inner
+    lo_ok = o_lo < i_lo or (o_lo == i_lo and (not o_lo_open or i_lo_open))
+    hi_ok = o_hi > i_hi or (o_hi == i_hi and (not o_hi_open or i_hi_open))
+    return lo_ok and hi_ok
+
+
+def warn_can_fire_alone(fail_threshold: ThresholdImpl, warn_threshold: ThresholdImpl) -> bool:
+    """True when some value passes the fail threshold but breaches the warn threshold —
+    i.e. the warn outcome is actually reachable. Fail's pass region being fully inside
+    warn's pass region means warn can never fire alone."""
+    return not all(
+        any(_interval_contains(w, f) for w in warn_threshold.get_pass_intervals())
+        for f in fail_threshold.get_pass_intervals()
+    )
+
 
 class CheckParser(ABC):
     @abstractmethod
@@ -1092,6 +1142,13 @@ class CheckImpl:
                         column_impl=column_impl,
                         check_yaml=check_yaml,
                     )
+
+                if check_impl and check_impl.threshold and check_impl.warn_threshold:
+                    if not warn_can_fire_alone(check_impl.threshold, check_impl.warn_threshold):
+                        logger.warning(
+                            f"Check '{check_impl.name}': the warn threshold can never produce a warn outcome "
+                            f"because every value that breaches it also breaches the fail threshold"
+                        )
 
                 return check_impl
             else:
