@@ -873,6 +873,13 @@ class ThresholdImpl:
                 logger.error(f"Threshold required, but not specified")
                 return None
 
+        if threshold_yaml.has_severity_blocks():
+            # fail block wins the primary slot; a warn-only threshold maps onto the
+            # primary slot at WARN level — same shape as the legacy `level: warn`.
+            if threshold_yaml.fail_block:
+                return cls.create_from_comparisons(threshold_yaml.fail_block, ThresholdLevel.FAIL)
+            return cls.create_from_comparisons(threshold_yaml.warn_block, ThresholdLevel.WARN)
+
         threshold_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
 
         if default_threshold:
@@ -884,6 +891,12 @@ class ThresholdImpl:
             logger.error(f"Threshold required, but not specified")
             return None
 
+        return cls.create_from_comparisons(threshold_yaml, threshold_level)
+
+    @classmethod
+    def create_from_comparisons(
+        cls, threshold_yaml: ThresholdYaml, threshold_level: ThresholdLevel
+    ) -> Optional[ThresholdImpl]:
         if threshold_yaml.has_exactly_one_comparison():
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
@@ -901,30 +914,30 @@ class ThresholdImpl:
             if range_error:
                 logger.error(f"Invalid between threshold range: {range_error}")
                 return None
-            else:
-                return ThresholdImpl(
-                    type=ThresholdType.INNER_RANGE,
-                    level=threshold_level,
-                    must_be_greater_than=threshold_yaml.must_be_between.greater_than,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
-                    must_be_less_than=threshold_yaml.must_be_between.less_than,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_between.less_than_or_equal,
-                )
+            return ThresholdImpl(
+                type=ThresholdType.INNER_RANGE,
+                level=threshold_level,
+                must_be_greater_than=threshold_yaml.must_be_between.greater_than,
+                must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
+                must_be_less_than=threshold_yaml.must_be_between.less_than,
+                must_be_less_than_or_equal=threshold_yaml.must_be_between.less_than_or_equal,
+            )
 
         elif threshold_yaml.must_be_not_between:
             range_error: Optional[str] = threshold_yaml.must_be_not_between.get_not_between_range_error()
             if range_error:
                 logger.error(f"Invalid not between threshold range: {range_error}")
                 return None
-            else:
-                return ThresholdImpl(
-                    type=ThresholdType.OUTER_RANGE,
-                    level=threshold_level,
-                    must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
-                    must_be_less_than=threshold_yaml.must_be_not_between.less_than,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
-                )
+            return ThresholdImpl(
+                type=ThresholdType.OUTER_RANGE,
+                level=threshold_level,
+                must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
+                must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
+                must_be_less_than=threshold_yaml.must_be_not_between.less_than,
+                must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
+            )
+
+        return None
 
     def __init__(
         self,
@@ -1107,6 +1120,16 @@ class CheckImpl:
         )
 
         self.threshold: Optional[ThresholdImpl] = None
+        self.warn_threshold: Optional[ThresholdImpl] = None
+        check_threshold_yaml: Optional[ThresholdYaml] = getattr(check_yaml, "threshold", None)
+        if (
+            check_threshold_yaml is not None
+            and check_threshold_yaml.fail_block is not None
+            and check_threshold_yaml.warn_block is not None
+        ):
+            self.warn_threshold = ThresholdImpl.create_from_comparisons(
+                check_threshold_yaml.warn_block, ThresholdLevel.WARN
+            )
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
@@ -1331,6 +1354,8 @@ class CheckImpl:
         if self.threshold and isinstance(value, Number):
             if self.threshold.passes(value):
                 outcome = CheckOutcome.PASSED
+                if self.warn_threshold and not self.warn_threshold.passes(value):
+                    outcome = CheckOutcome.WARN
             else:
                 if self.threshold.level == ThresholdLevel.WARN:
                     outcome = CheckOutcome.WARN
