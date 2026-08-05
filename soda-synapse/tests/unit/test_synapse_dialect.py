@@ -76,3 +76,63 @@ def test_literal_timestamp_typed_inherits_datetime2_cast():
         SynapseSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
         == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
     )
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — Synapse has no OFFSET/FETCH, so it hand-rolls a
+# ROW_NUMBER() window fold. This whole branch was previously unexercised; pin
+# the rn window, the LOWER() key-normalization seam (default-off), and the
+# empty-order_by fallback.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset()):
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    return SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["code", "label"],  # explicit → no get_column_names resolver needed
+        filter=None,
+        order_by=order_by,
+        limit=10,
+        offset=20,
+        normalize_key_columns=normalize_key_columns,
+    )
+
+
+def test_paginated_row_number_fold_windows_and_default_off():
+    sql = _paginated(order_by=["code"])
+    assert "ROW_NUMBER() OVER (ORDER BY [code] ASC) AS __soda_rn" in sql
+    assert "WHERE __soda_rn > 20 AND __soda_rn <= 30" in sql
+    assert "LOWER" not in sql.upper()  # default-off → no case-fold
+
+
+def test_paginated_row_number_fold_normalizes_only_flagged_key():
+    sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
+    # LOWER fold + raw tiebreaker so the ROW_NUMBER window order is total (deterministic paging);
+    # the co-ordered non-flagged "label" stays raw.
+    assert "LOWER([code]) ASC, [code] ASC" in sql
+    assert sql.upper().count("LOWER(") == 1
+
+
+def test_paginated_normalized_fold_escapes_bracket_in_identifier():
+    # Regression: the LOWER() case-fold must escape an embedded `]` the same way the raw tiebreaker
+    # does. This paginator hand-builds SQL, so a column name containing `]` would otherwise break
+    # out of the `[...]` quoting (T-SQL injection) via the AST's non-escaping `quote_default`.
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    sql = SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["a]b"],
+        filter=None,
+        order_by=["a]b"],
+        limit=10,
+        offset=20,
+        normalize_key_columns=frozenset({"a]b"}),
+    )
+    assert "LOWER([a]]b]) ASC, [a]]b] ASC" in sql  # both halves double the `]`
+    assert "LOWER([a]b])" not in sql  # the unescaped form must never appear
+
+
+def test_paginated_empty_order_by_falls_back_to_select_null():
+    assert "ORDER BY (SELECT NULL)" in _paginated(order_by=[])

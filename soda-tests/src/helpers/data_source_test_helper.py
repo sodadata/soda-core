@@ -335,6 +335,12 @@ class DataSourceTestHelper:
             )
 
             return HanaDataSourceTestHelper(name)
+        elif test_datasource == "salesforce":
+            from soda_salesforce.test_helpers.salesforce_data_source_test_helper import (
+                SalesforceDataSourceTestHelper,
+            )
+
+            return SalesforceDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

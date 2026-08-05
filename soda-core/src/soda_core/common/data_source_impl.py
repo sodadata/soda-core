@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
@@ -31,6 +31,25 @@ logger: logging.Logger = soda_logger
 
 if TYPE_CHECKING:
     from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+
+class ValueComparatorProtocol(Protocol):
+    """Cross-source value-equality contract a DataSourceImpl may supply via get_value_comparator().
+
+    When this source participates in a cross-source comparison, a comparator matches mixed
+    representations of the same underlying value (e.g. Decimal vs float, tz-aware vs naive datetime).
+    ``handles_cross_type`` advertises whether it does such cross-type matching. A type-only,
+    structural contract — any object exposing these two members conforms (verified by the type
+    checker, not a runtime ``isinstance``, which would only match member names, not signatures). The
+    concrete comparators live in the extensions that need them (e.g. soda-salesforce,
+    soda-reconciliation)."""
+
+    @property
+    def handles_cross_type(self) -> bool:
+        ...
+
+    def equals(self, x: Any, y: Any) -> bool:
+        ...
 
 
 class DataSourceImpl(ABC):
@@ -194,6 +213,72 @@ class DataSourceImpl(ABC):
         if self._can_create_materialized_view is None:
             return self.sql_dialect.supports_materialized_views()
         return self._can_create_materialized_view
+
+    # The capability hooks below are all default-off / behavior-preserving. They are consumed by
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
+    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
+    # returns a ValueComparatorProtocol; the others are booleans.)
+    @property
+    def orders_text_case_insensitively(self) -> bool:
+        """Whether this data source's SQL orders text columns case-insensitively.
+
+        Default False (codepoint/collation order — unchanged behavior). A source whose
+        ORDER BY on text is case-insensitive (e.g. Salesforce/SOQL) returns True. A consumer
+        that merges two independently-ordered streams can use this to decide whether to
+        case-fold so both sides agree on one order.
+        """
+        return False
+
+    @property
+    def supports_row_hashing(self) -> bool:
+        """Whether this data source's query language can compute a row hash (e.g. MD5/CAST).
+
+        Default True. A source that cannot express a hash in queries (e.g. Salesforce/SOQL)
+        returns False, so a feature that relies on hashing can degrade gracefully rather than
+        emit a misleading result from a value it could not actually compute.
+        """
+        return True
+
+    @property
+    def reads_may_fail_transiently(self) -> bool:
+        """Whether a runtime error while streaming reads from this source should be treated as a
+        soft (recoverable) failure by a consumer rather than propagate.
+
+        Default False: conventional SQL sources keep their existing behavior — a read error
+        propagates (a genuine DB failure is surfaced/raised, unchanged). A remote/API source whose
+        streamed reads can fail transiently mid-scan (e.g. Salesforce REST queryMore / token
+        expiry) returns True, so a consumer can degrade gracefully instead of crashing on such a
+        transient failure.
+        """
+        return False
+
+    def get_value_comparator(self) -> Optional[ValueComparatorProtocol]:
+        """A value comparator to use when comparing this source's values against another source's,
+        or ``None`` to let the caller use its own default.
+
+        Default ``None``: conventional SQL sources have no special needs — the caller compares
+        exactly (existing behavior, unchanged). A source that normalizes values to canonical Python
+        types which may not exactly-equal a peer driver's native types (e.g. Salesforce returns
+        numbers as ``Decimal`` and datetimes as tz-aware UTC) overrides this to return its own
+        comparator object (exposing ``equals(x, y) -> bool`` and a ``handles_cross_type: bool``),
+        which the caller then uses whenever this source participates.
+        """
+        return None
+
+    def validate_orderable_key_columns(
+        self, dataset_prefixes: list[str], dataset_name: str, key_columns: list[str]
+    ) -> list[str]:
+        """Return human-readable problems if any of the given columns cannot be used as an
+        ordered/paged read key on this data source; empty list means all are usable.
+
+        A paginated ordered read ORDER BYs these columns. Most SQL sources can order by any column,
+        so the default returns no problems and existing behavior is unchanged. A source whose query
+        language forbids ordering by some field types (e.g. Salesforce/SOQL cannot ORDER BY a
+        long-text field) overrides this to fail early — before any cursor opens — instead of
+        erroring mid-stream.
+        """
+        return []
 
     def try_create_view(self, sql: str) -> bool:
         """Attempt to create a view. Returns False and caches the result if creation
