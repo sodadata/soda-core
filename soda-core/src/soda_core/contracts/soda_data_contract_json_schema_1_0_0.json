@@ -1196,35 +1196,17 @@
                     "$ref": "#/$defs/threshold_conditions"
                 }
             },
-            "if": {
-                "type": "object",
-                "minProperties": 2,
-                "not": {
-                    "anyOf": [
-                        {
-                            "required": [
-                                "fail"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "warn"
-                            ]
-                        }
-                    ]
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "metric": true
-                },
-                "required": [
-                    "metric"
-                ]
-            },
             "allOf": [
                 {
+                    "$ref": "#/$defs/threshold_shape_rules"
+                }
+            ]
+        },
+        "threshold_shape_rules": {
+            "description": "Constraints shared by threshold and thresholdFreshness. (1) fail:/warn: severity blocks cannot be combined with the flat must_be_* comparisons. (2) Severity blocks cannot be combined with the deprecated level. (3) Outside severity blocks, at most one flat must_be_* comparison may be given; two flat comparisons build no threshold at all in the engine.",
+            "allOf": [
+                {
+                    "description": "No severity block together with a flat comparison.",
                     "not": {
                         "allOf": [
                             {
@@ -1289,6 +1271,7 @@
                     }
                 },
                 {
+                    "description": "No severity block together with the deprecated level.",
                     "not": {
                         "allOf": [
                             {
@@ -1312,6 +1295,97 @@
                             }
                         ]
                     }
+                },
+                {
+                    "description": "At most one flat must_be_* comparison: exactly one of them, or none at all.",
+                    "oneOf": [
+                        {
+                            "required": [
+                                "must_be"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_not_be"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_greater_than"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_greater_than_or_equal"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_less_than"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_less_than_or_equal"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_between"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_not_between"
+                            ]
+                        },
+                        {
+                            "not": {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "must_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_not_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_between"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_not_between"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -1527,122 +1601,9 @@
                     "$ref": "#/$defs/threshold_conditions"
                 }
             },
-            "if": {
-                "type": "object",
-                "minProperties": 2,
-                "not": {
-                    "anyOf": [
-                        {
-                            "required": [
-                                "fail"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "warn"
-                            ]
-                        }
-                    ]
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "unit": true
-                },
-                "required": [
-                    "unit"
-                ]
-            },
             "allOf": [
                 {
-                    "not": {
-                        "allOf": [
-                            {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "fail"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "warn"
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "must_be"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_not_be"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_greater_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_greater_than_or_equal"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_less_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_less_than_or_equal"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_between"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_not_between"
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                },
-                {
-                    "not": {
-                        "allOf": [
-                            {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "fail"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "warn"
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "required": [
-                                    "level"
-                                ]
-                            }
-                        ]
-                    }
+                    "$ref": "#/$defs/threshold_shape_rules"
                 }
             ]
         }
