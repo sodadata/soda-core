@@ -350,6 +350,10 @@ class Check:
     # the ``CheckCollectionImpl.verify()`` alignment guard rejects the
     # upload when these don't match ``self.wire_source``.
     source: Optional[str] = None
+    # Optional second threshold at warn severity (fail+warn severity blocks).
+    # None for fail-only and legacy checks. Defaults keep external Check(...)
+    # constructors working.
+    warn_threshold: Optional[Threshold] = None
 
 
 class CheckResult:

@@ -1329,6 +1329,7 @@ class CheckImpl:
             contract_file_line=self.check_yaml.check_yaml_object.location.line,
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
             threshold=self._build_threshold(),
+            warn_threshold=self._build_warn_threshold(),
             attributes=self.attributes,
             location=self.check_yaml.check_yaml_object.location,
         )
@@ -1398,6 +1399,9 @@ class CheckImpl:
 
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
+
+    def _build_warn_threshold(self) -> Optional[Threshold]:
+        return self.warn_threshold.to_threshold_info() if self.warn_threshold else None
 
     def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
         """
