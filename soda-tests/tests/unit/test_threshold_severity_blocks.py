@@ -74,3 +74,9 @@ def test_block_without_comparison_is_error(caplog):
 def test_block_with_two_comparisons_is_error(caplog):
     parse_threshold_yaml("warn:\n  must_be_less_than: 5\n  must_be_greater_than: 1")
     assert "exactly one comparison" in caplog.text
+
+
+def test_null_severity_block_is_error(caplog):
+    threshold_yaml = parse_threshold_yaml("must_be_less_than: 10\nwarn:")
+    assert threshold_yaml.warn_block is None
+    assert "'warn' severity block is empty" in caplog.text

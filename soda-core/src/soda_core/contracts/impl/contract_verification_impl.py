@@ -884,9 +884,7 @@ class ThresholdImpl:
             logger.error(f"Threshold required, but not specified")
             return None
 
-        if threshold_yaml.has_exactly_one_comparison() and not (
-            threshold_yaml.must_be_between or threshold_yaml.must_be_not_between
-        ):
+        if threshold_yaml.has_exactly_one_comparison():
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
                 level=threshold_level,
