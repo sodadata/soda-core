@@ -1994,10 +1994,11 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         else (check_result.threshold_value or 0)
     )
     diagnostics: dict = {
-        # ``value`` (and the fail thresholds below) are converted into the measure's
+        # ``value`` (and the threshold bounds below) are converted into the measure's
         # wire unit — identity for plain numbers, milliseconds for "time".
         "value": check_result.to_soda_cloud_measure_value(raw_value),
         "fail": _build_fail_threshold(check_result),
+        "warn": _build_warn_threshold(check_result),
         "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
     # Unit/type marker so Soda Cloud can format the value (e.g. freshness as a
@@ -2122,19 +2123,46 @@ def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
 
 
 def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
-    threshold: Threshold = check_result.check.threshold
-    if threshold:
-        # Bounds are expressed in the check's native unit; convert into the measure's
-        # wire unit so the chart's threshold line matches the value (ms for "time").
-        # Identity for plain-number checks, so existing payloads are unchanged.
-        convert = check_result.to_soda_cloud_measure_value
-        return {
-            "greaterThan": convert(threshold.must_be_less_than_or_equal),
-            "greaterThanOrEqual": convert(threshold.must_be_less_than),
-            "lessThan": convert(threshold.must_be_greater_than_or_equal),
-            "lessThanOrEqual": convert(threshold.must_be_greater_than),
-        }
+    """Bounds of the fail-severity threshold, or None when the check has none.
+
+    A single threshold with ``level: warn`` is routed to ``diagnostics.warn``
+    instead — see ``_build_warn_threshold``.
+    """
+    threshold: Optional[Threshold] = check_result.check.threshold
+    if threshold and threshold.level == "fail":
+        return _build_threshold_conditions(threshold, check_result)
     return None
+
+
+def _build_warn_threshold(check_result: CheckResult) -> Optional[dict]:
+    """Bounds of the warn-severity threshold, or None when the check has none.
+
+    Two sources: the dedicated ``warn_threshold`` (both severity blocks present)
+    and a lone primary threshold carrying ``level: warn`` (the legacy form, which
+    lives in ``threshold``).
+    """
+    if check_result.check.warn_threshold:
+        return _build_threshold_conditions(check_result.check.warn_threshold, check_result)
+    threshold: Optional[Threshold] = check_result.check.threshold
+    if threshold and threshold.level == "warn":
+        return _build_threshold_conditions(threshold, check_result)
+    return None
+
+
+def _build_threshold_conditions(threshold: Threshold, check_result: CheckResult) -> dict:
+    # The emitted conditions describe the *violating* region, so each bound flips
+    # into its complement (pass ``must_be_greater_than: 10`` → violate
+    # ``lessThanOrEqual: 10``).
+    # Bounds are expressed in the check's native unit; convert into the measure's
+    # wire unit so the chart's threshold line matches the value (ms for "time").
+    # Identity for plain-number checks, so existing payloads are unchanged.
+    convert = check_result.to_soda_cloud_measure_value
+    return {
+        "greaterThan": convert(threshold.must_be_less_than_or_equal),
+        "greaterThanOrEqual": convert(threshold.must_be_less_than),
+        "lessThan": convert(threshold.must_be_greater_than_or_equal),
+        "lessThanOrEqual": convert(threshold.must_be_greater_than),
+    }
 
 
 def _map_remote_scan_status_to_contract_verification_status(
