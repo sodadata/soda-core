@@ -510,7 +510,7 @@ class SqlDialect:
 
         if distinct:
             self._validate_distinct_pagination(columns=columns, order_by=order_by)
-            if any(column in normalize_key_columns for column in order_by):
+            if any(isinstance(column, str) and column in normalize_key_columns for column in order_by):
                 return [
                     WITH(
                         [
@@ -552,7 +552,15 @@ class SqlDialect:
         if not columns:
             # No explicit projection -> `SELECT DISTINCT *` projects every column.
             return
-        missing_order_by_columns = [column for column in order_by if column not in columns]
+        # Only plain column NAMES can be matched against the projection by name. A caller may
+        # also pass built expression terms (soda-reconciliation orders a side by a per-column
+        # SQL expression, projected as `(<expr>) AS "<col>"`); those are the caller's own
+        # terms, matched to its own projection, so this validation has nothing to say about
+        # them. Skipping them is what keeps the check a real check for the string case
+        # instead of a false alarm for every expression caller.
+        missing_order_by_columns = [
+            column for column in order_by if isinstance(column, str) and column not in columns
+        ]
         if missing_order_by_columns:
             raise ValueError(
                 f"select_all_paginated_sql(distinct=True) can only order by projected columns, but "
@@ -570,8 +578,14 @@ class SqlDialect:
         LOWER() is not a total order — 'ABC' and 'abc' tie — and reconciliation re-executes this
         query once per LIMIT/OFFSET page, so without a stable secondary sort the tied rows could
         reorder across page boundaries and be silently skipped or duplicated in the stream.
+
+        ``column`` may also be a built ``SqlExpression`` rather than a column name — callers
+        order by a per-column SQL expression (soda-reconciliation's per-side column
+        expressions). Only a NAME can be looked up in ``normalize_key_columns``, and an
+        expression term is already the exact thing to order by, so it is emitted as-is; a
+        caller that needs such a term folded builds the fold itself.
         """
-        if column in normalize_key_columns:
+        if isinstance(column, str) and column in normalize_key_columns:
             return [ORDER_BY_ASC(self.order_by_key_expression(column)), ORDER_BY_ASC(column)]
         return [ORDER_BY_ASC(column)]
 

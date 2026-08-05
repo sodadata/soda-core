@@ -21,6 +21,7 @@ from datetime import datetime
 
 import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.sql_ast import SqlExpressionStr
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -177,6 +178,42 @@ def test_paginated_sql_distinct_rejects_an_unprojected_order_by_column():
 def test_paginated_sql_without_distinct_still_allows_an_unprojected_order_by_column():
     """The rule is DISTINCT-only: a plain page may order by a column it doesn't project."""
     assert 'ORDER BY "other" ASC' in _paginated(order_by=["other"])
+
+
+# ---------------------------------------------------------------------------
+# A caller may order by a BUILT EXPRESSION rather than a column name (soda-reconciliation's
+# per-side column expressions render `(<expr>) AS "<col>"` and order by `(<expr>)`). Neither
+# the normalize lookup nor the DISTINCT projection check can reason about such a term by
+# name, so both step aside for it instead of raising on the caller's behalf.
+# ---------------------------------------------------------------------------
+
+
+def test_paginated_sql_orders_by_a_built_expression_term():
+    assert _paginated(order_by=[SqlExpressionStr("TRIM(code)")]) == (
+        'SELECT "code",\n       "label"\nFROM "s"."t"\n' "ORDER BY (TRIM(code)) ASC\nLIMIT 10\nOFFSET 0;"
+    )
+
+
+def test_a_built_expression_term_is_not_looked_up_in_normalize_key_columns():
+    """`term in normalize_key_columns` would raise TypeError on an unhashable AST node, and
+    there is no name to look up anyway — the caller folds its own expression terms."""
+    assert "LOWER(" not in _paginated(
+        order_by=[SqlExpressionStr("TRIM(code)")], normalize_key_columns=frozenset({"code"})
+    )
+
+
+def test_distinct_accepts_a_built_expression_term_it_cannot_match_by_name():
+    """The caller projects the same expression aliased; this validation only speaks names."""
+    sql = _paginated(order_by=[SqlExpressionStr("TRIM(code)")], distinct=True)
+    assert sql.startswith('SELECT DISTINCT "code",')
+    assert "ORDER BY (TRIM(code)) ASC" in sql
+
+
+def test_distinct_still_rejects_an_unprojected_order_by_COLUMN_next_to_an_expression():
+    """Stepping aside for expression terms must not disable the check for the names beside
+    them."""
+    with pytest.raises(ValueError, match=r"can only order by projected columns"):
+        _paginated(order_by=[SqlExpressionStr("TRIM(code)"), "other"], distinct=True)
 
 
 def test_supports_row_sampling_base_is_true():
