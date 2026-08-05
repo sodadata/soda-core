@@ -68,3 +68,27 @@ def test_random():
 )
 def test_is_system_schema(schema_name, expected):
     assert PostgresSqlDialect().is_system_schema(schema_name) is expected
+
+
+def test_primary_keys_query_reads_pg_catalog_not_information_schema():
+    """The PK query must read pg_catalog: information_schema.table_constraints /
+    key_column_usage are filtered to tables the current user owns or holds a
+    non-SELECT privilege on, so a read-only monitoring user silently gets zero
+    primary keys through them."""
+    from soda_postgres.statements.postgres_metadata_primary_keys_query import (
+        PostgresMetadataPrimaryKeysQuery,
+    )
+
+    dialect = PostgresSqlDialect()
+    query = PostgresMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
+    namespace = query._build_namespace(["soda_test", "MySchema"])
+    sql = dialect.build_select_sql(query.build_sql_statement(namespace, ["orders"]))
+
+    assert "information_schema" not in sql
+    assert '"pg_catalog"."pg_constraint"' in sql
+    assert '"pg_catalog"."pg_attribute"' in sql
+    # conkey position keeps composite keys in declared order.
+    assert "array_position(constraints.conkey, key_columns.attnum)" in sql
+    # Schema filter is case-insensitive (mirrors PostgresMetadataTablesQuery), so a schema
+    # spelled in a different case doesn't silently match nothing.
+    assert 'LOWER("schemas"."nspname") = \'myschema\'' in sql

@@ -30,6 +30,7 @@ from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
+from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
 from soda_core.common.sql_dialect import (
     CTE,
     FROM,
@@ -562,7 +563,7 @@ class CheckCollectionImpl:
         self.dataset_rows_tested: Optional[int] = None
 
         # Dataset defining CTE - used as basis for all queries in this collection
-        self.cte = CTE("_soda_filtered_dataset").AS(
+        self.cte = CTE(SODA_FILTERED_CTE_NAME).AS(
             [
                 SELECT(STAR()),
                 FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),

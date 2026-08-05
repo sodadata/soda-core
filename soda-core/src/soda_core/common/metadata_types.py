@@ -93,6 +93,9 @@ class ColumnMetadata:
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
 
+    # False both for non-key columns and for data sources that don't introspect primary keys.
+    is_primary_key: bool = False
+
 
 class SodaDataTypeName(str, enum.Enum):
     """

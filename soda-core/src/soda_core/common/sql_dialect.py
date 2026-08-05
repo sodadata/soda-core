@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import dataclasses
 import logging
 from abc import abstractmethod
@@ -123,6 +124,9 @@ class SqlDialect:
     """
 
     DEFAULT_QUOTE_CHAR = '"'
+    # Alias of the CTE a paginated `SELECT DISTINCT` is de-duplicated in when its ORDER BY can't
+    # be rendered on the distinct select itself. See `_paginated_select_statements`.
+    DISTINCT_PAGE_CTE_NAME: str = "_soda_distinct_page"
     USES_SEMICOLONS_BY_DEFAULT: bool = True
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
@@ -440,6 +444,7 @@ class SqlDialect:
         order_by: list[str],
         limit: int,
         offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
         distinct: bool = False,
     ) -> str:
         """Render one page of a SELECT over a dataset.
@@ -448,22 +453,142 @@ class SqlDialect:
         columns. Callers must render distinct through this parameter rather than by
         rewriting the returned SQL: dialects are free to emit shapes (CTEs, ROW_NUMBER
         pagination) in which the leading ``SELECT`` token is not the one to modify.
+
+        ``normalize_key_columns`` case-folds the ORDER BY for the listed key columns (see
+        ``_order_by_key``). For how it composes with ``distinct``, see
+        ``_paginated_select_statements``.
+        """
+        statements = [
+            *self._paginated_select_statements(
+                dataset_identifier=dataset_identifier,
+                columns=columns,
+                filter=filter,
+                order_by=order_by,
+                normalize_key_columns=normalize_key_columns,
+                distinct=distinct,
+            ),
+            LIMIT(limit),
+            OFFSET(offset),
+        ]
+
+        return self.build_select_sql(statements)
+
+    def _paginated_select_statements(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str],
+        filter: Optional[str],
+        order_by: list[str],
+        normalize_key_columns: frozenset[str],
+        distinct: bool,
+    ) -> list:
+        """The elements of a paginated select except LIMIT/OFFSET, which each dialect appends in
+        the order its grammar wants (base: LIMIT then OFFSET; T-SQL: OFFSET then FETCH NEXT).
+
+        This is where `distinct` and `normalize_key_columns` compose, so the rule lives in one
+        place for every AST-based paginator:
+
+        - Neither, or only one of them, renders the flat select both features rendered before —
+          byte-for-byte unchanged.
+        - Both is not expressible flat. SQL requires every ORDER BY term of a `SELECT DISTINCT`
+          to appear in its select list, and `_order_by_key`'s case-fold (`LOWER(<key>)`) is
+          deliberately NOT projected: callers read the page's rows positionally, so the
+          projection has to stay exactly `columns`. So instead of widening the projection, we
+          de-duplicate in a CTE and order/paginate that CTE — the same "de-duplicate in an inner
+          scope" shape the Synapse paginator already uses for its ROW_NUMBER fold.
+
+        Semantics are unchanged by the wrapper: `LOWER(<key>)` is a function of the projected
+        key, so de-duplicating before ordering cannot reorder anything, and DISTINCT still
+        applies before LIMIT/OFFSET, so pages neither overlap nor carry duplicates.
         """
         where_clauses = []
 
         if filter:
             where_clauses.append(SqlExpressionStr(filter))
 
-        statements = [
+        order_by_terms = [term for c in order_by for term in self._order_by_key(c, normalize_key_columns)]
+
+        if distinct:
+            self._validate_distinct_pagination(columns=columns, order_by=order_by)
+            if any(column in normalize_key_columns for column in order_by):
+                return [
+                    WITH(
+                        [
+                            CTE(self.DISTINCT_PAGE_CTE_NAME).AS(
+                                [
+                                    SELECT(columns or [STAR()], distinct=True),
+                                    FROM(
+                                        table_name=dataset_identifier.dataset_name,
+                                        table_prefix=dataset_identifier.prefixes,
+                                    ),
+                                    WHERE.optional(AND.optional(where_clauses)),
+                                ]
+                            )
+                        ]
+                    ),
+                    SELECT(columns or [STAR()]),
+                    FROM(table_name=self.DISTINCT_PAGE_CTE_NAME),
+                    *order_by_terms,
+                ]
+
+        return [
             SELECT(columns or [STAR()], distinct=distinct),
             FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
             WHERE.optional(AND.optional(where_clauses)),
-            *[ORDER_BY_ASC(c) for c in order_by],
-            LIMIT(limit),
-            OFFSET(offset),
+            *order_by_terms,
         ]
 
-        return self.build_select_sql(statements)
+    def _validate_distinct_pagination(self, columns: list[str], order_by: list[str]) -> None:
+        """A DISTINCT page can only be ordered by columns it projects.
+
+        Postgres ("for SELECT DISTINCT, ORDER BY expressions must appear in select list"), T-SQL
+        ("ORDER BY items must appear in the select list if SELECT DISTINCT is specified") and
+        BigQuery all reject an ORDER BY term that isn't derivable from the projection — and the
+        Synapse paginator additionally reads its order-by columns out of a de-duplicated CTE that
+        projects only `columns`. Fail here, naming the offending column, instead of shipping SQL
+        the warehouse will reject (or, on a lenient dialect, silently ordering a page differently
+        than its strict siblings would).
+        """
+        if not columns:
+            # No explicit projection -> `SELECT DISTINCT *` projects every column.
+            return
+        missing_order_by_columns = [column for column in order_by if column not in columns]
+        if missing_order_by_columns:
+            raise ValueError(
+                f"select_all_paginated_sql(distinct=True) can only order by projected columns, but "
+                f"order_by {missing_order_by_columns} is not in columns {columns}"
+            )
+
+    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
+        """ORDER BY element(s) for one key column.
+
+        Default-off: only columns the caller explicitly asked to normalize get case-folded (for
+        cross-source text-key parity); every other column renders exactly as before, so existing
+        paginated SQL is byte-for-byte unchanged.
+
+        A normalized column also gets the RAW column appended as a deterministic tiebreaker.
+        LOWER() is not a total order — 'ABC' and 'abc' tie — and reconciliation re-executes this
+        query once per LIMIT/OFFSET page, so without a stable secondary sort the tied rows could
+        reorder across page boundaries and be silently skipped or duplicated in the stream.
+        """
+        if column in normalize_key_columns:
+            return [ORDER_BY_ASC(self.order_by_key_expression(column)), ORDER_BY_ASC(column)]
+        return [ORDER_BY_ASC(column)]
+
+    def order_by_key_expression(self, column: str) -> SqlExpression:
+        """Case-fold a key column for case-insensitive ORDER BY, returned as an AST expression so
+        each dialect renders LOWER() its own way (instead of a hand-built f-string).
+
+        This is the fold hook the AST-based pagination paths route through: base
+        `select_all_paginated_sql` (via `_order_by_key`), the SQL Server OFFSET/FETCH override, and
+        Oracle. (Synapse's ROW_NUMBER paginator hand-builds raw SQL and folds the safe-quoted
+        identifier directly, because the AST's `COLUMN` node quotes via `quote_default`, which does
+        not escape an embedded `]`.) Invoked only when the caller activates text-key
+        normalization (default-off), so existing ORDER BY rendering is untouched. A dialect that
+        already orders text case-insensitively (e.g. Salesforce/SOQL) overrides this to identity
+        (`COLUMN(column)`) — and in practice such a side is never asked to normalize.
+        """
+        return LOWER(COLUMN(column))
 
     #########################################################
     # CREATE TABLE
@@ -472,15 +597,45 @@ class SqlDialect:
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        create_table = self._create_table_with_primary_key_columns_not_null(create_table)
         create_table_sql = self._build_create_table_statement_sql(create_table)
 
-        create_table_sql = (
-            create_table_sql
-            + "(\n"
-            + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
-            + "\n)"
-        )
+        column_clauses: list[str] = [self._build_create_table_column(column) for column in create_table.columns]
+        primary_key_clause: Optional[str] = self._build_create_table_primary_key(create_table)
+        if primary_key_clause is not None:
+            column_clauses.append(primary_key_clause)
+
+        create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _create_table_with_primary_key_columns_not_null(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS
+    ) -> CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS:
+        # A primary-key column is NOT NULL by definition. Most databases imply this when a PRIMARY
+        # KEY is declared, but some (DB2, and NOT ENFORCED keys on BigQuery/Synapse) reject a
+        # primary key on a nullable column, so mark the columns NOT NULL explicitly. Returns a copy
+        # so the caller's object is never mutated; returned unchanged when there is no primary key.
+        primary_key_column_names = create_table.primary_key_column_names
+        if not primary_key_column_names:
+            return create_table
+        create_table = copy.deepcopy(create_table)
+        pk_names: set[str] = set(primary_key_column_names)
+        for column in create_table.columns:
+            if column.name in pk_names:
+                column.nullable = False
+        return create_table
+
+    def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
+        """Build the standard-SQL ``PRIMARY KEY (<cols>)`` table constraint clause,
+        or ``None`` when no primary key is declared (no clause is emitted).
+        """
+        primary_key_column_names = create_table.primary_key_column_names
+        if not primary_key_column_names:
+            return None
+        quoted_columns: str = ", ".join(
+            self._quote_column_for_create_table(column_name) for column_name in primary_key_column_names
+        )
+        return f"\tPRIMARY KEY ({quoted_columns})"
 
     def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
         if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
@@ -1351,6 +1506,20 @@ class SqlDialect:
         """Checks if the given sampler type is supported by this data source."""
         return False
 
+    def supports_row_sampling(self) -> bool:
+        """Whether this dialect can honor a row-sampling request AT ALL (any sampler type).
+
+        A plain method (not a @property), consistent with the rest of the ``supports_*`` family
+        (``supports_sampler``, ``supports_percentile_within_group``, …) so a subclass override that
+        follows that convention can't silently shadow it. Consumed by soda-reconciliation's sampling
+        fail-loud guard. Distinct from :meth:`supports_sampler`, which answers per-sampler-type and
+        returns False for types a SQL source doesn't render via TABLESAMPLE even though it still
+        applies the sample another way. Defaults to True so every existing SQL data source is
+        unaffected; a source whose query language cannot express any row sample (e.g. Salesforce/SOQL)
+        overrides this to False.
+        """
+        return True
+
     def _build_random_sql(self, random: RANDOM) -> str:
         return "RANDOM()"
 
@@ -1496,6 +1665,10 @@ class SqlDialect:
 
     def supports_datetime_microseconds(self) -> bool:
         return True
+
+    def supports_primary_keys(self) -> bool:
+        """True if this data source can introspect PRIMARY KEY constraints; opt-in per data source."""
+        return False
 
     def default_casify(self, identifier: str) -> str:
         return identifier

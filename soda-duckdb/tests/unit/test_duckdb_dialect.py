@@ -3,6 +3,9 @@ from __future__ import annotations
 import duckdb
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBSqlDialect
 
 
@@ -59,3 +62,84 @@ def test_select_all_paginated_sql_with_distinct_pages():
 def test_select_all_paginated_sql_with_distinct_and_filter():
     connection = _connection_with_customers()
     assert _page(connection, distinct=True, limit=10, offset=0, filter="\"country\" = 'BE'") == [(1,), (2,), (3,)]
+
+
+# ---------------------------------------------------------------------------
+# distinct x normalize_key_columns, executed. The composed shape (de-duplicate in
+# a CTE, case-fold the ORDER BY outside it) has to return de-duplicated rows in
+# case-insensitive key order — and page them without overlap.
+# ---------------------------------------------------------------------------
+
+
+def _connection_with_codes():
+    connection = duckdb.connect(":memory:")
+    connection.execute('CREATE TABLE "CODES" ("code" VARCHAR, "label" VARCHAR)')
+    connection.execute("INSERT INTO \"CODES\" VALUES ('b', 'x'), ('B', 'x'), ('a', 'y'), ('a', 'y'), ('C', 'z')")
+    return connection
+
+
+def _code_page(connection, *, distinct: bool, normalize: bool, limit: int = 10, offset: int = 0) -> list:
+    sql = DuckDBSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=[], dataset_name="CODES"),
+        columns=["code", "label"],
+        filter=None,
+        order_by=["code"],
+        limit=limit,
+        offset=offset,
+        normalize_key_columns=frozenset({"code"}) if normalize else frozenset(),
+        distinct=distinct,
+    )
+    return connection.execute(sql.rstrip(";")).fetchall()
+
+
+def test_paginated_neither_distinct_nor_normalized():
+    connection = _connection_with_codes()
+    # Raw (binary) ordering, duplicates kept.
+    assert _code_page(connection, distinct=False, normalize=False) == [
+        ("B", "x"),
+        ("C", "z"),
+        ("a", "y"),
+        ("a", "y"),
+        ("b", "x"),
+    ]
+
+
+def test_paginated_distinct_only():
+    connection = _connection_with_codes()
+    assert _code_page(connection, distinct=True, normalize=False) == [("B", "x"), ("C", "z"), ("a", "y"), ("b", "x")]
+
+
+def test_paginated_normalized_only():
+    connection = _connection_with_codes()
+    # Case-insensitive order, raw column as tiebreaker ('B' before 'b'), duplicates kept.
+    assert _code_page(connection, distinct=False, normalize=True) == [
+        ("a", "y"),
+        ("a", "y"),
+        ("B", "x"),
+        ("b", "x"),
+        ("C", "z"),
+    ]
+
+
+def test_paginated_distinct_and_normalized():
+    connection = _connection_with_codes()
+    assert _code_page(connection, distinct=True, normalize=True) == [("a", "y"), ("B", "x"), ("b", "x"), ("C", "z")]
+
+
+def test_paginated_distinct_and_normalized_pages_without_overlap():
+    """De-duplication still happens before LIMIT/OFFSET in the composed shape."""
+    connection = _connection_with_codes()
+    assert _code_page(connection, distinct=True, normalize=True, limit=2, offset=0) == [("a", "y"), ("B", "x")]
+    assert _code_page(connection, distinct=True, normalize=True, limit=2, offset=2) == [("b", "x"), ("C", "z")]
+
+
+def test_primary_keys_query_uses_ansi_key_column_usage():
+    # DuckDB's key_column_usage carries ordinal_position (unlike constraint_column_usage), so the
+    # primary-key query uses the ANSI base query to return composite keys in order.
+    dialect = DuckDBSqlDialect()
+    query = MetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
+    namespace = query._build_namespace(["myschema"])
+    sql = dialect.build_select_sql(query.build_sql_statement(namespace, ["orders"]))
+    assert '"information_schema"."table_constraints"' in sql
+    assert '"information_schema"."key_column_usage"' in sql
+    assert "ordinal_position" in sql

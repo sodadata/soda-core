@@ -64,16 +64,33 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # issue a metadata round-trip per page during a paginated scan.
         self._columns_cache: dict[tuple[tuple[str, ...], str], list[str]] = {}
 
+    def supports_primary_keys(self) -> bool:
+        # Synapse dedicated SQL pools store primary keys as non-enforced NONCLUSTERED
+        # constraints, reported through the standard information_schema constraint views.
+        return True
+
+    def _build_create_table_primary_key(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> Optional[str]:
+        # Synapse only accepts a primary key declared as NONCLUSTERED ... NOT ENFORCED.
+        primary_key_column_names = getattr(create_table, "primary_key_column_names", None)
+        if not primary_key_column_names:
+            return None
+        quoted_columns: str = ", ".join(
+            self._quote_column_for_create_table(column_name) for column_name in primary_key_column_names
+        )
+        return f"\tPRIMARY KEY NONCLUSTERED ({quoted_columns}) NOT ENFORCED"
+
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
+        # This override reimplements the base builder (for the HEAP option below), so apply the
+        # base's NOT NULL-on-primary-key handling explicitly (a NOT ENFORCED key still requires it).
+        create_table = self._create_table_with_primary_key_columns_not_null(create_table)
         create_table_sql = self._build_create_table_statement_sql(create_table)
-        create_table_sql = (
-            create_table_sql
-            + "(\n"
-            + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
-            + "\n)"
-        )
+        column_clauses: list[str] = [self._build_create_table_column(column) for column in create_table.columns]
+        primary_key_clause: Optional[str] = self._build_create_table_primary_key(create_table)
+        if primary_key_clause is not None:
+            column_clauses.append(primary_key_clause)
+        create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
         # Synapse uses clustered columnstore indexes by default, which don't support varchar(MAX).
         # Use HEAP to create a heap table instead.
         create_table_sql = create_table_sql + "\nWITH (HEAP)"
@@ -123,6 +140,7 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         order_by: list[str],
         limit: int,
         offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
         distinct: bool = False,
     ) -> str:
         # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
@@ -152,12 +170,28 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # Use the safe quoter so column / order-by identifiers can't break out of `[...]`.
         quoted_columns = [self._quote_identifier_safe(c) for c in columns]
         columns_csv = ", ".join(quoted_columns)
+
         # An empty `order_by` is allowed by the base `SqlDialect.select_all_paginated_sql`
         # contract — produce a deterministic-enough fallback that T-SQL accepts inside the
         # OVER(...) clause. `(SELECT NULL)` is the standard idiom for "any order".
-        order_by_csv = (
-            ", ".join(f"{self._quote_identifier_safe(c)} ASC" for c in order_by) if order_by else "(SELECT NULL)"
-        )
+        # Reconciliation may ask for case-insensitive ordering on specific key columns
+        # (default-off empty set → unchanged). Wrap only those in the dialect's fold.
+        def _order_by_term(column: str) -> str:
+            quoted = self._quote_identifier_safe(column)
+            if column in normalize_key_columns:
+                # Case-fold, then the raw column as a deterministic tiebreaker (mirrors base
+                # `_order_by_key`): the ROW_NUMBER window's order must be total, or tied
+                # case-colliding keys get non-deterministic row numbers across the per-page query
+                # re-executions, silently skipping/duplicating rows.
+                # Fold the SAFE-quoted identifier rather than the AST hook: this paginator builds
+                # raw SQL, and the AST's `COLUMN` node renders via the inherited `quote_default`
+                # (`[id]`, no `]` escaping). `_quote_identifier_safe` escapes embedded `]`, so
+                # LOWER() must wrap it to keep the same injection defense as the tiebreaker.
+                folded = f"LOWER({quoted})"
+                return f"{folded} ASC, {quoted} ASC"
+            return f"{quoted} ASC"
+
+        order_by_csv = ", ".join(_order_by_term(c) for c in order_by) if order_by else "(SELECT NULL)"
         where_sql = f"WHERE {filter}" if filter else ""
         # Use a `__soda_`-prefixed alias so we don't collide with a real column named `rn`
         # (possible when `columns` was resolved from the table's metadata).
@@ -169,8 +203,14 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
             # on the outer SELECT, because T-SQL rejects `SELECT DISTINCT ... ORDER BY <rn>`
             # (ORDER BY items must appear in the select list of a DISTINCT select) and rn must
             # stay projected out. So we de-duplicate in an extra leading CTE and paginate that.
-            # Requires the `order_by` columns to be part of `columns` — true for the callers
-            # that ask for distinct (reference_diff orders by exactly the projected columns).
+            #
+            # The `deduplicated` CTE projects only `columns`, so everything the ROW_NUMBER window
+            # orders by has to be one of them — enforced here (the base paginator applies the same
+            # rule for the same reason) rather than left to a Synapse "Invalid column name" error.
+            # Given that, a normalized key composes for free: the window's `LOWER(<key>) ASC,
+            # <key> ASC` fold sits in a plain (non-DISTINCT) select over the de-duplicated CTE,
+            # which T-SQL accepts, so no extra shape is needed here.
+            self._validate_distinct_pagination(columns=columns, order_by=order_by)
             return (
                 f"WITH deduplicated AS (\n"
                 f"    SELECT DISTINCT {columns_csv}\n"

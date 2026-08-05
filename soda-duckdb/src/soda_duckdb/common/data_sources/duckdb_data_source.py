@@ -87,6 +87,11 @@ class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
+    def supports_primary_keys(self) -> bool:
+        # DuckDB enforces primary keys and reports them through the information_schema
+        # constraint views, with the standard PRIMARY KEY (...) DDL.
+        return True
+
     def get_database_prefix_index(self) -> int | None:
         return None
 

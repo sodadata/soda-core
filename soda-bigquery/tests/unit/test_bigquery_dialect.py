@@ -1,5 +1,10 @@
 import pytest
-from soda_bigquery.common.data_sources.bigquery_data_source import BigQuerySqlDialect
+from soda_bigquery.common.data_sources.bigquery_data_source import (
+    BigQueryMetadataPrimaryKeysQuery,
+    BigQuerySqlDialect,
+)
+from soda_core.common.metadata_types import SqlDataType
+from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 
 
@@ -7,6 +12,37 @@ def test_random():
     sql_dialect: BigQuerySqlDialect = BigQuerySqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == "SELECT RAND()\nFROM `a`;"
+
+
+def test_primary_key_create_table_requires_not_enforced_and_not_null():
+    # BigQuery only accepts a NOT ENFORCED primary key. The NOT NULL on the key columns is
+    # Soda's uniform DDL choice applied by the base builder (PK columns are non-null by
+    # definition), not a BigQuery grammar requirement.
+    dialect = BigQuerySqlDialect()
+    create_table = CREATE_TABLE(
+        fully_qualified_table_name="proj.ds.orders",
+        columns=[
+            CREATE_TABLE_COLUMN(name="tenant_id", type=SqlDataType("int64")),
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType("int64")),
+            CREATE_TABLE_COLUMN(name="label", type=SqlDataType("string")),
+        ],
+        primary_key_column_names=["tenant_id", "id"],
+    )
+    sql = dialect.build_create_table_sql(create_table)
+    assert "`tenant_id` int64 NOT NULL" in sql
+    assert "`id` int64 NOT NULL" in sql
+    assert "`label` string" in sql and "`label` string NOT NULL" not in sql
+    assert "PRIMARY KEY (`tenant_id`, `id`) NOT ENFORCED" in sql
+
+
+def test_primary_keys_query_is_dataset_qualified():
+    # The primary-key query must read the dataset-qualified INFORMATION_SCHEMA views.
+    dialect = BigQuerySqlDialect()
+    query = BigQueryMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
+    namespace = query._build_namespace(["proj", "ds"])
+    sql = dialect.build_select_sql(query.build_sql_statement(namespace, ["orders"]))
+    assert "`proj`.`ds`.`INFORMATION_SCHEMA`.`TABLE_CONSTRAINTS`" in sql
+    assert "`proj`.`ds`.`INFORMATION_SCHEMA`.`KEY_COLUMN_USAGE`" in sql
 
 
 def test_create_schema_if_not_exists_sql_is_project_qualified():

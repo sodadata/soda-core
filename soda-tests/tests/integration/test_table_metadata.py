@@ -6,6 +6,7 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType,
 )
+from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedViewName,
@@ -121,6 +122,162 @@ def __verify_table_metadata(actual_columns: list[ColumnMetadata], sql_dialect: S
         ),
         actual=actual_ts_w_precision.sql_data_type,
     )
+
+
+# Composite primary key (two columns) so this also exercises multi-column PK DDL and
+# multi-row information_schema introspection, not just the single-column case.
+primary_keys_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("primary_keys")
+    .column_integer(name="tenant_id")
+    .column_integer(name="id")
+    .column_varchar(name="label")
+    .primary_key(["tenant_id", "id"])
+    .build()
+)
+
+# Single-column primary key table, used together with the composite-PK table to
+# exercise multi-table grouping in a single bulk query.
+single_primary_key_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("primary_key_single")
+    .column_integer(name="id")
+    .column_varchar(name="label")
+    .primary_key(["id"])
+    .build()
+)
+
+
+def _find_pk_key(primary_keys_by_table: dict[str, list[str]], table_name: str) -> str | None:
+    """Find the key matching the table name case-insensitively (data sources key the result by their
+    own information_schema casing). Mirrors _find_table_key in test_all_columns_metadata_for_schema.py."""
+    for key in primary_keys_by_table:
+        if key.lower() == table_name.lower():
+            return key
+    return None
+
+
+def test_primary_keys_metadata(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_primary_keys():
+        pytest.skip("data source does not support primary key introspection")
+
+    composite_table = data_source_test_helper.ensure_test_table(primary_keys_test_table_specification)
+    single_table = data_source_test_helper.ensure_test_table(single_primary_key_test_table_specification)
+
+    actual: dict[str, list[str]] = data_source_test_helper.data_source_impl.get_primary_keys(
+        dataset_prefixes=composite_table.dataset_prefix,
+        dataset_names=[composite_table.unique_name, single_table.unique_name],
+    )
+
+    # Look up case-insensitively: the result is keyed by the data source's own information_schema
+    # casing, which can differ from the requested name (Databricks lowercases identifiers even for a
+    # quoted CREATE). Mirrors _find_table_key in test_all_columns_metadata_for_schema.py.
+    composite_key = _find_pk_key(actual, composite_table.unique_name)
+    assert composite_key is not None, f"Table {composite_table.unique_name} not found. Available: {list(actual.keys())}"
+    # List, not set: the primary key columns come back in their declared composite-key order.
+    assert actual[composite_key] == ["tenant_id", "id"]
+
+    single_key = _find_pk_key(actual, single_table.unique_name)
+    assert single_key is not None, f"Table {single_table.unique_name} not found. Available: {list(actual.keys())}"
+    assert actual[single_key] == ["id"]
+
+
+# Single-column primary key on a DIFFERENT column than the default-schema table, used by the
+# cross-schema leak test below. Same table_purpose collides on the builder's purpose-uniqueness
+# check, so this spec is only ever materialised by hand into a second schema (never via the builder
+# registry) — see test_primary_keys_metadata_do_not_leak_across_schemas.
+cross_schema_other_pk_column = "tenant_id"
+
+
+def test_primary_keys_metadata_do_not_leak_across_schemas(data_source_test_helper: DataSourceTestHelper):
+    """Regression for the bulk-PK JOIN collapsing constraint namespaces.
+
+    constraint_name is unique only within (constraint_catalog, constraint_schema). Postgres
+    auto-names every PK "<table>_pkey", so two tables that share a name in two different schemas
+    share a constraint name. If the table_constraints -> key_column_usage JOIN matches on
+    constraint_name ONLY (the original v4 bug), querying one schema pulls in the OTHER schema's PK
+    columns. This test creates that exact collision and asserts each schema reports only its own PK.
+    """
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_primary_keys():
+        pytest.skip("data source does not support primary key introspection")
+
+    data_source_impl = data_source_test_helper.data_source_impl
+    sql_dialect = data_source_impl.sql_dialect
+
+    # Table in the default (helper-managed) schema: PK on `id`.
+    primary_table = data_source_test_helper.ensure_test_table(single_primary_key_test_table_specification)
+    default_prefix = primary_table.dataset_prefix
+    table_name = primary_table.unique_name
+
+    # Second schema, sharing the database/catalog but a distinct schema name, holding a table with
+    # the SAME name (so the auto-generated PK constraint name collides) but a DIFFERENT PK column.
+    # Derive the schema position from the dialect rather than assuming a [database, schema] prefix:
+    # schema-scoped data sources (e.g. DuckDB) carry a single-element [schema] prefix, so a hard
+    # default_prefix[1] would IndexError. Rebuild the prefix with only the schema element renamed.
+    schema_index = sql_dialect.get_schema_prefix_index()
+    other_schema_name = f"{default_prefix[schema_index]}_pkleak"
+    other_prefix = list(default_prefix)
+    other_prefix[schema_index] = other_schema_name
+
+    def _create_table_sql(prefix: list[str]) -> str:
+        qualified_name = sql_dialect.qualify_dataset_name(prefix, table_name)
+        return sql_dialect.build_create_table_sql(
+            CREATE_TABLE(
+                fully_qualified_table_name=qualified_name,
+                columns=[
+                    CREATE_TABLE_COLUMN(
+                        name=cross_schema_other_pk_column,
+                        type=sql_dialect.map_test_sql_data_type_to_data_source(
+                            SqlDataType(name=SodaDataTypeName.INTEGER)
+                        ),
+                    ),
+                    CREATE_TABLE_COLUMN(
+                        name="id",
+                        type=sql_dialect.map_test_sql_data_type_to_data_source(
+                            SqlDataType(name=SodaDataTypeName.INTEGER)
+                        ),
+                    ),
+                ],
+                primary_key_column_names=[cross_schema_other_pk_column],
+            )
+        )
+
+    data_source_test_helper.drop_schema_if_exists(other_schema_name)
+    try:
+        data_source_impl.execute_update(sql_dialect.create_schema_if_not_exists_sql(other_prefix))
+        data_source_impl.execute_update(_create_table_sql(other_prefix))
+        data_source_impl.data_source_connection.commit()
+
+        # Query the DEFAULT schema. With the buggy constraint-name-only JOIN, the other schema's
+        # PK column (`tenant_id`) would leak in; with the fix, only `id` is returned.
+        default_pks: dict[str, list[str]] = data_source_impl.get_primary_keys(
+            dataset_prefixes=default_prefix,
+            dataset_names=[table_name],
+        )
+        default_key = _find_pk_key(default_pks, table_name)
+        assert (
+            default_key is not None
+        ), f"Table {table_name} not found in default schema. Available: {list(default_pks.keys())}"
+        assert default_pks[default_key] == [
+            "id"
+        ], f"Default-schema PK leaked columns from the other schema: {default_pks[default_key]}"
+
+        # Symmetrically, the other schema must report only its own PK (`tenant_id`), not `id`.
+        other_pks: dict[str, list[str]] = data_source_impl.get_primary_keys(
+            dataset_prefixes=other_prefix,
+            dataset_names=[table_name],
+        )
+        other_key = _find_pk_key(other_pks, table_name)
+        assert (
+            other_key is not None
+        ), f"Table {table_name} not found in other schema. Available: {list(other_pks.keys())}"
+        assert other_pks[other_key] == [
+            cross_schema_other_pk_column
+        ], f"Other-schema PK leaked columns from the default schema: {other_pks[other_key]}"
+    finally:
+        # drop_schema_if_exists issues DROP SCHEMA ... CASCADE, which also removes the table.
+        data_source_test_helper.drop_schema_if_exists(other_schema_name)
+        data_source_impl.data_source_connection.commit()
 
 
 # Note: this test is for metadata related items only. For the full datatypes, please see test_soda_data_types.py

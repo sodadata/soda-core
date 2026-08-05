@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
@@ -15,6 +15,9 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
@@ -28,6 +31,25 @@ logger: logging.Logger = soda_logger
 
 if TYPE_CHECKING:
     from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+
+class ValueComparatorProtocol(Protocol):
+    """Cross-source value-equality contract a DataSourceImpl may supply via get_value_comparator().
+
+    When this source participates in a cross-source comparison, a comparator matches mixed
+    representations of the same underlying value (e.g. Decimal vs float, tz-aware vs naive datetime).
+    ``handles_cross_type`` advertises whether it does such cross-type matching. A type-only,
+    structural contract — any object exposing these two members conforms (verified by the type
+    checker, not a runtime ``isinstance``, which would only match member names, not signatures). The
+    concrete comparators live in the extensions that need them (e.g. soda-salesforce,
+    soda-reconciliation)."""
+
+    @property
+    def handles_cross_type(self) -> bool:
+        ...
+
+    def equals(self, x: Any, y: Any) -> bool:
+        ...
 
 
 class DataSourceImpl(ABC):
@@ -192,6 +214,72 @@ class DataSourceImpl(ABC):
             return self.sql_dialect.supports_materialized_views()
         return self._can_create_materialized_view
 
+    # The capability hooks below are all default-off / behavior-preserving. They are consumed by
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
+    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
+    # returns a ValueComparatorProtocol; the others are booleans.)
+    @property
+    def orders_text_case_insensitively(self) -> bool:
+        """Whether this data source's SQL orders text columns case-insensitively.
+
+        Default False (codepoint/collation order — unchanged behavior). A source whose
+        ORDER BY on text is case-insensitive (e.g. Salesforce/SOQL) returns True. A consumer
+        that merges two independently-ordered streams can use this to decide whether to
+        case-fold so both sides agree on one order.
+        """
+        return False
+
+    @property
+    def supports_row_hashing(self) -> bool:
+        """Whether this data source's query language can compute a row hash (e.g. MD5/CAST).
+
+        Default True. A source that cannot express a hash in queries (e.g. Salesforce/SOQL)
+        returns False, so a feature that relies on hashing can degrade gracefully rather than
+        emit a misleading result from a value it could not actually compute.
+        """
+        return True
+
+    @property
+    def reads_may_fail_transiently(self) -> bool:
+        """Whether a runtime error while streaming reads from this source should be treated as a
+        soft (recoverable) failure by a consumer rather than propagate.
+
+        Default False: conventional SQL sources keep their existing behavior — a read error
+        propagates (a genuine DB failure is surfaced/raised, unchanged). A remote/API source whose
+        streamed reads can fail transiently mid-scan (e.g. Salesforce REST queryMore / token
+        expiry) returns True, so a consumer can degrade gracefully instead of crashing on such a
+        transient failure.
+        """
+        return False
+
+    def get_value_comparator(self) -> Optional[ValueComparatorProtocol]:
+        """A value comparator to use when comparing this source's values against another source's,
+        or ``None`` to let the caller use its own default.
+
+        Default ``None``: conventional SQL sources have no special needs — the caller compares
+        exactly (existing behavior, unchanged). A source that normalizes values to canonical Python
+        types which may not exactly-equal a peer driver's native types (e.g. Salesforce returns
+        numbers as ``Decimal`` and datetimes as tz-aware UTC) overrides this to return its own
+        comparator object (exposing ``equals(x, y) -> bool`` and a ``handles_cross_type: bool``),
+        which the caller then uses whenever this source participates.
+        """
+        return None
+
+    def validate_orderable_key_columns(
+        self, dataset_prefixes: list[str], dataset_name: str, key_columns: list[str]
+    ) -> list[str]:
+        """Return human-readable problems if any of the given columns cannot be used as an
+        ordered/paged read key on this data source; empty list means all are usable.
+
+        A paginated ordered read ORDER BYs these columns. Most SQL sources can order by any column,
+        so the default returns no problems and existing behavior is unchanged. A source whose query
+        language forbids ordering by some field types (e.g. Salesforce/SOQL cannot ORDER BY a
+        long-text field) overrides this to fail early — before any cursor opens — instead of
+        erroring mid-stream.
+        """
+        return []
+
     def try_create_view(self, sql: str) -> bool:
         """Attempt to create a view. Returns False and caches the result if creation
         is not supported, so subsequent calls skip without retrying."""
@@ -258,6 +346,30 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        return MetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
+    def get_primary_keys(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
+        """Returns the primary key column names for the given tables in a single query, keyed by
+        table name: {table_name: [pk_column_names]}, each list ordered by the column's position
+        within the primary key so composite keys keep their declared order.
+
+        The result keys carry the data source's own metadata casing, which can differ from the
+        requested dataset_names (e.g. Databricks lowercases identifiers even for a quoted CREATE) —
+        look up via sql_dialect.metadata_casify(requested_name). Tables without a primary key, and
+        requested tables that don't exist, are simply absent from the result.
+
+        Gated on sql_dialect.supports_primary_keys() so callers can invoke this unconditionally:
+        a data source that cannot introspect primary keys (or whose active dialect opts out, e.g.
+        the Databricks Hive metastore) returns an empty dict without issuing a query. Data sources
+        specialize via supports_primary_keys() and create_metadata_primary_keys_query(), not by
+        overriding this method."""
+        if not self.sql_dialect.supports_primary_keys():
+            return {}
+        return self.create_metadata_primary_keys_query().execute(dataset_prefixes, dataset_names)
 
     @property
     def bulk_columns_metadata_available(self) -> bool:

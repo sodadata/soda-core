@@ -1,5 +1,5 @@
 import sys
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from soda_core.cli.cli import create_cli_parser, execute
@@ -208,7 +208,9 @@ def test_cli_argument_mapping_for_contract_verify_command(mock_handler, args, ex
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(*expected)
+    # The verify wiring wraps the handler in run_with_failure_reporting and threads
+    # the wrapper's Logs collector; the argument mapping under test is positional.
+    mock_handler.assert_called_once_with(*expected, logs=ANY)
 
 
 def test_verify_command_raises_exception_when_none_of_contract_or_dataset_specified():

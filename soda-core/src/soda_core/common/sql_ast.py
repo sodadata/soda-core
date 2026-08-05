@@ -12,6 +12,13 @@ from typing_extensions import deprecated
 
 logger: logging.Logger = soda_logger
 
+# The CTE alias soda-core's check collections wrap a dataset's scan in
+# (WITH "_soda_filtered_dataset" AS (SELECT * FROM <dataset> [WHERE <filter>])). Exposed as one
+# source of truth so a translator/connector that must recognize this generated SQL — e.g.
+# soda-salesforce, which maps it to SOQL — can import it instead of hardcoding the literal; a rename
+# then breaks that import (and its tests) loudly rather than silently rerouting the read.
+SODA_FILTERED_CTE_NAME = "_soda_filtered_dataset"
+
 
 class BaseSqlExpression:
     # The child→parent back-reference must be weak. Otherwise INSERT_INTO,
@@ -782,6 +789,8 @@ class ORDINAL_POSITION(BaseSqlExpression):
 class CREATE_TABLE(BaseSqlExpression):
     fully_qualified_table_name: str
     columns: list[CREATE_TABLE_COLUMN]
+    # Column names forming the table's PRIMARY KEY; None means no primary key.
+    primary_key_column_names: Optional[list[str]] = None
 
     def __post_init__(self):
         super().__post_init__()

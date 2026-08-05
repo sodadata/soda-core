@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, LIMIT, STAR
@@ -280,3 +281,77 @@ def test_select_top_is_rendered_after_distinct():
 def test_select_top_without_distinct_is_unchanged():
     sql = SqlServerSqlDialect().build_select_sql([SELECT(["id"]), FROM("customers"), LIMIT(3)])
     assert sql == ("SELECT TOP 3 [id]\n" "FROM [customers];")
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — SQL Server uses OFFSET/FETCH + the base
+# _order_by_key case-fold seam (previously unexercised here). Pin default-off
+# (unchanged SQL) and the LOWER() normalize-on path for a flagged key column,
+# then both features at once.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset(), distinct=False):
+    from soda_core.common.dataset_identifier import DatasetIdentifier
+
+    return SqlServerSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["s"], dataset_name="t"),
+        columns=["code", "label"],
+        filter=None,
+        order_by=order_by,
+        limit=10,
+        offset=20,
+        normalize_key_columns=normalize_key_columns,
+        distinct=distinct,
+    )
+
+
+def test_paginated_sql_default_off_leaves_order_by_untouched():
+    assert "LOWER" not in _paginated(order_by=["code"]).upper()
+
+
+def test_paginated_sql_normalizes_only_the_flagged_key_column():
+    sql = _paginated(order_by=["code", "label"], normalize_key_columns=frozenset({"code"}))
+    # LOWER fold + raw tiebreaker so OFFSET/FETCH paging is deterministic; "label" stays raw.
+    assert "LOWER([code]) ASC, [code] ASC" in sql
+    assert sql.upper().count("LOWER(") == 1
+
+
+def test_paginated_sql_distinct_only_stays_flat():
+    """DISTINCT alone orders by the projected raw columns, which T-SQL accepts on a distinct
+    select — no CTE needed."""
+    sql = _paginated(order_by=["code"], distinct=True)
+    assert sql == (
+        "SELECT DISTINCT [code],\n"
+        "       [label]\n"
+        "FROM [s].[t]\n"
+        "ORDER BY [code] ASC\n"
+        "OFFSET 20 ROWS\n"
+        "FETCH NEXT 10 ROWS ONLY;"
+    )
+
+
+def test_paginated_sql_distinct_with_normalized_key_dedups_in_a_cte():
+    """T-SQL rejects `SELECT DISTINCT ... ORDER BY LOWER([code])` ("ORDER BY items must appear in
+    the select list if SELECT DISTINCT is specified"), and LOWER([code]) must not be projected —
+    callers read the page positionally. De-duplicate in a CTE, then order/paginate that."""
+    sql = _paginated(order_by=["code"], normalize_key_columns=frozenset({"code"}), distinct=True)
+    assert sql == (
+        "WITH \n"
+        "[_soda_distinct_page] AS (\n"
+        "SELECT DISTINCT [code],\n"
+        "       [label]\n"
+        "FROM [s].[t]\n"
+        ")\n"
+        "SELECT [code],\n"
+        "       [label]\n"
+        "FROM [_soda_distinct_page]\n"
+        "ORDER BY LOWER([code]) ASC, [code] ASC\n"
+        "OFFSET 20 ROWS\n"
+        "FETCH NEXT 10 ROWS ONLY;"
+    )
+
+
+def test_paginated_sql_distinct_rejects_an_unprojected_order_by_column():
+    with pytest.raises(ValueError, match=r"can only order by projected columns"):
+        _paginated(order_by=["other"], distinct=True)

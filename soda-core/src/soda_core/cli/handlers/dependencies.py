@@ -60,6 +60,33 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
     return soda_cloud
 
 
+def resolve_soda_cloud_for_failure_report(
+    soda_cloud_file_path: Optional[str], variables: Optional[dict[str, str]] = None
+) -> Optional[SodaCloud]:
+    """Soda Cloud channel for ``run_with_failure_reporting``, or None when Cloud isn't
+    configured or can't be built (``report_scan_execution_failure`` then returns 3 for an
+    ad-hoc run, 4 for a managed one).
+
+    The swallow-to-None variant of ``resolve_soda_cloud``, for commands where running
+    without Cloud is legal (e.g. a local contract verify). A broken config is not lost:
+    the wrapped command re-raises the real config error (it builds its own client from
+    the same file) and the boundary reports it through the None channel.
+    """
+    if not soda_cloud_file_path:
+        return None
+    try:
+        return SodaCloud.from_config(soda_cloud_file_path, variables)
+    except Exception:
+        # Deliberately broad: this runs outside the failure boundary, where an escaped
+        # exception would crash the CLI instead of mapping to a delivery-aware exit code.
+        soda_logger.debug(
+            f"Could not build the Soda Cloud failure-report channel from '{soda_cloud_file_path}'; "
+            f"failures will be reported by exit code only.",
+            exc_info=True,
+        )
+        return None
+
+
 def resolve_data_source(data_source_file_path: Optional[str]) -> DataSourceImpl:
     """Parse a data source configuration file into a ``DataSourceImpl``.
 
@@ -109,17 +136,22 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
 
 
 def run_with_failure_reporting(
-    soda_cloud: SodaCloud,
+    soda_cloud: Optional[SodaCloud],
     command: Callable[[Logs], ExitCode],
 ) -> ExitCode:
     """Run a command with every failure mapped to an exit code and reported to
     Soda Cloud in one place.
 
-    Receives the already-constructed reporting channel (``soda_cloud``);
-    dependency construction lives at the wiring layer, which decides what
-    resolves inside the command. Owns the ``Logs`` lifecycle — the collector
-    starts before the command, so in-command resolution failures are captured
-    too. The wrapper's own ``logs`` collector is handed to the command so a
+    This is the single Cloud-marking site for exceptions escaping a command:
+    the engine layers underneath re-raise without touching Cloud, so exactly
+    one ``sodaCoreMarkScanFailed`` reaches the backend per failed run.
+
+    Receives the already-constructed reporting channel (``soda_cloud``;
+    ``None`` when the command can run without Cloud — an escaped failure then
+    exits 4 for a managed run, 3 ad-hoc); dependency construction lives at the
+    wiring layer, which decides what resolves inside the command. Owns the
+    ``Logs`` lifecycle — the collector starts before the command, so
+    in-command resolution failures are captured too. The wrapper's own ``logs`` collector is handed to the command so a
     command that runs a check-collection session can thread it through (each
     impl built with ``logs=logs``); without this a command constructing its own
     inner ``Logs`` would displace the wrapper's collector and its downstream

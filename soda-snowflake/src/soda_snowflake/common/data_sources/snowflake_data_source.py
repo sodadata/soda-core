@@ -8,21 +8,32 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
+    DataSourceNamespace,
     SamplerType,
     SodaDataTypeName,
 )
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
+    AND,
     COLUMN,
     COUNT,
     DISTINCT,
+    EQ,
+    FROM,
+    IN,
+    LITERAL,
     RANDOM,
+    SELECT,
     TIME_DELTA,
     TUPLE,
     VALUES,
+    WHERE,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
@@ -41,6 +52,102 @@ TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
 TIMESTAMP_WITH_LOCAL_TIME_ZONE = "timestamp with local time zone"
 
 
+class SnowflakeMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
+    """Primary-key introspection for Snowflake.
+
+    Snowflake's INFORMATION_SCHEMA has a TABLE_CONSTRAINTS view but NO KEY_COLUMN_USAGE view,
+    so the base information_schema JOIN would raise a compilation error. The key columns only
+    come from SHOW PRIMARY KEYS — but SHOW caps its output at ~10K rows, so one schema-wide
+    SHOW silently drops PKs for tables past the cap in a large schema. Two steps instead:
+
+    1. build_sql_statement queries TABLE_CONSTRAINTS (a real view: filterable, no row cap)
+       for which of the requested tables have a PRIMARY KEY constraint.
+    2. One ``SHOW PRIMARY KEYS IN TABLE`` per such table — its output is that table's key
+       columns only, far below any cap — ordered by key_sequence.
+    """
+
+    def execute(self, dataset_prefixes: list[str], dataset_names: list[str]) -> dict[str, list[str]]:
+        if not dataset_names:
+            return {}
+        namespace: DataSourceNamespace = self._build_namespace(dataset_prefixes)
+        select_statement: list = self.build_sql_statement(table_namespace=namespace, table_names=dataset_names)
+        sql: str = self.sql_dialect.build_select_sql(select_statement)
+        # TABLE_CONSTRAINTS returns table names in Snowflake's stored casing; reuse them verbatim
+        # to qualify the SHOW statements and key the result.
+        tables_with_primary_key: list[str] = [
+            row[0] for row in self.data_source_connection.execute_query(sql).rows if row and row[0]
+        ]
+
+        database_name: str | None = namespace.get_database_for_metadata_query()
+        schema_name: str = namespace.get_schema_for_metadata_query()
+        primary_keys_by_table: dict[str, list[str]] = {}
+        for table_name in tables_with_primary_key:
+            name_parts: list[str] = ([database_name] if database_name else []) + [schema_name, table_name]
+            qualified_table: str = ".".join(self.sql_dialect.quote_default(part) for part in name_parts)
+            show_result: QueryResult = self.data_source_connection.execute_query(
+                f"SHOW PRIMARY KEYS IN TABLE {qualified_table}"
+            )
+            primary_keys_by_table[table_name] = self._ordered_key_columns(show_result)
+        return primary_keys_by_table
+
+    def build_sql_statement(self, table_namespace: DataSourceNamespace, table_names: list[str]) -> list:
+        """Selects the requested tables that have a PRIMARY KEY constraint from
+        INFORMATION_SCHEMA.TABLE_CONSTRAINTS (which exists on Snowflake; KEY_COLUMN_USAGE does not).
+        """
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+        information_schema = self.sql_dialect.information_schema_namespace_elements(table_namespace)
+
+        return [
+            SELECT([COLUMN(self.sql_dialect.column_table_name())]),
+            FROM(self.table_table_constraints()).IN(information_schema),
+            WHERE(
+                AND(
+                    [
+                        EQ(
+                            COLUMN(self.column_constraint_type()),
+                            LITERAL(self.primary_key_constraint_type_value()),
+                        ),
+                        *(
+                            [
+                                EQ(
+                                    COLUMN(self.sql_dialect.column_table_catalog()),
+                                    LITERAL(self.sql_dialect.metadata_casify(database_name)),
+                                )
+                            ]
+                            if database_name
+                            else []
+                        ),
+                        EQ(
+                            COLUMN(self.sql_dialect.column_table_schema()),
+                            LITERAL(self.sql_dialect.metadata_casify(schema_name)),
+                        ),
+                        IN(
+                            COLUMN(self.sql_dialect.column_table_name()),
+                            [LITERAL(self.sql_dialect.metadata_casify(name)) for name in table_names],
+                        ),
+                    ]
+                )
+            ),
+        ]
+
+    @staticmethod
+    def _ordered_key_columns(show_result: QueryResult) -> list[str]:
+        """Extracts the key column names from one table's SHOW PRIMARY KEYS output, ordered by
+        key_sequence (the 1-based position within the key). Columns are located by name in the
+        cursor description rather than by position, so a change in SHOW's output order fails
+        loud instead of silently mis-parsing."""
+        column_names: list[str] = [str(column[0]).lower() for column in show_result.columns]
+        column_name_index: int = column_names.index("column_name")
+        key_sequence_index: int = column_names.index("key_sequence")
+        ordered_columns: list[tuple[int, str]] = sorted(
+            (int(row[key_sequence_index]), row[column_name_index])
+            for row in show_result.rows
+            if row[column_name_index] is not None
+        )
+        return [column_name for _, column_name in ordered_columns]
+
+
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
     def __init__(self, data_source_model: SnowflakeDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
@@ -51,6 +158,13 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SnowflakeDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+        )
+
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        # TABLE_CONSTRAINTS + per-table SHOW PRIMARY KEYS: Snowflake has no KEY_COLUMN_USAGE
+        # view, and a schema-wide SHOW caps at ~10K rows. See SnowflakeMetadataPrimaryKeysQuery.
+        return SnowflakeMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
@@ -102,6 +216,9 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         string_literal: str = value.replace("\\", "\\\\")
         string_literal = string_literal.replace("'", "''")
         return string_literal
+
+    def supports_primary_keys(self) -> bool:
+        return True
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()

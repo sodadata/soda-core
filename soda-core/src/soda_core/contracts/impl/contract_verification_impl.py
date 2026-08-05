@@ -194,6 +194,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        logs: Optional[Logs] = None,
         **kwargs,
     ):
         # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
@@ -215,7 +216,10 @@ class ContractVerificationSessionImpl:
         if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
             soda_cloud_use_runner_blocking_timeout_in_minutes = 60
 
-        logs: Logs = Logs()
+        # A caller-supplied collector (the CLI failure-reporting wrapper's) is reused so
+        # every session record reaches its failure report; constructing an inner Logs
+        # here would displace the caller's active collector.
+        logs: Logs = logs if logs is not None else Logs()
 
         # Validate input contract_yaml_sources
         assert isinstance(contract_yaml_sources, list)

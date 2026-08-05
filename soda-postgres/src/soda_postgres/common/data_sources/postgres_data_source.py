@@ -31,12 +31,18 @@ from soda_core.common.sql_ast import (
     WHERE,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_primary_keys_query import (
+    MetadataPrimaryKeysQuery,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
+)
+from soda_postgres.statements.postgres_metadata_primary_keys_query import (
+    PostgresMetadataPrimaryKeysQuery,
 )
 from soda_postgres.statements.postgres_metadata_tables_query import (
     PostgresMetadataTablesQuery,
@@ -67,6 +73,13 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
+    def create_metadata_primary_keys_query(self) -> MetadataPrimaryKeysQuery:
+        # Reads pg_catalog, not information_schema: the latter is privilege-filtered and returns
+        # nothing for a read-only user. See PostgresMetadataPrimaryKeysQuery.
+        return PostgresMetadataPrimaryKeysQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
 
 class PostgresSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
@@ -84,6 +97,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     )
 
     def supports_materialized_views(self) -> bool:
+        return True
+
+    def supports_primary_keys(self) -> bool:
         return True
 
     def is_system_schema(self, schema_name: str) -> bool:

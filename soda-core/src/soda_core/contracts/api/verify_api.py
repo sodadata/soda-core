@@ -5,6 +5,7 @@ from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import (
     ContractYamlSource,
@@ -263,6 +264,7 @@ def verify_contract(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
+    logs: Optional[Logs] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -290,61 +292,58 @@ def verify_contract(
     else:
         contract_file_paths = None
 
+    # Failures propagate raw, without touching Cloud: the CLI failure boundary
+    # (``run_with_failure_reporting``) owns the single mark-scan-failed, and a
+    # mark here would duplicate it (double backend scan-ended events).
+    # Programmatic callers get the exception and own the reporting decision.
     soda_cloud_client: Optional[SodaCloud] = None
-    try:
-        if soda_cloud_file_path:
-            soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
+    if soda_cloud_file_path:
+        soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
 
-        # TODO: verify the path where connection is provided
-        validate_verify_arguments(
-            contract_file_paths,
-            dataset_identifiers,
-            data_source_file_paths,
-            data_sources,
-            publish,
-            use_runner,
-            soda_cloud_client,
-        )
+    # TODO: verify the path where connection is provided
+    validate_verify_arguments(
+        contract_file_paths,
+        dataset_identifiers,
+        data_source_file_paths,
+        data_sources,
+        publish,
+        use_runner,
+        soda_cloud_client,
+    )
 
-        contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
+    contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
 
-        if len(contract_yaml_sources) == 0:
-            soda_logger.debug("No contracts given. Exiting.")
-            return ContractVerificationSessionResult(contract_verification_results=[])
+    if len(contract_yaml_sources) == 0:
+        soda_logger.debug("No contracts given. Exiting.")
+        return ContractVerificationSessionResult(contract_verification_results=[])
 
-        data_source_yaml_sources: list[DataSourceYamlSource] = []
-        if data_source_file_paths:
-            data_source_yaml_sources.extend(
-                build_data_source_yaml_sources(data_source_file_paths, use_runner=use_runner)
-            )
+    data_source_yaml_sources: list[DataSourceYamlSource] = []
+    if data_source_file_paths:
+        data_source_yaml_sources.extend(build_data_source_yaml_sources(data_source_file_paths, use_runner=use_runner))
 
-        contract_verification_result = ContractVerificationSession.execute(
-            contract_yaml_sources=contract_yaml_sources,
-            data_source_yaml_sources=data_source_yaml_sources,
-            data_source_impls=data_sources,
-            soda_cloud_impl=soda_cloud_client,
-            variables=variables,
-            data_timestamp=data_timestamp,
-            only_validate_without_execute=False,
-            soda_cloud_publish_results=publish,
-            soda_cloud_use_runner=use_runner,
-            soda_cloud_verbose=verbose,
-            soda_cloud_use_runner_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-            check_paths=check_paths,
-            check_selectors=check_selectors,
-            dwh_data_source_file_path=dwh_data_source_file_path,
-        )
+    contract_verification_result = ContractVerificationSession.execute(
+        contract_yaml_sources=contract_yaml_sources,
+        data_source_yaml_sources=data_source_yaml_sources,
+        data_source_impls=data_sources,
+        soda_cloud_impl=soda_cloud_client,
+        variables=variables,
+        data_timestamp=data_timestamp,
+        only_validate_without_execute=False,
+        soda_cloud_publish_results=publish,
+        soda_cloud_use_runner=use_runner,
+        soda_cloud_verbose=verbose,
+        soda_cloud_use_runner_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        check_paths=check_paths,
+        check_selectors=check_selectors,
+        dwh_data_source_file_path=dwh_data_source_file_path,
+        logs=logs,
+    )
 
-        soda_telemetry.ingest_contract_verification_session_result(
-            contract_verification_session_result=contract_verification_result
-        )
+    soda_telemetry.ingest_contract_verification_session_result(
+        contract_verification_session_result=contract_verification_result
+    )
 
-        return contract_verification_result
-    except Exception as exc:
-        soda_logger.error(exc)
-        if soda_cloud_client:
-            soda_cloud_client.mark_scan_as_failed(exc=exc)
-        raise exc
+    return contract_verification_result
 
 
 def validate_verify_arguments(
