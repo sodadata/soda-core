@@ -711,8 +711,28 @@ class ThresholdCheckYaml(CheckYaml):
         return []
 
 
+SEVERITY_BLOCK_ALLOWED_KEYS: set = {
+    "must_be_greater_than",
+    "must_be_greater_than_or_equal",
+    "must_be_less_than",
+    "must_be_less_than_or_equal",
+    "must_be",
+    "must_not_be",
+    "must_be_between",
+    "must_be_not_between",
+}
+
+
 class ThresholdYaml:
-    def __init__(self, threshold_yaml_object: YamlObject):
+    def __init__(self, threshold_yaml_object: YamlObject, is_severity_block: bool = False):
+        if is_severity_block:
+            for key in threshold_yaml_object.keys():
+                if key not in SEVERITY_BLOCK_ALLOWED_KEYS:
+                    logger.error(
+                        msg=f"'{key}' is not allowed in a severity block. "
+                        f"Allowed: one of {sorted(SEVERITY_BLOCK_ALLOWED_KEYS)}",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                    )
         self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
         self.must_be_greater_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt(
             "must_be_greater_than_or_equal"
@@ -728,6 +748,44 @@ class ThresholdYaml:
             threshold_yaml_object, "must_be_not_between"
         )
         self.level: str = threshold_yaml_object.read_string_opt("level", default_value="fail")
+
+        self.fail_block: Optional[ThresholdYaml] = None
+        self.warn_block: Optional[ThresholdYaml] = None
+        if not is_severity_block:
+            fail_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("fail")
+            warn_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("warn")
+            for key, block_yaml_object in (("fail", fail_yaml_object), ("warn", warn_yaml_object)):
+                if block_yaml_object is None and threshold_yaml_object.has_key(key):
+                    logger.error(
+                        msg=f"'{key}' severity block is empty. It must contain exactly one comparison "
+                        f"(one must_be_* key, or one must_be_between/must_be_not_between range)",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                    )
+            if fail_yaml_object is not None:
+                self.fail_block = ThresholdYaml(fail_yaml_object, is_severity_block=True)
+            if warn_yaml_object is not None:
+                self.warn_block = ThresholdYaml(warn_yaml_object, is_severity_block=True)
+            if self.has_severity_blocks():
+                if self.has_any_configurations():
+                    logger.error(
+                        msg="Top-level threshold comparisons cannot be combined with fail:/warn: severity blocks",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
+                    )
+                if threshold_yaml_object.has_key("level"):
+                    logger.error(
+                        msg="'level' cannot be combined with fail:/warn: severity blocks",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key("level")},
+                    )
+                for block in (self.fail_block, self.warn_block):
+                    if block is not None and not block.has_exactly_one_comparison_or_range():
+                        logger.error(
+                            msg="A severity block must contain exactly one comparison "
+                            "(one must_be_* key, or one must_be_between/must_be_not_between range)",
+                            extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
+                        )
+
+    def has_severity_blocks(self) -> bool:
+        return self.fail_block is not None or self.warn_block is not None
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:
@@ -750,8 +808,8 @@ class ThresholdYaml:
             > 0
         )
 
-    def has_exactly_one_comparison(self) -> bool:
-        comparator_count: int = self.__config_count(
+    def __comparator_count(self) -> int:
+        return self.__config_count(
             [
                 self.must_be_greater_than,
                 self.must_be_greater_than_or_equal,
@@ -761,8 +819,19 @@ class ThresholdYaml:
                 self.must_not_be,
             ]
         )
-        between_count: int = self.__config_count([self.must_be_between, self.must_be_not_between])
-        return comparator_count == 1 and between_count == 0
+
+    def __between_count(self) -> int:
+        return self.__config_count([self.must_be_between, self.must_be_not_between])
+
+    def has_exactly_one_comparison(self) -> bool:
+        """Exactly one single-value comparator (must_be_*) and no between range."""
+        return self.__comparator_count() == 1 and self.__between_count() == 0
+
+    def has_exactly_one_comparison_or_range(self) -> bool:
+        """Exactly one comparison: either one single-value comparator, or one between range."""
+        comparator_count: int = self.__comparator_count()
+        between_count: int = self.__between_count()
+        return (comparator_count == 1 and between_count == 0) or (comparator_count == 0 and between_count == 1)
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):

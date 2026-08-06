@@ -1179,27 +1179,274 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "metric": true
                 },
-                "required": [
-                    "metric"
-                ]
+                "level": {
+                    "description": "Deprecated: threshold severity when the check fails. Use the fail: and warn: severity blocks instead.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "fail": {
+                    "description": "Fail-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                },
+                "warn": {
+                    "description": "Warn-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                }
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "$ref": "#/$defs/threshold_shape_rules"
                 }
             ]
+        },
+        "threshold_shape_rules": {
+            "description": "Constraints shared by threshold and thresholdFreshness. (1) fail:/warn: severity blocks cannot be combined with the flat must_be_* comparisons. (2) Severity blocks cannot be combined with the deprecated level. (3) Outside severity blocks, at most one flat must_be_* comparison may be given; two flat comparisons build no threshold at all in the engine.",
+            "allOf": [
+                {
+                    "description": "No severity block together with a flat comparison.",
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "must_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_not_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_between"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_not_between"
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "description": "No severity block together with the deprecated level.",
+                    "not": {
+                        "allOf": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "fail"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "warn"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "level"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "description": "At most one flat must_be_* comparison: exactly one of them, or none at all.",
+                    "oneOf": [
+                        {
+                            "required": [
+                                "must_be"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_not_be"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_greater_than"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_greater_than_or_equal"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_less_than"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_less_than_or_equal"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_between"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "must_be_not_between"
+                            ]
+                        },
+                        {
+                            "not": {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "must_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_not_be"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_greater_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_less_than_or_equal"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_between"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "must_be_not_between"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "threshold_conditions": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "A single comparison for one severity. Exactly one of the must_be_* keys.",
+            "properties": {
+                "must_be": {
+                    "description": "Check passes if the metric equals this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_not_be": {
+                    "description": "Check passes if the metric does not equal this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than": {
+                    "description": "Check passes if the metric is greater than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Check passes if the metric is greater than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than": {
+                    "description": "Check passes if the metric is less than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Check passes if the metric is less than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_between": {
+                    "description": "Check passes if the metric is between the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Check passes if the metric is outside the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                }
+            },
+            "minProperties": 1,
+            "maxProperties": 1
         },
         "threshold_between": {
             "type": "object",
@@ -1337,25 +1584,26 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "unit": true
                 },
-                "required": [
-                    "unit"
-                ]
+                "level": {
+                    "description": "Deprecated: threshold severity when the check fails. Use the fail: and warn: severity blocks instead.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "fail": {
+                    "description": "Fail-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                },
+                "warn": {
+                    "description": "Warn-severity threshold. Cannot be combined with top-level must_be_* keys or level.",
+                    "$ref": "#/$defs/threshold_conditions"
+                }
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "$ref": "#/$defs/threshold_shape_rules"
                 }
             ]
         }
