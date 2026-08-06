@@ -78,3 +78,19 @@ def test_fail_only_unchanged():
         "lessThanOrEqual": 0,
     }
     assert diagnostics["warn"] is None
+
+
+def test_log_table_row_shows_both_thresholds():
+    row = build_check_result(
+        threshold=Threshold(level="fail", must_be_greater_than=10),
+        warn_threshold=Threshold(level="warn", must_be_greater_than=100),
+    ).log_table_row()
+    assert "level: fail" in str(row["Threshold"])
+    assert "must be greater than: 10" in str(row["Threshold"])
+    assert "level: warn" in str(row["Threshold"])
+    assert "must be greater than: 100" in str(row["Threshold"])
+
+
+def test_log_table_row_single_threshold_unchanged():
+    row = build_check_result(threshold=Threshold(level="fail", must_be_greater_than=10)).log_table_row()
+    assert row["Threshold"] == Threshold(level="fail", must_be_greater_than=10)

@@ -448,7 +448,11 @@ class CheckResult:
         row = {}
         row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
         row["Check"] = self.check.name
-        row["Threshold"] = self.check.threshold
+        row["Threshold"] = (
+            f"{self.check.threshold}\n{self.check.warn_threshold}"
+            if self.check.warn_threshold
+            else self.check.threshold
+        )
         row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
 
         if is_verbose():
