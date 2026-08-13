@@ -1792,7 +1792,7 @@ def _build_check_collection_results_json_dict(
 
     - ``scanStartTimestamp`` = min of per-result starts
     - ``scanEndTimestamp`` = max of per-result ends
-    - ``hasErrors``/``hasWarns``/``hasFailures`` = ORs over per-result flags
+    - ``hasErrors``/``hasWarnings``/``hasFailures`` = ORs over per-result flags
     - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results
     - ``postProcessingStages`` = de-duped by name (the backend tracks
       one ONGOING stage per scan)
@@ -1869,7 +1869,7 @@ def _build_check_collection_results_json_dict(
         "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
         "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
         "hasErrors": any(r.has_errors for r in results),
-        "hasWarns": any(r.is_warned for r in results),
+        "hasWarnings": any(r.is_warned for r in results),
         "hasFailures": any(r.is_failed for r in results),
         # Empty checks list serialises as ``None`` to match the legacy
         # combined-builder behaviour the backend already accepts.
