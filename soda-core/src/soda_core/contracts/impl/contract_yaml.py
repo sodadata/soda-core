@@ -711,7 +711,7 @@ class ThresholdCheckYaml(CheckYaml):
         return []
 
 
-SEVERITY_BLOCK_ALLOWED_KEYS: set = {
+THRESHOLD_COMPARISON_KEYS: set = {
     "must_be_greater_than",
     "must_be_greater_than_or_equal",
     "must_be_less_than",
@@ -722,15 +722,25 @@ SEVERITY_BLOCK_ALLOWED_KEYS: set = {
     "must_be_not_between",
 }
 
+# An 'additional' threshold is one more comparison with its own level. It carries no
+# 'metric'/'unit' (those are the enclosing threshold's) and no nested 'additional'.
+ADDITIONAL_THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level"}
+
+_ADDITIONAL_ARITY_MESSAGE: str = (
+    "It must contain exactly one comparison "
+    "(one must_be_* key, or one must_be_between/must_be_not_between range) "
+    "and an optional 'level'"
+)
+
 
 class ThresholdYaml:
-    def __init__(self, threshold_yaml_object: YamlObject, is_severity_block: bool = False):
-        if is_severity_block:
+    def __init__(self, threshold_yaml_object: YamlObject, is_additional: bool = False):
+        if is_additional:
             for key in threshold_yaml_object.keys():
-                if key not in SEVERITY_BLOCK_ALLOWED_KEYS:
+                if key not in ADDITIONAL_THRESHOLD_ALLOWED_KEYS:
                     logger.error(
-                        msg=f"'{key}' is not allowed in a severity block. "
-                        f"Allowed: one of {sorted(SEVERITY_BLOCK_ALLOWED_KEYS)}",
+                        msg=f"'{key}' is not allowed in an 'additional' threshold. "
+                        f"Allowed: one of {sorted(THRESHOLD_COMPARISON_KEYS)} and 'level'",
                         extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
                     )
         self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
@@ -749,43 +759,40 @@ class ThresholdYaml:
         )
         self.level: str = threshold_yaml_object.read_string_opt("level", default_value="fail")
 
-        self.fail_block: Optional[ThresholdYaml] = None
-        self.warn_block: Optional[ThresholdYaml] = None
-        if not is_severity_block:
-            fail_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("fail")
-            warn_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("warn")
-            for key, block_yaml_object in (("fail", fail_yaml_object), ("warn", warn_yaml_object)):
-                if block_yaml_object is None and threshold_yaml_object.has_key(key):
+        self.additional: Optional[ThresholdYaml] = None
+        if not is_additional:
+            additional_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("additional")
+            if additional_yaml_object is None and threshold_yaml_object.has_key("additional"):
+                logger.error(
+                    msg=f"'additional' threshold is empty. {_ADDITIONAL_ARITY_MESSAGE}",
+                    extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key("additional")},
+                )
+            if additional_yaml_object is not None:
+                self.additional = ThresholdYaml(additional_yaml_object, is_additional=True)
+                if not self.additional.has_exactly_one_comparison_or_range():
                     logger.error(
-                        msg=f"'{key}' severity block is empty. It must contain exactly one comparison "
-                        f"(one must_be_* key, or one must_be_between/must_be_not_between range)",
-                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                        msg=f"An 'additional' threshold is invalid. {_ADDITIONAL_ARITY_MESSAGE}",
+                        extra={ExtraKeys.LOCATION: additional_yaml_object.location},
                     )
-            if fail_yaml_object is not None:
-                self.fail_block = ThresholdYaml(fail_yaml_object, is_severity_block=True)
-            if warn_yaml_object is not None:
-                self.warn_block = ThresholdYaml(warn_yaml_object, is_severity_block=True)
-            if self.has_severity_blocks():
-                if self.has_any_configurations():
+                if not self.has_any_configurations():
                     logger.error(
-                        msg="Top-level threshold comparisons cannot be combined with fail:/warn: severity blocks",
+                        msg="A threshold with an 'additional' threshold must specify a comparison itself "
+                        "(one must_be_* key, or one must_be_between/must_be_not_between range)",
                         extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
                     )
-                if threshold_yaml_object.has_key("level"):
+                # 'fail' is the level of a threshold that does not specify one, so two
+                # thresholds without a level are both fail-level: a conflict.
+                if self.get_effective_level() == self.additional.get_effective_level():
                     logger.error(
-                        msg="'level' cannot be combined with fail:/warn: severity blocks",
-                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key("level")},
+                        msg=f"The threshold level '{self.get_effective_level()}' and the 'additional' threshold "
+                        f"level '{self.additional.get_effective_level()}' must be different. "
+                        f"'fail' is the level of a threshold without a 'level'",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
                     )
-                for block in (self.fail_block, self.warn_block):
-                    if block is not None and not block.has_exactly_one_comparison_or_range():
-                        logger.error(
-                            msg="A severity block must contain exactly one comparison "
-                            "(one must_be_* key, or one must_be_between/must_be_not_between range)",
-                            extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
-                        )
 
-    def has_severity_blocks(self) -> bool:
-        return self.fail_block is not None or self.warn_block is not None
+    def get_effective_level(self) -> str:
+        """The level this threshold is evaluated at. Absent 'level' means 'fail'."""
+        return self.level.lower() if isinstance(self.level, str) else "fail"
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:

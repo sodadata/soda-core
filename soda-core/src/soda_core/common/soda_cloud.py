@@ -2137,9 +2137,9 @@ def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
 def _build_warn_threshold(check_result: CheckResult) -> Optional[dict]:
     """Bounds of the warn-severity threshold, or None when the check has none.
 
-    Two sources: the dedicated ``warn_threshold`` (both severity blocks present)
-    and a lone primary threshold carrying ``level: warn`` (the legacy form, which
-    lives in ``threshold``).
+    Two sources: the dedicated ``warn_threshold`` (a threshold and its ``additional``
+    threshold) and a lone primary threshold carrying ``level: warn`` (which lives in
+    ``threshold``).
     """
     if check_result.check.warn_threshold:
         return _build_threshold_conditions(check_result.check.warn_threshold, check_result)

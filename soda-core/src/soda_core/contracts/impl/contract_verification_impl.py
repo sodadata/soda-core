@@ -861,6 +861,24 @@ class ThresholdLevel(Enum):
             return ThresholdLevel.FAIL
 
 
+def split_threshold_yamls_by_level(
+    threshold_yaml: ThresholdYaml,
+) -> tuple[ThresholdYaml, ThresholdLevel, ThresholdYaml]:
+    """Assign a threshold and its `additional` threshold to the impl slots by level.
+
+    Returns (primary_threshold_yaml, primary_level, other_threshold_yaml). The
+    FAIL-level threshold takes the primary slot — that is the outer one unless the
+    outer one is the warn threshold and the additional one is the fail threshold.
+    Contract parsing rejects two thresholds with the same effective level, so exactly
+    one of them is the fail threshold.
+    """
+    outer_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
+    additional_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.additional.level)
+    if outer_level == ThresholdLevel.WARN and additional_level == ThresholdLevel.FAIL:
+        return threshold_yaml.additional, ThresholdLevel.FAIL, threshold_yaml
+    return threshold_yaml, outer_level, threshold_yaml.additional
+
+
 class ThresholdImpl:
     @classmethod
     def create(
@@ -873,12 +891,12 @@ class ThresholdImpl:
                 logger.error(f"Threshold required, but not specified")
                 return None
 
-        if threshold_yaml.has_severity_blocks():
-            # fail block wins the primary slot; a warn-only threshold maps onto the
-            # primary slot at WARN level — same shape as the legacy `level: warn`.
-            if threshold_yaml.fail_block:
-                return cls.create_from_comparisons(threshold_yaml.fail_block, ThresholdLevel.FAIL)
-            return cls.create_from_comparisons(threshold_yaml.warn_block, ThresholdLevel.WARN)
+        if threshold_yaml.additional is not None:
+            # Two thresholds: the FAIL-level one takes the primary slot, whether it is
+            # the outer threshold or the additional one. Defaults never apply here —
+            # a threshold with an `additional` always carries its own comparison.
+            primary_threshold_yaml, primary_level, _ = split_threshold_yamls_by_level(threshold_yaml)
+            return cls.create_from_comparisons(primary_threshold_yaml, primary_level)
 
         threshold_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
 
@@ -1179,14 +1197,12 @@ class CheckImpl:
         self.threshold: Optional[ThresholdImpl] = None
         self.warn_threshold: Optional[ThresholdImpl] = None
         check_threshold_yaml: Optional[ThresholdYaml] = getattr(check_yaml, "threshold", None)
-        if (
-            check_threshold_yaml is not None
-            and check_threshold_yaml.fail_block is not None
-            and check_threshold_yaml.warn_block is not None
-        ):
-            self.warn_threshold = ThresholdImpl.create_from_comparisons(
-                check_threshold_yaml.warn_block, ThresholdLevel.WARN
-            )
+        if check_threshold_yaml is not None and check_threshold_yaml.additional is not None:
+            # Only a threshold + additional threshold pair fills the warn slot: the one
+            # of the two that is not in the primary (fail) slot. A single warn-level
+            # threshold keeps the primary slot, as it always has.
+            _, _, warn_threshold_yaml = split_threshold_yamls_by_level(check_threshold_yaml)
+            self.warn_threshold = ThresholdImpl.create_from_comparisons(warn_threshold_yaml, ThresholdLevel.WARN)
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
