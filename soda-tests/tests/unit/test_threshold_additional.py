@@ -1,8 +1,15 @@
 import logging
 
+import duckdb
 from helpers.impl_test_helpers import build_contract_impl
 from helpers.test_functions import dedent_and_strip
-from soda_core.common.yaml import ContractYamlSource, YamlObject
+from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, YamlObject
+from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
+    CheckOutcome,
+    ContractVerificationSession,
+)
 from soda_core.contracts.impl.contract_verification_impl import (
     ThresholdImpl,
     ThresholdLevel,
@@ -202,7 +209,117 @@ def test_additional_with_two_comparisons_is_error(caplog):
 def test_null_additional_is_error(caplog):
     threshold_yaml = parse_threshold_yaml("must_be_less_than: 10\nadditional:")
     assert threshold_yaml.additional is None
-    assert "'additional' threshold is empty" in caplog.text
+    assert "'additional' threshold must be an object" in caplog.text
+
+
+def test_invalid_additional_does_not_also_report_a_level_conflict(caplog):
+    """The level of an additional without a comparison is noise on top of the arity error."""
+    parse_threshold_yaml("must_be_less_than: 10\nadditional: {}")
+    assert "exactly one comparison" in caplog.text
+    assert "must be different" not in caplog.text
+
+
+def test_two_outer_comparisons_with_additional_is_error(caplog):
+    """Regression: the outer threshold is one comparison too.
+
+    Without this rule ThresholdImpl.create returns None for the fail slot with zero
+    errors — the check stays NOT_EVALUATED forever while a warn threshold is still
+    uploaded to Cloud.
+    """
+    parse_threshold_yaml(
+        """
+        must_be_greater_than: 10
+        must_be_less_than: 1000
+        additional:
+          must_be_greater_than: 100
+          level: warn
+        """
+    )
+    assert "must specify exactly one comparison itself" in caplog.text
+    assert "must_be_greater_than, must_be_less_than" in caplog.text
+
+
+def test_two_outer_comparisons_without_additional_is_unchanged(caplog):
+    """A flat multi-comparison threshold keeps its (silent) legacy behaviour."""
+    parse_threshold_yaml("must_be_greater_than: 10\nmust_be_less_than: 1000")
+    assert_no_errors(caplog)
+
+
+def test_outer_range_plus_comparison_with_additional_is_error(caplog):
+    parse_threshold_yaml(
+        """
+        must_be_greater_than: 10
+        must_be_between:
+          greater_than: 0
+          less_than: 100
+        additional:
+          must_be_greater_than: 100
+          level: warn
+        """
+    )
+    assert "must specify exactly one comparison itself" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Level normalization: validation and slot assignment must agree
+# ---------------------------------------------------------------------------
+
+
+def test_unrecognized_outer_level_with_bare_additional_is_error(caplog):
+    """Regression: 'warning' evaluates as 'fail', so this is a fail/fail conflict.
+
+    Comparing the raw strings ('warning' != 'fail') let this through and inverted the
+    slots: the intended warn threshold became the fail one.
+    """
+    parse_threshold_yaml(
+        """
+        must_be_greater_than: 5
+        level: warning
+        additional:
+          must_be_greater_than: 1
+        """
+    )
+    assert "must be different" in caplog.text
+    assert "(from 'warning')" in caplog.text
+
+
+def test_unrecognized_outer_level_with_warn_additional_is_valid(caplog):
+    """'warning' is a fail level, so pairing it with a warn additional is legal."""
+    parse_threshold_yaml(
+        """
+        must_be_greater_than: 10
+        level: warning
+        additional:
+          must_be_greater_than: 100
+          level: warn
+        """
+    )
+    assert_no_errors(caplog)
+
+
+def test_empty_outer_level_with_bare_additional_is_error(caplog):
+    parse_threshold_yaml("must_be_greater_than: 5\nlevel: ''\nadditional:\n  must_be_greater_than: 1")
+    assert "must be different" in caplog.text
+
+
+def test_effective_level_matches_threshold_level_enum():
+    """The two layers derive the level through the same normalization."""
+    for level_str, expected in (
+        ("fail", ThresholdLevel.FAIL),
+        ("FAIL", ThresholdLevel.FAIL),
+        ("warn", ThresholdLevel.WARN),
+        ("WARN", ThresholdLevel.WARN),
+        ("warning", ThresholdLevel.FAIL),
+        ("", ThresholdLevel.FAIL),
+    ):
+        threshold_yaml = parse_threshold_yaml(f"must_be_less_than: 10\nlevel: '{level_str}'")
+        assert ThresholdLevel(threshold_yaml.get_effective_level()) == ThresholdLevel.from_str(level_str)
+        assert ThresholdLevel.from_str(level_str) == expected
+
+
+def test_non_string_level_does_not_raise():
+    """`level: 5` is a YAML type error, not an AttributeError mid-parse."""
+    assert ThresholdLevel.from_str(None) == ThresholdLevel.FAIL
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +367,21 @@ def test_outer_warn_additional_fail_makes_additional_the_primary():
     )
     assert impl.level == ThresholdLevel.FAIL
     assert impl.must_be_less_than == 1
+
+
+def test_unrecognized_outer_level_keeps_outer_in_the_fail_slot():
+    """'warning' is a fail level here too — the slots must not invert."""
+    impl = create_impl(
+        """
+        must_be_greater_than: 10
+        level: warning
+        additional:
+          must_be_greater_than: 100
+          level: warn
+        """
+    )
+    assert impl.level == ThresholdLevel.FAIL
+    assert impl.must_be_greater_than == 10
 
 
 def test_additional_ignores_default_threshold():
@@ -350,3 +482,102 @@ def test_dead_warn_logs_lint_warning(caplog):
             """
         )
     assert "can never produce a warn outcome" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Contract verification aborts on a level conflict
+# ---------------------------------------------------------------------------
+#
+# The whole safety argument for the level-conflict rule is that the error aborts the
+# run: a contract that reaches ThresholdImpl with two fail-level thresholds puts one
+# of them in the warn slot. These tests pin that no check is ever evaluated - on the
+# validate-only path *and* on a real scan.
+
+_CONFLICTING_CONTRACT_YAML = """
+dataset: test_ds/main/{table}
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 10
+        additional:
+          must_be_greater_than: 100
+"""
+
+_LEGAL_CONTRACT_YAML = """
+dataset: test_ds/main/{table}
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_greater_than: 10
+        additional:
+          must_be_greater_than: 100
+          level: warn
+"""
+
+_DUCKDB_DATA_SOURCE_YAML = """
+type: duckdb
+name: test_ds
+connection:
+    database: "{database}"
+    schema: main
+"""
+
+
+def _verify(contract_yaml_str: str, **kwargs):
+    return ContractVerificationSession.execute(
+        contract_yaml_sources=[ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str))],
+        soda_cloud_publish_results=False,
+        soda_cloud_use_runner=False,
+        **kwargs,
+    )
+
+
+def test_conflicting_levels_abort_validation():
+    result = _verify(_CONFLICTING_CONTRACT_YAML.format(table="my_table"), only_validate_without_execute=True)
+
+    assert result.has_errors is True
+    assert "must be different" in result.get_errors_str()
+    assert result.contract_verification_results[0].status == CheckCollectionStatus.ERROR
+    assert result.contract_verification_results[0].check_results == []
+
+
+def _duckdb_data_source(tmp_path, rows: int) -> DataSourceImpl:
+    database_path = tmp_path / "thresholds.duckdb"
+    connection = duckdb.connect(str(database_path))
+    try:
+        connection.execute("CREATE TABLE my_table (id INTEGER)")
+        connection.executemany("INSERT INTO my_table VALUES (?)", [(i,) for i in range(rows)])
+    finally:
+        connection.close()
+    return DataSourceImpl.from_yaml_source(
+        DataSourceYamlSource.from_str(_DUCKDB_DATA_SOURCE_YAML.format(database=database_path))
+    )
+
+
+def test_conflicting_levels_abort_a_real_scan(tmp_path):
+    """Same contract on a real (duckdb) scan: errored, and nothing evaluated."""
+    result = _verify(
+        _CONFLICTING_CONTRACT_YAML.format(table="my_table"),
+        data_source_impls=[_duckdb_data_source(tmp_path, rows=50)],
+    )
+
+    assert result.has_errors is True
+    assert "must be different" in result.get_errors_str()
+    assert result.contract_verification_results[0].status == CheckCollectionStatus.ERROR
+    assert result.contract_verification_results[0].check_results == []
+
+
+def test_legal_levels_do_evaluate_on_a_real_scan(tmp_path):
+    """Control for the test above: the same harness does produce a check result."""
+    result = _verify(
+        _LEGAL_CONTRACT_YAML.format(table="my_table"),
+        data_source_impls=[_duckdb_data_source(tmp_path, rows=50)],
+    )
+
+    assert result.has_errors is False
+    check_results = result.contract_verification_results[0].check_results
+    assert [check_result.outcome for check_result in check_results] == [CheckOutcome.WARN]

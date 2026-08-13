@@ -33,7 +33,7 @@ def build_check_result(threshold: Threshold, warn_threshold: Threshold = None) -
     )
 
 
-def test_fail_and_warn_blocks_emitted():
+def test_fail_and_warn_conditions_emitted():
     diagnostics = _build_diagnostics_json_dict(
         build_check_result(
             threshold=Threshold(level="fail", must_be_greater_than=10),

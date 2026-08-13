@@ -42,6 +42,8 @@ from soda_core.contracts.impl.contract_yaml import (
     RegexFormat,
     ThresholdYaml,
     ValidReferenceDataYaml,
+    is_known_threshold_level,
+    normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
     DiagnosticsWarehouseFiles,
@@ -850,15 +852,14 @@ class ThresholdLevel(Enum):
     WARN = "warn"
 
     @classmethod
-    def from_str(cls, level_str: str) -> ThresholdLevel:
-        level_str_lower = level_str.lower()
-        if level_str_lower == "fail":
-            return ThresholdLevel.FAIL
-        elif level_str_lower == "warn":
-            return ThresholdLevel.WARN
-        else:
+    def from_str(cls, level_str: Optional[str]) -> ThresholdLevel:
+        # Normalization lives in contract_yaml so the YAML-level validation (which
+        # rejects two thresholds of the same level) and this slot assignment agree on
+        # what each level is. Unrecognized values keep coercing to FAIL, as they always
+        # have; only the warning is new for a non-str level (which used to raise).
+        if not is_known_threshold_level(level_str):
             logger.warning(f"Unknown threshold level '{level_str}', defaulting to 'fail'")
-            return ThresholdLevel.FAIL
+        return ThresholdLevel(normalize_threshold_level(level_str))
 
 
 def split_threshold_yamls_by_level(
