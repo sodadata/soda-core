@@ -3,9 +3,9 @@ from unittest.mock import ANY, patch
 
 import pytest
 from soda_core.cli.cli import create_cli_parser, execute
-from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
+from soda_core.contracts.impl.check_selector import CheckSelector
 
 # from soda_core.cli.soda import CLI
 
