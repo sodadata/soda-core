@@ -3,6 +3,7 @@ from unittest.mock import ANY, patch
 
 import pytest
 from soda_core.cli.cli import create_cli_parser, execute
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
 
@@ -489,3 +490,35 @@ def test_cli_v3_legacy_commands(legacy_command):
         execute()
 
     assert e.value.code == 3
+
+
+def test_check_filter_help_lists_every_supported_field():
+    """The -cf help text must name every field the selector actually accepts.
+
+    These drifted apart: help documented 6 of the 10 supported fields, so
+    relative_path, check_path, source, collection and standard all worked but
+    were undiscoverable. A filter naming a field a user believes unsupported
+    silently matches nothing, and a check selection that matches nothing still
+    exits 0.
+    """
+    verify_parser = (
+        create_cli_parser()
+        ._subparsers._group_actions[0]
+        .choices["contract"]
+        ._subparsers._group_actions[0]
+        .choices["verify"]
+    )
+    check_filter_action = next(
+        action
+        for action in verify_parser._actions
+        if "--check-filter" in action.option_strings
+    )
+
+    undocumented = sorted(
+        field
+        for field in CheckSelector.SUPPORTED_FIELDS
+        if field not in check_filter_action.help
+    )
+    assert not undocumented, (
+        f"--check-filter accepts {undocumented} but --help does not mention them"
+    )

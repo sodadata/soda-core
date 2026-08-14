@@ -223,7 +223,10 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         action="append",
         type=str,
         help="Filter checks by attributes. Format: key=value. "
-        "Supported keys: type, name, column, path, qualifier, attributes.<key>. "
+        # Generated from the parser's own field set so help, error message and
+        # docs cannot drift apart again.
+        f"Supported keys: {', '.join(sorted(CheckSelector.SUPPORTED_FIELDS))}, "
+        f"{CheckSelector.ATTRIBUTES_PREFIX}<key>. "
         "Multiple filters: AND across fields, OR within same field. "
         "Wildcards (* and ?) supported in values. "
         "For list attributes: key=value for member match, key=[a,b] for exact list match. "
