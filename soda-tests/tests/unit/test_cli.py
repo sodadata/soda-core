@@ -508,17 +508,7 @@ def test_check_filter_help_lists_every_supported_field():
         ._subparsers._group_actions[0]
         .choices["verify"]
     )
-    check_filter_action = next(
-        action
-        for action in verify_parser._actions
-        if "--check-filter" in action.option_strings
-    )
+    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
 
-    undocumented = sorted(
-        field
-        for field in CheckSelector.SUPPORTED_FIELDS
-        if field not in check_filter_action.help
-    )
-    assert not undocumented, (
-        f"--check-filter accepts {undocumented} but --help does not mention them"
-    )
+    undocumented = sorted(field for field in CheckSelector.SUPPORTED_FIELDS if field not in check_filter_action.help)
+    assert not undocumented, f"--check-filter accepts {undocumented} but --help does not mention them"
