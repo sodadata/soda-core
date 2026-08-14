@@ -48,7 +48,7 @@ def get_decorators(function):
                 decorators[node.name][group].append({name})
 
     node_iter = ast.NodeVisitor()
-    node_iter.visit_function_def = visit_function_def
+    node_iter.visit_FunctionDef = visit_function_def
     node_iter.visit(ast.parse(textwrap.dedent(inspect.getsource(function))))
     return decorators
 
