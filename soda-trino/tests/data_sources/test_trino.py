@@ -153,7 +153,7 @@ test_connections: list[TestConnection] = [
     # TestConnection(  # real token, should work
     #     test_name="real_jwt_token",
     #     connection_yaml_str=f"""
-    #             type: trino
+    # type: trino
     #             name: TRINO_TEST_DS
     #             connection:
     #                 host: '{TRINO_HOST}'

@@ -59,11 +59,9 @@ def test_contract_without_columns_raises():
     required [dataset, columns]); a columns-less contract fails to parse.
     Data standards allow it absent via DataStandardYaml.columns_required=False."""
     with pytest.raises(ContractParserException):
-        _parse_with_dialect(
-            """
+        _parse_with_dialect("""
             dataset: postgres/db/public/tbl
-            """
-        )
+            """)
 
 
 def test_parse_dataset_qualified_name():
