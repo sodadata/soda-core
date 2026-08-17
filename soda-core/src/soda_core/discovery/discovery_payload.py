@@ -62,9 +62,11 @@ def build_discovery_payload(
         "scanEndTimestamp": convert_datetime_to_str(scan_end_timestamp),
         "hasErrors": False,
         "metadata": [{"datasetQualifiedName": dqn} for dqn in dqns],
-        "logs": [build_log_cloud_json_dict(record, index) for index, record in enumerate(log_records)]
-        if log_records
-        else [],
+        "logs": (
+            [build_log_cloud_json_dict(record, index) for index, record in enumerate(log_records)]
+            if log_records
+            else []
+        ),
         "checks": [],
         "metrics": [],
         "profiling": [],
