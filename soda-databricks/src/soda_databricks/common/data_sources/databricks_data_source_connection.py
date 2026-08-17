@@ -42,7 +42,17 @@ class DatabricksDataSourceConnection(DataSourceConnection):
                 **connection_kwargs,
             )
 
-        # Token (PAT) auth: access_token flows through connection_kwargs unchanged.
+        # Token (PAT) auth: access_token flows through connection_kwargs unchanged. Never hand
+        # the connector a credential-less connect(): with no credentials_provider and a falsy
+        # access_token it falls back to its interactive browser OAuth (U2M) flow, which opens a
+        # browser URL and blocks on localhost:8020 — an infinite hang in a headless run.
+        if not connection_kwargs.get("access_token"):
+            raise ValueError(
+                "Databricks connection has no credentials: 'access_token' is missing or empty and no OAuth "
+                "auth_type is configured. Refusing to connect, because the Databricks SQL connector would "
+                "otherwise start an interactive browser login that cannot complete in a non-interactive run. "
+                "If the token is provided through ${env.VAR}, make sure VAR is set where the verification runs."
+            )
         return sql.connect(
             user_agent_entry="Soda Core",
             **connection_kwargs,
