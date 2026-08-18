@@ -269,3 +269,89 @@ def test_aggregate_function_avg_warn(data_source_test_helper: DataSourceTestHelp
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     assert check_json["diagnostics"]["v4"] == {"type": "aggregate", "datasetRowsTested": 5, "checkRowsTested": 5}
+
+
+# `age` holds 5, NULL, 0, NULL, 10 — so min is 0, max is 10 and sum is 15 over the three non-null
+# values. min/max were absent from this module entirely, which left them asserted nowhere for any data
+# source; sum was only covered in its filtered variant. All three matter for a source whose translator
+# has to render each aggregate separately.
+
+
+def test_aggregate_function_min(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - aggregate:
+                      function: min
+                      threshold:
+                        must_be: 0
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "min") == 0
+
+
+def test_aggregate_function_max(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - aggregate:
+                      function: max
+                      threshold:
+                        must_be: 10
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "max") == 10
+
+
+def test_aggregate_function_sum(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - aggregate:
+                      function: sum
+                      threshold:
+                        must_be: 15
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "sum") == 15
+
+
+def test_aggregate_function_max_with_filter(data_source_test_helper: DataSourceTestHelper):
+    """A filtered aggregate on a function other than sum — the filter and the null guard combine."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    quoted_country_column_name: str = data_source_test_helper.quote_column("country")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                checks:
+                  - aggregate:
+                      function: max
+                      filter: |
+                        {quoted_country_column_name} = 'USA'
+                      threshold:
+                        must_be: 5
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "max") == 5
