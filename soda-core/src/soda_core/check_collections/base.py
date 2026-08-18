@@ -592,7 +592,12 @@ class CheckCollectionImpl:
             if self.dataset_configuration.compute_warehouse_override:
                 self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
 
-        if self.should_apply_sampling:
+        # Nothing is claimed or built when the source cannot sample. This is the load-bearing half:
+        # without it .SAMPLE() attaches to the CTE and query BUILDING reaches the dialect's
+        # _build_sample_sql, which raises NotImplementedError during __init__ — before the execute loop
+        # exists to catch anything — so the whole verification aborts. The execute-time guard below
+        # turns the refusal into NOT_EVALUATED plus a message; it cannot prevent that abort on its own.
+        if self.should_apply_sampling and not self.sampling_is_unsupported:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
                 f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', "
@@ -663,6 +668,20 @@ class CheckCollectionImpl:
     @property
     def should_apply_sampling(self) -> bool:
         return self.is_test_verification_on_runner and self.is_sampling_enabled
+
+    @property
+    def sampling_is_unsupported(self) -> bool:
+        """Sampling was requested, and this data source cannot honor it.
+
+        Keyed on the dialect's own capability, which defaults to supported — so a source only reaches
+        this by declaring it cannot sample. Sampling is configured per dataset, so when it applies it
+        applies to every check on that dataset.
+        """
+        return (
+            self.should_apply_sampling
+            and self.data_source_impl is not None
+            and not self.data_source_impl.sql_dialect.supports_row_sampling()
+        )
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         keys: list[str] = self.yaml.yaml_object.keys()
@@ -840,12 +859,23 @@ class CheckCollectionImpl:
             # A SodaCoreException from one query (e.g. an aggregation referencing a column
             # that has been dropped) must not abort the scan — other queries, including the
             # schema query, still need to run so the user sees the real cause.
-            for query in self.queries:
-                try:
-                    query_measurements: list[Measurement] = query.execute()
-                    measurements.extend(query_measurements)
-                except SodaCoreException as e:
-                    logger.error(f"Query execution failed, continuing with remaining checks: {e}")
+            if self.sampling_is_unsupported:
+                # Leaving every metric unmeasured, so each check reports NOT_EVALUATED. Running the
+                # queries anyway would silently return full-scan numbers as though they were sampled,
+                # which is a wrong answer rather than a missing one.
+                logger.error(
+                    f"Row sampling was requested for dataset {self.dataset_identifier.to_string()}, but "
+                    f"data source '{self.data_source_impl.name}' of type "
+                    f"'{self.data_source_impl.type_name}' cannot sample rows. No checks were evaluated. "
+                    f"Remove the sampling configuration for this dataset to run them against all rows."
+                )
+            else:
+                for query in self.queries:
+                    try:
+                        query_measurements: list[Measurement] = query.execute()
+                        measurements.extend(query_measurements)
+                    except SodaCoreException as e:
+                        logger.error(f"Query execution failed, continuing with remaining checks: {e}")
 
             measurement_values: MeasurementValues = MeasurementValues(measurements)
 
