@@ -66,8 +66,9 @@ def test_build_sql_statement(database_name, schema_name, object_type, expected_s
 
 
 def test_invalid_object_type_raises():
+    query = _query()
     with pytest.raises(ValueError, match="Invalid object type to fetch"):
-        _query().build_sql_statement(
+        query.build_sql_statement(
             database_name="my_uc_catalog",
             schema_name="soda_diagnostics",
             object_type_to_fetch=TableType.MATERIALIZED_VIEW,
