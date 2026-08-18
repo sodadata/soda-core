@@ -1199,101 +1199,10 @@
             ]
         },
         "threshold_rules": {
-            "description": "Constraints shared by threshold and thresholdFreshness. (1) At most one flat must_be_* comparison may be given; two flat comparisons build no threshold at all in the engine. (2) A threshold with an 'additional' threshold must specify a comparison itself. (3) The level of the threshold and the level of its 'additional' threshold must differ, where an absent level means 'fail'.",
+            "description": "Constraints shared by threshold and thresholdFreshness. (1) A threshold with an 'additional' threshold must specify exactly one comparison itself; without an 'additional' threshold the comparisons are not constrained here, mirroring the engine, which silently builds no threshold from a flat multi-comparison threshold. (2) The level of the threshold and the level of its 'additional' threshold must differ, where an absent level means 'fail'.",
             "allOf": [
                 {
-                    "description": "At most one flat must_be_* comparison: exactly one of them, or none at all.",
-                    "oneOf": [
-                        {
-                            "required": [
-                                "must_be"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_not_be"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_greater_than"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_greater_than_or_equal"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_less_than"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_less_than_or_equal"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_between"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "must_be_not_between"
-                            ]
-                        },
-                        {
-                            "not": {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "must_be"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_not_be"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_greater_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_greater_than_or_equal"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_less_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_less_than_or_equal"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_between"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "must_be_not_between"
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                },
-                {
-                    "description": "An 'additional' threshold requires a comparison on the threshold it is nested in.",
+                    "description": "A threshold with an 'additional' threshold must specify exactly one comparison itself. Without an 'additional' threshold, the number of comparisons is not constrained here.",
                     "not": {
                         "allOf": [
                             {
@@ -1303,7 +1212,7 @@
                             },
                             {
                                 "not": {
-                                    "anyOf": [
+                                    "oneOf": [
                                         {
                                             "required": [
                                                 "must_be"
