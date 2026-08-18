@@ -122,3 +122,36 @@ def test_dataset_duplicate_warn(data_source_test_helper: DataSourceTestHelper):
                     level: warn
             """,
     )
+
+
+def test_dataset_duplicate_not_evaluated_without_row_hashing(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch
+):
+    """A source whose query language cannot express a row hash must un-evaluate, not report a number.
+
+    The multi-column duplicate count is derived as `row_count - distinct_count`, and the distinct
+    count comes from a hash. A source that cannot compute the hash leaves that metric unmeasured,
+    which several `convert_db_value` implementations coerce to 0 — making `duplicate_count` equal the
+    row count and reporting every row as a duplicate. `reconciliation`'s `duplicate_diff` already
+    guards on this flag; the direct check needs the same guard.
+
+    Runs on every data source: the flag defaults True, so this patches it to reproduce the condition
+    a source like Salesforce reports natively.
+    """
+    from soda_core.common.data_source_impl import DataSourceImpl
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    monkeypatch.setattr(DataSourceImpl, "supports_row_hashing", property(lambda self: False))
+
+    result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - duplicate:
+                  columns: ['rep', 'country', 'zip']
+        """,
+    )
+    check_results = [cr for cvr in result.contract_verification_results for cr in cvr.check_results]
+    assert [cr.outcome.name for cr in check_results] == ["NOT_EVALUATED"]
+    # Never a number: the false FAIL this guards against reported duplicate_count == row_count.
+    assert check_results[0].diagnostic_metric_values.get("duplicate_count") is None
