@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
 from soda_core.common.utils import format_items
@@ -280,22 +279,31 @@ class SchemaQuery(Query):
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[schema_metric_impl])
 
-        self.sql = data_source_impl.build_columns_metadata_query_str(
-            dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
-        )
+        # Resolved at execute() time via the data source's columns-metadata accessor. A data source
+        # whose metadata does not come from SQL overrides that accessor, so building the
+        # information_schema SQL here would bypass the override.
+        self.dataset_prefixes: Optional[list[str]] = dataset_prefixes
+        self.dataset_name: str = dataset_name
 
     def execute(self) -> list[Measurement]:
         try:
-            query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
+            metadata_columns: list[ColumnMetadata] = self.data_source_impl.get_columns_metadata(
+                dataset_prefixes=self.dataset_prefixes, dataset_name=self.dataset_name
+            )
         except Exception as e:
-            logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
+            # Broad by design: the query loop in check_collections only catches SodaCoreException,
+            # so anything the accessor raises has to be absorbed here or it aborts the whole
+            # verification instead of leaving this one check NOT_EVALUATED.
+            logger.error(msg=f"Could not resolve columns metadata for '{self.dataset_name}': {e}", exc_info=True)
             return []
-        try:
-            metadata_columns: list[
-                ColumnMetadata
-            ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
-        except Exception as e:
-            logger.error(f"Error building column metadata from query result: {e}")
+        if not metadata_columns:
+            # Zero columns means the check cannot be evaluated, and evaluate() only logs an error for a
+            # *missing* measurement — an empty one falls through silently, leaving scan status UNKNOWN
+            # and the CLI exiting 0. Reporting it here is what keeps a metadata failure visible for a
+            # data source whose accessor absorbs its own exceptions and returns an empty list
+            # (Databricks warns and does exactly that). It also makes a contract against a
+            # non-existent dataset loud on every source, where it was previously a clean scan.
+            logger.error(msg=f"No columns metadata resolved for '{self.dataset_name}'")
             return []
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
