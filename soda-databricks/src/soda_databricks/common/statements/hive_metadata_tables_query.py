@@ -73,13 +73,16 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
         exclude_table_name_like_filters: Optional[list[str]] = None,
         object_type_to_fetch: TableType = TableType.TABLE,
     ) -> str:  # Return type for this function is a string, not a list (for the super method it is a list!)
-        schema_str = ""
+        from_str = ""
         if schema_name:
-            schema_str = f" FROM {self.sql_dialect.quote_default(schema_name)}"
+            # An unqualified schema resolves against the session's current catalog, which is not
+            # necessarily the catalog in the prefixes — sparkdf never issues USE CATALOG.
+            name_parts = [database_name, schema_name] if database_name else [schema_name]
+            from_str = " FROM " + ".".join(self.sql_dialect.quote_default(part) for part in name_parts)
         if object_type_to_fetch == TableType.TABLE:
-            return f"SHOW TABLES{schema_str}"
+            return f"SHOW TABLES{from_str}"
         elif object_type_to_fetch == TableType.VIEW:
-            return f"SHOW VIEWS{schema_str}"
+            return f"SHOW VIEWS{from_str}"
         else:
             raise ValueError(f"Invalid object type to fetch: {object_type_to_fetch}")
 
