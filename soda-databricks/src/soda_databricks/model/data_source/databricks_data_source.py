@@ -48,27 +48,12 @@ class DatabricksDataSource(DataSourceBase, abc.ABC):
             if properties_class is None:
                 supported = ", ".join(sorted(_AUTH_TYPE_TO_PROPERTIES))
                 raise ValueError(f"Unknown Databricks auth_type '{auth_type}'. Supported: {supported}")
-            if properties_class is DatabricksTokenAuth:
-                cls._require_non_empty_access_token(value)
             return properties_class(**value)
 
         # Backward compatibility: no explicit auth_type → infer PAT from field presence.
         if "access_token" in value:
-            cls._require_non_empty_access_token(value)
             return DatabricksTokenAuth(**value)
         raise ValueError(
             "Could not infer Databricks connection type: provide 'auth_type' "
             f"(one of {', '.join(sorted(_AUTH_TYPE_TO_PROPERTIES))}) or 'access_token'."
         )
-
-    @staticmethod
-    def _require_non_empty_access_token(value: dict) -> None:
-        # An unresolved ${env.VAR} reference typically arrives as None or an empty string. An
-        # empty token must not reach the connector: with no credentials it falls back to an
-        # interactive browser login (see DatabricksDataSourceConnection._create_connection).
-        access_token = value.get("access_token")
-        if access_token is None or access_token == "":
-            raise ValueError(
-                "Databricks 'access_token' is missing or empty. If it is provided through ${env.VAR}, "
-                "make sure VAR is set where the contract verification runs."
-            )

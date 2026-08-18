@@ -50,8 +50,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
             raise ValueError(
                 "Databricks connection has no credentials: 'access_token' is missing or empty and no OAuth "
                 "auth_type is configured. Refusing to connect, because the Databricks SQL connector would "
-                "otherwise start an interactive browser login that cannot complete in a non-interactive run. "
-                "If the token is provided through ${env.VAR}, make sure VAR is set where the verification runs."
+                "otherwise start an interactive browser login that cannot complete in a non-interactive run."
             )
         return sql.connect(
             user_agent_entry="Soda Core",

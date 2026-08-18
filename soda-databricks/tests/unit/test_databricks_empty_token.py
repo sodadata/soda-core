@@ -42,8 +42,8 @@ def _make_connection() -> DatabricksDataSourceConnection:
 
 @pytest.mark.parametrize("token", ["", None])
 def test_empty_access_token_rejected_at_parse_time(token):
-    """``access_token`` present but empty (e.g. an unresolved ``${env.X}``) must be a clear
-    error, not a model with an empty secret."""
+    """``access_token`` present but empty (e.g. an unresolved variable reference) is rejected
+    by the model (``min_length=1``), not accepted as an empty secret."""
     with pytest.raises(ValueError, match="access_token"):
         infer({**BASE, "access_token": token})
 

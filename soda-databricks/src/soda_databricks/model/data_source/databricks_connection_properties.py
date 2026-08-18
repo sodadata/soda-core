@@ -38,7 +38,10 @@ class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):
 
 
 class DatabricksTokenAuth(DatabricksSharedConnectionProperties):
-    access_token: SecretStr = Field(..., description="Personal access token")
+    # min_length: an empty token (e.g. an unresolved variable reference) must be rejected here —
+    # the connector treats a falsy access_token as "no auth" and falls back to an interactive
+    # browser login (see DatabricksDataSourceConnection._create_connection).
+    access_token: SecretStr = Field(..., min_length=1, description="Personal access token")
 
 
 class DatabricksOAuthM2M(DatabricksSharedConnectionProperties):
