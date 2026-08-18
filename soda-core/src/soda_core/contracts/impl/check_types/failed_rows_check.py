@@ -5,6 +5,7 @@ import logging
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_ast import SODA_FAILED_ROWS_CTE_NAME
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, Measurement
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
@@ -321,9 +322,9 @@ class FailedRowsCountQuery(Query):
         # Store the raw query as self.sql for fallback and logging.
         count_sql = data_source_impl.sql_dialect.build_select_sql(
             [
-                WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
+                WITH([CTE(alias=SODA_FAILED_ROWS_CTE_NAME).AS(cte_query=failed_rows_query)]),
                 SELECT(COUNT(STAR())),
-                FROM("failed_rows"),
+                FROM(SODA_FAILED_ROWS_CTE_NAME),
             ]
         )
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=count_sql)
@@ -353,13 +354,16 @@ class FailedRowsCountQuery(Query):
                 # likely to reject. Maximum compatibility wins here; the
                 # memory-optimized streaming stays reserved for the
                 # soda-generated DWH transfer queries.
+                # Bounded only if the data source's cursor yields lazily.
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = row_count
                 if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:
                     logger.warning(
                         f"Streamed {metric_value} rows to count failed rows. "
                         f"The query could not be wrapped in a CTE and had to be executed directly. "
-                        f"Consider rewriting your query so that it can be wrapped in a CTE."
+                        f"Consider rewriting your query so that it can be wrapped in a CTE. "
+                        f"Where the data source has no CTE support, a single-table query with a "
+                        f"plain WHERE can be counted server-side instead."
                     )
             except Exception as e2:
                 logger.error(
