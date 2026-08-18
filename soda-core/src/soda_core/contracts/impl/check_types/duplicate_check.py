@@ -5,7 +5,7 @@ import logging
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
     MultiColumnDuplicateCheckYaml,
@@ -281,6 +281,23 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         return [self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl]
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+        # A multi-column duplicate count is derived from a row hash. A source whose query language
+        # cannot express one (e.g. Salesforce/SOQL) leaves the distinct count unmeasured, and
+        # convert_db_value coerces that to 0 — which would make duplicate_count equal row_count and
+        # report every row as a duplicate. Fail loud instead, matching reconciliation's duplicate_diff.
+        # The flag defaults True, so every SQL source is unaffected.
+        data_source_impl = self.contract_impl.data_source_impl
+        if data_source_impl is not None and not data_source_impl.supports_row_hashing:
+            logger.error(
+                f"Cannot evaluate '{self.name}': a multi-column duplicate check requires a row hash "
+                f"that data source '{data_source_impl.name}' cannot express in its query language."
+            )
+            return CheckResult(
+                check=self._build_check_info(),
+                outcome=CheckOutcome.NOT_EVALUATED,
+                diagnostic_metric_values={},
+            )
+
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
 
