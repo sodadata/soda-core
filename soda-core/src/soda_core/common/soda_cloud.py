@@ -1529,7 +1529,11 @@ class SodaCloud:
 
             response_body_dict: Optional[dict] = response.json() if response else None
 
-            if "migration" not in response_body_dict and "state" not in response["migration"]:
+            if (
+                not response_body_dict
+                or "migration" not in response_body_dict
+                or "state" not in response_body_dict.get("migration", {})
+            ):
                 logger.debug("Unable to parse the Cloud response. Retry in 5 seconds.")
                 sleep(5)
                 continue
