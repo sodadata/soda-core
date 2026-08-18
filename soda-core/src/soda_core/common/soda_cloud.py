@@ -1774,6 +1774,7 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
                 "totalTokens": tu.total_tokens,
                 "model": tu.model,
                 "operation": tu.operation,
+                "agentSource": tu.agent_source,
             }
             for tu in contract_verification_result.token_usage
         ]
@@ -1837,17 +1838,7 @@ def _build_check_collection_results_json_dict(
 
     token_usage: list[dict] = []
     for r in results:
-        if r.token_usage:
-            token_usage.extend(
-                {
-                    "promptTokens": tu.prompt_tokens,
-                    "completionTokens": tu.completion_tokens,
-                    "totalTokens": tu.total_tokens,
-                    "model": tu.model,
-                    "operation": tu.operation,
-                }
-                for tu in r.token_usage
-            )
+        token_usage.extend(_build_token_usage_dicts(r))
 
     ingestion_mode = VerificationIngestionMode.FULL
     for r in results:

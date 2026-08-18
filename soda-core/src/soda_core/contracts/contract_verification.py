@@ -558,6 +558,7 @@ class ScanTokenUsage:
     total_tokens: int
     model: Optional[str] = None
     operation: Optional[str] = None  # "autopilot" or "llmCheck" (matches server Gson @SerializedName)
+    agent_source: Optional[str] = None
 
 
 class PostProcessingStageState(Enum):
