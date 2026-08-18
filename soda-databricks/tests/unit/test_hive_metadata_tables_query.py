@@ -44,12 +44,17 @@ def _query() -> HiveMetadataTablesQuery:
             "SHOW TABLES FROM `soda_diagnostics`",
             id="no_catalog_stays_unqualified",
         ),
+        # KNOWN GAP, documented rather than endorsed: with no schema there is nothing to
+        # qualify, so the catalog is dropped too and Spark resolves against the session's
+        # current catalog AND schema. SHOW TABLES cannot express "every schema in this
+        # catalog" — that needs SHOW SCHEMAS + a loop, or information_schema. Reachable
+        # via `discover-data-source`, which passes prefixes=[] to discover everything.
         pytest.param(
             "my_uc_catalog",
             None,
             TableType.TABLE,
             "SHOW TABLES",
-            id="no_schema_emits_no_from",
+            id="no_schema_drops_catalog_too_known_gap",
         ),
     ],
 )
