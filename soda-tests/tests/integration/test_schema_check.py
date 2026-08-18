@@ -435,9 +435,7 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
     assert schema_should_not_exist == False
 
 
-def test_schema_check_is_loud_when_no_columns_are_resolved(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
-):
+def test_schema_check_is_loud_when_no_columns_are_resolved(data_source_test_helper: DataSourceTestHelper, monkeypatch):
     """Zero resolved columns must not read as a healthy scan.
 
     Two ways a source gets here: the dataset does not exist, or an accessor that absorbs its own
