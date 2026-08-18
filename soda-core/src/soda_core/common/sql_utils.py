@@ -37,6 +37,52 @@ def attach_sample_to_relation(rel: exp.Expression, sampler_limit: Number, sample
         rel.set("sample", build_sample_clause(sampler_limit, sampler_type))
 
 
+def qualify_unqualified_columns_with_alias(
+    sql_expression: str,
+    alias: str,
+    read_dialect: str | None = None,
+    write_dialect: str | None = None,
+) -> str:
+    """
+    Qualify every unqualified top-level column reference in a SQL expression with the given
+    table alias.
+
+    Already-qualified columns are left untouched. Columns inside subqueries are also left
+    untouched — they belong to the subquery's own scope, not the outer alias. If sqlglot
+    cannot parse or print the expression for any reason (parse error, unknown dialect),
+    the input is returned unchanged so any database error surfaces unmodified to the user.
+
+    Note: a successful parse round-trips through sqlglot's printer, which canonicalises some
+    syntax (e.g. ``col::int`` becomes ``CAST(col AS INT)``, function names get uppercased).
+    On the same read/write dialect the rewrite is semantically equivalent in standard cases,
+    but recognised functions may be rewritten into canonical equivalents.
+
+    If ``read_dialect`` / ``write_dialect`` are not provided (or are empty), sqlglot's
+    default parser/printer is used.
+    """
+    if not sql_expression or not sql_expression.strip():
+        return sql_expression
+
+    try:
+        tree = (
+            sqlglot.parse_one(sql_expression, read=read_dialect) if read_dialect else sqlglot.parse_one(sql_expression)
+        )
+
+        for column in tree.find_all(exp.Column):
+            if column.table:
+                continue
+            # Skip columns inside any nested SELECT scope (subqueries via exp.Subquery,
+            # EXISTS bodies via exp.Exists, scalar subqueries, CTEs). These resolve in
+            # their own scope first and shouldn't be silently aliased to the outer one.
+            if column.find_ancestor(exp.Select):
+                continue
+            column.set("table", exp.to_identifier(alias, quoted=True))
+
+        return tree.sql(dialect=write_dialect) if write_dialect else tree.sql()
+    except Exception:
+        return sql_expression
+
+
 def apply_sampling_to_sql(
     sql: str,
     sampler_limit: Number,

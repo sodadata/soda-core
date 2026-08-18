@@ -7,7 +7,10 @@
 import pytest
 import sqlglot
 from soda_core.common.metadata_types import SamplerType
-from soda_core.common.sql_utils import apply_sampling_to_sql
+from soda_core.common.sql_utils import (
+    apply_sampling_to_sql,
+    qualify_unqualified_columns_with_alias,
+)
 from sqlglot import exp
 
 
@@ -259,3 +262,107 @@ def test_apply_sampling_complex_query() -> None:
     subquery = _get_first_subquery_with_alias(tree, "subquery")
     subquery_sample = subquery.args.get("sample")
     assert subquery_sample is None
+
+
+# ------------------------------
+# qualify_unqualified_columns_with_alias
+# ------------------------------
+
+
+def test_qualify_basic_unqualified_column() -> None:
+    out = qualify_unqualified_columns_with_alias("id > 1", "C", read_dialect="postgres", write_dialect="postgres")
+    assert out == '"C".id > 1'
+
+
+def test_qualify_leaves_already_qualified_columns_alone() -> None:
+    out = qualify_unqualified_columns_with_alias(
+        '"R".country_code = country', "C", read_dialect="postgres", write_dialect="postgres"
+    )
+    assert out == '"R".country_code = "C".country'
+
+
+def test_qualify_does_not_touch_string_literals() -> None:
+    # 'foo' is a string literal — only the column `name` should be qualified
+    out = qualify_unqualified_columns_with_alias(
+        "lower(name) = 'foo'", "C", read_dialect="postgres", write_dialect="postgres"
+    )
+    assert "'foo'" in out
+    assert '"C".name' in out
+
+
+@pytest.mark.parametrize("expr", ["", "   ", "\n\t"])
+def test_qualify_empty_input_returned_unchanged(expr: str) -> None:
+    out = qualify_unqualified_columns_with_alias(expr, "C", read_dialect="postgres", write_dialect="postgres")
+    assert out == expr
+
+
+def test_qualify_unparseable_input_returned_unchanged() -> None:
+    expr = "(((unbalanced"
+    out = qualify_unqualified_columns_with_alias(expr, "C", read_dialect="postgres", write_dialect="postgres")
+    assert out == expr
+
+
+def test_qualify_unknown_dialect_returned_unchanged() -> None:
+    # Unknown dialects raise ValueError inside sqlglot; the helper must not propagate it.
+    expr = "id > 1"
+    out = qualify_unqualified_columns_with_alias(
+        expr, "C", read_dialect="totally_fake_dialect", write_dialect="totally_fake_dialect"
+    )
+    assert out == expr
+
+
+def test_qualify_skips_columns_inside_in_subquery() -> None:
+    # Outer `id` belongs to the source and should be qualified.
+    # Inner `user_id` belongs to `other` and must NOT be aliased to "C".
+    out = qualify_unqualified_columns_with_alias(
+        "id IN (SELECT user_id FROM other)", "C", read_dialect="postgres", write_dialect="postgres"
+    )
+    assert '"C".id' in out
+    assert '"C".user_id' not in out
+
+
+def test_qualify_skips_columns_inside_exists_subquery() -> None:
+    # EXISTS bodies are wrapped in exp.Exists > exp.Select (not exp.Subquery).
+    # Inner unqualified `id` must NOT be aliased — it resolves in the subquery's own scope.
+    out = qualify_unqualified_columns_with_alias(
+        "EXISTS (SELECT 1 FROM other WHERE id = 1)", "C", read_dialect="postgres", write_dialect="postgres"
+    )
+    assert '"C".id' not in out
+
+
+def test_qualify_skips_columns_inside_scalar_subquery() -> None:
+    # Outer `id` qualified; inner aggregate's `x` left alone.
+    out = qualify_unqualified_columns_with_alias(
+        "(SELECT MAX(x) FROM other) > id", "C", read_dialect="postgres", write_dialect="postgres"
+    )
+    assert '"C".id' in out
+    assert '"C".x' not in out
+
+
+@pytest.mark.parametrize(
+    "dialect,expected_substring",
+    [
+        ("postgres", '"C".id'),
+        ("snowflake", '"C".id'),
+        ("duckdb", '"C".id'),
+        ("trino", '"C".id'),
+        ("athena", '"C".id'),
+        ("bigquery", "`C`.id"),
+        ("databricks", "`C`.id"),
+        ("tsql", "[C].id"),
+    ],
+)
+def test_qualify_uses_dialect_specific_quoting(dialect: str, expected_substring: str) -> None:
+    out = qualify_unqualified_columns_with_alias("id > 1", "C", read_dialect=dialect, write_dialect=dialect)
+    assert expected_substring in out
+
+
+def test_qualify_handles_window_function() -> None:
+    out = qualify_unqualified_columns_with_alias(
+        "ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2) > 5",
+        "C",
+        read_dialect="postgres",
+        write_dialect="postgres",
+    )
+    assert '"C".col1' in out
+    assert '"C".col2' in out
