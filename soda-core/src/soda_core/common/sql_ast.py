@@ -18,10 +18,6 @@ logger: logging.Logger = soda_logger
 # soda-salesforce, which maps it to SOQL — can import it instead of hardcoding the literal; a rename
 # then breaks that import (and its tests) loudly rather than silently rerouting the read.
 SODA_FILTERED_CTE_NAME = "_soda_filtered_dataset"
-# The CTE a failed-rows count wraps the user query in. Shared so a data source that reshapes
-# the wrapped count (Salesforce translates it to a server-side aggregate) keys on this name
-# rather than duplicating the literal, where a rename here would silently stop matching.
-SODA_FAILED_ROWS_CTE_NAME = "failed_rows"
 
 
 class BaseSqlExpression:
