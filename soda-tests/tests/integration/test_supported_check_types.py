@@ -71,9 +71,7 @@ def test_a_check_type_outside_the_declared_set_is_not_evaluated(
     assert result.has_errors
 
 
-def test_a_refused_check_does_not_stop_its_siblings(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
-):
+def test_a_refused_check_does_not_stop_its_siblings(data_source_test_helper: DataSourceTestHelper, monkeypatch):
     """Refusing one check must not cost the rest of the contract.
 
     The refusal is applied where checks are parsed, before metrics are set up — which is what keeps a
@@ -108,9 +106,7 @@ def test_a_refused_check_does_not_stop_its_siblings(
     assert [cr.threshold_value for cr in check_results] == [None, 60, 3]
 
 
-def test_a_refused_check_can_still_be_published_to_cloud(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
-):
+def test_a_refused_check_can_still_be_published_to_cloud(data_source_test_helper: DataSourceTestHelper, monkeypatch):
     """The payload builder dereferences diagnostics for several check types and only guards EXCLUDED.
 
     A refused check that carried no diagnostics raised an AttributeError out of the whole verification,
