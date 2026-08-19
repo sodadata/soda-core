@@ -896,6 +896,28 @@ class CheckCollectionImpl:
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
+                    elif check_impl.unsupported_by_data_source:
+                        # NOT_EVALUATED, not EXCLUDED: the user asked for this check and is not getting
+                        # it, which is a different thing from having deselected it themselves.
+                        # Error, so the contract lands on ERROR (exit 3) rather than UNKNOWN (exit 0).
+                        # Unlike a NOT_EVALUATED from an unmeasured metric — transient, may succeed next
+                        # run — this one is permanent: the check will never evaluate on this source until
+                        # someone edits the contract. Exiting 0 would leave it under-asserting silently.
+                        logger.error(
+                            f"Not evaluating check at path '{check_impl.relative_path}': "
+                            f"{check_impl.unsupported_by_data_source}"
+                        )
+                        # Empty, never None. The Cloud payload builder dispatches partly on the check
+                        # TYPE and partly on the result CLASS: type-matched branches call .get() on this
+                        # (fine when empty), while a check whose branch is class-matched — schema,
+                        # freshness — falls through to the arm that reads a falsy value as "nothing to
+                        # report". None would crash the first set; a populated dict crashes the second.
+                        check_result = CheckResult(
+                            check=check_impl._build_check_info(),
+                            outcome=CheckOutcome.NOT_EVALUATED,
+                            threshold_value=None,
+                            diagnostic_metric_values={},
+                        )
                     else:
                         # Framework-level NOT_EVALUATED gating: if a check declares
                         # required metrics via get_required_metric_impls() and any
