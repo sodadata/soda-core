@@ -435,7 +435,9 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
     assert schema_should_not_exist == False
 
 
-def test_schema_check_is_loud_when_no_columns_are_resolved(data_source_test_helper: DataSourceTestHelper, monkeypatch):
+def test_schema_check_is_loud_when_no_columns_are_resolved(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, caplog
+):
     """Zero resolved columns must not read as a healthy scan.
 
     Two ways a source gets here: the dataset does not exist, or an accessor that absorbs its own
@@ -464,4 +466,6 @@ def test_schema_check_is_loud_when_no_columns_are_resolved(data_source_test_help
     )
     check_results = [cr for cvr in result.contract_verification_results for cr in cvr.check_results]
     assert [cr.outcome.name for cr in check_results] == ["NOT_EVALUATED"]
-    assert result.has_errors, "a metadata failure must surface as an error, not a clean scan"
+    # Assert the message, not just has_errors: a verification carries unrelated errors of its own, so
+    # has_errors alone holds even when this guard is silenced entirely.
+    assert "No columns metadata resolved" in caplog.text

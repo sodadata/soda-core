@@ -125,7 +125,7 @@ def test_dataset_duplicate_warn(data_source_test_helper: DataSourceTestHelper):
 
 
 def test_dataset_duplicate_not_evaluated_without_row_hashing(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, caplog
 ):
     """A source whose query language cannot express a row hash must un-evaluate, not report a number.
 
@@ -155,3 +155,7 @@ def test_dataset_duplicate_not_evaluated_without_row_hashing(
     assert [cr.outcome.name for cr in check_results] == ["NOT_EVALUATED"]
     # Never a number: the false FAIL this guards against reported duplicate_count == row_count.
     assert check_results[0].diagnostic_metric_values.get("duplicate_count") is None
+    # And loud. Without this the reason could be downgraded to debug and the scan would report zero
+    # runtime errors — a silent NOT_EVALUATED with a clean exit, which is what the guard exists to
+    # prevent. Asserting the message rather than has_errors, which other errors in a run also satisfy.
+    assert "requires a row hash" in caplog.text
