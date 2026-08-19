@@ -66,7 +66,7 @@ test_connections: list[TestConnection] = [
                     auth_type: not-a-real-mode
             """,
         valid_yaml=False,
-        expected_yaml_error="Unknown Databricks auth_type",
+        expected_yaml_error="does not match any of the expected tags: 'personal-access-token'",
     ),
     TestConnection(  # OAuth M2M without its required secret must be rejected at parse time
         test_name="oauth_m2m_missing_client_secret_rejected",
