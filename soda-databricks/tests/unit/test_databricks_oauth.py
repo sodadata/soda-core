@@ -22,7 +22,11 @@ from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource,
 )
 
-infer = DatabricksDataSource.infer_connection_type
+
+def infer(connection: dict):
+    """Validate a raw ``connection`` block the way a data source YAML does and return the
+    selected auth-mode model."""
+    return DatabricksDataSource(name="test", type="databricks", connection=connection).connection_properties
 
 
 # --------------------------------------------------------------------------- dispatch
@@ -80,12 +84,14 @@ def test_azure_service_principal_dispatch():
 
 
 def test_unknown_auth_type_raises():
-    with pytest.raises(ValueError, match="Unknown Databricks auth_type"):
+    """An unknown auth_type is reported against the list of expected tags, as a single error."""
+    with pytest.raises(ValueError, match="'nope'.*expected tags.*personal-access-token.*databricks-oauth-m2m"):
         infer({"auth_type": "nope", "host": "h", "http_path": "/x"})
 
 
 def test_no_auth_type_no_access_token_raises():
-    with pytest.raises(ValueError, match="Could not infer"):
+    """No auth_type means PAT, so the missing token is reported for that mode only."""
+    with pytest.raises(ValueError, match="personal-access-token.access_token\n  Field required"):
         infer({"host": "h", "http_path": "/x"})
 
 
@@ -249,3 +255,21 @@ def test_m2m_connection_strips_host_scheme():
 
     assert mock_connect.call_args.kwargs["server_hostname"] == "abc.cloud.databricks.com"
     assert cfg.call_args.kwargs["host"] == "https://abc.cloud.databricks.com"
+
+
+def test_auth_type_discriminator_not_in_connection_kwargs():
+    """Our auth_type is a model discriminator, never a sql.connect kwarg (the connector has its
+    own, differently-valued `auth_type` argument that would select the browser OAuth flow)."""
+    for connection in (
+        {"auth_type": "personal-access-token", "host": "h", "http_path": "/x", "access_token": "t"},
+        {"auth_type": "databricks-oauth-m2m", "host": "h", "http_path": "/x", "client_id": "c", "client_secret": "s"},
+        {
+            "auth_type": "azure-service-principal",
+            "host": "h",
+            "http_path": "/x",
+            "azure_client_id": "a",
+            "azure_client_secret": "s",
+            "azure_tenant_id": "t",
+        },
+    ):
+        assert "auth_type" not in infer(connection).to_connection_kwargs()

@@ -28,7 +28,12 @@ from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource,
 )
 
-infer = DatabricksDataSource.infer_connection_type
+
+def infer(connection: dict):
+    """Validate a raw ``connection`` block the way a data source YAML does and return the
+    selected auth-mode model."""
+    return DatabricksDataSource(name="test", type="databricks", connection=connection).connection_properties
+
 
 BASE = {"host": "abc.cloud.databricks.com", "http_path": "/sql/1.0/endpoints/abc"}
 
