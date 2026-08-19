@@ -231,6 +231,24 @@ class DataSourceImpl(ABC):
         return False
 
     @property
+    def supported_check_types(self) -> Optional[frozenset[str]]:
+        """Check types this data source can evaluate, or None for no restriction.
+
+        Default None, so every existing data source keeps running every registered check type. This is
+        for a source that can only answer part of the contract language: a check outside the declared
+        set reports NOT_EVALUATED naming the data source, instead of failing further in with an error
+        that reads like a defect — a raw MALFORMED_QUERY from the source, say.
+
+        Declare the whole supported set rather than the gaps, so a check type added to soda-core is
+        unsupported on such a source until someone has verified it.
+
+        Enforced where contract checks are parsed, which is every check the contract language exposes.
+        Reconciliation parses its own checks and is not gated here; a recon diff type listed in the set
+        is a statement about the source, not something this gate enforces.
+        """
+        return None
+
+    @property
     def supports_row_hashing(self) -> bool:
         """Whether this data source's query language can compute a row hash (e.g. MD5/CAST).
 
