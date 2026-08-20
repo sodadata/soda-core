@@ -382,6 +382,64 @@ class SodaCloud:
         )
         return response is not None and response.ok
 
+    def scan_start(
+        self,
+        scan_id: str,
+        definition_name: Optional[str] = None,
+        default_data_source: Optional[str] = None,
+    ) -> Optional[str]:
+        """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the
+        ``scanReference`` that keys the async ingestion pipeline
+        (``insert_scan_data_batch`` / ``scan_end_async``), or None when the
+        command was rejected or the response carried no reference — callers
+        degrade to the sync ``insert_scan_results`` path. The ``version`` is
+        the payload model version: this codebase is v4-only.
+        """
+        command: dict = {"type": "sodaCoreScanStart", "scanId": scan_id, "version": "4"}
+        if definition_name:
+            command["definitionName"] = definition_name
+        if default_data_source:
+            command["defaultDataSource"] = default_data_source
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="scan_start",
+        )
+        if response is None or not response.ok:
+            return None
+        try:
+            scan_reference: Optional[str] = response.json().get("scanReference")
+        except Exception:
+            scan_reference = None
+        if not scan_reference:
+            logger.warning(f"sodaCoreScanStart response for scan '{scan_id}' carried no scanReference")
+            return None
+        return scan_reference
+
+    def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> bool:
+        """Send one results payload through the async ingestion pipeline
+        (``sodaCoreInsertScanDataBatch``, keyed by the ``scan_start``
+        scanReference). Takes the same payload dict the sync flows build; the
+        batch type and scanReference are stamped on a copy so the caller's DTO
+        is untouched. Returns True when Soda Cloud accepted it (same contract
+        as ``insert_scan_results``).
+        """
+        command: dict = {**payload, "type": "sodaCoreInsertScanDataBatch", "scanReference": scan_reference}
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="insert_scan_data_batch",
+        )
+        return response is not None and response.ok
+
+    def scan_end_async(self, scan_reference: str) -> bool:
+        """Send ``sodaCoreScanEndAsync`` closing the async ingestion bracket
+        opened by ``scan_start``. Returns True when Soda Cloud accepted it.
+        """
+        response: Optional[Response] = self._execute_command(
+            command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
+            request_log_name="scan_end_async",
+        )
+        return response is not None and response.ok
+
     def send_check_collection_results(
         self,
         results: list[ContractVerificationResult],
