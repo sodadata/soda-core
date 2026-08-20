@@ -6,7 +6,7 @@ import struct
 import time
 from abc import ABC
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pyodbc
 from pydantic import Field, SecretStr
@@ -21,6 +21,9 @@ from soda_core.model.data_source.data_source_connection_properties import (
 )
 
 logger: logging.Logger = soda_logger
+
+
+T = TypeVar("T")
 
 
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
@@ -140,7 +143,7 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
         return bool(e.args) and e.args[0] == "40001"
 
-    def _execute_with_deadlock_retry(self, operation: Callable[[], Any]) -> Any:
+    def _execute_with_deadlock_retry(self, operation: Callable[[], T]) -> T:
         """Assumes ``operation`` is a single-statement unit of work: recovery
         issues a connection-wide rollback, discarding any earlier uncommitted
         statements on this connection (SQL Server runs autocommit=False).
@@ -148,7 +151,7 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         the callback/iterator paths (execute_query_one_by_one*,
         execute_query_iterate) may have already delivered rows when a deadlock
         strikes mid-fetch, so re-executing them would double-process rows."""
-        for attempt in range(1, self.DEADLOCK_MAX_ATTEMPTS + 1):
+        for attempt in range(1, max(self.DEADLOCK_MAX_ATTEMPTS, 1) + 1):
             try:
                 return operation()
             except pyodbc.Error as e:
@@ -159,7 +162,7 @@ class SqlServerDataSourceConnection(DataSourceConnection):
                     f"(attempt {attempt}/{self.DEADLOCK_MAX_ATTEMPTS}), retrying: {e}"
                 )
                 try:
-                    self.connection.rollback()
+                    self.rollback()
                 except Exception as rollback_error:
                     logger.warning(f"Rollback after deadlock on '{self.name}' failed: {rollback_error}")
                 backoff_cap = self.DEADLOCK_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
