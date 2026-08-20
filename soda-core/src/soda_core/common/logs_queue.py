@@ -60,6 +60,11 @@ class LogsQueue(LogsBase):
         self.dataset = dataset
         self.flush_interval = DEFAULT_FLUSH_INTERVAL
         self.batch_size = MAX_LOG_LINES
+        # Identities (id()) of records confirmed flushed (2xx) to the log
+        # stream. Error records stay alive in self.logs, so their identity is
+        # stable for records_for_failure_report(); non-error records are never
+        # reported, so their ids going stale after GC is harmless.
+        self._flushed_records: set[int] = set()
         self.log_queue = queue.Queue()
         self.shutdown_flag = threading.Event()
         self.condition = threading.Condition()
@@ -77,7 +82,19 @@ class LogsQueue(LogsBase):
         raise AssertionError("Warning logs unavailable in LogsQueue")
 
     def get_all_logs(self) -> list[LogRecord]:
-        raise AssertionError("All logs unavailable in LogsQueue")
+        # Streamed records are not re-gatherable: they are shipped (or in
+        # flight) to the scan's log stream. The empty list is what keeps a
+        # streaming run's results payload `logs` field empty at the existing
+        # fill sites. Callers needing failure-report content use
+        # records_for_failure_report().
+        return []
+
+    def records_for_failure_report(self) -> list[LogRecord]:
+        # Error records not confirmed flushed (2xx) to the log stream —
+        # in-flight, rejected, or dropped-after-retries batches. The failure
+        # report attaches only these, so errors reach Cloud exactly once when
+        # the stream works and are never lost when it doesn't.
+        return [record for record in self.logs if id(record) not in self._flushed_records]
 
     def reset(self):
         self.thread = str(uuid.uuid4())
@@ -86,6 +103,7 @@ class LogsQueue(LogsBase):
         self.verbose: bool = False
         self.has_error_logs = False
         self.has_warning_logs = False
+        self._flushed_records = set()
         return self
 
     # To make sure all logs have been sent trigger close method
@@ -162,6 +180,13 @@ class LogsQueue(LogsBase):
                         print(
                             f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
                         )
+
+                    # Only a 2xx confirms the batch reached the stream; the
+                    # isinstance guard keeps non-Response test doubles (and any
+                    # response without a real status) counting as unconfirmed.
+                    status_code = getattr(response, "status_code", None)
+                    if isinstance(status_code, int) and 200 <= status_code < 300:
+                        self._flushed_records.update(id(record) for record in batch)
 
                     return (
                         self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))

@@ -122,6 +122,11 @@ class Logs:
     def get_log_records(self) -> list[LogRecord]:
         return self.gatherer.get_all_logs()
 
+    def records_for_failure_report(self) -> list[LogRecord]:
+        # The gatherer decides what a failure report attaches: everything for
+        # the in-memory collector, unsent error records for a streaming queue.
+        return self.gatherer.records_for_failure_report()
+
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.gatherer.get_all_logs()]
 
