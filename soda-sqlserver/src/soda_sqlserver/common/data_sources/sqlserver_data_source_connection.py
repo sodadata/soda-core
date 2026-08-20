@@ -119,6 +119,13 @@ class SqlServerDataSourceConnection(DataSourceConnection):
     DEADLOCK_MAX_ATTEMPTS: int = 3
     DEADLOCK_RETRY_BACKOFF_SECONDS: float = 0.1
 
+    def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
+        # Set before super().__init__(), which auto-opens the connection and
+        # populates these from the live server in _create_connection.
+        self.server_major_version: Optional[int] = None
+        self.engine_edition: Optional[int] = None
+        super().__init__(name, connection_properties)
+
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         execute = super().execute_query
         return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
@@ -134,6 +141,13 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         return bool(e.args) and e.args[0] == "40001"
 
     def _execute_with_deadlock_retry(self, operation: Callable[[], Any]) -> Any:
+        """Assumes ``operation`` is a single-statement unit of work: recovery
+        issues a connection-wide rollback, discarding any earlier uncommitted
+        statements on this connection (SQL Server runs autocommit=False).
+        Only the buffered paths (execute_query/execute_update) are wrapped;
+        the callback/iterator paths (execute_query_one_by_one*,
+        execute_query_iterate) may have already delivered rows when a deadlock
+        strikes mid-fetch, so re-executing them would double-process rows."""
         for attempt in range(1, self.DEADLOCK_MAX_ATTEMPTS + 1):
             try:
                 return operation()
@@ -150,13 +164,6 @@ class SqlServerDataSourceConnection(DataSourceConnection):
                     logger.warning(f"Rollback after deadlock on '{self.name}' failed: {rollback_error}")
                 backoff_cap = self.DEADLOCK_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
                 time.sleep(random.uniform(0, backoff_cap))
-
-    def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
-        # Set before super().__init__(), which auto-opens the connection and
-        # populates these from the live server in _create_connection.
-        self.server_major_version: Optional[int] = None
-        self.engine_edition: Optional[int] = None
-        super().__init__(name, connection_properties)
 
     # Normalize pyodbc.Row objects so downstream consumers see plain tuples.
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:
