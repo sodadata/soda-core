@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import (
+    build_streaming_logs,
     handle_create_data_source,
     handle_discover_data_source,
     handle_discover_data_source_locally,
@@ -101,8 +102,11 @@ def test_test_data_source_uploads_logs_when_scan_id_provided(
 
     assert exit_code == ExitCode.OK
     mock_logs_queue_cls.assert_called_once_with(
+        # Connection tests stream to the scan's main stage: the backend's
+        # CoreStageType has no test-connection value (the old "test_connection"
+        # string already degraded to MAIN server-side).
         soda_cloud=mock_soda_cloud,
-        stage="test_connection",
+        stage="main",
         scan_id="scan-id-123",
         dataset="",
     )
@@ -183,6 +187,47 @@ def test_test_data_source_uploader_captures_and_flushes_when_parsing_raises(
     # Uploader is attached before parsing, so an early parse failure is still captured and flushed.
     mock_logs_cls.assert_called_once_with(gatherer=mock_logs_queue)
     mock_logs.close.assert_called_once()
+
+
+# build_streaming_logs: the generalized scan-id-keyed streaming-Logs builder
+# (the test-connection uploader above is its file-path-resolving wrapper).
+
+
+@patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
+def test_build_streaming_logs_returns_none_without_scan_id(mock_env_config_helper_cls):
+    mock_env_config_helper_cls.return_value.soda_scan_id = None
+
+    assert build_streaming_logs(soda_cloud=MagicMock(), stage="main") is None
+
+
+def test_build_streaming_logs_returns_none_without_soda_cloud():
+    assert build_streaming_logs(soda_cloud=None, stage="main", scan_id="scan-id-123") is None
+
+
+@patch("soda_core.cli.handlers.data_source.Logs")
+@patch("soda_core.cli.handlers.data_source.LogsQueue")
+def test_build_streaming_logs_builds_scan_id_keyed_queue(mock_logs_queue_cls, mock_logs_cls):
+    soda_cloud = MagicMock()
+
+    result = build_streaming_logs(soda_cloud=soda_cloud, stage="main", scan_id="scan-id-123")
+
+    mock_logs_queue_cls.assert_called_once_with(soda_cloud=soda_cloud, stage="main", scan_id="scan-id-123", dataset="")
+    mock_logs_cls.assert_called_once_with(gatherer=mock_logs_queue_cls.return_value)
+    assert result is mock_logs_cls.return_value
+
+
+@patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
+@patch("soda_core.cli.handlers.data_source.Logs")
+@patch("soda_core.cli.handlers.data_source.LogsQueue")
+def test_build_streaming_logs_reads_scan_id_from_env_when_not_passed(
+    mock_logs_queue_cls, mock_logs_cls, mock_env_config_helper_cls
+):
+    mock_env_config_helper_cls.return_value.soda_scan_id = "scan-id-env"
+
+    build_streaming_logs(soda_cloud=MagicMock(), stage="diagnosticWarehouse")
+
+    assert mock_logs_queue_cls.call_args.kwargs["scan_id"] == "scan-id-env"
+    assert mock_logs_queue_cls.call_args.kwargs["stage"] == "diagnosticWarehouse"
 
 
 # Discovery handler tests. The handler receives fully resolved dependencies

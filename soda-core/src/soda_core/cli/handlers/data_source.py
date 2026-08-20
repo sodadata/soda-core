@@ -93,19 +93,48 @@ def handle_test_data_source(
             upload_logs.close()
 
 
+def build_streaming_logs(
+    soda_cloud: Optional[SodaCloud],
+    stage: str,
+    scan_id: Optional[str] = None,
+) -> Optional[Logs]:
+    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
+    root-logger records stream to the scan's Soda Cloud log stream while the
+    command runs — or None when there is no scan id / Cloud client, so callers
+    fall back to an in-memory ``Logs``. Must be closed to flush the final batch.
+
+    ``stage`` is a closed backend enum (``CoreStageType``: "main" |
+    "diagnosticWarehouse"; unknown values degrade to MAIN server-side).
+    """
+    if scan_id is None:
+        # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
+        # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
+        scan_id = EnvConfigHelper().soda_scan_id
+    if not scan_id or soda_cloud is None:
+        return None
+
+    logs_queue = LogsQueue(
+        soda_cloud=soda_cloud,
+        stage=stage,
+        scan_id=scan_id,
+        dataset="",
+    )
+    return Logs(gatherer=logs_queue)
+
+
 def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
-    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
-    root-logger records during the test stream to Soda Cloud — or None when
-    there is no scan id / cloud config. Must be closed to flush the final batch.
+    """File-path-resolving wrapper around ``build_streaming_logs`` for
+    connection tests: resolves the Cloud client from the ``-sc`` YAML, streams
+    to the scan's main stage. Returns None when there is no scan id / cloud
+    config. Must be closed to flush the final batch.
 
     Public because connection-test commands outside soda-core (e.g. the
     soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
-    their logs to the same scan-id-keyed endpoint.
+    their logs to the same scan-id-keyed endpoint; flows that already hold a
+    ``SodaCloud`` call ``build_streaming_logs`` directly.
     """
-    # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
-    # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     if not scan_id or not soda_cloud_file_path:
         return None
@@ -126,13 +155,7 @@ def build_test_connection_log_uploader(
         soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
-    logs_queue = LogsQueue(
-        soda_cloud=soda_cloud,
-        stage="test_connection",
-        scan_id=scan_id,
-        dataset="",
-    )
-    return Logs(gatherer=logs_queue)
+    return build_streaming_logs(soda_cloud=soda_cloud, stage="main", scan_id=scan_id)
 
 
 def _discover_dqns(
