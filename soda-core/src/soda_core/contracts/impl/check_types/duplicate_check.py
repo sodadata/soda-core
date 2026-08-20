@@ -5,7 +5,7 @@ import logging
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
+from soda_core.contracts.contract_verification import CheckResult
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
     MultiColumnDuplicateCheckYaml,
@@ -280,24 +280,19 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
     def get_required_metric_impls(self) -> list[MetricImpl]:
         return [self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl]
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        # A multi-column duplicate count is derived from a row hash. A source whose query language
-        # cannot express one (e.g. Salesforce/SOQL) leaves the distinct count unmeasured, and
-        # convert_db_value coerces that to 0 — which would make duplicate_count equal row_count and
-        # report every row as a duplicate. Fail loud instead, matching reconciliation's duplicate_diff.
-        # The flag defaults True, so every SQL source is unaffected.
-        data_source_impl = self.contract_impl.data_source_impl
+    def unsupported_reason(self, data_source_impl: Optional[DataSourceImpl]) -> Optional[str]:
+        # Without the hash the distinct count is unmeasured, which convert_db_value coerces to 0 —
+        # making duplicate_count equal row_count and reporting every row as a duplicate.
         if data_source_impl is not None and not data_source_impl.supports_row_hashing:
-            logger.error(
-                f"Cannot evaluate '{self.name}': a multi-column duplicate check requires a row hash "
-                f"that data source '{data_source_impl.name}' cannot express in its query language."
+            # "dataset-level", not "multi-column": the hash is emitted even for `columns: [one]`.
+            return (
+                f"a dataset-level duplicate check identifies rows by a row hash, which data source "
+                f"'{data_source_impl.name}' cannot express in its query language. Declaring the check "
+                f"under a single column instead avoids the hash, but excludes missing values"
             )
-            return CheckResult(
-                check=self._build_check_info(),
-                outcome=CheckOutcome.NOT_EVALUATED,
-                diagnostic_metric_values={},
-            )
+        return None
 
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
 

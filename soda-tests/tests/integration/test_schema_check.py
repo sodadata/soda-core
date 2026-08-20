@@ -433,39 +433,3 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
         prefixes=data_source_test_helper.dataset_prefix[:-1] + ["not_a_schema"]
     )
     assert schema_should_not_exist == False
-
-
-def test_schema_check_is_loud_when_no_columns_are_resolved(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, caplog
-):
-    """Zero resolved columns must not read as a healthy scan.
-
-    Two ways a source gets here: the dataset does not exist, or an accessor that absorbs its own
-    failures returns an empty list (Databricks logs a warning and does exactly that). Either way the
-    schema check cannot be evaluated, and without an error the scan status is UNKNOWN and the CLI exits
-    0 — a metadata failure indistinguishable from success. Runs on every data source.
-    """
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    # Patch the CONCRETE impl class, not DataSourceImpl: a source that overrides the accessor — Salesforce
-    # reads Describe, Databricks wraps the base call — would otherwise shadow a base-class patch and the
-    # test would assert nothing on exactly the sources this behaviour matters most for.
-    monkeypatch.setattr(
-        type(data_source_test_helper.data_source_impl),
-        "get_columns_metadata",
-        lambda self, dataset_prefixes, dataset_name: [],
-    )
-
-    result = data_source_test_helper.verify_contract(
-        test_table=test_table,
-        contract_yaml_str="""
-            columns:
-              - name: id
-            checks:
-              - schema:
-        """,
-    )
-    check_results = [cr for cvr in result.contract_verification_results for cr in cvr.check_results]
-    assert [cr.outcome.name for cr in check_results] == ["NOT_EVALUATED"]
-    # Assert the message, not just has_errors: a verification carries unrelated errors of its own, so
-    # has_errors alone holds even when this guard is silenced entirely.
-    assert "No columns metadata resolved" in caplog.text

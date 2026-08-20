@@ -1191,14 +1191,16 @@ class CheckImpl:
                 supported: Optional[frozenset[str]] = (
                     contract_impl.data_source_impl.supported_check_types if contract_impl.data_source_impl else None
                 )
+                # Both refusals build no metrics and therefore no queries: some check types run a
+                # user-written query, so reaching setup would send it to a source that cannot run it.
                 if supported is not None and check_yaml.type_name not in supported:
-                    # Build no metrics and therefore no queries: some check types run a user-written
-                    # query, so reaching setup would send it to a source that cannot run it.
                     check_impl.unsupported_by_data_source = (
                         f"data source '{contract_impl.data_source_impl.name}' of type "
                         f"'{contract_impl.data_source_impl.type_name}' does not support "
                         f"'{check_yaml.type_name}' checks"
                     )
+                elif reason := check_impl.unsupported_reason(contract_impl.data_source_impl):
+                    check_impl.unsupported_by_data_source = reason
                 elif not check_impl.skip:
                     check_impl.setup_metrics(
                         contract_impl=contract_impl,
@@ -1233,6 +1235,12 @@ class CheckImpl:
                 return check_impl
             else:
                 logger.error(f"Unknown check type '{check_yaml.type_name}'")
+
+    def unsupported_reason(self, data_source_impl: Optional[DataSourceImpl]) -> Optional[str]:
+        """Why this check cannot run on this data source, or None. Answered by the check because the
+        requirement depends on how it is configured — a dataset-level duplicate needs a row hash where
+        a per-column one does not."""
+        return None
 
     def __init__(
         self,
