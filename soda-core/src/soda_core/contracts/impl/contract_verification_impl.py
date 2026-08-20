@@ -34,6 +34,7 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
+    THRESHOLD_LEVEL_WARN,
     CheckYaml,
     ColumnYaml,
     ContractYaml,
@@ -42,6 +43,8 @@ from soda_core.contracts.impl.contract_yaml import (
     RegexFormat,
     ThresholdYaml,
     ValidReferenceDataYaml,
+    is_known_threshold_level,
+    normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
     DiagnosticsWarehouseFiles,
@@ -850,15 +853,32 @@ class ThresholdLevel(Enum):
     WARN = "warn"
 
     @classmethod
-    def from_str(cls, level_str: str) -> ThresholdLevel:
-        level_str_lower = level_str.lower()
-        if level_str_lower == "fail":
-            return ThresholdLevel.FAIL
-        elif level_str_lower == "warn":
-            return ThresholdLevel.WARN
-        else:
+    def from_str(cls, level_str: Optional[str]) -> ThresholdLevel:
+        # Normalization lives in contract_yaml so the YAML-level validation (which
+        # rejects two thresholds of the same level) and this slot assignment agree on
+        # what each level is. Unrecognized values keep coercing to FAIL, as they always
+        # have; only the warning is new for a non-str level (which used to raise).
+        if not is_known_threshold_level(level_str):
             logger.warning(f"Unknown threshold level '{level_str}', defaulting to 'fail'")
-            return ThresholdLevel.FAIL
+        return ThresholdLevel(normalize_threshold_level(level_str))
+
+
+def split_threshold_yamls_by_level(
+    threshold_yaml: ThresholdYaml,
+) -> tuple[ThresholdYaml, ThresholdLevel, ThresholdYaml]:
+    """Assign a threshold and its `additional` threshold to the impl slots by level.
+
+    Returns (primary_threshold_yaml, primary_level, other_threshold_yaml). The
+    FAIL-level threshold takes the primary slot — that is the outer one unless the
+    outer one is the warn threshold and the additional one is the fail threshold.
+    Contract parsing rejects two thresholds with the same effective level, so exactly
+    one of them is the fail threshold.
+    """
+    outer_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
+    additional_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.additional.level)
+    if outer_level == ThresholdLevel.WARN and additional_level == ThresholdLevel.FAIL:
+        return threshold_yaml.additional, ThresholdLevel.FAIL, threshold_yaml
+    return threshold_yaml, outer_level, threshold_yaml.additional
 
 
 class ThresholdImpl:
@@ -873,6 +893,21 @@ class ThresholdImpl:
                 logger.error(f"Threshold required, but not specified")
                 return None
 
+        if threshold_yaml.additional is not None:
+            # Two thresholds: the FAIL-level one takes the primary slot, whether it is
+            # the outer threshold or the additional one. Defaults never apply here —
+            # a threshold with an `additional` always carries its own comparison (the
+            # Cloud contract schema requires the same, so the shapes stay in lockstep).
+            if default_threshold and not threshold_yaml.has_any_configurations():
+                # The YAML-level arity error already fired; name the default the author
+                # has to restate so the fix does not require reading the check type docs.
+                logger.error(
+                    f"A check type's default threshold does not combine with an 'additional' threshold. "
+                    f"State this check type's default explicitly: {default_threshold.describe_comparison()}"
+                )
+            primary_threshold_yaml, primary_level, _ = split_threshold_yamls_by_level(threshold_yaml)
+            return cls.create_from_comparisons(primary_threshold_yaml, primary_level)
+
         threshold_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
 
         if default_threshold:
@@ -884,6 +919,12 @@ class ThresholdImpl:
             logger.error(f"Threshold required, but not specified")
             return None
 
+        return cls.create_from_comparisons(threshold_yaml, threshold_level)
+
+    @classmethod
+    def create_from_comparisons(
+        cls, threshold_yaml: ThresholdYaml, threshold_level: ThresholdLevel
+    ) -> Optional[ThresholdImpl]:
         if threshold_yaml.has_exactly_one_comparison():
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
@@ -901,30 +942,38 @@ class ThresholdImpl:
             if range_error:
                 logger.error(f"Invalid between threshold range: {range_error}")
                 return None
-            else:
-                return ThresholdImpl(
-                    type=ThresholdType.INNER_RANGE,
-                    level=threshold_level,
-                    must_be_greater_than=threshold_yaml.must_be_between.greater_than,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
-                    must_be_less_than=threshold_yaml.must_be_between.less_than,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_between.less_than_or_equal,
-                )
+            return ThresholdImpl(
+                type=ThresholdType.INNER_RANGE,
+                level=threshold_level,
+                must_be_greater_than=threshold_yaml.must_be_between.greater_than,
+                must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
+                must_be_less_than=threshold_yaml.must_be_between.less_than,
+                must_be_less_than_or_equal=threshold_yaml.must_be_between.less_than_or_equal,
+            )
 
         elif threshold_yaml.must_be_not_between:
             range_error: Optional[str] = threshold_yaml.must_be_not_between.get_not_between_range_error()
             if range_error:
                 logger.error(f"Invalid not between threshold range: {range_error}")
                 return None
-            else:
-                return ThresholdImpl(
-                    type=ThresholdType.OUTER_RANGE,
-                    level=threshold_level,
-                    must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
-                    must_be_less_than=threshold_yaml.must_be_not_between.less_than,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
-                )
+            return ThresholdImpl(
+                type=ThresholdType.OUTER_RANGE,
+                level=threshold_level,
+                must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
+                must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
+                must_be_less_than=threshold_yaml.must_be_not_between.less_than,
+                must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
+            )
+
+        # No threshold is built: the check stays NOT_EVALUATED on every scan. A warning,
+        # not an error: published contracts with this shape verify green today, and an
+        # error here would flip them to ERRORED on engine upgrade while the Cloud schema
+        # still accepts them at publish time. Tightening the two in lockstep is tracked.
+        logger.warning(
+            f"Threshold does not specify exactly one comparison"
+            f"{threshold_yaml._describe_comparisons()}. The check is not evaluated"
+        )
+        return None
 
     def __init__(
         self,
@@ -965,6 +1014,22 @@ class ThresholdImpl:
                 level=self.level.value,
                 must_not_be=self.must_not_be,
             )
+
+    def describe_comparison(self) -> str:
+        """The comparison as the author would write it, e.g. "must_be: 0" — for error messages."""
+        comparisons: list[str] = [
+            f"{key}: {value}"
+            for key, value in (
+                ("must_be_greater_than", self.must_be_greater_than),
+                ("must_be_greater_than_or_equal", self.must_be_greater_than_or_equal),
+                ("must_be_less_than", self.must_be_less_than),
+                ("must_be_less_than_or_equal", self.must_be_less_than_or_equal),
+                ("must_be", self.must_be),
+                ("must_not_be", self.must_not_be),
+            )
+            if value is not None
+        ]
+        return ", ".join(comparisons)
 
     @classmethod
     def get_metric_name(cls, metric_name: str, column_impl: Optional[ColumnImpl]) -> str:
@@ -1029,6 +1094,56 @@ class ThresholdImpl:
                 )
             )
 
+    def get_pass_intervals(self) -> list[tuple]:
+        """Pass region as a list of (lo, lo_open, hi, hi_open) intervals over the reals."""
+        inf = float("inf")
+        if self.type == ThresholdType.OUTER_RANGE:
+            # passes when below the less-bound OR above the greater-bound
+            lower_hi, lower_hi_open = (
+                (self.must_be_less_than, True)
+                if self.must_be_less_than is not None
+                else (self.must_be_less_than_or_equal, False)
+            )
+            upper_lo, upper_lo_open = (
+                (self.must_be_greater_than, True)
+                if self.must_be_greater_than is not None
+                else (self.must_be_greater_than_or_equal, False)
+            )
+            return [(-inf, True, lower_hi, lower_hi_open), (upper_lo, upper_lo_open, inf, True)]
+        if self.must_be is not None:
+            return [(self.must_be, False, self.must_be, False)]
+        if self.must_not_be is not None:
+            return [(-inf, True, self.must_not_be, True), (self.must_not_be, True, float("inf"), True)]
+        lo, lo_open = (-inf, True)
+        if self.must_be_greater_than is not None:
+            lo, lo_open = self.must_be_greater_than, True
+        elif self.must_be_greater_than_or_equal is not None:
+            lo, lo_open = self.must_be_greater_than_or_equal, False
+        hi, hi_open = (inf, True)
+        if self.must_be_less_than is not None:
+            hi, hi_open = self.must_be_less_than, True
+        elif self.must_be_less_than_or_equal is not None:
+            hi, hi_open = self.must_be_less_than_or_equal, False
+        return [(lo, lo_open, hi, hi_open)]
+
+
+def _interval_contains(outer: tuple, inner: tuple) -> bool:
+    o_lo, o_lo_open, o_hi, o_hi_open = outer
+    i_lo, i_lo_open, i_hi, i_hi_open = inner
+    lo_ok = o_lo < i_lo or (o_lo == i_lo and (not o_lo_open or i_lo_open))
+    hi_ok = o_hi > i_hi or (o_hi == i_hi and (not o_hi_open or i_hi_open))
+    return lo_ok and hi_ok
+
+
+def warn_can_fire_alone(fail_threshold: ThresholdImpl, warn_threshold: ThresholdImpl) -> bool:
+    """True when some value passes the fail threshold but breaches the warn threshold —
+    i.e. the warn outcome is actually reachable. Fail's pass region being fully inside
+    warn's pass region means warn can never fire alone."""
+    return not all(
+        any(_interval_contains(w, f) for w in warn_threshold.get_pass_intervals())
+        for f in fail_threshold.get_pass_intervals()
+    )
+
 
 class CheckParser(ABC):
     @abstractmethod
@@ -1080,6 +1195,30 @@ class CheckImpl:
                         check_yaml=check_yaml,
                     )
 
+                if check_impl and check_impl.threshold and check_impl.warn_threshold:
+                    if not warn_can_fire_alone(check_impl.threshold, check_impl.warn_threshold):
+                        logger.warning(
+                            f"Check '{check_impl.name}': the warn threshold can never produce a warn outcome "
+                            f"because every value that breaches it also breaches the fail threshold"
+                        )
+                    # Reversed orientation heads-up. A Soda Core without 'additional'
+                    # support ignores the additional threshold entirely, so with the
+                    # fail comparison nested there this check degrades to warn-only —
+                    # it can never fail on such an engine. Parse time is the only place
+                    # this reaches Cloud-authored contracts (the migrator always emits
+                    # the fail comparison on the outer threshold).
+                    check_threshold_yaml = getattr(check_yaml, "threshold", None)
+                    if (
+                        check_threshold_yaml is not None
+                        and check_threshold_yaml.get_effective_level() == THRESHOLD_LEVEL_WARN
+                    ):
+                        logger.warning(
+                            f"Check '{check_impl.name}': the fail comparison is the 'additional' threshold. "
+                            f"Soda Core versions without 'additional' threshold support evaluate only the "
+                            f"outer warn threshold, so this check cannot fail there. Put the fail comparison "
+                            f"on the outer threshold if this contract may run on an older Soda runner"
+                        )
+
                 return check_impl
             else:
                 logger.error(f"Unknown check type '{check_yaml.type_name}'")
@@ -1107,6 +1246,14 @@ class CheckImpl:
         )
 
         self.threshold: Optional[ThresholdImpl] = None
+        self.warn_threshold: Optional[ThresholdImpl] = None
+        check_threshold_yaml: Optional[ThresholdYaml] = getattr(check_yaml, "threshold", None)
+        if check_threshold_yaml is not None and check_threshold_yaml.additional is not None:
+            # Only a threshold + additional threshold pair fills the warn slot: the one
+            # of the two that is not in the primary (fail) slot. A single warn-level
+            # threshold keeps the primary slot, as it always has.
+            _, _, warn_threshold_yaml = split_threshold_yamls_by_level(check_threshold_yaml)
+            self.warn_threshold = ThresholdImpl.create_from_comparisons(warn_threshold_yaml, ThresholdLevel.WARN)
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
@@ -1249,6 +1396,7 @@ class CheckImpl:
             contract_file_line=self.check_yaml.check_yaml_object.location.line,
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
             threshold=self._build_threshold(),
+            warn_threshold=self._build_warn_threshold(),
             attributes=self.attributes,
             location=self.check_yaml.check_yaml_object.location,
         )
@@ -1319,6 +1467,9 @@ class CheckImpl:
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
 
+    def _build_warn_threshold(self) -> Optional[Threshold]:
+        return self.warn_threshold.to_threshold_info() if self.warn_threshold else None
+
     def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
         """
         Used in extensions
@@ -1331,6 +1482,8 @@ class CheckImpl:
         if self.threshold and isinstance(value, Number):
             if self.threshold.passes(value):
                 outcome = CheckOutcome.PASSED
+                if self.warn_threshold and not self.warn_threshold.passes(value):
+                    outcome = CheckOutcome.WARN
             else:
                 if self.threshold.level == ThresholdLevel.WARN:
                     outcome = CheckOutcome.WARN

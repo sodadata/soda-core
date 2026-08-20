@@ -711,8 +711,84 @@ class ThresholdCheckYaml(CheckYaml):
         return []
 
 
+THRESHOLD_COMPARISON_KEYS: set = {
+    "must_be_greater_than",
+    "must_be_greater_than_or_equal",
+    "must_be_less_than",
+    "must_be_less_than_or_equal",
+    "must_be",
+    "must_not_be",
+    "must_be_between",
+    "must_be_not_between",
+}
+
+# An 'additional' threshold is one more comparison with its own level. It carries no
+# 'metric'/'unit' (those are the enclosing threshold's) and no nested 'additional'.
+ADDITIONAL_THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level"}
+
+# The full outer threshold key set ('metric'/'unit' are read by ThresholdCheckYaml off the
+# same object; whether they are ALLOWED is per check type and validated there). An unknown
+# key here is warned about, not rejected: thresholds never had unknown-key validation, so
+# published contracts may carry stray keys that must keep verifying — but a silently dropped
+# typo like 'aditional' turns a two-level threshold into a fail-only one, which is exactly
+# the kind of quiet degradation this warning is for.
+THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level", "additional", "metric", "unit"}
+
+THRESHOLD_LEVEL_FAIL: str = "fail"
+THRESHOLD_LEVEL_WARN: str = "warn"
+
+
+def is_known_threshold_level(level: Optional[str]) -> bool:
+    """Whether 'level' is one of the two levels the engine knows, spelled out."""
+    return isinstance(level, str) and level.lower() in (THRESHOLD_LEVEL_FAIL, THRESHOLD_LEVEL_WARN)
+
+
+def normalize_threshold_level(level: Optional[str]) -> str:
+    """The single place where a 'level' string becomes an effective level.
+
+    Anything that is not literally 'warn' evaluates as 'fail': an absent level, and
+    also an unrecognized one such as 'warning' (`ThresholdLevel.from_str` coerces those
+    to FAIL, and that coercion predates the 'additional' threshold). Both the YAML
+    validation and the impl derive levels through this function, so they can never
+    disagree about which of the two thresholds is the fail one — a disagreement
+    silently swaps the fail and warn slots.
+    """
+    if isinstance(level, str) and level.lower() == THRESHOLD_LEVEL_WARN:
+        return THRESHOLD_LEVEL_WARN
+    return THRESHOLD_LEVEL_FAIL
+
+
+_ADDITIONAL_ARITY_MESSAGE: str = (
+    "It must contain exactly one comparison "
+    "(one must_be_* key, or one must_be_between/must_be_not_between range) "
+    "and an optional 'level'"
+)
+
+_OUTER_ARITY_MESSAGE: str = (
+    "It must specify exactly one comparison itself "
+    "(one must_be_* key, or one must_be_between/must_be_not_between range)"
+)
+
+
 class ThresholdYaml:
-    def __init__(self, threshold_yaml_object: YamlObject):
+    def __init__(self, threshold_yaml_object: YamlObject, is_additional: bool = False):
+        if is_additional:
+            for key in threshold_yaml_object.keys():
+                if key not in ADDITIONAL_THRESHOLD_ALLOWED_KEYS:
+                    logger.error(
+                        msg=f"'{key}' is not allowed in an 'additional' threshold. "
+                        f"Allowed: one of {sorted(THRESHOLD_COMPARISON_KEYS)} and 'level'",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                    )
+        else:
+            for key in threshold_yaml_object.keys():
+                if key not in THRESHOLD_ALLOWED_KEYS:
+                    logger.warning(
+                        msg=f"'{key}' is not a known threshold key and is ignored. "
+                        f"Known keys: one of {sorted(THRESHOLD_COMPARISON_KEYS)}, "
+                        f"'level', 'additional', 'metric', 'unit'",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                    )
         self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
         self.must_be_greater_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt(
             "must_be_greater_than_or_equal"
@@ -727,7 +803,86 @@ class ThresholdYaml:
         self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_range_opt(
             threshold_yaml_object, "must_be_not_between"
         )
-        self.level: str = threshold_yaml_object.read_string_opt("level", default_value="fail")
+        self.level: str = threshold_yaml_object.read_string_opt("level", default_value=THRESHOLD_LEVEL_FAIL)
+
+        self.additional: Optional[ThresholdYaml] = None
+        if not is_additional:
+            additional_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt("additional")
+            if additional_yaml_object is None and threshold_yaml_object.has_key("additional"):
+                logger.error(
+                    msg=f"An 'additional' threshold must be an object. {_ADDITIONAL_ARITY_MESSAGE}",
+                    extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key("additional")},
+                )
+            if additional_yaml_object is not None:
+                self.additional = ThresholdYaml(additional_yaml_object, is_additional=True)
+                additional_has_one_comparison: bool = self.additional.has_exactly_one_comparison_or_range()
+                if not additional_has_one_comparison:
+                    logger.error(
+                        msg=f"An 'additional' threshold is invalid"
+                        f"{self.additional._describe_comparisons()}. {_ADDITIONAL_ARITY_MESSAGE}",
+                        extra={ExtraKeys.LOCATION: additional_yaml_object.location},
+                    )
+                if not self.has_any_configurations():
+                    logger.error(
+                        msg="A threshold with an 'additional' threshold must specify a comparison itself "
+                        "(one must_be_* key, or one must_be_between/must_be_not_between range)",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
+                    )
+                elif not self.has_exactly_one_comparison_or_range():
+                    # The outer threshold is one comparison too: with two of them the impl
+                    # builds no fail threshold and the check stays NOT_EVALUATED forever.
+                    logger.error(
+                        msg=f"A threshold with an 'additional' threshold is invalid"
+                        f"{self._describe_comparisons()}. {_OUTER_ARITY_MESSAGE}",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.location},
+                    )
+                # 'fail' is the level of a threshold that does not specify one, so two
+                # thresholds without a level are both fail-level: a conflict. Levels are
+                # compared as the impl evaluates them (an unrecognized level is 'fail'),
+                # otherwise a typo like 'warning' passes here and inverts the slots.
+                # Skipped when the additional has no single comparison — its level is
+                # then noise on top of the arity error above.
+                if additional_has_one_comparison and (
+                    self.get_effective_level() == self.additional.get_effective_level()
+                ):
+                    logger.error(
+                        msg=f"The threshold level {self._describe_level()} and the 'additional' threshold "
+                        f"level {self.additional._describe_level()} must be different. "
+                        f"'fail' is the level of a threshold without a 'level'",
+                        extra={
+                            ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key("level")
+                            or threshold_yaml_object.location
+                        },
+                    )
+
+    def get_effective_level(self) -> str:
+        """The level this threshold is evaluated at. Absent 'level' means 'fail'."""
+        return normalize_threshold_level(self.level)
+
+    def _describe_level(self) -> str:
+        """The effective level for error messages, naming the raw value when it differs."""
+        effective_level: str = self.get_effective_level()
+        if is_known_threshold_level(self.level) or self.level is None:
+            return f"'{effective_level}'"
+        return f"'{effective_level}' (from '{self.level}')"
+
+    def _describe_comparisons(self) -> str:
+        """The comparison keys present, for error messages. Empty when there are none."""
+        comparison_keys: list[str] = [
+            key
+            for key, value in (
+                ("must_be_greater_than", self.must_be_greater_than),
+                ("must_be_greater_than_or_equal", self.must_be_greater_than_or_equal),
+                ("must_be_less_than", self.must_be_less_than),
+                ("must_be_less_than_or_equal", self.must_be_less_than_or_equal),
+                ("must_be", self.must_be),
+                ("must_not_be", self.must_not_be),
+                ("must_be_between", self.must_be_between),
+                ("must_be_not_between", self.must_be_not_between),
+            )
+            if value is not None
+        ]
+        return f": {', '.join(comparison_keys)}" if comparison_keys else ""
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:
@@ -750,8 +905,8 @@ class ThresholdYaml:
             > 0
         )
 
-    def has_exactly_one_comparison(self) -> bool:
-        comparator_count: int = self.__config_count(
+    def __comparator_count(self) -> int:
+        return self.__config_count(
             [
                 self.must_be_greater_than,
                 self.must_be_greater_than_or_equal,
@@ -761,8 +916,19 @@ class ThresholdYaml:
                 self.must_not_be,
             ]
         )
-        between_count: int = self.__config_count([self.must_be_between, self.must_be_not_between])
-        return comparator_count == 1 and between_count == 0
+
+    def __between_count(self) -> int:
+        return self.__config_count([self.must_be_between, self.must_be_not_between])
+
+    def has_exactly_one_comparison(self) -> bool:
+        """Exactly one single-value comparator (must_be_*) and no between range."""
+        return self.__comparator_count() == 1 and self.__between_count() == 0
+
+    def has_exactly_one_comparison_or_range(self) -> bool:
+        """Exactly one comparison: either one single-value comparator, or one between range."""
+        comparator_count: int = self.__comparator_count()
+        between_count: int = self.__between_count()
+        return (comparator_count == 1 and between_count == 0) or (comparator_count == 0 and between_count == 1)
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):
