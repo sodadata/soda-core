@@ -14,7 +14,6 @@ These run on every data source by patching the capability flag, reproducing the 
 reports natively. Nothing here asserted the guard before; it was covered only by a live Salesforce test.
 """
 
-import logging
 from unittest import mock
 
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -58,7 +57,6 @@ def _request_sampling(data_source_test_helper: DataSourceTestHelper, test_table)
 def test_a_source_that_cannot_sample_refuses_a_sampled_scan(
     mocked_runner, mocked_scan_type, data_source_test_helper: DataSourceTestHelper, monkeypatch, caplog
 ):
-    caplog.set_level(logging.ERROR)
     from soda_core.common.sql_dialect import SqlDialect
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
