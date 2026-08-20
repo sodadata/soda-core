@@ -292,6 +292,45 @@ def test_discover_results_send_rejected_exits_results_not_sent(mock_discover_dat
     soda_cloud.mark_scan_as_failed.assert_not_called()
 
 
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_with_batched_context_routes_upload_through_it(mock_discover_dataset_dqns):
+    soda_cloud = MagicMock()
+    batched_scan_context = MagicMock()
+    batched_scan_context.insert_results.return_value = True
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+
+    exit_code = handle_discover_data_source(
+        _data_source_impl_fake(),
+        soda_cloud,
+        scan_definition_name="my_scan",
+        batched_scan_context=batched_scan_context,
+    )
+
+    assert exit_code == ExitCode.OK
+    batched_scan_context.insert_results.assert_called_once()
+    (payload,), _ = batched_scan_context.insert_results.call_args
+    assert payload["type"] == "sodaCoreInsertScanResults"
+    soda_cloud.insert_scan_results.assert_not_called()
+
+
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_with_batched_context_rejected_upload_exits_results_not_sent(mock_discover_dataset_dqns):
+    soda_cloud = MagicMock()
+    batched_scan_context = MagicMock()
+    batched_scan_context.insert_results.return_value = False
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+
+    exit_code = handle_discover_data_source(
+        _data_source_impl_fake(),
+        soda_cloud,
+        scan_definition_name="my_scan",
+        batched_scan_context=batched_scan_context,
+    )
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
 @patch("soda_core.discovery.discovery_payload.build_discovery_payload")
 @patch("soda_core.discovery.discovery.discover_dataset_dqns")
 def test_discover_unexpected_post_query_exception_propagates(mock_discover_dataset_dqns, mock_build_discovery_payload):

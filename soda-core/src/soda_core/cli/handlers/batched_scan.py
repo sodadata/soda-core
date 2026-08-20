@@ -13,17 +13,19 @@ This is opt-in composition sugar: the pieces (``build_streaming_logs``, the
 directly by any target that needs a different shape.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.data_source import build_streaming_logs
-from soda_core.cli.handlers.dependencies import run_with_failure_reporting
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
+
+if TYPE_CHECKING:
+    from soda_core.common.soda_cloud import SodaCloud
+    from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
 
 @dataclass
@@ -69,6 +71,12 @@ def run_batched_scan(
     - ``scan_end_async`` failure → warning, not fatal: results were already
       acknowledged (or the failure already reported).
     """
+    # Deferred: importing soda_cloud (via these modules) before the contracts
+    # package initializes trips the pre-existing soda_cloud<->contracts import
+    # cycle — this module is imported early by cli.py.
+    from soda_core.cli.handlers.data_source import build_streaming_logs
+    from soda_core.cli.handlers.dependencies import run_with_failure_reporting
+
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     logs: Optional[Logs] = build_streaming_logs(soda_cloud, stage, scan_id) if scan_id else None
     logs = logs if logs is not None else Logs()

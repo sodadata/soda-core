@@ -198,12 +198,15 @@ def execute_check_collections(
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
                 logs=logs,
-                batched_scan_context=batched_scan_context,
                 # ``data_timestamp`` and ``execution_timestamp`` are
                 # first-class fields on ``CheckCollectionYaml``: every
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
+                # Only when set: impl subclasses with explicit __init__
+                # signatures (e.g. ContractImpl) predate the kwarg, and the
+                # flows constructing them never run batched.
+                **({"batched_scan_context": batched_scan_context} if batched_scan_context is not None else {}),
             )
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:

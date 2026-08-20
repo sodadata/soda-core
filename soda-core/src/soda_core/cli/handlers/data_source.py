@@ -15,6 +15,9 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 if TYPE_CHECKING:
+    # batched_scan imports build_streaming_logs from this module: type-only to
+    # keep the runtime import acyclic.
+    from soda_core.cli.handlers.batched_scan import BatchedScanContext
     from soda_core.common.data_source_impl import DataSourceImpl
     from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
@@ -190,15 +193,23 @@ def handle_discover_data_source(
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
     logs: Optional[Logs] = None,
+    batched_scan_context: Optional["BatchedScanContext"] = None,
 ) -> ExitCode:
     """Discover datasets and send the results to Soda Cloud.
 
     Receives fully resolved dependencies — including the mandatory scan
     definition name (``resolve_scan_definition_name``). Engine failures
-    propagate raw: the CLI wiring (``dependencies.run_with_failure_reporting``)
-    is the single logging site and maps them to failure reporting. A rejected
-    results upload is not an engine failure: it returns
-    ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
+    propagate raw: the CLI wiring (``run_batched_scan`` /
+    ``dependencies.run_with_failure_reporting``) is the single logging site and
+    maps them to failure reporting. A rejected results upload is not an engine
+    failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure
+    report is sent.
+
+    With a ``batched_scan_context`` the upload routes through
+    ``context.insert_results`` (async batch pipeline on managed runs, sync
+    fallback otherwise); the payload build is unchanged — a streaming-backed
+    ``logs`` yields no records, so the payload's ``logs`` field is empty and
+    the stream stays the single log channel.
     """
     from soda_core.discovery.discovery_payload import build_discovery_payload
 
@@ -216,7 +227,12 @@ def handle_discover_data_source(
         scan_end_timestamp=scan_end_timestamp,
         log_records=logs.get_log_records() if logs else None,
     )
-    if not soda_cloud.insert_scan_results(payload):
+    accepted: bool = (
+        batched_scan_context.insert_results(payload)
+        if batched_scan_context is not None
+        else soda_cloud.insert_scan_results(payload)
+    )
+    if not accepted:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 

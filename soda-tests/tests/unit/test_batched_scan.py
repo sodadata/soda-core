@@ -59,7 +59,7 @@ def test_run_batched_scan_without_scan_id_is_fully_sync(monkeypatch):
     assert isinstance(seen["context"].logs.gatherer, LogsCollector)
 
 
-@patch("soda_core.cli.handlers.batched_scan.build_streaming_logs", return_value=None)
+@patch("soda_core.cli.handlers.data_source.build_streaming_logs", return_value=None)
 def test_run_batched_scan_happy_path_batches_then_ends(mock_build_streaming_logs, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
@@ -80,7 +80,7 @@ def test_run_batched_scan_happy_path_batches_then_ends(mock_build_streaming_logs
     mock_build_streaming_logs.assert_called_once_with(soda_cloud, "main", "scan-123")
 
 
-@patch("soda_core.cli.handlers.batched_scan.build_streaming_logs", return_value=None)
+@patch("soda_core.cli.handlers.data_source.build_streaming_logs", return_value=None)
 def test_run_batched_scan_degrades_to_sync_when_scan_start_fails(mock_build_streaming_logs, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
@@ -98,7 +98,7 @@ def test_run_batched_scan_degrades_to_sync_when_scan_start_fails(mock_build_stre
     soda_cloud.scan_end_async.assert_not_called()
 
 
-@patch("soda_core.cli.handlers.batched_scan.build_streaming_logs", return_value=None)
+@patch("soda_core.cli.handlers.data_source.build_streaming_logs", return_value=None)
 def test_run_batched_scan_failure_reports_then_ends(mock_build_streaming_logs, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
@@ -118,7 +118,7 @@ def test_run_batched_scan_failure_reports_then_ends(mock_build_streaming_logs, m
     soda_cloud.scan_end_async.assert_called_once_with("org/ref-1")
 
 
-@patch("soda_core.cli.handlers.batched_scan.build_streaming_logs")
+@patch("soda_core.cli.handlers.data_source.build_streaming_logs")
 def test_run_batched_scan_failure_report_attaches_gatherer_selected_records(mock_build_streaming_logs, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
@@ -144,7 +144,7 @@ def test_run_batched_scan_failure_report_attaches_gatherer_selected_records(mock
     gatherer.close.assert_called_once()
 
 
-@patch("soda_core.cli.handlers.batched_scan.build_streaming_logs", return_value=None)
+@patch("soda_core.cli.handlers.data_source.build_streaming_logs", return_value=None)
 def test_run_batched_scan_end_failure_is_not_fatal(mock_build_streaming_logs, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
