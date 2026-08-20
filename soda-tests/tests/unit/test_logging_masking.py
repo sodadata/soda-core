@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from soda_core.common.logging_configuration import _mask_exception, _masked_values
+import logging
+
+import pytest
+from soda_core.common import logging_configuration
+from soda_core.common.logging_configuration import (
+    REDACTED_EXCEPTION_MARKER,
+    MaskingError,
+    SodaConsoleFormatter,
+    _mask_exception,
+    _mask_record,
+    _masked_values,
+)
 
 
 class _FakeRetryingConnection:
@@ -50,18 +61,107 @@ def _value_error_containing(secret: str) -> ValueError:
         return e
 
 
-def test_mask_exception_masks_registered_secret_in_args() -> None:
-    """Masking still redacts registered secrets in the exception args."""
+def _error_record_with_exception(message: str, exception: BaseException) -> logging.LogRecord:
+    return logging.LogRecord(
+        name="soda_core.test",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=0,
+        msg=message,
+        args=(),
+        exc_info=(type(exception), exception, exception.__traceback__),
+    )
+
+
+@pytest.fixture
+def registered_secret():
     secret = "s3cr3t-token-value"
     _masked_values.add(secret)
     try:
-        masked = _mask_exception(_value_error_containing(secret))
-        assert masked is not None
-        assert "s3cr3t-token-value" not in masked.args[0]
-        assert "***" in masked.args[0]
+        yield secret
     finally:
         _masked_values.discard(secret)
 
 
+def test_mask_exception_masks_registered_secret_in_args(registered_secret: str) -> None:
+    """Masking still redacts registered secrets in the exception args."""
+    masked = _mask_exception(_value_error_containing(registered_secret))
+    assert masked is not None
+    assert registered_secret not in masked.args[0]
+    assert "***" in masked.args[0]
+
+
 def test_mask_exception_returns_none_for_none() -> None:
     assert _mask_exception(None) is None
+
+
+def test_mask_exception_raises_masking_error_when_masking_fails(monkeypatch, registered_secret: str) -> None:
+    """A failure while masking must surface as MaskingError — never be swallowed, and
+    never leak the original error (whose frames are exactly what could not be masked)."""
+
+    def _broken_mask_message(message):
+        raise RuntimeError("dictionary keys changed during iteration")
+
+    monkeypatch.setattr(logging_configuration, "_mask_message", _broken_mask_message)
+
+    with pytest.raises(MaskingError) as exc_info:
+        _mask_exception(_value_error_containing(registered_secret))
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__ is True
+    assert registered_secret not in str(exc_info.value)
+
+
+def test_mask_record_keeps_masked_exception_when_masking_succeeds(registered_secret: str) -> None:
+    record = _error_record_with_exception(
+        f"query failed for {registered_secret}", _value_error_containing(registered_secret)
+    )
+
+    _mask_record(record)
+
+    assert record.exc_info is not None
+    exc_type, exc_value, _ = record.exc_info
+    assert exc_type is ValueError
+    assert registered_secret not in exc_value.args[0]
+    assert registered_secret not in record.getMessage()
+    assert REDACTED_EXCEPTION_MARKER not in record.getMessage()
+
+
+def test_mask_record_redacts_exception_when_masking_fails(monkeypatch, registered_secret: str) -> None:
+    """If the exception cannot be masked it must not be logged at all: the record keeps
+    its (masked) message and ERROR level, but the exception and traceback are dropped and
+    the message says so."""
+
+    def _broken_mask_message(message):
+        raise RuntimeError("dictionary keys changed during iteration")
+
+    monkeypatch.setattr(logging_configuration, "_mask_message", _broken_mask_message)
+    record = _error_record_with_exception(
+        f"query failed for {registered_secret}", _value_error_containing(registered_secret)
+    )
+
+    _mask_record(record)
+
+    assert record.levelno == logging.ERROR
+    assert record.exc_info is None
+    assert record.exc_text is None
+    assert REDACTED_EXCEPTION_MARKER in record.getMessage()
+    assert registered_secret not in record.getMessage()
+
+
+def test_console_formatter_output_has_no_secret_when_masking_fails(monkeypatch, registered_secret: str) -> None:
+    """End-to-end through the console formatter: no secret and no traceback in the output."""
+
+    def _broken_mask_message(message):
+        raise RuntimeError("dictionary keys changed during iteration")
+
+    monkeypatch.setattr(logging_configuration, "_mask_message", _broken_mask_message)
+    record = _error_record_with_exception(
+        f"query failed for {registered_secret}", _value_error_containing(registered_secret)
+    )
+
+    rendered = SodaConsoleFormatter().format(record)
+
+    assert registered_secret not in rendered
+    assert "Traceback" not in rendered
+    assert "ValueError" not in rendered
+    assert REDACTED_EXCEPTION_MARKER in rendered
