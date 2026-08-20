@@ -240,7 +240,9 @@ def test_two_outer_comparisons_with_additional_is_error(caplog):
 
 
 def test_two_outer_comparisons_without_additional_is_unchanged(caplog):
-    """A flat multi-comparison threshold keeps its (silent) legacy behaviour."""
+    """A flat multi-comparison threshold stays valid YAML (no error, so published
+    contracts keep verifying); the impl logs a warning when it builds no threshold
+    from it — see test_two_comparisons_without_additional_build_no_threshold_and_warn."""
     parse_threshold_yaml("must_be_greater_than: 10\nmust_be_less_than: 1000")
     assert_no_errors(caplog)
 
@@ -581,3 +583,120 @@ def test_legal_levels_do_evaluate_on_a_real_scan(tmp_path):
     assert result.has_errors is False
     check_results = result.contract_verification_results[0].check_results
     assert [check_result.outcome for check_result in check_results] == [CheckOutcome.WARN]
+
+
+# ---------------------------------------------------------------------------
+# Silent degradations now log (review round: soda-core#2818)
+# ---------------------------------------------------------------------------
+
+
+def test_two_comparisons_without_additional_build_no_threshold_and_warn(caplog):
+    """The legacy flat two-comparison shape still builds no threshold — the check stays
+    NOT_EVALUATED — but no longer silently. A warning, not an error: an error would flip
+    published contracts with this shape to ERRORED on engine upgrade while the Cloud
+    schema still accepts them at publish time."""
+    with caplog.at_level(logging.WARNING):
+        impl = ThresholdImpl.create(parse_threshold_yaml("must_be_greater_than: 10\nmust_be_less_than: 1000"))
+    assert impl is None
+    assert "does not specify exactly one comparison" in caplog.text
+    assert "must_be_greater_than, must_be_less_than" in caplog.text
+    assert_no_errors(caplog)
+
+
+def test_unknown_outer_threshold_key_warns(caplog):
+    """A typo like 'aditional' used to be dropped silently, turning an intended two-level
+    threshold into a fail-only one. Warned, not rejected: thresholds never had unknown-key
+    validation, so stray keys in published contracts must keep verifying."""
+    with caplog.at_level(logging.WARNING):
+        threshold_yaml = parse_threshold_yaml(
+            """
+            must_be_less_than: 10
+            aditional:
+              must_be_less_than: 5
+              level: warn
+            """
+        )
+    assert threshold_yaml.additional is None
+    assert "'aditional' is not a known threshold key" in caplog.text
+    assert_no_errors(caplog)
+
+
+def test_metric_unit_level_and_additional_are_known_outer_keys(caplog):
+    with caplog.at_level(logging.WARNING):
+        parse_threshold_yaml(
+            """
+            metric: percent
+            unit: rows
+            level: fail
+            must_be_less_than: 10
+            additional:
+              must_be_less_than: 5
+              level: warn
+            """
+        )
+    assert "not a known threshold key" not in caplog.text
+
+
+def test_additional_with_default_threshold_names_the_default(caplog):
+    """A check type's default threshold does not combine with an 'additional' (the Cloud
+    contract schema requires the outer comparison to be explicit); the error names the
+    default the author has to restate."""
+    from soda_core.contracts.impl.contract_verification_impl import ThresholdType
+
+    default = ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0)
+    impl = ThresholdImpl.create(
+        threshold_yaml=parse_threshold_yaml(
+            """
+            additional:
+              must_be_less_than: 5
+              level: warn
+            """
+        ),
+        default_threshold=default,
+    )
+    assert impl is None
+    assert "does not combine with an 'additional' threshold" in caplog.text
+    assert "must_be_greater_than: 0" in caplog.text
+
+
+def test_warn_outer_orientation_logs_older_runner_notice(caplog):
+    """A pre-`additional` engine ignores the additional threshold, so with the fail
+    comparison nested there the check degrades to warn-only on that engine. The parse-time
+    notice is the only signal that reaches Cloud-authored contracts."""
+    with caplog.at_level(logging.WARNING):
+        build_contract_impl(
+            """
+            dataset: my_data_source/my_dataset
+            columns:
+              - name: id
+                data_type: integer
+            checks:
+              - row_count:
+                  threshold:
+                    level: warn
+                    must_be_greater_than: 100
+                    additional:
+                      must_be_greater_than: 10
+            """
+        )
+    assert "cannot fail there" in caplog.text
+
+
+def test_fail_outer_orientation_logs_no_older_runner_notice(caplog):
+    with caplog.at_level(logging.WARNING):
+        build_contract_impl(
+            """
+            dataset: my_data_source/my_dataset
+            columns:
+              - name: id
+                data_type: integer
+            checks:
+              - row_count:
+                  threshold:
+                    must_be_greater_than: 10
+                    additional:
+                      must_be_greater_than: 100
+                      level: warn
+            """
+        )
+    assert "cannot fail there" not in caplog.text

@@ -199,6 +199,70 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     ), f"Expected 2 requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
+def test_soda_cloud_results_with_additional_threshold(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
+    """End-to-end through the engine exit: a threshold + `additional:` pair must reach the
+    Cloud payload as BOTH `diagnostics.fail` and `diagnostics.warn`. The impl-level tests
+    assert `CheckImpl.warn_threshold` and the wire tests hand-build the `Check` dataclass,
+    so without this test the `warn_threshold=` kwarg in `_build_check_info` — the only
+    carrier of the warn threshold out of the engine — could be dropped with the whole
+    suite staying green."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
+            MockResponse(
+                method=MockHttpMethod.POST,
+                status_code=200,
+                json_object={
+                    "scanId": "ssscanid",
+                    "checks": [
+                        {"id": "123e4567-e89b-12d3-a456-426655440000", "identities": ["0e741893"]},
+                    ],
+                },
+            ),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+              - name: age
+                missing_values: [-1, -2]
+                checks:
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 5
+                        additional:
+                          must_be_less_than_or_equal: 1
+                          level: warn
+        """,
+    )
+
+    results_request: MockRequest = data_source_test_helper.soda_cloud.requests[1]
+    assert results_request.json["type"] == "sodaCoreInsertScanResults"
+    assert_dict(
+        results_request.json,
+        {
+            "checks": [
+                {
+                    "checkPath": "columns.age.checks.missing",
+                    "outcome": "warn",
+                    "diagnostics": {
+                        "value": 2,
+                        "fail": {"greaterThan": 5},
+                        "warn": {"greaterThan": 1},
+                    },
+                },
+            ],
+        },
+    )
+
+
 def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

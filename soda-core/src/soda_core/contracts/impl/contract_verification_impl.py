@@ -40,6 +40,7 @@ from soda_core.contracts.impl.contract_yaml import (
     MissingAncValidityCheckYaml,
     MissingAndValidityYaml,
     RegexFormat,
+    THRESHOLD_LEVEL_WARN,
     ThresholdYaml,
     ValidReferenceDataYaml,
     is_known_threshold_level,
@@ -895,7 +896,15 @@ class ThresholdImpl:
         if threshold_yaml.additional is not None:
             # Two thresholds: the FAIL-level one takes the primary slot, whether it is
             # the outer threshold or the additional one. Defaults never apply here —
-            # a threshold with an `additional` always carries its own comparison.
+            # a threshold with an `additional` always carries its own comparison (the
+            # Cloud contract schema requires the same, so the shapes stay in lockstep).
+            if default_threshold and not threshold_yaml.has_any_configurations():
+                # The YAML-level arity error already fired; name the default the author
+                # has to restate so the fix does not require reading the check type docs.
+                logger.error(
+                    f"A check type's default threshold does not combine with an 'additional' threshold. "
+                    f"State this check type's default explicitly: {default_threshold.describe_comparison()}"
+                )
             primary_threshold_yaml, primary_level, _ = split_threshold_yamls_by_level(threshold_yaml)
             return cls.create_from_comparisons(primary_threshold_yaml, primary_level)
 
@@ -956,6 +965,14 @@ class ThresholdImpl:
                 must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
             )
 
+        # No threshold is built: the check stays NOT_EVALUATED on every scan. A warning,
+        # not an error: published contracts with this shape verify green today, and an
+        # error here would flip them to ERRORED on engine upgrade while the Cloud schema
+        # still accepts them at publish time. Tightening the two in lockstep is tracked.
+        logger.warning(
+            f"Threshold does not specify exactly one comparison"
+            f"{threshold_yaml._describe_comparisons()}. The check is not evaluated"
+        )
         return None
 
     def __init__(
@@ -997,6 +1014,22 @@ class ThresholdImpl:
                 level=self.level.value,
                 must_not_be=self.must_not_be,
             )
+
+    def describe_comparison(self) -> str:
+        """The comparison as the author would write it, e.g. "must_be: 0" — for error messages."""
+        comparisons: list[str] = [
+            f"{key}: {value}"
+            for key, value in (
+                ("must_be_greater_than", self.must_be_greater_than),
+                ("must_be_greater_than_or_equal", self.must_be_greater_than_or_equal),
+                ("must_be_less_than", self.must_be_less_than),
+                ("must_be_less_than_or_equal", self.must_be_less_than_or_equal),
+                ("must_be", self.must_be),
+                ("must_not_be", self.must_not_be),
+            )
+            if value is not None
+        ]
+        return ", ".join(comparisons)
 
     @classmethod
     def get_metric_name(cls, metric_name: str, column_impl: Optional[ColumnImpl]) -> str:
@@ -1167,6 +1200,23 @@ class CheckImpl:
                         logger.warning(
                             f"Check '{check_impl.name}': the warn threshold can never produce a warn outcome "
                             f"because every value that breaches it also breaches the fail threshold"
+                        )
+                    # Reversed orientation heads-up. A Soda Core without 'additional'
+                    # support ignores the additional threshold entirely, so with the
+                    # fail comparison nested there this check degrades to warn-only —
+                    # it can never fail on such an engine. Parse time is the only place
+                    # this reaches Cloud-authored contracts (the migrator always emits
+                    # the fail comparison on the outer threshold).
+                    check_threshold_yaml = getattr(check_yaml, "threshold", None)
+                    if (
+                        check_threshold_yaml is not None
+                        and check_threshold_yaml.get_effective_level() == THRESHOLD_LEVEL_WARN
+                    ):
+                        logger.warning(
+                            f"Check '{check_impl.name}': the fail comparison is the 'additional' threshold. "
+                            f"Soda Core versions without 'additional' threshold support evaluate only the "
+                            f"outer warn threshold, so this check cannot fail there. Put the fail comparison "
+                            f"on the outer threshold if this contract may run on an older Soda runner"
                         )
 
                 return check_impl

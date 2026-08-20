@@ -726,6 +726,14 @@ THRESHOLD_COMPARISON_KEYS: set = {
 # 'metric'/'unit' (those are the enclosing threshold's) and no nested 'additional'.
 ADDITIONAL_THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level"}
 
+# The full outer threshold key set ('metric'/'unit' are read by ThresholdCheckYaml off the
+# same object; whether they are ALLOWED is per check type and validated there). An unknown
+# key here is warned about, not rejected: thresholds never had unknown-key validation, so
+# published contracts may carry stray keys that must keep verifying — but a silently dropped
+# typo like 'aditional' turns a two-level threshold into a fail-only one, which is exactly
+# the kind of quiet degradation this warning is for.
+THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level", "additional", "metric", "unit"}
+
 THRESHOLD_LEVEL_FAIL: str = "fail"
 THRESHOLD_LEVEL_WARN: str = "warn"
 
@@ -770,6 +778,15 @@ class ThresholdYaml:
                     logger.error(
                         msg=f"'{key}' is not allowed in an 'additional' threshold. "
                         f"Allowed: one of {sorted(THRESHOLD_COMPARISON_KEYS)} and 'level'",
+                        extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
+                    )
+        else:
+            for key in threshold_yaml_object.keys():
+                if key not in THRESHOLD_ALLOWED_KEYS:
+                    logger.warning(
+                        msg=f"'{key}' is not a known threshold key and is ignored. "
+                        f"Known keys: one of {sorted(THRESHOLD_COMPARISON_KEYS)}, "
+                        f"'level', 'additional', 'metric', 'unit'",
                         extra={ExtraKeys.LOCATION: threshold_yaml_object.create_location_from_yaml_dict_key(key)},
                     )
         self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
