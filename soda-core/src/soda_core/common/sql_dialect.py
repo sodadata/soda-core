@@ -124,6 +124,9 @@ class SqlDialect:
     """
 
     DEFAULT_QUOTE_CHAR = '"'
+    # Alias of the CTE a paginated `SELECT DISTINCT` is de-duplicated in when its ORDER BY can't
+    # be rendered on the distinct select itself. See `_paginated_select_statements`.
+    DISTINCT_PAGE_CTE_NAME: str = "_soda_distinct_page"
     USES_SEMICOLONS_BY_DEFAULT: bool = True
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
@@ -442,22 +445,127 @@ class SqlDialect:
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),
+        distinct: bool = False,
     ) -> str:
-        where_clauses = []
+        """Render one page of a SELECT over a dataset.
 
-        if filter:
-            where_clauses.append(SqlExpressionStr(filter))
+        ``distinct=True`` renders ``SELECT DISTINCT``, de-duplicating on the projected
+        columns. Callers must render distinct through this parameter rather than by
+        rewriting the returned SQL: dialects are free to emit shapes (CTEs, ROW_NUMBER
+        pagination) in which the leading ``SELECT`` token is not the one to modify.
 
+        ``normalize_key_columns`` case-folds the ORDER BY for the listed key columns (see
+        ``_order_by_key``). For how it composes with ``distinct``, see
+        ``_paginated_select_statements``.
+        """
         statements = [
-            SELECT(columns or [STAR()]),
-            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
-            WHERE.optional(AND.optional(where_clauses)),
-            *[term for c in order_by for term in self._order_by_key(c, normalize_key_columns)],
+            *self._paginated_select_statements(
+                dataset_identifier=dataset_identifier,
+                columns=columns,
+                filter=filter,
+                order_by=order_by,
+                normalize_key_columns=normalize_key_columns,
+                distinct=distinct,
+            ),
             LIMIT(limit),
             OFFSET(offset),
         ]
 
         return self.build_select_sql(statements)
+
+    def _paginated_select_statements(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str],
+        filter: Optional[str],
+        order_by: list[str],
+        normalize_key_columns: frozenset[str],
+        distinct: bool,
+    ) -> list:
+        """The elements of a paginated select except LIMIT/OFFSET, which each dialect appends in
+        the order its grammar wants (base: LIMIT then OFFSET; T-SQL: OFFSET then FETCH NEXT).
+
+        This is where `distinct` and `normalize_key_columns` compose, so the rule lives in one
+        place for every AST-based paginator:
+
+        - Neither, or only one of them, renders the flat select both features rendered before —
+          byte-for-byte unchanged.
+        - Both is not expressible flat. SQL requires every ORDER BY term of a `SELECT DISTINCT`
+          to appear in its select list, and `_order_by_key`'s case-fold (`LOWER(<key>)`) is
+          deliberately NOT projected: callers read the page's rows positionally, so the
+          projection has to stay exactly `columns`. So instead of widening the projection, we
+          de-duplicate in a CTE and order/paginate that CTE — the same "de-duplicate in an inner
+          scope" shape the Synapse paginator already uses for its ROW_NUMBER fold.
+
+        Semantics are unchanged by the wrapper: `LOWER(<key>)` is a function of the projected
+        key, so de-duplicating before ordering cannot reorder anything, and DISTINCT still
+        applies before LIMIT/OFFSET, so pages neither overlap nor carry duplicates.
+        """
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        order_by_terms = [term for c in order_by for term in self._order_by_key(c, normalize_key_columns)]
+
+        if distinct:
+            self._validate_distinct_pagination(columns=columns, order_by=order_by)
+            if any(isinstance(column, str) and column in normalize_key_columns for column in order_by):
+                return [
+                    WITH(
+                        [
+                            CTE(self.DISTINCT_PAGE_CTE_NAME).AS(
+                                [
+                                    SELECT(columns or [STAR()], distinct=True),
+                                    FROM(
+                                        table_name=dataset_identifier.dataset_name,
+                                        table_prefix=dataset_identifier.prefixes,
+                                    ),
+                                    WHERE.optional(AND.optional(where_clauses)),
+                                ]
+                            )
+                        ]
+                    ),
+                    SELECT(columns or [STAR()]),
+                    FROM(table_name=self.DISTINCT_PAGE_CTE_NAME),
+                    *order_by_terms,
+                ]
+
+        return [
+            SELECT(columns or [STAR()], distinct=distinct),
+            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
+            WHERE.optional(AND.optional(where_clauses)),
+            *order_by_terms,
+        ]
+
+    def _validate_distinct_pagination(self, columns: list[str], order_by: list[str]) -> None:
+        """A DISTINCT page can only be ordered by columns it projects.
+
+        Postgres ("for SELECT DISTINCT, ORDER BY expressions must appear in select list"), T-SQL
+        ("ORDER BY items must appear in the select list if SELECT DISTINCT is specified") and
+        BigQuery all reject an ORDER BY term that isn't derivable from the projection — and the
+        Synapse paginator additionally reads its order-by columns out of a de-duplicated CTE that
+        projects only `columns`. Fail here, naming the offending column, instead of shipping SQL
+        the warehouse will reject (or, on a lenient dialect, silently ordering a page differently
+        than its strict siblings would).
+        """
+        if not columns:
+            # No explicit projection -> `SELECT DISTINCT *` projects every column.
+            return
+        # Only plain column NAMES can be matched against the projection by name. A caller may
+        # also pass built expression terms (soda-reconciliation orders a side by a per-column
+        # SQL expression, projected as `(<expr>) AS "<col>"`); those are the caller's own
+        # terms, matched to its own projection, so this validation has nothing to say about
+        # them. Skipping them is what keeps the check a real check for the string case
+        # instead of a false alarm for every expression caller.
+        missing_order_by_columns = [
+            column for column in order_by if isinstance(column, str) and column not in columns
+        ]
+        if missing_order_by_columns:
+            raise ValueError(
+                f"select_all_paginated_sql(distinct=True) can only order by projected columns, but "
+                f"order_by {missing_order_by_columns} is not in columns {columns}"
+            )
 
     def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
         """ORDER BY element(s) for one key column.
@@ -470,8 +578,14 @@ class SqlDialect:
         LOWER() is not a total order — 'ABC' and 'abc' tie — and reconciliation re-executes this
         query once per LIMIT/OFFSET page, so without a stable secondary sort the tied rows could
         reorder across page boundaries and be silently skipped or duplicated in the stream.
+
+        ``column`` may also be a built ``SqlExpression`` rather than a column name — callers
+        order by a per-column SQL expression (soda-reconciliation's per-side column
+        expressions). Only a NAME can be looked up in ``normalize_key_columns``, and an
+        expression term is already the exact thing to order by, so it is emitted as-is; a
+        caller that needs such a term folded builds the fold itself.
         """
-        if column in normalize_key_columns:
+        if isinstance(column, str) and column in normalize_key_columns:
             return [ORDER_BY_ASC(self.order_by_key_expression(column)), ORDER_BY_ASC(column)]
         return [ORDER_BY_ASC(column)]
 
@@ -807,8 +921,11 @@ class SqlDialect:
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
+        is_distinct: bool = False
         for select_element in select_elements:
             if isinstance(select_element, SELECT):
+                if select_element.distinct:
+                    is_distinct = True
                 if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
                 for select_field in select_element.fields:
@@ -823,10 +940,11 @@ class SqlDialect:
         # return "SELECT " + (", ".join(select_fields_sql))
         # For now, we opt for SELECT statement readability...
 
+        select_keyword: str = "SELECT DISTINCT" if is_distinct else "SELECT"
         select_sql_lines: list[str] = []
         for i in range(0, len(select_field_sqls)):
             if i == 0:
-                sql_line = f"SELECT {select_field_sqls[0]}"
+                sql_line = f"{select_keyword} {select_field_sqls[0]}"
             else:
                 sql_line = f"       {select_field_sqls[i]}"
             # Append comma all lines except the last one
