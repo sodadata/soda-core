@@ -871,7 +871,6 @@ def test_build_token_usage_dicts_serialization():
             "totalTokens": 400,
             "model": "gpt-4o-mini",
             "operation": "autopilot",
-            "agentSource": None,
         },
     ]
 

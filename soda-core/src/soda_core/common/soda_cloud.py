@@ -1774,7 +1774,7 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
                 "totalTokens": tu.total_tokens,
                 "model": tu.model,
                 "operation": tu.operation,
-                "agentSource": tu.agent_source,
+                **({"agentSource": tu.agent_source} if tu.agent_source is not None else {}),
             }
             for tu in contract_verification_result.token_usage
         ]
