@@ -592,11 +592,11 @@ class CheckCollectionImpl:
             if self.dataset_configuration.compute_warehouse_override:
                 self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
 
-        # Nothing is claimed or built when the source cannot sample. This is the load-bearing half:
-        # without it .SAMPLE() attaches to the CTE and query BUILDING reaches the dialect's
-        # _build_sample_sql, which raises NotImplementedError during __init__ — before the execute loop
-        # exists to catch anything — so the whole verification aborts. The execute-time guard below
-        # turns the refusal into NOT_EVALUATED plus a message; it cannot prevent that abort on its own.
+        # The CTE is sampled only when sampling is both requested and supported. The capability term is
+        # load-bearing: without it .SAMPLE() attaches to the CTE and query BUILDING reaches the
+        # dialect's _build_sample_sql, which raises NotImplementedError during __init__ — before the
+        # execute loop exists to catch anything — so the whole verification aborts. verify() reports the
+        # refusal via _log_sampling_refusal; it cannot prevent that abort on its own.
         if self.should_apply_sampling and self.data_source_supports_sampling:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
