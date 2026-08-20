@@ -20,6 +20,7 @@ downstream repo that consumes soda-tests.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 import pytest
@@ -145,6 +146,46 @@ def _deactivate_lingering_interceptors() -> None:
     deactivate_all_registered_interceptors()
 
 
+# Transient database errors that warrant one re-run of the test. These come from the
+# shared test infrastructure, not the code under test: SQL Server kills one side of a
+# system-catalog lock cycle between concurrent DDL and information_schema scans as the
+# "deadlock victim" (error 1205, SQLSTATE 40001) and asks the client to rerun.
+_TRANSIENT_DB_ERROR_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"deadlock victim", re.IGNORECASE),
+    re.compile(r"\b40001\b"),
+)
+TRANSIENT_RERUN_REASON_PREFIX = "transient DB error: "
+
+
+def _report_failure_text(report) -> str:
+    text = getattr(report, "longreprtext", None)
+    if text:
+        return text
+    return str(report.longrepr) if report.longrepr is not None else ""
+
+
+def _reports_contain_transient_db_error(reports) -> Optional[str]:
+    """If any phase failed on a known transient DB error, return the rerun reason.
+
+    Checked only when no snapshot rerun was queued. Looks at every phase (setup,
+    call, teardown): fixture DDL such as ``ensure_test_table`` or the schema drop is
+    exactly where catalog deadlocks strike.
+    """
+    for report in reports:
+        if report.outcome != "failed":
+            continue
+        text = _report_failure_text(report)
+        for pattern in _TRANSIENT_DB_ERROR_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                return f"{TRANSIENT_RERUN_REASON_PREFIX}{match.group(0)!r} during {report.when}"
+    return None
+
+
+def _is_transient_rerun_reason(reason: str) -> bool:
+    return str(reason).startswith(TRANSIENT_RERUN_REASON_PREFIX)
+
+
 def _reports_contain_rerun_signal(test_id: str) -> Optional[str]:
     """If any report indicates the test asked for a rerun, return the reason.
 
@@ -218,14 +259,21 @@ def pytest_runtest_protocol(item, nextitem):
     first_reports = _runtestprotocol(item, nextitem)
     rerun_reason = _reports_contain_rerun_signal(item.nodeid)
     if rerun_reason is None:
+        rerun_reason = _reports_contain_transient_db_error(first_reports)
+    if rerun_reason is None:
         for r in first_reports:
             item.ihook.pytest_runtest_logreport(report=r)
         return True
 
     # First attempt asked for a rerun. Run the test again with all
     # snapshot wrappers swapped out for their real connections, so the
-    # rerun's behaviour is identical to SODA_TEST_SNAPSHOT=off.
-    logger.warning(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
+    # rerun's behaviour is identical to SODA_TEST_SNAPSHOT=off. A transient
+    # DB error takes the same path: in off mode there are no wrappers to
+    # swap and the test simply runs a second time.
+    if _is_transient_rerun_reason(rerun_reason):
+        logger.warning(f"TRANSIENT: re-running {item.nodeid} once; reason: {rerun_reason}")
+    else:
+        logger.warning(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
 
     _deactivate_lingering_interceptors()
     swapped: list = []
@@ -299,17 +347,31 @@ def pytest_terminal_summary(terminalreporter) -> None:
             bold=True,
         )
 
-    if _RERAN_TEST_RECORD:
+    drift = {t: r for t, r in _RERAN_TEST_RECORD.items() if not _is_transient_rerun_reason(r)}
+    transient = {t: r for t, r in _RERAN_TEST_RECORD.items() if _is_transient_rerun_reason(r)}
+    if drift:
         terminalreporter.section("snapshot drift — tests re-run against real DB", sep="=", yellow=True)
-        for test_id in sorted(_RERAN_TEST_RECORD):
+        for test_id in sorted(drift):
             terminalreporter.write_line(f"  {test_id}")
-            for line in str(_RERAN_TEST_RECORD[test_id]).splitlines():
+            for line in str(drift[test_id]).splitlines():
                 terminalreporter.write_line(f"      {line}")
         terminalreporter.write_line("")
         terminalreporter.write_line(
-            f"{len(_RERAN_TEST_RECORD)} test(s) re-ran end-to-end against the real DB "
+            f"{len(drift)} test(s) re-ran end-to-end against the real DB "
             "because their recorded SQL no longer matches production. Re-record with "
             "SODA_TEST_SNAPSHOT=record to refresh the snapshots."
+        )
+    if transient:
+        terminalreporter.section("transient DB errors — tests re-run once", sep="=", yellow=True)
+        for test_id in sorted(transient):
+            terminalreporter.write_line(f"  {test_id}")
+            for line in str(transient[test_id]).splitlines():
+                terminalreporter.write_line(f"      {line}")
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            f"{len(transient)} test(s) hit a transient database error (e.g. SQL Server deadlock "
+            "victim, SQLSTATE 40001) and were re-run once. Frequent occurrences point at "
+            "contention in the shared test database, not at the test."
         )
 
     # Unconsumed-snapshot drifts that were downgraded silently because

@@ -240,3 +240,22 @@ def test_replay_mode_lazy_factory_calls_original_on_demand(reset_patch_state, tm
 
     assert produced is lazy_real
     impl._create_data_source_connection.assert_called_once_with()
+
+
+@pytest.mark.parametrize("mode", ["record", "replay"])
+def test_secondary_inherits_primary_extra_replacements(reset_patch_state, tmp_path, mode) -> None:
+    """Per-run identifiers registered on the primary wrapper (e.g. SQL Server's
+    per-xdist-worker database name) must be normalized on secondary connections too,
+    otherwise SQL flowing through an additional connection records the raw name."""
+    DataSourceTestHelper._install_create_additional_connection_patch()
+    patched = DataSourceImpl.create_additional_connection
+
+    primary = _make_primary_snapshot(tmp_path, mode=mode)
+    primary.extra_replacements["__$$__soda_test_database__$$__"] = "master_gw2"
+    impl = MagicMock(spec=DataSourceImpl, data_source_connection=primary)
+    impl._create_data_source_connection.return_value = _FakeReal()
+
+    secondary = _bind(patched, impl)()
+
+    assert secondary.extra_replacements == {"__$$__soda_test_database__$$__": "master_gw2"}
+    assert secondary.extra_replacements is not primary.extra_replacements

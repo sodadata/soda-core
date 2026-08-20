@@ -156,6 +156,7 @@ def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
             allow_fallback=primary._allow_fallback,
             primary_snapshot=primary,
         )
+        secondary.extra_replacements = dict(primary.extra_replacements)
     else:
         real_conn = orig(ds_self)
         secondary = SnapshotDataSourceConnection(
@@ -167,6 +168,7 @@ def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
             allow_fallback=primary._allow_fallback,
             primary_snapshot=primary,
         )
+        secondary.extra_replacements = dict(primary.extra_replacements)
     secondary.connection_properties = primary.connection_properties
     return secondary
 
@@ -546,6 +548,16 @@ class DataSourceTestHelper:
             )
         return self._dwh_snapshot_managers.get(key)
 
+    def _snapshot_extra_replacements(self) -> dict[str, str]:
+        """Extra ``placeholder → real value`` pairs the snapshot wrapper must normalize
+        besides the schema name (see ``SnapshotDataSourceConnection.extra_replacements``).
+
+        Override in data-source helpers whose generated SQL contains other per-run
+        identifiers — e.g. SQL Server's per-xdist-worker database name — so recorded
+        snapshots stay portable across workers and runs. Default: nothing extra.
+        """
+        return {}
+
     def _snapshot_schema_name(self) -> Optional[str]:
         """Return the dynamic schema name part for snapshot placeholder replacement.
 
@@ -629,6 +641,7 @@ class DataSourceTestHelper:
             allow_fallback=allow_fallback,
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        snap_conn.extra_replacements.update(self._snapshot_extra_replacements())
         snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
@@ -647,6 +660,7 @@ class DataSourceTestHelper:
             real_schema_name=self._snapshot_schema_name(),
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        snap_conn.extra_replacements.update(self._snapshot_extra_replacements())
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
         # leaves the global patch state untouched.
