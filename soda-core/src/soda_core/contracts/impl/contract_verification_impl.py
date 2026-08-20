@@ -34,13 +34,13 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
+    THRESHOLD_LEVEL_WARN,
     CheckYaml,
     ColumnYaml,
     ContractYaml,
     MissingAncValidityCheckYaml,
     MissingAndValidityYaml,
     RegexFormat,
-    THRESHOLD_LEVEL_WARN,
     ThresholdYaml,
     ValidReferenceDataYaml,
     is_known_threshold_level,
