@@ -158,4 +158,7 @@ def test_dataset_duplicate_not_evaluated_without_row_hashing(
     # And loud. Without this the reason could be downgraded to debug and the scan would report zero
     # runtime errors — a silent NOT_EVALUATED with a clean exit, which is what the guard exists to
     # prevent. Asserting the message rather than has_errors, which other errors in a run also satisfy.
-    assert "requires a row hash" in caplog.text
+    assert "row hash" in caplog.text
+    # Names the per-column alternative: the message is the only place a user learns the check can be
+    # rewritten rather than dropped.
+    assert "under a single column" in caplog.text

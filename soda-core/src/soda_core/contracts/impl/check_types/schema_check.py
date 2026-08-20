@@ -287,23 +287,18 @@ class SchemaQuery(Query):
 
     def execute(self) -> list[Measurement]:
         try:
-            metadata_columns: list[ColumnMetadata] = self.data_source_impl.get_columns_metadata(
+            metadata_columns: list[ColumnMetadata] = self.data_source_impl.get_schema_check_columns_metadata(
                 dataset_prefixes=self.dataset_prefixes, dataset_name=self.dataset_name
             )
         except Exception as e:
             # Broad by design: the query loop in check_collections only catches SodaCoreException,
             # so anything the accessor raises has to be absorbed here or it aborts the whole
             # verification instead of leaving this one check NOT_EVALUATED.
-            logger.error(msg=f"Could not resolve columns metadata for '{self.dataset_name}': {e}", exc_info=True)
-            return []
-        if not metadata_columns:
-            # Zero columns means the check cannot be evaluated, and evaluate() only logs an error for a
-            # *missing* measurement — an empty one falls through silently, leaving scan status UNKNOWN
-            # and the CLI exiting 0. Reporting it here is what keeps a metadata failure visible for a
-            # data source whose accessor absorbs its own exceptions and returns an empty list
-            # (Databricks warns and does exactly that). It also makes a contract against a
-            # non-existent dataset loud on every source, where it was previously a clean scan.
-            logger.error(msg=f"No columns metadata resolved for '{self.dataset_name}'")
+            logger.error(
+                msg=f"Could not resolve columns metadata for '{self.dataset_name}' "
+                f"in prefixes {self.dataset_prefixes}: {e}",
+                exc_info=True,
+            )
             return []
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
