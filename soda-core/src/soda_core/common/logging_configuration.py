@@ -101,8 +101,19 @@ def _mask_record(record: LogRecord):
     record.args = ()
     if record.exc_info:
         exc_type, exc_value, exc_tb = record.exc_info
-        masked_exc = _mask_exception(exc_value)
-        record.exc_info = (exc_type, masked_exc, exc_tb)
+        try:
+            masked_exc = _mask_exception(exc_value)
+        except MaskingError:
+            # Masking is a security control, not best-effort: an exception whose
+            # secrets could not be masked must never reach a handler. The record
+            # itself is kept (its message is already masked above, and an ERROR must
+            # stay an ERROR so check outcomes are not silently downgraded), but the
+            # exception and any cached traceback text are dropped entirely.
+            record.exc_info = None
+            record.exc_text = None
+            record.msg = f"{record.msg} {REDACTED_EXCEPTION_MARKER}"
+        else:
+            record.exc_info = (exc_type, masked_exc, exc_tb)
     else:
         record.exc_info = None
 
@@ -117,38 +128,65 @@ def _mask_message(message: Optional[str]) -> Optional[str]:
     return message
 
 
+class MaskingError(Exception):
+    """Secret masking of an exception could not be completed.
+
+    Raised by ``_mask_exception`` instead of letting the underlying error escape: the
+    original error is deliberately not chained (``from None``) because its traceback
+    frames are exactly what could not be masked.
+    """
+
+
+REDACTED_EXCEPTION_MARKER = "[exception redacted: secret masking failed]"
+
+
 def _mask_exception(e: Optional[BaseException]) -> Optional[BaseException]:
+    """Mask registered secrets in an exception's args and traceback frame locals.
+
+    Raises ``MaskingError`` if any part of the exception could not be masked. Callers
+    must then treat the whole exception as unmaskable and drop it (see ``_mask_record``)
+    rather than log it partially masked.
+    """
     if e is None:
         return None
 
-    # Mask the exception's args (usually contains the error message)
-    if e.args:
-        masked_args = []
-        for arg in e.args:
-            if isinstance(arg, str):
-                masked_arg = _mask_message(arg)
-                masked_args.append(masked_arg)
-            else:
-                masked_args.append(arg)
-        e.args = tuple(masked_args)
+    try:
+        # Mask the exception's args (usually contains the error message)
+        if e.args:
+            masked_args = []
+            for arg in e.args:
+                if isinstance(arg, str):
+                    masked_arg = _mask_message(arg)
+                    masked_args.append(masked_arg)
+                else:
+                    masked_args.append(arg)
+            e.args = tuple(masked_args)
 
-    # Mask the traceback frames
-    tb = e.__traceback__
-    while tb is not None:
-        frame = tb.tb_frame
-        # Mask local variables in the frame that are strings
-        if frame.f_locals:
-            for var_name, var_value in frame.f_locals.items():
-                if isinstance(var_value, str):
-                    masked_value = _mask_message(var_value)
-                    frame.f_locals[var_name] = masked_value
-        tb = tb.tb_next
+        # Mask the traceback frames
+        tb = e.__traceback__
+        while tb is not None:
+            frame = tb.tb_frame
+            # Mask local variables in the frame that are strings.
+            # Iterate over a snapshot (``list(...)``): assigning ``frame.f_locals[...]``
+            # re-syncs the frame's fast locals, mutating the very mapping being iterated,
+            # which raises "dictionary keys changed during iteration" on Python < 3.13 for
+            # some frames (e.g. a bound-method local plus a closure frame, the shape the
+            # SQL Server deadlock-retry wrapper introduced).
+            if frame.f_locals:
+                for var_name, var_value in list(frame.f_locals.items()):
+                    if isinstance(var_value, str):
+                        frame.f_locals[var_name] = _mask_message(var_value)
+            tb = tb.tb_next
 
-    # Recursively mask chained exceptions
-    if e.__cause__ is not None:
-        _mask_exception(e.__cause__)
-    if e.__context__ is not None:
-        _mask_exception(e.__context__)
+        # Recursively mask chained exceptions
+        if e.__cause__ is not None:
+            _mask_exception(e.__cause__)
+        if e.__context__ is not None:
+            _mask_exception(e.__context__)
+    except MaskingError:
+        raise
+    except Exception as masking_failure:
+        raise MaskingError(f"Could not mask secrets in {type(e).__name__}: {type(masking_failure).__name__}") from None
     return e
 
 
