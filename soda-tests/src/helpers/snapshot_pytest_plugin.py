@@ -74,13 +74,18 @@ def pytest_configure() -> None:
 _RERAN_TEST_RECORD: dict[str, str] = {}
 
 
-def _rerun_mode_enabled() -> bool:
-    """Whether the plugin should run the rerun hook.
+def _snapshot_rerun_enabled() -> bool:
+    """Whether a queued snapshot-drift signal may trigger a rerun.
 
-    False when strict mode is active — then pytest runs each test once and
-    surfaces any ``SnapshotReplayError`` as a hard failure.
+    False in strict mode — then a ``SnapshotReplayError`` surfaces as a hard
+    failure. Transient database errors are re-run regardless (see
+    ``_reports_contain_transient_db_error``).
     """
     return not is_strict_mode_enabled()
+
+
+# Backwards-compatible alias (referenced by older tests).
+_rerun_mode_enabled = _snapshot_rerun_enabled
 
 
 def _reset_per_test_rerun_state() -> None:
@@ -244,12 +249,12 @@ def pytest_runtest_protocol(item, nextitem):
     rerun logic re-runs on the worker, which is where snapshot wrappers
     actually live.
 
-    Skips entirely in strict mode so the first attempt's failure stands.
+    Strict mode (``SODA_TEST_SNAPSHOT_STRICT=true``) only disables the
+    snapshot-drift rerun so the first attempt's mismatch stands; transient
+    database errors are unrelated to snapshot fidelity and are still re-run.
     A single rerun is the maximum: if the rerun itself raises another
     SnapshotReplayError, that bubbles up as a hard test failure.
     """
-    if not _rerun_mode_enabled():
-        return None
     if _is_xdist_controller(item.config):
         # Controller only dispatches; the rerun fires on the worker where
         # snapshot wrappers actually live.
@@ -257,7 +262,11 @@ def pytest_runtest_protocol(item, nextitem):
 
     _reset_per_test_rerun_state()
     first_reports = _runtestprotocol(item, nextitem)
+    # Always pop the queued snapshot signal so it can't leak into the next
+    # test; only act on it outside strict mode.
     rerun_reason = _reports_contain_rerun_signal(item.nodeid)
+    if not _snapshot_rerun_enabled():
+        rerun_reason = None
     if rerun_reason is None:
         rerun_reason = _reports_contain_transient_db_error(first_reports)
     if rerun_reason is None:
@@ -303,18 +312,21 @@ def pytest_runtest_protocol(item, nextitem):
     _RERAN_TEST_RECORD[item.nodeid] = rerun_reason
     # Also attach to the call-phase report's user_properties so the rerun
     # reason propagates through pytest-xdist to the master.
+    # Attach to every phase's report: a rerun can fail again in setup (no call
+    # report at all) or in teardown (call report passed), and the summary must
+    # still list the test and label the failing phase.
     for r in second_reports:
-        if r.when == "call":
-            r.user_properties = list(r.user_properties or []) + [
-                (_RERAN_USER_PROPERTY_KEY, rerun_reason),
-            ]
+        r.user_properties = list(r.user_properties or []) + [
+            (_RERAN_USER_PROPERTY_KEY, rerun_reason),
+        ]
     for r in second_reports:
         item.ihook.pytest_runtest_logreport(report=r)
     return True
 
 
 def pytest_report_teststatus(report):
-    """Annotate the call-phase status for tests that re-ran.
+    """Annotate the status of tests that re-ran (every phase, so a rerun that
+    fails again in setup or teardown is still recorded and labelled).
 
     The short progress char stays a plain ASCII string. Pytest concatenates
     those into a buffer and later calls ``.rsplit`` on the result, so a
@@ -323,16 +335,19 @@ def pytest_report_teststatus(report):
     label is safe to colourize because it's only handed to the markup-aware
     write path.
     """
-    if report.when != "call":
-        return None
     reran_reason = _read_reran_reason_from_report(report)
     if reran_reason is None:
         return None
     _RERAN_TEST_RECORD.setdefault(report.nodeid, reran_reason)
-    if report.outcome == "passed":
-        return "passed", ".", _yellow("RERAN: PASSED")
+    if report.when == "call":
+        if report.outcome == "passed":
+            return "passed", ".", _yellow("RERAN: PASSED")
+        if report.outcome == "failed":
+            return "failed", "F", _yellow("RERAN: FAILED")
+        return None
     if report.outcome == "failed":
-        return "failed", "F", _yellow("RERAN: FAILED")
+        # Setup/teardown failure on the rerun: pytest counts it as an error.
+        return "error", "E", _yellow("RERAN: ERROR")
     return None
 
 

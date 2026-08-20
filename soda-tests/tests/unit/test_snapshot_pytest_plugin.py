@@ -18,10 +18,13 @@ pytest_plugins = ["pytester"]
 def _reset_rerun_registry():
     """Each rerun-mode pytester run starts with a clean rerun registry."""
     from helpers.snapshot_connection import reset_pending_rerun_record
+    from helpers.snapshot_pytest_plugin import _RERAN_TEST_RECORD
 
     reset_pending_rerun_record()
+    _RERAN_TEST_RECORD.clear()
     yield
     reset_pending_rerun_record()
+    _RERAN_TEST_RECORD.clear()
 
 
 def _conftest_text() -> str:
@@ -243,3 +246,72 @@ def test_target():
     result = pytester.runpytest("-v")
     result.assert_outcomes(failed=1)
     assert not any("RERAN" in line for line in result.outlines), "\n".join(result.outlines)
+
+
+def test_transient_deadlock_is_rerun_even_in_strict_mode(pytester, _reset_rerun_registry, monkeypatch):
+    """Strict mode only disables snapshot-drift reruns; a transient DB error is
+    unrelated to snapshot fidelity and still gets its one rerun."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_strict_deadlock=f"""
+_STATE = {{"attempt": 0}}
+
+def test_target():
+    _STATE["attempt"] += 1
+    if _STATE["attempt"] == 1:
+        raise Exception({_DEADLOCK_MESSAGE!r})
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1)
+    assert any("RERAN: PASSED" in line for line in result.outlines), "\n".join(result.outlines)
+
+
+def test_transient_deadlock_in_setup_on_both_attempts_is_reported(pytester, _reset_rerun_registry):
+    """A rerun that fails again in *setup* has no call report; it must still count
+    as an error, be labelled, and be listed in the transient summary."""
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_setup_deadlock_twice=f"""
+import pytest
+
+@pytest.fixture
+def table():
+    raise Exception({_DEADLOCK_MESSAGE!r})
+
+def test_target(table):
+    pass
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(errors=1)
+    assert any("RERAN: ERROR" in line for line in result.outlines), "\n".join(result.outlines)
+    assert any("transient DB errors" in line for line in result.outlines), "\n".join(result.outlines)
+    assert any("test_setup_deadlock_twice.py::test_target" in line for line in result.outlines)
+
+
+def test_transient_deadlock_in_teardown_on_both_attempts_is_reported(pytester, _reset_rerun_registry):
+    """A rerun whose *teardown* deadlocks again: the call passed, but the test must
+    surface as an error and be labelled as a rerun error, not RERAN: PASSED only."""
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_teardown_deadlock_twice=f"""
+import pytest
+
+@pytest.fixture
+def table():
+    yield "t"
+    raise Exception({_DEADLOCK_MESSAGE!r})
+
+def test_target(table):
+    assert table == "t"
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1, errors=1)
+    assert any("RERAN: ERROR" in line for line in result.outlines), "\n".join(result.outlines)
+    assert any("transient DB errors" in line for line in result.outlines), "\n".join(result.outlines)
