@@ -13,7 +13,12 @@ with a 1-element ``contract_yaml_sources`` list) sets
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    # Type-only: the check-collection layer must not import the CLI layer at
+    # runtime (the CLI wiring imports this module).
+    from soda_core.cli.handlers.batched_scan import BatchedScanContext
 
 from soda_core.check_collections.base import (
     CheckCollectionImpl,
@@ -55,6 +60,7 @@ def execute_check_collections(
     dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
+    batched_scan_context: Optional["BatchedScanContext"] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
@@ -192,6 +198,7 @@ def execute_check_collections(
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
                 logs=logs,
+                batched_scan_context=batched_scan_context,
                 # ``data_timestamp`` and ``execution_timestamp`` are
                 # first-class fields on ``CheckCollectionYaml``: every
                 # subtype yaml has them after construction.

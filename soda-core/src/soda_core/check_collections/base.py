@@ -19,7 +19,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
 from numbers import Number
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    # Type-only: the check-collection layer must not import the CLI layer at
+    # runtime (the CLI wiring imports this module).
+    from soda_core.cli.handlers.batched_scan import BatchedScanContext
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
@@ -493,6 +498,7 @@ class CheckCollectionImpl:
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
+        batched_scan_context: Optional["BatchedScanContext"] = None,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -502,6 +508,10 @@ class CheckCollectionImpl:
         from soda_core.contracts.impl.contract_verification_impl import MetricsResolver
 
         self.logs: Logs = logs if logs is not None else Logs()
+        # Set on managed batched-ingestion CLI runs (run_batched_scan); None
+        # everywhere else. Subtypes that publish results themselves consult it
+        # to route the upload through the async batch pipeline.
+        self.batched_scan_context: Optional["BatchedScanContext"] = batched_scan_context
         self.yaml: CheckCollectionYaml = yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         # Stamp this collection's ``thread`` label on every record it emits.
