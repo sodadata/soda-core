@@ -80,6 +80,11 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
             return []
 
+    def get_schema_check_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        # Bypasses the swallow above: the bulk-metadata sweep wants an empty list, but a schema check
+        # reading one dataset needs the failure to reach SchemaQuery, which reports it as an error.
+        return super().get_columns_metadata(dataset_prefixes, dataset_name)
+
     @property
     def bulk_columns_metadata_available(self) -> bool:
         return False
