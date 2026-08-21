@@ -269,3 +269,32 @@ def test_aggregate_function_avg_warn(data_source_test_helper: DataSourceTestHelp
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     assert check_json["diagnostics"]["v4"] == {"type": "aggregate", "datasetRowsTested": 5, "checkRowsTested": 5}
+
+
+def test_aggregate_functions_on_same_column_are_measured_separately(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                checks:
+                  - aggregate:
+                      qualifier: min_age
+                      function: min
+                      threshold:
+                        must_be: 0
+                  - aggregate:
+                      qualifier: max_age
+                      function: max
+                      threshold:
+                        must_be: 10
+        """,
+    )
+    min_check_result: CheckResult = contract_verification_result.check_results[0]
+    max_check_result: CheckResult = contract_verification_result.check_results[1]
+    assert get_diagnostic_value(min_check_result, "min") == 0
+    assert get_diagnostic_value(max_check_result, "max") == 10
