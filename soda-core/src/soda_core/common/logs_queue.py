@@ -60,6 +60,12 @@ class LogsQueue(LogsBase):
         self.dataset = dataset
         self.flush_interval = DEFAULT_FLUSH_INTERVAL
         self.batch_size = MAX_LOG_LINES
+        # Identities (id()) of ERROR-level records confirmed flushed (2xx) to the log stream, consulted by
+        # records_for_failure_report(). Only error records are tracked: they stay alive in self.logs, so their id()
+        # cannot be reused. Tracking freed non-error records would poison the set — CPython reuses a dead record's
+        # address for the next allocation, and a later (unsent) error record landing on it would silently drop out
+        # of the failure report.
+        self._flushed_records: set[int] = set()
         self.log_queue = queue.Queue()
         self.shutdown_flag = threading.Event()
         self.condition = threading.Condition()
@@ -71,13 +77,24 @@ class LogsQueue(LogsBase):
 
     # Public API
     def get_error_logs(self) -> list[LogRecord]:
-        return [log for log in self.logs if log.level == logging.ERROR]
+        # levelno, not the nonexistent LogRecord.level, and `==` to match LogsCollector.get_error_logs exactly:
+        # a streaming run's has_errors/status determination must agree with the in-memory ad-hoc behavior.
+        return [log for log in self.logs if log.levelno == logging.ERROR]
 
     def get_error_or_warning_logs(self) -> list[LogRecord]:
         raise AssertionError("Warning logs unavailable in LogsQueue")
 
     def get_all_logs(self) -> list[LogRecord]:
-        raise AssertionError("All logs unavailable in LogsQueue")
+        # Streamed records are not re-gatherable: they are shipped (or in flight) to the scan's log stream. The
+        # empty list is what keeps a streaming run's results payload `logs` field empty at the existing fill
+        # sites. Callers needing failure-report content use records_for_failure_report().
+        return []
+
+    def records_for_failure_report(self) -> list[LogRecord]:
+        # Error records not confirmed flushed (2xx) to the log stream — in-flight, rejected, or
+        # dropped-after-retries batches. The failure report attaches only these, so errors reach Cloud exactly
+        # once when the stream works and are never lost when it doesn't.
+        return [record for record in self.logs if id(record) not in self._flushed_records]
 
     def reset(self):
         self.thread = str(uuid.uuid4())
@@ -86,6 +103,7 @@ class LogsQueue(LogsBase):
         self.verbose: bool = False
         self.has_error_logs = False
         self.has_warning_logs = False
+        self._flushed_records = set()
         return self
 
     # To make sure all logs have been sent trigger close method
@@ -107,7 +125,10 @@ class LogsQueue(LogsBase):
         with self.condition:
             log_record.__setattr__("stage", self.stage)
             log_record.__setattr__("index", self.index)
-            log_record.__setattr__("thread", self.thread)
+            if not hasattr(log_record, "thread"):
+                # The active Logs stamps a collection label as `thread` (grouping in Cloud); keep it when
+                # present — the queue's own uuid is only a fallback identity for unlabeled streams.
+                log_record.__setattr__("thread", self.thread)
             log_record.__setattr__("dataset", self.dataset)
             self.index += 1
             _mask_record(log_record)
@@ -162,6 +183,13 @@ class LogsQueue(LogsBase):
                         print(
                             f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
                         )
+
+                    # Only a 2xx confirms the batch reached the stream; the isinstance guard keeps non-Response
+                    # test doubles (and any response without a real status) counting as unconfirmed. Only
+                    # error-record ids are tracked — see the _flushed_records comment in __init__.
+                    status_code = getattr(response, "status_code", None)
+                    if isinstance(status_code, int) and 200 <= status_code < 300:
+                        self._flushed_records.update(id(record) for record in batch if record.levelno >= logging.ERROR)
 
                     return (
                         self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))

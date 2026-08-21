@@ -25,6 +25,12 @@ class LogsBase(ABC):
     def get_all_logs(self) -> list[LogRecord]:
         pass
 
+    def records_for_failure_report(self) -> list[LogRecord]:
+        # Records a failure report (sodaCoreMarkScanFailed) should attach. In-memory gatherers return
+        # everything (nothing was sent elsewhere); streaming gatherers override to return only what Soda Cloud
+        # has not confirmed received, so the report doesn't duplicate the stream.
+        return self.get_all_logs()
+
     @abstractmethod
     def reset(self):
         pass
