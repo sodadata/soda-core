@@ -133,6 +133,14 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
             column_expression=column_expression or check_impl.column_expression,
         )
 
+    def _get_id_properties(self) -> dict[str, any]:
+        # Without the function, min(age) and max(age) hash to the same metric id and the
+        # metrics resolver dedupes them into one: only the first is queried and every other
+        # aggregate check on that column silently reports its value.
+        id_properties: dict[str, any] = super()._get_id_properties()
+        id_properties["function"] = self.function
+        return id_properties
+
     def sql_expression(self) -> SqlExpression:
         is_missing = self.missing_and_validity.is_missing_expr(self.column_expression)
         is_invalid = self.missing_and_validity.is_invalid_expr(self.column_expression)
