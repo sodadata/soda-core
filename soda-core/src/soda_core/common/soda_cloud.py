@@ -1528,9 +1528,12 @@ class SodaCloud:
                 f"X-Soda-Trace-Id:{trace_id}"
             )
         elif not response.ok:
+            # First 500 chars only — same truncation as the non-JSON-body warning
+            # in _parse_json_body; the full body is payload-firehose territory,
+            # not a plain WARNING line.
             logger.warning(
                 f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
-                f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
+                f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text[:500]}"
             )
         else:
             logger.debug(f"{Emoticons.OK_HAND} Soda Cloud {request_log_name} OK | X-Soda-Trace-Id:{trace_id}")

@@ -7,6 +7,9 @@
   shape into user-facing log/exception text.
 - ``post_processing_update`` logs one INFO line per transition (the completed
   form); the pre-announcement is DEBUG-only.
+- ``_execute_rest_get``'s non-ok WARNING truncates ``response_text`` to the first
+  500 chars — same pattern as the existing non-JSON-body warning in
+  ``_parse_json_body`` — instead of dumping an ungated full body at WARNING.
 """
 
 import logging
@@ -132,3 +135,30 @@ def test_post_processing_update_updating_line_absent_above_debug(monkeypatch, ca
     ]
     assert updating_records == []
     assert len(updated_records) == 1
+
+
+class _RestGetFailResponse:
+    ok = False
+    status_code = 500
+    headers = {}
+
+    def __init__(self, text: str):
+        self.text = text
+
+
+def test_execute_rest_get_warning_truncates_response_text_to_500_chars(monkeypatch, caplog):
+    caplog.set_level(logging.WARNING, logger="soda")
+    soda_cloud = _soda_cloud()
+    long_body = "x" * 2000
+    monkeypatch.setattr(soda_cloud, "_http_get", lambda **kwargs: _RestGetFailResponse(long_body))
+
+    soda_cloud._execute_rest_get(relative_url_path="scans/scan-1", request_log_name="get_scan_status")
+
+    warning_records = [
+        r for r in caplog.records if r.name == "soda" and "Soda Cloud error for get_scan_status" in r.getMessage()
+    ]
+    assert len(warning_records) == 1
+    assert warning_records[0].levelno == logging.WARNING
+    message = warning_records[0].getMessage()
+    assert long_body[:500] in message
+    assert long_body not in message

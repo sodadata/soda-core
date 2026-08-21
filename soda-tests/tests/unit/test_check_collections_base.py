@@ -496,5 +496,6 @@ def test_skipped_check_logs_at_debug_not_info(data_source_test_helper, caplog):
     )
 
     skip_records = [r for r in caplog.records if r.name == "soda" and "Skipping evaluation of check" in r.getMessage()]
-    assert len(skip_records) >= 1
+    # Exactly one check ("invalid") is excluded by the selector above.
+    assert len(skip_records) == 1
     assert all(r.levelno == logging.DEBUG for r in skip_records)

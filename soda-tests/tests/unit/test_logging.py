@@ -5,6 +5,7 @@ import warnings
 from soda_core.common.logging_configuration import (
     SodaConsoleFormatter,
     configure_library_warning_capture,
+    configure_logging,
 )
 from soda_core.common.logging_constants import Emoticons
 from soda_core.common.logs import Logs
@@ -120,14 +121,47 @@ class TestSodaConsoleFormatterTimestampAndLevel:
         assert parts[1] == "DEB"
 
 
+def test_configure_logging_invokes_warning_capture_policy(monkeypatch):
+    """IMPORTANT: nothing else pins that configure_logging actually wires up the
+    warning-capture policy — deleting the call would leave the rest of the suite
+    green (configure_library_warning_capture is only exercised directly elsewhere).
+    Spy on the call itself."""
+    calls = []
+    monkeypatch.setattr(
+        "soda_core.common.logging_configuration.configure_library_warning_capture",
+        lambda verbose: calls.append(verbose),
+    )
+
+    try:
+        configure_logging(verbose=True)
+        assert calls == [True]
+
+        calls.clear()
+        configure_logging(verbose=False)
+        assert calls == [False]
+    finally:
+        # configure_logging mutates global logging state (root level/handlers via
+        # basicConfig(force=True)); undo the spy first so this restores the real
+        # policy, matching what conftest's session-start call configured.
+        monkeypatch.undo()
+        configure_logging(verbose=True)
+
+
 class TestLibraryWarningCapturePolicy:
     """R-657 task 4: library warnings (pandas/numpy/sklearn FutureWarning/
     RuntimeWarning, heavily used by the soda-rad extension) are routed through
     ``py.warnings`` instead of leaking straight to stderr, and are silenced under
     default (non-verbose) runs so they don't add user-visible noise."""
 
+    def setup_method(self):
+        # The session (conftest) runs configure_logging(verbose=True) once up
+        # front, which leaves py.warnings at DEBUG. Save that so teardown restores
+        # it instead of leaking whichever level the last test in this class set.
+        self._original_py_warnings_level = logging.getLogger("py.warnings").level
+
     def teardown_method(self):
         logging.captureWarnings(False)
+        logging.getLogger("py.warnings").setLevel(self._original_py_warnings_level)
 
     def test_library_warning_reaches_the_stream_when_verbose(self, caplog):
         configure_library_warning_capture(verbose=True)

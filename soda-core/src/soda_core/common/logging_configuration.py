@@ -82,10 +82,17 @@ def configure_library_warning_capture(verbose: bool) -> None:
     pytest's caplog) already attached to the root logger.
     """
     # captureWarnings(True) is a no-op if the process already believes it's capturing
-    # (module-level state in the stdlib ``logging`` package) — e.g. a prior
-    # configure_logging() call, or a test framework that installed its own
-    # ``warnings.showwarning`` afterwards. Toggling off then on forces a fresh
-    # install so ours wins over whatever currently holds ``showwarning``.
+    # (module-level state in the stdlib ``logging`` package): it only installs its
+    # ``_showwarning`` hook when its internal "already capturing" flag is unset. A
+    # test framework (pytest's own warnings plugin wraps every test in its own
+    # ``warnings.catch_warnings(record=True)``) can install a *different*
+    # ``warnings.showwarning`` afterwards without clearing that flag, leaving our
+    # hook shadowed even though the module still thinks it's in charge. Toggling
+    # off then on forces a fresh install so ours wins over whatever currently holds
+    # ``showwarning``. In production this double-toggle is a functional no-op the
+    # first time configure_logging() runs (nothing else has touched showwarning
+    # yet) — it only matters when something else installed its own warnings host
+    # handler afterwards, which is exactly the pytest case above.
     logging.captureWarnings(False)
     logging.captureWarnings(True)
     logging.getLogger("py.warnings").setLevel(DEBUG if verbose else ERROR)
@@ -185,11 +192,14 @@ def is_verbose() -> bool:
 
 
 def is_log_payloads_enabled() -> bool:
-    """SODA_LOG_PAYLOADS opt-in: gates the DEBUG-level payload firehose (rendered
-    result-row tables in ``data_source_connection.py``; full Cloud request/response
-    bodies in ``soda_cloud.py``) behind an explicit flag, additional to the existing
-    ``isEnabledFor(DEBUG)`` guards. Read at call time (not cached) so it can be
-    toggled without a process restart.
+    """Whether the ``SODA_LOG_PAYLOADS`` env var opts into the DEBUG-level payload
+    firehose: rendered result-row tables (``data_source_connection.py``) and full
+    Cloud request/response bodies (``soda_cloud.py``). Default is off — ``--verbose``
+    alone shows SQL/request names plus durations and row counts, not the payloads
+    themselves; set ``SODA_LOG_PAYLOADS=true`` (or 1/yes/on) on top of ``--verbose``
+    to unlock them. This is an additional gate on top of the existing
+    ``isEnabledFor(DEBUG)`` guards, not a replacement for them. Read at call time
+    (not cached) so it can be toggled without a process restart.
     """
     return os.environ.get("SODA_LOG_PAYLOADS", "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -234,6 +244,9 @@ class SodaConsoleFormatter(Formatter):
             return record.getMessage()
 
     def format_timestamp(self, record: LogRecord) -> Optional[str]:
+        # Naive local time, for a human reading their own console — Cloud stores
+        # (and receives, via build_log_cloud_json_dict) UTC separately; this is
+        # console-only display and doesn't change what's uploaded.
         timestamp: datetime = datetime.fromtimestamp(record.created)
         # Format the time part (without milliseconds)
         time_part = timestamp.strftime("%Y-%m-%d %H:%M:%S")
