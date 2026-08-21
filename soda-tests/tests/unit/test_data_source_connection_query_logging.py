@@ -110,12 +110,16 @@ class TestQueryCountersSnapshot:
 class TestQueryTimingAndRowCountLogging:
     """Task 1: one DEBUG record per query carrying duration + row count."""
 
-    def test_execute_query_logs_duration_and_row_count(self, connection, caplog):
+    def test_execute_query_logs_duration_and_row_count(self, connection, caplog, monkeypatch):
         caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        # Pin against ambient SODA_LOG_PAYLOADS leaking in: with the payload dump
+        # on, a second "SQL query result rows (...)" line would also match a bare
+        # "SQL query result" substring.
+        monkeypatch.delenv("SODA_LOG_PAYLOADS", raising=False)
 
         connection.execute_query("SELECT * FROM t")
 
-        records = _debug_records(caplog, "SQL query result")
+        records = _debug_records(caplog, "SQL query result in")
         assert len(records) == 1
         message = records[0].getMessage()
         assert "3 rows" in message

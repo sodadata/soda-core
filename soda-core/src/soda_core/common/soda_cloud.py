@@ -1432,11 +1432,15 @@ class SodaCloud:
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
-            # json.dumps(..., indent=2) plus the token-masking regex are built
-            # per request purely for this DEBUG line — skip both entirely when
-            # DEBUG is disabled.
+            # to_jsonnable(...) mutates request_body in place (datetime/Decimal/Enum/...
+            # -> JSON-safe values) and is required for the upcoming _http_post(json=...)
+            # to serialize at all — it must run unconditionally, not just when DEBUG is
+            # enabled. Only the pretty-print (json.dumps(..., indent=2)) and the
+            # token-masking regex substitution are built purely for the DEBUG line below,
+            # so only those stay behind the isEnabledFor guard.
+            to_jsonnable(request_body)
             if logger.isEnabledFor(logging.DEBUG):
-                log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
+                log_body_text: str = json.dumps(request_body, indent=2)
                 logger.debug(
                     f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
                 )
