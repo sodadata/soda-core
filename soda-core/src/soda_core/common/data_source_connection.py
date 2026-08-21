@@ -25,7 +25,28 @@ class QueryCounters:
     """Per-connection query counters that callers (extensions building scan
     summaries) read directly. Deliberately dumb and public: a plain
     count/duration accumulator with no locking, since a single connection is
-    only ever driven by one thread at a time."""
+    only ever driven by one thread at a time.
+
+    Duration semantics: ``total_duration_seconds`` is wall-clock time measured
+    around each ``execute_*`` call, NOT pure warehouse/network time. For
+    ``execute_query`` it includes client-side result formatting (row
+    conversion via ``_format_rows``); for the one-by-one and iterate/streaming
+    paths it includes every second spent in the caller's ``row_callback`` (or,
+    for ``execute_query_iterate``, however long the caller's ``with`` block
+    takes to drain the iterator) — i.e. it's "time this connection was busy
+    on this query end-to-end", not an isolated server-round-trip metric.
+    Recorded on every attempt, success or failure (via ``finally``): a query
+    that ran 40s then failed is exactly what a timing summary should surface.
+
+    Scope: counters accumulate for the connection's entire lifetime with no
+    automatic reset — deliberately, since resetting a counter on a
+    potentially shared connection is a footgun (a second reader loses the
+    first reader's numbers). Callers that want a *per-scan* total should
+    snapshot-and-subtract: call ``snapshot()`` before the scan segment, run
+    the segment, call ``snapshot()`` again after, and diff the two
+    (``after.query_count - before.query_count``, likewise for
+    ``total_duration_seconds``).
+    """
 
     query_count: int = 0
     total_duration_seconds: float = 0.0
@@ -33,6 +54,11 @@ class QueryCounters:
     def record(self, duration_seconds: float) -> None:
         self.query_count += 1
         self.total_duration_seconds += duration_seconds
+
+    def snapshot(self) -> "QueryCounters":
+        """Return an independent copy of the current counts, for the
+        snapshot-and-subtract pattern described above."""
+        return QueryCounters(query_count=self.query_count, total_duration_seconds=self.total_duration_seconds)
 
 
 class MemoryOptimizedDriverSettings:
@@ -326,6 +352,9 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         start_time: float = time.perf_counter()
+        # None until the query completes successfully — the finally block uses this
+        # to decide whether a completion line (row count) is possible to log at all.
+        formatted_rows: Optional[list[tuple]] = None
         try:
             if log_query:
                 logger.debug(
@@ -335,14 +364,20 @@ class DataSourceConnection(ABC):
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self._format_rows(rows)
+            return QueryResult(rows=formatted_rows, columns=cursor.description)
+        finally:
+            # Duration + counters are recorded for every attempt, success or
+            # failure: a query that ran 40s then failed is exactly what a
+            # timing summary should surface (see QueryCounters docstring).
             duration_seconds: float = time.perf_counter() - start_time
             self.query_counters.record(duration_seconds)
 
             # Truncating/tabulating the result set is purely for DEBUG-level
-            # logging, so skip that work entirely when DEBUG is disabled.
-            if logger.isEnabledFor(logging.DEBUG):
+            # logging, so skip that work entirely when DEBUG is disabled — and
+            # only attempt it once the query actually produced rows.
+            if log_query and formatted_rows is not None and logger.isEnabledFor(logging.DEBUG):
                 truncated_rows = self.truncate_rows(formatted_rows)
-                headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
+                headers = [self._execute_query_get_result_row_column_name(c) for c in (cursor.description or [])]
                 # The tabulate can crash if the rows contain non-ASCII characters.
                 # This is purely for debugging/logging purposes, so we can try/catch this.
                 try:
@@ -363,8 +398,6 @@ class DataSourceConnection(ABC):
                 logger.debug(
                     f"SQL query result in {duration_seconds:.3f}s ({len(formatted_rows)} rows, max {self.MAX_ROWS} shown, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
                 )
-            return QueryResult(rows=formatted_rows, columns=cursor.description)
-        finally:
             cursor.close()
 
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:
@@ -400,16 +433,17 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         start_time: float = time.perf_counter()
+        rowcount: Optional[int] = None
         try:
             if log_query:
                 logger.debug(f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
-            rowcount: int = self._cursor_execute_update_and_commit(cursor, sql)
+            rowcount = self._cursor_execute_update_and_commit(cursor, sql)
+            return rowcount
+        finally:
             duration_seconds: float = time.perf_counter() - start_time
             self.query_counters.record(duration_seconds)
-            logger.debug(f"SQL update affected {rowcount} rows in {duration_seconds:.3f}s")
-            return rowcount
-
-        finally:
+            if log_query and rowcount is not None:
+                logger.debug(f"SQL update affected {rowcount} rows in {duration_seconds:.3f}s")
             cursor.close()
 
     def _cursor_execute_update_and_commit(self, cursor: Any, sql: str) -> int:
@@ -436,28 +470,29 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         start_time: float = time.perf_counter()
+        # Tracked incrementally, so unlike execute_query's row count this is known
+        # even if the loop below fails partway through — the completion line (and
+        # the counters) fire regardless, in `finally`.
+        rows_processed: int = 0
         try:
             if log_query:
                 logger.debug(
-                    f"SQL query fetch one-by-one (first {self.MAX_CHARS_PER_SQL} chars):\n{self.truncate_sql(sql)}"
+                    f"SQL query fetch one-by-one in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars):\n{self.truncate_sql(sql)}"
                 )
             cursor.execute(sql)
 
-            description: tuple[tuple] = cursor.description
-
-            rows_processed: int = 0
+            description: tuple[tuple] = cursor.description or []
 
             row = cursor.fetchone()
             while row and (row_limit is None or rows_processed < row_limit):
                 rows_processed += 1
                 row_callback(row, description)
                 row = cursor.fetchone()
-
+        finally:
             duration_seconds: float = time.perf_counter() - start_time
             self.query_counters.record(duration_seconds)
-            logger.debug(f"SQL query fetch one-by-one processed {rows_processed} rows in {duration_seconds:.3f}s")
-
-        finally:
+            if log_query:
+                logger.debug(f"SQL query fetch one-by-one processed {rows_processed} rows in {duration_seconds:.3f}s")
             cursor.close()
         return description
 
@@ -525,7 +560,9 @@ class DataSourceConnection(ABC):
         cursor = self.connection.cursor()
         start_time: float = time.perf_counter()
         if log_query:
-            logger.debug(f"SQL query iterate (first {self.MAX_CHARS_PER_SQL} chars):\n{self.truncate_sql(sql)}")
+            logger.debug(
+                f"SQL query iterate in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars):\n{self.truncate_sql(sql)}"
+            )
         # The caller drives the iterator at its own pace outside this function's
         # scope (the ``with`` block body), so the row count is only known once
         # control returns here — on normal exit or on an exception propagating
@@ -538,8 +575,9 @@ class DataSourceConnection(ABC):
         finally:
             duration_seconds: float = time.perf_counter() - start_time
             self.query_counters.record(duration_seconds)
-            rows_yielded: int = result_iterator.rows_yielded if result_iterator is not None else 0
-            logger.debug(f"SQL query iterate yielded {rows_yielded} rows in {duration_seconds:.3f}s")
+            if log_query:
+                rows_yielded: int = result_iterator.rows_yielded if result_iterator is not None else 0
+                logger.debug(f"SQL query iterate yielded {rows_yielded} rows in {duration_seconds:.3f}s")
             cursor.close()
 
     def commit(self) -> None:

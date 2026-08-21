@@ -60,6 +60,11 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
+# Compiled once at import time rather than per request in
+# _clean_request_from_private_info — that method already only runs when DEBUG
+# is enabled, but there's no reason to re-compile the same pattern every call.
+_TOKEN_FIELD_REGEX: re.Pattern = re.compile(r'"token":\s*"[^"]+"')
+
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -1486,8 +1491,7 @@ class SodaCloud:
             )
 
     def _clean_request_from_private_info(self, json_str: str) -> str:
-        regex = re.compile(r'"token":\s*"[^"]+"')
-        return regex.sub(r'"token": "****"', json_str)
+        return _TOKEN_FIELD_REGEX.sub(r'"token": "****"', json_str)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
