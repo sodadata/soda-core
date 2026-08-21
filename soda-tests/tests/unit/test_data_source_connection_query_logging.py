@@ -306,8 +306,11 @@ class TestDebugFormattingGuard:
 
         truncate_spy.assert_not_called()
 
-    def test_tabulate_called_when_debug_enabled(self, connection, monkeypatch, caplog):
+    def test_tabulate_called_when_debug_enabled_and_payloads_flag_on(self, connection, monkeypatch, caplog):
+        """R-657 task 1: the table dump is the payload firehose — DEBUG alone is no
+        longer enough, SODA_LOG_PAYLOADS must also be set."""
         caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        monkeypatch.setenv("SODA_LOG_PAYLOADS", "true")
         from tabulate import tabulate as real_tabulate
 
         tabulate_spy = MagicMock(wraps=real_tabulate)
@@ -316,6 +319,21 @@ class TestDebugFormattingGuard:
         connection.execute_query("SELECT * FROM t")
 
         tabulate_spy.assert_called_once()
+
+    def test_tabulate_not_called_when_debug_enabled_but_payloads_flag_off(self, connection, monkeypatch, caplog):
+        """R-657 task 1: default (flag off) — DEBUG shows SQL + duration/row-count
+        only, not the rendered result-row table."""
+        caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        monkeypatch.delenv("SODA_LOG_PAYLOADS", raising=False)
+        tabulate_spy = MagicMock(side_effect=AssertionError("tabulate should not run with the payloads flag off"))
+        monkeypatch.setattr("soda_core.common.data_source_connection.tabulate", tabulate_spy)
+
+        connection.execute_query("SELECT * FROM t")  # must not raise
+
+        tabulate_spy.assert_not_called()
+        duration_records = _debug_records(caplog, "SQL query result in")
+        assert len(duration_records) == 1
+        assert "3 rows" in duration_records[0].getMessage()
 
     def test_returned_rows_unaffected_by_debug_level(self, connection, caplog):
         caplog.set_level(logging.INFO, logger=SODA_LOGGER_NAME)

@@ -1,5 +1,13 @@
+import logging
 import os
+import warnings
 
+from soda_core.common.logging_configuration import (
+    SodaConsoleFormatter,
+    configure_library_warning_capture,
+    configure_logging,
+)
+from soda_core.common.logging_constants import Emoticons
 from soda_core.common.logs import Logs
 
 MAX_CHARS_PER_STRING = int(os.environ.get("SODA_DEBUG_PRINT_VALUE_MAX_CHARS", 256))
@@ -7,8 +15,13 @@ MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
 MAX_CHARS_PER_SQL = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
 
 
-def test_logging_debug_prints(data_source_test_helper):
-    """Test that query results are correctly truncated."""
+def test_logging_debug_prints(data_source_test_helper, monkeypatch):
+    """Test that query results are correctly truncated.
+
+    The rendered table is the payload firehose (R-657 task 1): opt in via
+    SODA_LOG_PAYLOADS to get the truncation behaviour under test here.
+    """
+    monkeypatch.setenv("SODA_LOG_PAYLOADS", "true")
 
     multi_row_sql = """
         with t0 as (
@@ -44,7 +57,7 @@ def test_logging_debug_prints(data_source_test_helper):
         truncated_sql = multi_row_sql[: MAX_CHARS_PER_SQL - 3] + "..."
         assert truncated_sql in sql_print_log
 
-    query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
+    query_result_log = [l for l in log_lines if l.startswith("SQL query result rows")][0]
     assert str(MAX_ROWS) in query_result_log
     if MAX_ROWS < 99:
         assert str(MAX_ROWS + 1) not in query_result_log
@@ -55,10 +68,123 @@ def test_logging_debug_prints(data_source_test_helper):
     data_source_test_helper.data_source_impl.execute_query(sql_long_string)
     log_lines = logs.get_logs()
 
-    query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
+    query_result_log = [l for l in log_lines if l.startswith("SQL query result rows")][0]
     if len(long_string) > MAX_CHARS_PER_STRING:
         assert long_string[: MAX_CHARS_PER_STRING - 3] + "..." in query_result_log
     else:
         assert long_string in query_result_log
     assert "bbb" in query_result_log
     assert "ccc" in query_result_log
+
+
+def _make_record(level: int, message: str) -> logging.LogRecord:
+    return logging.LogRecord(
+        name="soda",
+        level=level,
+        pathname=__file__,
+        lineno=1,
+        msg=message,
+        args=(),
+        exc_info=None,
+    )
+
+
+class TestSodaConsoleFormatterTimestampAndLevel:
+    """R-657 task 3: console-only gap — Cloud already receives timestamp/level as
+    structured fields, but the console formatter used to comment these out."""
+
+    def test_format_leads_with_timestamp_then_level_then_message(self):
+        formatter = SodaConsoleFormatter()
+        record = _make_record(logging.INFO, "hello")
+
+        parts = formatter.format(record).split(" | ")
+
+        assert parts[0] == formatter.format_timestamp(record)
+        assert parts[1] == "INF"
+        assert parts[2] == "hello"
+
+    def test_error_level_keeps_police_car_prefix_on_the_message_part(self):
+        formatter = SodaConsoleFormatter()
+        record = _make_record(logging.ERROR, "boom")
+
+        parts = formatter.format(record).split(" | ")
+
+        assert parts[1] == "ERR"
+        assert parts[2] == f"{Emoticons.POLICE_CAR_LIGHT} boom"
+
+    def test_debug_level_renders_as_deb(self):
+        formatter = SodaConsoleFormatter()
+        record = _make_record(logging.DEBUG, "trace")
+
+        parts = formatter.format(record).split(" | ")
+
+        assert parts[1] == "DEB"
+
+
+def test_configure_logging_invokes_warning_capture_policy(monkeypatch):
+    """IMPORTANT: nothing else pins that configure_logging actually wires up the
+    warning-capture policy — deleting the call would leave the rest of the suite
+    green (configure_library_warning_capture is only exercised directly elsewhere).
+    Spy on the call itself."""
+    calls = []
+    monkeypatch.setattr(
+        "soda_core.common.logging_configuration.configure_library_warning_capture",
+        lambda verbose: calls.append(verbose),
+    )
+
+    try:
+        configure_logging(verbose=True)
+        assert calls == [True]
+
+        calls.clear()
+        configure_logging(verbose=False)
+        assert calls == [False]
+    finally:
+        # configure_logging mutates global logging state (root level/handlers via
+        # basicConfig(force=True)); undo the spy first so this restores the real
+        # policy, matching what conftest's session-start call configured.
+        monkeypatch.undo()
+        configure_logging(verbose=True)
+
+
+class TestLibraryWarningCapturePolicy:
+    """R-657 task 4: library warnings (pandas/numpy/sklearn FutureWarning/
+    RuntimeWarning, heavily used by the soda-rad extension) are routed through
+    ``py.warnings`` instead of leaking straight to stderr, and are silenced under
+    default (non-verbose) runs so they don't add user-visible noise."""
+
+    def setup_method(self):
+        # The session (conftest) runs configure_logging(verbose=True) once up
+        # front, which leaves py.warnings at DEBUG. Save that so teardown restores
+        # it instead of leaking whichever level the last test in this class set.
+        self._original_py_warnings_level = logging.getLogger("py.warnings").level
+
+    def teardown_method(self):
+        logging.captureWarnings(False)
+        logging.getLogger("py.warnings").setLevel(self._original_py_warnings_level)
+
+    def test_library_warning_reaches_the_stream_when_verbose(self, caplog):
+        configure_library_warning_capture(verbose=True)
+        # Deliberately not scoped to "py.warnings": that would override the level
+        # configure_library_warning_capture just set, defeating the test. This only
+        # lowers the root logger + caplog's own handler threshold so a record that
+        # does get past "py.warnings" is captured.
+        caplog.set_level(logging.DEBUG)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.warn("numeric library noise", FutureWarning)
+
+        py_warning_records = [r for r in caplog.records if r.name == "py.warnings"]
+        assert len(py_warning_records) == 1
+        assert "numeric library noise" in py_warning_records[0].getMessage()
+
+    def test_library_warning_does_not_reach_the_stream_when_not_verbose(self, caplog):
+        configure_library_warning_capture(verbose=False)
+        caplog.set_level(logging.DEBUG)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.warn("numeric library noise", FutureWarning)
+
+        assert [r for r in caplog.records if r.name == "py.warnings"] == []

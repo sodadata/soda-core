@@ -31,6 +31,8 @@ def configure_logging(
 
     _prepare_masked_file()
 
+    configure_library_warning_capture(verbose)
+
     sys.stderr = sys.stdout
     for logger_to_mute in [
         "urllib3",
@@ -61,6 +63,39 @@ def configure_logging(
     from soda_core.common.logs import _ensure_root_capturer
 
     _ensure_root_capturer()
+
+
+def configure_library_warning_capture(verbose: bool) -> None:
+    """Route python ``warnings.warn(...)`` calls through logging instead of letting
+    them leak straight to raw stderr, bypassing our formatter/Cloud upload entirely.
+
+    Numeric libraries pulled in by extensions (pandas/numpy/sklearn, heavily used by
+    soda-rad) are frequent offenders (FutureWarning/RuntimeWarning). ``captureWarnings``
+    logs them via the ``py.warnings`` logger at WARNING — which, left alone, would
+    *add* user-visible noise to default (non-verbose) runs. So ``py.warnings`` is
+    silenced to ERROR unless ``--verbose`` is set, in which case captured warnings
+    pass through (DEBUG threshold) and show up in the verbose trace, same stream as
+    everything else.
+
+    Split out of ``configure_logging`` so it can be exercised without going through
+    ``logging.basicConfig(force=True, ...)``, which tears down any handler (including
+    pytest's caplog) already attached to the root logger.
+    """
+    # captureWarnings(True) is a no-op if the process already believes it's capturing
+    # (module-level state in the stdlib ``logging`` package): it only installs its
+    # ``_showwarning`` hook when its internal "already capturing" flag is unset. A
+    # test framework (pytest's own warnings plugin wraps every test in its own
+    # ``warnings.catch_warnings(record=True)``) can install a *different*
+    # ``warnings.showwarning`` afterwards without clearing that flag, leaving our
+    # hook shadowed even though the module still thinks it's in charge. Toggling
+    # off then on forces a fresh install so ours wins over whatever currently holds
+    # ``showwarning``. In production this double-toggle is a functional no-op the
+    # first time configure_logging() runs (nothing else has touched showwarning
+    # yet) — it only matters when something else installed its own warnings host
+    # handler afterwards, which is exactly the pytest case above.
+    logging.captureWarnings(False)
+    logging.captureWarnings(True)
+    logging.getLogger("py.warnings").setLevel(DEBUG if verbose else ERROR)
 
 
 _masked_values = set()
@@ -156,6 +191,19 @@ def is_verbose() -> bool:
     return verbose_mode
 
 
+def is_log_payloads_enabled() -> bool:
+    """Whether the ``SODA_LOG_PAYLOADS`` env var opts into the DEBUG-level payload
+    firehose: rendered result-row tables (``data_source_connection.py``) and full
+    Cloud request/response bodies (``soda_cloud.py``). Default is off — ``--verbose``
+    alone shows SQL/request names plus durations and row counts, not the payloads
+    themselves; set ``SODA_LOG_PAYLOADS=true`` (or 1/yes/on) on top of ``--verbose``
+    to unlock them. This is an additional gate on top of the existing
+    ``isEnabledFor(DEBUG)`` guards, not a replacement for them. Read at call time
+    (not cached) so it can be toggled without a process restart.
+    """
+    return os.environ.get("SODA_LOG_PAYLOADS", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 class SodaConsoleHandler(StreamHandler):
     def __init__(self):
         super().__init__(sys.stdout)
@@ -168,8 +216,8 @@ class SodaConsoleFormatter(Formatter):
 
     def format(self, record) -> str:
         parts: list[str] = [
-            # self.format_timestamp(record),
-            # self.format_level(record),
+            self.format_timestamp(record),
+            self.format_level(record),
             self.format_message(record),
             self.format_location(record),
             self.format_doc(record),
@@ -196,6 +244,9 @@ class SodaConsoleFormatter(Formatter):
             return record.getMessage()
 
     def format_timestamp(self, record: LogRecord) -> Optional[str]:
+        # Naive local time, for a human reading their own console — Cloud stores
+        # (and receives, via build_log_cloud_json_dict) UTC separately; this is
+        # console-only display and doesn't change what's uploaded.
         timestamp: datetime = datetime.fromtimestamp(record.created)
         # Format the time part (without milliseconds)
         time_part = timestamp.strftime("%Y-%m-%d %H:%M:%S")

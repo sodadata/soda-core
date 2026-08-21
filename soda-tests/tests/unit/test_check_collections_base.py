@@ -457,3 +457,45 @@ def test_subtype_impl_extension_stays_isolated():
         assert "xtest_iso" not in ContractImpl._resolve_impl_extensions()
     finally:
         _IsoKindImpl.impl_extensions.pop("xtest_iso", None)
+
+
+def test_skipped_check_logs_at_debug_not_info(data_source_test_helper, caplog):
+    """R-657 task 2: per-skipped-check spam moves to DEBUG — the summary table's
+    Excluded count already carries this at INFO."""
+
+    from helpers.mock_soda_cloud import MockResponse
+    from helpers.test_table import TestTableSpecification
+    from soda_core.contracts.impl.check_selector import CheckSelector
+
+    test_table_specification = (
+        TestTableSpecification.builder()
+        .table_purpose("skip_check_debug_logging")
+        .column_integer("id")
+        .rows(rows=[(1,), (2,), (3,)])
+        .build()
+    )
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    data_source_test_helper.enable_soda_cloud_mock(
+        [MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"})]
+    )
+    caplog.set_level(logging.DEBUG, logger="soda")
+
+    # Selecting only "missing" checks forces the "invalid" check onto the
+    # skip path this test pins.
+    data_source_test_helper.verify_contract(
+        test_table=test_table,
+        check_selectors=[CheckSelector.parse("type=missing")],
+        contract_yaml_str="""
+        columns:
+            - name: id
+              checks:
+                - missing:
+                - invalid:
+                    valid_values: [1, 2, 3]
+        """,
+    )
+
+    skip_records = [r for r in caplog.records if r.name == "soda" and "Skipping evaluation of check" in r.getMessage()]
+    # Exactly one check ("invalid") is excluded by the selector above.
+    assert len(skip_records) == 1
+    assert all(r.levelno == logging.DEBUG for r in skip_records)
