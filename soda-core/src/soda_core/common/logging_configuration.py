@@ -31,6 +31,8 @@ def configure_logging(
 
     _prepare_masked_file()
 
+    configure_library_warning_capture(verbose)
+
     sys.stderr = sys.stdout
     for logger_to_mute in [
         "urllib3",
@@ -61,6 +63,32 @@ def configure_logging(
     from soda_core.common.logs import _ensure_root_capturer
 
     _ensure_root_capturer()
+
+
+def configure_library_warning_capture(verbose: bool) -> None:
+    """Route python ``warnings.warn(...)`` calls through logging instead of letting
+    them leak straight to raw stderr, bypassing our formatter/Cloud upload entirely.
+
+    Numeric libraries pulled in by extensions (pandas/numpy/sklearn, heavily used by
+    soda-rad) are frequent offenders (FutureWarning/RuntimeWarning). ``captureWarnings``
+    logs them via the ``py.warnings`` logger at WARNING — which, left alone, would
+    *add* user-visible noise to default (non-verbose) runs. So ``py.warnings`` is
+    silenced to ERROR unless ``--verbose`` is set, in which case captured warnings
+    pass through (DEBUG threshold) and show up in the verbose trace, same stream as
+    everything else.
+
+    Split out of ``configure_logging`` so it can be exercised without going through
+    ``logging.basicConfig(force=True, ...)``, which tears down any handler (including
+    pytest's caplog) already attached to the root logger.
+    """
+    # captureWarnings(True) is a no-op if the process already believes it's capturing
+    # (module-level state in the stdlib ``logging`` package) — e.g. a prior
+    # configure_logging() call, or a test framework that installed its own
+    # ``warnings.showwarning`` afterwards. Toggling off then on forces a fresh
+    # install so ours wins over whatever currently holds ``showwarning``.
+    logging.captureWarnings(False)
+    logging.captureWarnings(True)
+    logging.getLogger("py.warnings").setLevel(DEBUG if verbose else ERROR)
 
 
 _masked_values = set()
@@ -156,6 +184,16 @@ def is_verbose() -> bool:
     return verbose_mode
 
 
+def is_log_payloads_enabled() -> bool:
+    """SODA_LOG_PAYLOADS opt-in: gates the DEBUG-level payload firehose (rendered
+    result-row tables in ``data_source_connection.py``; full Cloud request/response
+    bodies in ``soda_cloud.py``) behind an explicit flag, additional to the existing
+    ``isEnabledFor(DEBUG)`` guards. Read at call time (not cached) so it can be
+    toggled without a process restart.
+    """
+    return os.environ.get("SODA_LOG_PAYLOADS", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 class SodaConsoleHandler(StreamHandler):
     def __init__(self):
         super().__init__(sys.stdout)
@@ -168,8 +206,8 @@ class SodaConsoleFormatter(Formatter):
 
     def format(self, record) -> str:
         parts: list[str] = [
-            # self.format_timestamp(record),
-            # self.format_level(record),
+            self.format_timestamp(record),
+            self.format_level(record),
             self.format_message(record),
             self.format_location(record),
             self.format_doc(record),

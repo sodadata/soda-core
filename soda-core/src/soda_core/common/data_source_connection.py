@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
+from soda_core.common.logging_configuration import is_log_payloads_enabled
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -372,32 +373,37 @@ class DataSourceConnection(ABC):
             duration_seconds: float = time.perf_counter() - start_time
             self.query_counters.record(duration_seconds)
 
-            # Truncating/tabulating the result set is purely for DEBUG-level
-            # logging, so skip that work entirely when DEBUG is disabled — and
-            # only attempt it once the query actually produced rows.
+            # Duration + row count is a plain DEBUG line — cheap, and useful as a
+            # trace even without the payload firehose below.
             if log_query and formatted_rows is not None and logger.isEnabledFor(logging.DEBUG):
-                truncated_rows = self.truncate_rows(formatted_rows)
-                headers = [self._execute_query_get_result_row_column_name(c) for c in (cursor.description or [])]
-                # The tabulate can crash if the rows contain non-ASCII characters.
-                # This is purely for debugging/logging purposes, so we can try/catch this.
-                try:
-                    table_text: str = tabulate(
-                        truncated_rows,
-                        headers=headers,
-                        tablefmt="github",
-                    )
-                except UnicodeDecodeError as e:
-                    logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
-                    table_text = "Error formatting rows. These may contain non-ASCII characters."
-                except Exception as e:
-                    logger.debug(f"Error formatting rows. {e}")
-                    table_text = (
-                        f"Error formatting rows. This may be due to the rows containing non-ASCII characters.\n{e}"
-                    )
+                logger.debug(f"SQL query result in {duration_seconds:.3f}s ({len(formatted_rows)} rows)")
 
-                logger.debug(
-                    f"SQL query result in {duration_seconds:.3f}s ({len(formatted_rows)} rows, max {self.MAX_ROWS} shown, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
-                )
+                # The rendered result-row TABLE is the firehose: truncating/tabulating
+                # is purely for this dump, so skip the work entirely unless the
+                # opt-in flag is set, even though DEBUG is already on.
+                if is_log_payloads_enabled():
+                    truncated_rows = self.truncate_rows(formatted_rows)
+                    headers = [self._execute_query_get_result_row_column_name(c) for c in (cursor.description or [])]
+                    # The tabulate can crash if the rows contain non-ASCII characters.
+                    # This is purely for debugging/logging purposes, so we can try/catch this.
+                    try:
+                        table_text: str = tabulate(
+                            truncated_rows,
+                            headers=headers,
+                            tablefmt="github",
+                        )
+                    except UnicodeDecodeError as e:
+                        logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
+                        table_text = "Error formatting rows. These may contain non-ASCII characters."
+                    except Exception as e:
+                        logger.debug(f"Error formatting rows. {e}")
+                        table_text = (
+                            f"Error formatting rows. This may be due to the rows containing non-ASCII characters.\n{e}"
+                        )
+
+                    logger.debug(
+                        f"SQL query result rows (max {self.MAX_ROWS} shown, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
+                    )
             cursor.close()
 
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:

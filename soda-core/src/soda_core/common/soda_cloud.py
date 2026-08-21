@@ -30,6 +30,7 @@ from soda_core.common.exceptions import (
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
 )
+from soda_core.common.logging_configuration import is_log_payloads_enabled
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud_dto import (
@@ -958,7 +959,7 @@ class SodaCloud:
             assumed_configuration = configs.dataset_configurations[0]
             if assumed_configuration.dataset_qualified_name != dataset_identifier.to_string():
                 raise SodaCloudException(
-                    f"Expected to receive configuration for dataset '{dataset_identifier}' but received configuration for dataset '{assumed_configuration.dataset_qualified_name}'"
+                    f"Expected to receive configuration for dataset '{dataset_identifier.to_string()}' but received configuration for dataset '{assumed_configuration.dataset_qualified_name}'"
                 )
             return assumed_configuration
         return None
@@ -969,7 +970,8 @@ class SodaCloud:
         Returns:
             DatasetConfigurationsDTO
         """
-        logger.info(f"Fetching datasets configurations from Soda Cloud for datasets '{dataset_identifiers}'")
+        dataset_identifiers_text = ", ".join(d.to_string() for d in dataset_identifiers)
+        logger.info(f"Fetching datasets configurations from Soda Cloud for datasets '{dataset_identifiers_text}'")
         datasets_request_list = []
         for dataset_identifier in dataset_identifiers:
             datasets_request_list.append(
@@ -988,7 +990,7 @@ class SodaCloud:
 
         if not response.ok:
             raise SodaCloudException(
-                f"Failed to retrieve datasets configurations for datasets '{dataset_identifiers}': {response_dict['message']}"
+                f"Failed to retrieve datasets configurations for datasets '{dataset_identifiers_text}': {response_dict['message']}"
             )
 
         try:
@@ -999,7 +1001,7 @@ class SodaCloud:
             return dataset_configs
         except ValidationError as e:
             raise SodaCloudException(
-                f"Failed to parse datasets configurations for datasets '{dataset_identifiers}': {str(e)}"
+                f"Failed to parse datasets configurations for datasets '{dataset_identifiers_text}': {str(e)}"
             ) from e
 
     def get_historic_measurements(
@@ -1434,16 +1436,20 @@ class SodaCloud:
             request_body["token"] = self._get_token()
             # to_jsonnable(...) mutates request_body in place (datetime/Decimal/Enum/...
             # -> JSON-safe values) and is required for the upcoming _http_post(json=...)
-            # to serialize at all — it must run unconditionally, not just when DEBUG is
-            # enabled. Only the pretty-print (json.dumps(..., indent=2)) and the
-            # token-masking regex substitution are built purely for the DEBUG line below,
-            # so only those stay behind the isEnabledFor guard.
+            # to serialize at all — unlike the debug-only rendering below, this must run
+            # unconditionally, not just when DEBUG/the payloads flag are on.
             to_jsonnable(request_body)
             if logger.isEnabledFor(logging.DEBUG):
-                log_body_text: str = json.dumps(request_body, indent=2)
-                logger.debug(
-                    f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
-                )
+                # Request name only by default — cheap, and enough to trace what's
+                # happening. The full body (json.dumps(..., indent=2) plus the
+                # token-masking regex, built per request) is the payload firehose:
+                # skip building it entirely unless the opt-in flag is set.
+                logger.debug(f"Sending {request_type} {request_log_name} to Soda Cloud")
+                if is_log_payloads_enabled():
+                    log_body_text: str = json.dumps(request_body, indent=2)
+                    logger.debug(
+                        f"{request_type} {request_log_name} request body: {self._clean_request_from_private_info(log_body_text)}"
+                    )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,
@@ -1479,7 +1485,8 @@ class SodaCloud:
                     f"Status Code: {response.status_code}\n"
                     f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
                 )
-                logger.debug(f"Response_text:\n{response.text}")
+                if is_log_payloads_enabled():
+                    logger.debug(f"Response_text:\n{response.text}")
             else:
                 logger.debug(
                     f"{Emoticons.OK_HAND} Soda Cloud {request_type} {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
@@ -1696,7 +1703,9 @@ class SodaCloud:
         error: Optional[str] = None,
         records_written: Optional[int] = None,
     ):
-        logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+        # The pre-announcement stays DEBUG-only: the completed form below ("Updated
+        # ... to state ...") is the one line per transition users need at INFO.
+        logger.debug(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
         request = {
             "type": "sodaCorePostProcessingUpdate",
