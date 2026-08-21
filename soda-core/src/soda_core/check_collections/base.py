@@ -872,7 +872,9 @@ class CheckCollectionImpl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
+                        # The summary table's "Excluded" count already carries this at
+                        # INFO; a per-check line here is DEBUG-only trace detail.
+                        logger.debug(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
