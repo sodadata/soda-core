@@ -566,6 +566,8 @@ class ScanTokenUsage:
     total_tokens: int
     model: Optional[str] = None
     operation: Optional[str] = None  # "autopilot" or "llmCheck" (matches server Gson @SerializedName)
+    # Case-sensitive "SODA" or "BYOK"; Cloud Gson maps anything else to null without error.
+    agent_source: Optional[str] = None
 
 
 class PostProcessingStageState(Enum):
