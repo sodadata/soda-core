@@ -60,6 +60,11 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
+# Compiled once at import time rather than per request in
+# _clean_request_from_private_info — that method already only runs when DEBUG
+# is enabled, but there's no reason to re-compile the same pattern every call.
+_TOKEN_FIELD_REGEX: re.Pattern = re.compile(r'"token":\s*"[^"]+"')
+
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -1427,10 +1432,18 @@ class SodaCloud:
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
-            log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
-            logger.debug(
-                f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
-            )
+            # to_jsonnable(...) mutates request_body in place (datetime/Decimal/Enum/...
+            # -> JSON-safe values) and is required for the upcoming _http_post(json=...)
+            # to serialize at all — it must run unconditionally, not just when DEBUG is
+            # enabled. Only the pretty-print (json.dumps(..., indent=2)) and the
+            # token-masking regex substitution are built purely for the DEBUG line below,
+            # so only those stay behind the isEnabledFor guard.
+            to_jsonnable(request_body)
+            if logger.isEnabledFor(logging.DEBUG):
+                log_body_text: str = json.dumps(request_body, indent=2)
+                logger.debug(
+                    f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
+                )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,
@@ -1482,8 +1495,7 @@ class SodaCloud:
             )
 
     def _clean_request_from_private_info(self, json_str: str) -> str:
-        regex = re.compile(r'"token":\s*"[^"]+"')
-        return regex.sub(r'"token": "****"', json_str)
+        return _TOKEN_FIELD_REGEX.sub(r'"token": "****"', json_str)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)

@@ -12,16 +12,20 @@ its pre-existing rollback-on-error wrapper as the base.
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock
 
 import pytest
 from soda_core.common.data_source_connection import (
     DataSourceConnection,
+    QueryCounters,
     memory_optimized_driver_settings,
 )
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
+
+SODA_LOGGER_NAME = "soda"
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +40,9 @@ def _enable_memory_optimized_driver(monkeypatch):
 class _StubConnection(DataSourceConnection):
     def __init__(self):
         # Bypass DataSourceConnection.__init__ — only the method under test matters.
+        # Production log lines reference self.name, so stand it up explicitly rather
+        # than let test doubles shape what production code is allowed to log.
+        self.name = "STUB_DS"
         self.calls = []
 
     def _create_connection(self, config):  # pragma: no cover - never called
@@ -52,7 +59,7 @@ class _CapableButUnimplemented(DataSourceConnection):
 
     def __init__(self):
         # Bypass DataSourceConnection.__init__ — only the dispatch matters.
-        pass
+        self.name = "CAPABLE_DS"
 
     def _create_connection(self, config):  # pragma: no cover - never called
         return MagicMock()
@@ -112,6 +119,13 @@ def _make_postgres_connection(autocommit: bool) -> PostgresDataSourceConnection:
     pg = PostgresDataSourceConnection.__new__(PostgresDataSourceConnection)
     pg.connection = MagicMock()
     pg.connection.autocommit = autocommit
+    # Bypassing __init__ skips the query_counters this connection's execute_*
+    # paths now record duration/count onto — set it explicitly, same as every
+    # other attribute this fixture stands up by hand.
+    pg.query_counters = QueryCounters()
+    # Same for self.name — production log lines reference it, so a test double
+    # must stand it up rather than let its absence shape production log content.
+    pg.name = "PG_TEST_DS"
     # Safeguard against runaway loops: the buffered base fetch loops on
     # `while cursor.fetchone()`, and a bare MagicMock.fetchone() returns a
     # truthy Mock endlessly. Bound the DEFAULT (non-context-manager) cursor's
@@ -295,3 +309,84 @@ class TestHeldCursorCloseAfterRollback:
         assert len(close_statements) == 1
         assert close_statements[0].startswith('CLOSE "soda_stream_')
         pg.connection.rollback.assert_called()  # transaction cleaned before the CLOSE
+
+
+class TestPostgresStreamingTimingAndCounters:
+    """CRITICAL 1 (review follow-up): the server-side streaming path is what
+    engages for the large-scan tenants that turn the Cloud ``useMemoryOptimized``
+    flag on — it must not escape the counters/timing/truncation the base class
+    now provides. Mirrors TestQueryTimingAndRowCountLogging /
+    TestCountersAndCompletionLinesRecordedEvenOnFailure in
+    test_data_source_connection_query_logging.py, but against the real
+    server-side-cursor code path instead of the base buffered one."""
+
+    def test_success_records_counters_and_completion_line(self, caplog):
+        caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        pg = _make_postgres_connection(autocommit=False)
+        fake_cursor = _FakeStreamCursor([("x",)] * 5)
+        pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
+
+        pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
+
+        assert pg.query_counters.query_count == 1
+        assert pg.query_counters.total_duration_seconds >= 0.0
+        completion_records = [
+            r for r in caplog.records if r.name == SODA_LOGGER_NAME and "processed 5 rows" in r.getMessage()
+        ]
+        assert len(completion_records) == 1, f"got: {[r.getMessage() for r in caplog.records]}"
+
+    def test_failure_still_records_counters_and_a_partial_completion_line(self, caplog):
+        import psycopg
+
+        caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        pg = _make_postgres_connection(autocommit=False)
+
+        # Two rows delivered via row_callback, then the fetchmany that would
+        # deliver more raises — rows_processed must reflect only what was
+        # actually handed to the callback before the failure.
+        class _FailingAfterTwoRowsCursor(_FakeStreamCursor):
+            def fetchmany(self, n):
+                if self.fetch_sizes:  # already served the probe batch once
+                    raise psycopg.errors.QueryCanceled("boom")
+                return super().fetchmany(n)
+
+        fake_cursor = _FailingAfterTwoRowsCursor([("x",), ("y",)])
+        pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
+
+        with pytest.raises(psycopg.errors.QueryCanceled):
+            pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None)
+
+        assert pg.query_counters.query_count == 1  # counted despite the failure
+        completion_records = [
+            r for r in caplog.records if r.name == SODA_LOGGER_NAME and "processed 1 rows" in r.getMessage()
+        ]
+        assert len(completion_records) == 1, f"got: {[r.getMessage() for r in caplog.records]}"
+
+    def test_log_query_false_suppresses_completion_line_but_still_counts(self, caplog):
+        caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        pg = _make_postgres_connection(autocommit=False)
+        fake_cursor = _FakeStreamCursor([("x",)] * 3)
+        pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
+
+        pg.execute_query_one_by_one_prefer_streaming("SELECT 1", lambda r, d: None, log_query=False)
+
+        assert pg.query_counters.query_count == 1
+        assert [r for r in caplog.records if r.name == SODA_LOGGER_NAME and "processed" in r.getMessage()] == []
+
+    def test_truncates_the_logged_sql(self, caplog):
+        caplog.set_level(logging.DEBUG, logger=SODA_LOGGER_NAME)
+        pg = _make_postgres_connection(autocommit=False)
+        fake_cursor = _FakeStreamCursor([("x",)] * 2)
+        pg.connection.cursor.return_value.__enter__.return_value = fake_cursor
+        long_sql = "SELECT 1 -- " + ("x" * (DataSourceConnection.MAX_CHARS_PER_SQL + 500))
+
+        pg.execute_query_one_by_one_prefer_streaming(long_sql, lambda r, d: None)
+
+        pre_execution_records = [
+            r
+            for r in caplog.records
+            if r.name == SODA_LOGGER_NAME and "server-side cursor" in r.getMessage() and "SELECT" in r.getMessage()
+        ]
+        assert len(pre_execution_records) == 1
+        assert len(pre_execution_records[0].getMessage()) < len(long_sql)
+        assert long_sql not in pre_execution_records[0].getMessage()

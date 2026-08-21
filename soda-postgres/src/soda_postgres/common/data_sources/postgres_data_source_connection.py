@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
@@ -246,71 +247,87 @@ class PostgresDataSourceConnection(DataSourceConnection):
         memory_optimized_driver_settings.log_active_once(type(self).__name__)
 
         cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
+        start_time: float = time.perf_counter()
+        # Tracked incrementally so it's known even if the fetch loop or a
+        # row_callback fails partway through — the completion line and the
+        # counters fire regardless, in `finally` (see QueryCounters docstring:
+        # a query that ran 40s then failed is exactly what a timing summary
+        # should surface).
+        rows_processed: int = 0
         if log_query:
             logger.debug(
                 f"SQL query one-by-one (server-side cursor {cursor_name}, "
-                f"byte-budgeted fetchmany — minimise memory):\n{sql}"
+                f"byte-budgeted fetchmany — minimise memory) (first {self.MAX_CHARS_PER_SQL} chars):\n"
+                f"{self.truncate_sql(sql)}"
             )
 
         try:
-            with self.connection.cursor(name=cursor_name, withhold=True) as cursor:
-                cursor.execute(sql)
-                description: tuple[tuple] = cursor.description
-                rows_processed: int = 0
-                batch_size: int = 1  # single probe row first, to size subsequent batches
-                max_row_bytes: int = 1
-                while True:
-                    if row_limit is not None and rows_processed >= row_limit:
-                        break
-                    fetch_count: int = batch_size
-                    if row_limit is not None:
-                        fetch_count = min(fetch_count, row_limit - rows_processed)
-                    rows = cursor.fetchmany(fetch_count)
-                    if not rows:
-                        break
-                    for row in rows:
-                        row_callback(row, description)
-                        rows_processed += 1
-                    # Size against the widest row seen so far (monotonic), so a
-                    # late fat row permanently shrinks the batch back down.
-                    # Growth is ramped: shrinking applies immediately, but the
-                    # batch may only grow STREAM_FETCH_GROWTH_FACTOR x per
-                    # fetch (thin-probe overshoot bound).
-                    max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
-                    batch_size = max(
-                        1,
-                        min(
-                            STREAM_FETCH_MAX_BATCH_ROWS,
-                            STREAM_FETCH_BUDGET_BYTES // max_row_bytes,
-                            batch_size * STREAM_FETCH_GROWTH_FACTOR,
-                        ),
-                    )
-            return description
-        except psycopg.errors.Error as e:
-            # The error may come from the stream itself OR from a row_callback
-            # that hit the database (the DWH pump writes from inside the
-            # callback) — don't blame the SELECT. And honor log_query=False:
-            # callers suppress it because the query can embed MB-scale VALUES.
-            sql_blurb = f"\n{sql}" if log_query else " (query suppressed, log_query=False)"
-            logger.warning(f"Streaming query (or its row callback) failed:{sql_blurb}\n{e}")
-            logger.debug("Rolling back transaction")
-            self.rollback()
-            # Best-effort CLOSE of the named cursor. When the failure left
-            # the transaction in error state, psycopg's ServerCursor.close()
-            # (in the `with` exit above) skips issuing CLOSE — and a held
-            # (post-commit) portal survives the rollback, materialized
-            # server-side until the connection closes, which for DWH
-            # connections is the whole scan. After the rollback the
-            # transaction is clean, so an explicit CLOSE works; if the
-            # portal is already gone (never held), it errors harmlessly.
             try:
-                with self.connection.cursor() as close_cursor:
-                    close_cursor.execute(f'CLOSE "{cursor_name}"')
-                self.connection.commit()
-            except psycopg.errors.Error as close_error:
-                logger.debug(f"Best-effort CLOSE of held cursor {cursor_name} failed (harmless): {close_error}")
+                with self.connection.cursor(name=cursor_name, withhold=True) as cursor:
+                    cursor.execute(sql)
+                    description: tuple[tuple] = cursor.description or []
+                    batch_size: int = 1  # single probe row first, to size subsequent batches
+                    max_row_bytes: int = 1
+                    while True:
+                        if row_limit is not None and rows_processed >= row_limit:
+                            break
+                        fetch_count: int = batch_size
+                        if row_limit is not None:
+                            fetch_count = min(fetch_count, row_limit - rows_processed)
+                        rows = cursor.fetchmany(fetch_count)
+                        if not rows:
+                            break
+                        for row in rows:
+                            row_callback(row, description)
+                            rows_processed += 1
+                        # Size against the widest row seen so far (monotonic), so a
+                        # late fat row permanently shrinks the batch back down.
+                        # Growth is ramped: shrinking applies immediately, but the
+                        # batch may only grow STREAM_FETCH_GROWTH_FACTOR x per
+                        # fetch (thin-probe overshoot bound).
+                        max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
+                        batch_size = max(
+                            1,
+                            min(
+                                STREAM_FETCH_MAX_BATCH_ROWS,
+                                STREAM_FETCH_BUDGET_BYTES // max_row_bytes,
+                                batch_size * STREAM_FETCH_GROWTH_FACTOR,
+                            ),
+                        )
+                return description
+            except psycopg.errors.Error as e:
+                # The error may come from the stream itself OR from a row_callback
+                # that hit the database (the DWH pump writes from inside the
+                # callback) — don't blame the SELECT. And honor log_query=False:
+                # callers suppress it because the query can embed MB-scale VALUES.
+                sql_blurb = f"\n{sql}" if log_query else " (query suppressed, log_query=False)"
+                logger.warning(f"Streaming query (or its row callback) failed:{sql_blurb}\n{e}")
+                logger.debug("Rolling back transaction")
+                self.rollback()
+                # Best-effort CLOSE of the named cursor. When the failure left
+                # the transaction in error state, psycopg's ServerCursor.close()
+                # (in the `with` exit above) skips issuing CLOSE — and a held
+                # (post-commit) portal survives the rollback, materialized
+                # server-side until the connection closes, which for DWH
+                # connections is the whole scan. After the rollback the
+                # transaction is clean, so an explicit CLOSE works; if the
+                # portal is already gone (never held), it errors harmlessly.
                 try:
-                    self.rollback()
-                except psycopg.errors.Error:
-                    pass
-            raise e
+                    with self.connection.cursor() as close_cursor:
+                        close_cursor.execute(f'CLOSE "{cursor_name}"')
+                    self.connection.commit()
+                except psycopg.errors.Error as close_error:
+                    logger.debug(f"Best-effort CLOSE of held cursor {cursor_name} failed (harmless): {close_error}")
+                    try:
+                        self.rollback()
+                    except psycopg.errors.Error:
+                        pass
+                raise e
+        finally:
+            duration_seconds: float = time.perf_counter() - start_time
+            self.query_counters.record(duration_seconds)
+            if log_query:
+                logger.debug(
+                    f"SQL query one-by-one (server-side cursor {cursor_name}) processed {rows_processed} rows "
+                    f"in {duration_seconds:.3f}s"
+                )
