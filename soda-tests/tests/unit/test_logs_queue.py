@@ -122,3 +122,18 @@ def test_logs_records_for_failure_report_delegates_to_gatherer():
         assert logs.records_for_failure_report() is gatherer.records_for_failure_report.return_value
     finally:
         logs.close()
+
+
+def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
+    old_gatherer = LogsCollector()
+    old_gatherer.emit(_record(logging.INFO, "captured before the switch"))
+    new_gatherer = MagicMock()
+    logs = Logs(gatherer=old_gatherer)
+    try:
+        logs.switch_gatherer(new_gatherer)
+
+        assert logs.gatherer is new_gatherer
+        (replayed_record,), _ = new_gatherer.emit.call_args
+        assert replayed_record.getMessage() == "captured before the switch"
+    finally:
+        logs.close()

@@ -307,6 +307,13 @@ def test_discover_with_batched_context_routes_upload_through_it(mock_discover_da
     )
 
     assert exit_code == ExitCode.OK
+    # The handler opens the async bracket with the resolved scan coordinates
+    # before the discovery queries run, so their logs stream mid-run.
+    batched_scan_context.start_scan.assert_called_once()
+    start_kwargs = batched_scan_context.start_scan.call_args.kwargs
+    assert start_kwargs["definition_name"] == "my_scan"
+    assert start_kwargs["default_data_source"] == "test_ds"
+    assert start_kwargs["data_timestamp"] is not None
     batched_scan_context.insert_results.assert_called_once()
     (payload,), _ = batched_scan_context.insert_results.call_args
     assert payload["type"] == "sodaCoreInsertScanResults"

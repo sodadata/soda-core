@@ -385,21 +385,35 @@ class SodaCloud:
     def scan_start(
         self,
         scan_id: str,
-        definition_name: Optional[str] = None,
-        default_data_source: Optional[str] = None,
+        definition_name: str,
+        default_data_source: str,
+        data_timestamp: Optional[datetime] = None,
     ) -> Optional[str]:
         """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the
         ``scanReference`` that keys the async ingestion pipeline
         (``insert_scan_data_batch`` / ``scan_end_async``), or None when the
         command was rejected or the response carried no reference — callers
-        degrade to the sync ``insert_scan_results`` path. The ``version`` is
-        the payload model version: this codebase is v4-only.
+        degrade to the sync ``insert_scan_results`` path.
+
+        ``definitionName``, ``defaultDataSource`` and ``dataTimestamp`` are
+        backend-mandatory (the executor dispatches on the definition's type and
+        upserts the scan's data containers from them); ``data_timestamp``
+        defaults to now. The ``version`` is the payload model version: this
+        codebase is v4-only, and the backend's v4 handling (e.g. hierarchical
+        discovery results) keys on it. A successful start also moves the scan
+        into its log-accepting state: the scan-id-keyed ``batchV4`` log stream
+        only accepts uploads after this command.
         """
-        command: dict = {"type": "sodaCoreScanStart", "scanId": scan_id, "version": "4"}
-        if definition_name:
-            command["definitionName"] = definition_name
-        if default_data_source:
-            command["defaultDataSource"] = default_data_source
+        command: dict = {
+            "type": "sodaCoreScanStart",
+            "scanId": scan_id,
+            "version": "4",
+            "definitionName": definition_name,
+            "defaultDataSource": default_data_source,
+            "dataTimestamp": convert_datetime_to_str(
+                data_timestamp if data_timestamp is not None else datetime.now(timezone.utc)
+            ),
+        }
         response: Optional[Response] = self._execute_command(
             command_json_dict=command,
             request_log_name="scan_start",
@@ -1792,10 +1806,15 @@ def _build_check_results_cloud_json_dicts(
     return check_dicts
 
 
-def _build_scan_definition_name(
-    contract_verification_result: ContractVerificationResult,
+def build_scan_definition_name(
+    soda_qualified_dataset_name: Optional[str],
     scan_definition_suffix: Optional[str] = None,
 ) -> str:
+    """The scan-definition name a check-collection run registers under:
+    SODA_SCAN_DEFINITION when set, otherwise derived from the dataset's
+    qualified name. Public because batched-ingestion flows need the name
+    before any result exists (``sodaCoreScanStart`` requires it).
+    """
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
@@ -1805,10 +1824,9 @@ def _build_scan_definition_name(
     # non-empty ``scan_definition_suffix`` on their impl; the engine
     # threads it through here. Keeps subtype literals out of soda-core
     # common.
-    qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
     if scan_definition_suffix:
-        return f"{qualified_name}_{scan_definition_suffix}"
-    return qualified_name
+        return f"{soda_qualified_dataset_name}_{scan_definition_suffix}"
+    return soda_qualified_dataset_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1920,7 +1938,9 @@ def _build_check_collection_results_json_dict(
 
     payload: dict = {
         "scanId": os.environ.get("SODA_SCAN_ID", None),
-        "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+        "definitionName": build_scan_definition_name(
+            head.check_collection.soda_qualified_dataset_name, scan_definition_suffix=scan_definition_suffix
+        ),
         "defaultDataSource": head.data_source.name if head.data_source else None,
         "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
         "dataTimestamp": head.data_timestamp,

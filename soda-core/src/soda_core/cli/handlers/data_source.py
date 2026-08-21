@@ -205,15 +205,28 @@ def handle_discover_data_source(
     failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure
     report is sent.
 
-    With a ``batched_scan_context`` the upload routes through
+    With a ``batched_scan_context`` the run opens the async ingestion bracket
+    here — the handler is the first point where the scan coordinates
+    (definition name, data source name, data timestamp) are all resolved — so
+    the discovery queries stream their logs, and the upload routes through
     ``context.insert_results`` (async batch pipeline on managed runs, sync
-    fallback otherwise); the payload build is unchanged — a streaming-backed
-    ``logs`` yields no records, so the payload's ``logs`` field is empty and
-    the stream stays the single log channel.
+    fallback otherwise). The payload build is unchanged: once streaming, the
+    ``logs`` yield no records, so the payload's ``logs`` field is empty and the
+    stream stays the single log channel.
     """
-    from soda_core.discovery.discovery_payload import build_discovery_payload
+    from soda_core.discovery.discovery_payload import (
+        build_discovery_payload,
+        resolve_data_timestamp,
+    )
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
+
+    if batched_scan_context is not None:
+        batched_scan_context.start_scan(
+            definition_name=scan_definition_name,
+            default_data_source=data_source_impl.name,
+            data_timestamp=resolve_data_timestamp(datetime.now(timezone.utc)),
+        )
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
     dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)

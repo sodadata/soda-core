@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from soda_core.common.soda_cloud import SodaCloud
@@ -13,47 +14,66 @@ def _soda_cloud() -> SodaCloud:
     )
 
 
+def _scan_start(soda_cloud: SodaCloud, **overrides):
+    kwargs = {
+        "scan_id": "scan-123",
+        "definition_name": "my_scan",
+        "default_data_source": "postgres",
+        "data_timestamp": datetime(2026, 7, 13, 8, 30, tzinfo=timezone.utc),
+    }
+    kwargs.update(overrides)
+    return soda_cloud.scan_start(**kwargs)
+
+
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_start_sends_scan_id_and_version_and_returns_scan_reference(mock_execute_command):
+def test_scan_start_sends_the_backend_mandatory_fields_and_returns_scan_reference(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True, json=lambda: {"scanReference": "org/ref-1"})
 
-    assert _soda_cloud().scan_start("scan-123") == "org/ref-1"
+    assert _scan_start(_soda_cloud()) == "org/ref-1"
 
     command = mock_execute_command.call_args.kwargs["command_json_dict"]
-    assert command == {"type": "sodaCoreScanStart", "scanId": "scan-123", "version": "4"}
+    # definitionName / defaultDataSource / dataTimestamp are backend-mandatory
+    # (bean validation on SodaCoreScanStartCommand); version routes v4 handling.
+    assert command == {
+        "type": "sodaCoreScanStart",
+        "scanId": "scan-123",
+        "version": "4",
+        "definitionName": "my_scan",
+        "defaultDataSource": "postgres",
+        "dataTimestamp": "2026-07-13T08:30:00+00:00",
+    }
     assert mock_execute_command.call_args.kwargs["request_log_name"] == "scan_start"
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_start_includes_optional_fields_when_given(mock_execute_command):
+def test_scan_start_defaults_data_timestamp_to_now(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True, json=lambda: {"scanReference": "org/ref-1"})
 
-    _soda_cloud().scan_start("scan-123", definition_name="my_scan", default_data_source="postgres")
+    _scan_start(_soda_cloud(), data_timestamp=None)
 
     command = mock_execute_command.call_args.kwargs["command_json_dict"]
-    assert command["definitionName"] == "my_scan"
-    assert command["defaultDataSource"] == "postgres"
+    assert command["dataTimestamp"]  # stamped, never omitted: the backend rejects a null
 
 
 @patch.object(SodaCloud, "_execute_command")
 def test_scan_start_returns_none_on_rejection(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False)
 
-    assert _soda_cloud().scan_start("scan-123") is None
+    assert _scan_start(_soda_cloud()) is None
 
 
 @patch.object(SodaCloud, "_execute_command")
 def test_scan_start_returns_none_without_response(mock_execute_command):
     mock_execute_command.return_value = None
 
-    assert _soda_cloud().scan_start("scan-123") is None
+    assert _scan_start(_soda_cloud()) is None
 
 
 @patch.object(SodaCloud, "_execute_command")
 def test_scan_start_returns_none_when_response_lacks_scan_reference(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True, json=lambda: {})
 
-    assert _soda_cloud().scan_start("scan-123") is None
+    assert _scan_start(_soda_cloud()) is None
 
 
 @patch.object(SodaCloud, "_execute_command")
@@ -62,7 +82,7 @@ def test_scan_start_returns_none_on_unparsable_body(mock_execute_command):
     response.json.side_effect = ValueError("not json")
     mock_execute_command.return_value = response
 
-    assert _soda_cloud().scan_start("scan-123") is None
+    assert _scan_start(_soda_cloud()) is None
 
 
 @patch.object(SodaCloud, "_execute_command")
