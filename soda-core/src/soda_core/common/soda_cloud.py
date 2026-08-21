@@ -1427,10 +1427,14 @@ class SodaCloud:
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
-            log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
-            logger.debug(
-                f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
-            )
+            # json.dumps(..., indent=2) plus the token-masking regex are built
+            # per request purely for this DEBUG line — skip both entirely when
+            # DEBUG is disabled.
+            if logger.isEnabledFor(logging.DEBUG):
+                log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
+                logger.debug(
+                    f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
+                )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,

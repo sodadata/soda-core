@@ -60,6 +60,10 @@ class QueryResultIterator:
     def __init__(self, cursor: Cursor, format_row: Callable[[Any], tuple]):
         self._cursor = cursor
         self._format_row = format_row
+        # Dumb, public counter of rows actually delivered to the caller so far —
+        # read by DataSourceConnection.execute_query_iterate to log rows yielded
+        # once the caller's ``with`` block completes.
+        self.rows_yielded: int = 0
 
     def __iter__(self) -> QueryResultIterator:
         return self
@@ -68,6 +72,7 @@ class QueryResultIterator:
         row = self._cursor.fetchone()
         if row is None:
             raise StopIteration
+        self.rows_yielded += 1
         return self._format_row(row)
 
     @property

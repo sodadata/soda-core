@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 import pytest
 from soda_core.common.data_source_connection import (
     DataSourceConnection,
+    QueryCounters,
     memory_optimized_driver_settings,
 )
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
@@ -112,6 +113,10 @@ def _make_postgres_connection(autocommit: bool) -> PostgresDataSourceConnection:
     pg = PostgresDataSourceConnection.__new__(PostgresDataSourceConnection)
     pg.connection = MagicMock()
     pg.connection.autocommit = autocommit
+    # Bypassing __init__ skips the query_counters this connection's execute_*
+    # paths now record duration/count onto — set it explicitly, same as every
+    # other attribute this fixture stands up by hand.
+    pg.query_counters = QueryCounters()
     # Safeguard against runaway loops: the buffered base fetch loops on
     # `while cursor.fetchone()`, and a bare MagicMock.fetchone() returns a
     # truthy Mock endlessly. Bound the DEFAULT (non-context-manager) cursor's
