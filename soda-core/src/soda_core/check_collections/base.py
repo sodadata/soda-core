@@ -508,9 +508,9 @@ class CheckCollectionImpl:
         from soda_core.contracts.impl.contract_verification_impl import MetricsResolver
 
         self.logs: Logs = logs if logs is not None else Logs()
-        # Set on managed batched-ingestion CLI runs (run_batched_scan); None
-        # everywhere else. Subtypes that publish results themselves consult it
-        # to route the upload through the async batch pipeline.
+        # Set on CLI runs wired through run_batched_scan (the context is threaded regardless of whether the run
+        # is managed — its scan_id discriminates); None on every other construction path. Subtypes that publish
+        # results themselves consult it to open the async ingestion bracket and route the upload through it.
         self.batched_scan_context: Optional["BatchedScanContext"] = batched_scan_context
         self.yaml: CheckCollectionYaml = yaml
         self.only_validate_without_execute: bool = only_validate_without_execute

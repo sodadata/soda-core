@@ -21,14 +21,15 @@ def _payload() -> dict:
 
 
 class _StreamingGathererStub(LogsCollector):
-    """LogsQueue stand-in with its streaming-mode contract: records preserved
-    on emit (via the collector base), get_all_logs empty, failure reports
-    select error records only."""
+    """LogsQueue stand-in with its streaming-mode contract: records preserved on emit (via the collector
+    base), get_all_logs empty, failure reports select error records only. ``on_close`` lets ordering tests
+    observe the final flush."""
 
-    def __init__(self):
+    def __init__(self, on_close=None):
         super().__init__()
         self.reset()
         self.closed = False
+        self._on_close = on_close
 
     def get_all_logs(self):
         return []
@@ -38,6 +39,8 @@ class _StreamingGathererStub(LogsCollector):
 
     def close(self):
         self.closed = True
+        if self._on_close is not None:
+            self._on_close()
 
 
 def test_context_insert_results_batches_when_scan_reference_set():
@@ -156,12 +159,12 @@ def test_run_batched_scan_without_scan_id_is_fully_sync(monkeypatch):
 
 
 @patch("soda_core.common.logs_queue.LogsQueue")
-def test_run_batched_scan_happy_path_starts_batches_then_ends(mock_logs_queue_cls, monkeypatch):
+def test_run_batched_scan_happy_path_starts_batches_flushes_then_ends(mock_logs_queue_cls, monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.scan_start.return_value = "org/ref-1"
-    mock_logs_queue_cls.return_value = _StreamingGathererStub()
     order = []
+    mock_logs_queue_cls.return_value = _StreamingGathererStub(on_close=lambda: order.append("flush"))
     soda_cloud.insert_scan_data_batch.side_effect = lambda *args, **kwargs: order.append("insert") or True
     soda_cloud.scan_end_async.side_effect = lambda *args, **kwargs: order.append("end") or True
 
@@ -174,7 +177,8 @@ def test_run_batched_scan_happy_path_starts_batches_then_ends(mock_logs_queue_cl
 
     assert exit_code == ExitCode.OK
     soda_cloud.scan_start.assert_called_once_with("scan-123", "my_scan", "postgres", DATA_TIMESTAMP)
-    assert order == ["insert", "end"]
+    # The stream's final flush (gatherer close) happens BEFORE the scan is ended.
+    assert order == ["insert", "flush", "end"]
     soda_cloud.scan_end_async.assert_called_once_with("org/ref-1")
 
 
@@ -197,14 +201,14 @@ def test_run_batched_scan_degrades_to_sync_when_scan_start_fails(monkeypatch):
 
 
 @patch("soda_core.common.logs_queue.LogsQueue")
-def test_run_batched_scan_failure_after_start_reports_unsent_errors_then_ends(mock_logs_queue_cls, monkeypatch):
+def test_run_batched_scan_failure_after_start_reports_unsent_errors_and_leaves_the_scan_unended(
+    mock_logs_queue_cls, monkeypatch
+):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.scan_start.return_value = "org/ref-1"
     mock_logs_queue_cls.return_value = _StreamingGathererStub()
-    order = []
-    soda_cloud.mark_scan_as_failed.side_effect = lambda *args, **kwargs: order.append("mark") or True
-    soda_cloud.scan_end_async.side_effect = lambda *args, **kwargs: order.append("end") or True
+    soda_cloud.mark_scan_as_failed.return_value = True
 
     def command(context: BatchedScanContext) -> ExitCode:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
@@ -213,7 +217,9 @@ def test_run_batched_scan_failure_after_start_reports_unsent_errors_then_ends(mo
     exit_code = run_batched_scan(soda_cloud, stage="main", command=command)
 
     assert exit_code == ExitCode.LOG_ERRORS
-    assert order == ["mark", "end"]
+    soda_cloud.mark_scan_as_failed.assert_called_once()
+    # No results were delivered: the scan is NOT ended — the failure report owns its terminal state.
+    soda_cloud.scan_end_async.assert_not_called()
     # The report carries the streaming gatherer's selection: error records only.
     reported = soda_cloud.mark_scan_as_failed.call_args.kwargs["logs"]
     assert reported and all(record.levelno >= logging.ERROR for record in reported)
@@ -243,11 +249,34 @@ def test_run_batched_scan_end_failure_is_not_fatal(mock_logs_queue_cls, monkeypa
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.scan_start.return_value = "org/ref-1"
+    soda_cloud.insert_scan_data_batch.return_value = True
     soda_cloud.scan_end_async.return_value = False
     mock_logs_queue_cls.return_value = _StreamingGathererStub()
 
     def command(context: BatchedScanContext) -> ExitCode:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        assert context.insert_results(_payload()) is True
         return ExitCode.OK
 
     assert run_batched_scan(soda_cloud, stage="main", command=command) == ExitCode.OK
+    soda_cloud.scan_end_async.assert_called_once()
+
+
+@patch("soda_core.common.logs_queue.LogsQueue")
+def test_run_batched_scan_rejected_results_leave_the_scan_unended(mock_logs_queue_cls, monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    soda_cloud = MagicMock()
+    soda_cloud.scan_start.return_value = "org/ref-1"
+    soda_cloud.insert_scan_data_batch.return_value = False
+    mock_logs_queue_cls.return_value = _StreamingGathererStub()
+
+    def command(context: BatchedScanContext) -> ExitCode:
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        return ExitCode.OK if context.insert_results(_payload()) else ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+    exit_code = run_batched_scan(soda_cloud, stage="main", command=command)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    # Undelivered results: ending the scan would close it "cleanly" with nothing in it — the exit-code
+    # fallback (launcher) owns the terminal state instead.
+    soda_cloud.scan_end_async.assert_not_called()

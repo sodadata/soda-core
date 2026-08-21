@@ -125,7 +125,13 @@ def test_logs_records_for_failure_report_delegates_to_gatherer():
 
 
 def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
-    old_gatherer = LogsCollector()
+    class _ClosableCollector(LogsCollector):
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    old_gatherer = _ClosableCollector()
     old_gatherer.emit(_record(logging.INFO, "captured before the switch"))
     new_gatherer = MagicMock()
     logs = Logs(gatherer=old_gatherer)
@@ -135,5 +141,25 @@ def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
         assert logs.gatherer is new_gatherer
         (replayed_record,), _ = new_gatherer.emit.call_args
         assert replayed_record.getMessage() == "captured before the switch"
+        assert old_gatherer.closed
+    finally:
+        logs.close()
+
+
+@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
+def test_streaming_gatherer_serves_error_status_determination(mock_to_jsonl):
+    # The status-determination surface (has_errors/get_errors) must work on a real LogsQueue: a streaming
+    # run's error records are preserved and reported exactly like the in-memory collector's.
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs = Logs(gatherer=logs_queue)
+    try:
+        logs_queue.emit(_record(logging.INFO, "progress line"))
+        assert logs.has_errors is False
+
+        logs_queue.emit(_record(logging.ERROR, "error line"))
+
+        assert [record.getMessage() for record in logs_queue.get_error_logs()] == ["error line"]
+        assert logs.has_errors is True
+        assert logs.get_errors() == ["error line"]
     finally:
         logs.close()

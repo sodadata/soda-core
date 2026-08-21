@@ -168,12 +168,10 @@ def run_with_failure_reporting(
     captured, so it is part of the report). Otherwise the command's own exit
     code is returned unchanged.
 
-    A pre-built ``logs`` (e.g. a streaming-backed ``Logs`` from
-    ``build_streaming_logs``) may be handed in; the gatherer then decides what
-    the failure report attaches — the full record list for the in-memory
-    collector, only unsent error records for a streaming queue. No mode branch
-    here. The lifecycle is owned here either way: the ``finally`` close is the
-    stream's final flush.
+    A pre-built ``logs`` (e.g. the batched-scan bracket's, which may upgrade to a streaming gatherer mid-run)
+    may be handed in; the gatherer then decides what the failure report attaches — the full record list for the
+    in-memory collector, only unsent error records for a streaming queue. No mode branch here. The lifecycle is
+    owned here either way: the ``finally`` close is the stream's final flush.
     """
     logs = logs if logs is not None else Logs()
     try:

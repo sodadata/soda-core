@@ -123,21 +123,19 @@ class Logs:
         return self.gatherer.get_all_logs()
 
     def records_for_failure_report(self) -> list[LogRecord]:
-        # The gatherer decides what a failure report attaches: everything for
-        # the in-memory collector, unsent error records for a streaming queue.
+        # The gatherer decides what a failure report attaches: everything for the in-memory collector, unsent
+        # error records for a streaming queue.
         return self.gatherer.records_for_failure_report()
 
-    def switch_gatherer(self, gatherer: LogsBase, replay: bool = True) -> None:
-        """Swap the capture backend mid-run, keeping this ``Logs`` the active
-        target. With ``replay`` the records the old gatherer collected are
-        re-emitted into the new one first, so a run that upgrades from the
-        in-memory collector to a streaming queue delivers its full history to
-        the stream. The old gatherer is closed after the swap.
+    def switch_gatherer(self, gatherer: LogsBase) -> None:
+        """Swap the capture backend mid-run, keeping this ``Logs`` the active target. The records the old
+        gatherer collected are re-emitted into the new one first, so a run that upgrades from the in-memory
+        collector to a streaming queue delivers its full history to the stream. The old gatherer is closed
+        after the swap.
         """
         old_gatherer: LogsBase = self.gatherer
-        if replay:
-            for record in old_gatherer.get_all_logs():
-                gatherer.emit(record)
+        for record in old_gatherer.get_all_logs():
+            gatherer.emit(record)
         self.gatherer = gatherer
         old_gatherer.close()
 

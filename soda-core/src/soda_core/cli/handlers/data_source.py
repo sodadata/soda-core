@@ -101,13 +101,15 @@ def build_streaming_logs(
     stage: str,
     scan_id: Optional[str] = None,
 ) -> Optional[Logs]:
-    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
-    root-logger records stream to the scan's Soda Cloud log stream while the
-    command runs — or None when there is no scan id / Cloud client, so callers
-    fall back to an in-memory ``Logs``. Must be closed to flush the final batch.
+    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so root-logger records stream to the
+    scan's Soda Cloud log stream while the command runs — or None when there is no scan id / Cloud client, so
+    callers fall back to an in-memory ``Logs``. Must be closed to flush the final batch. The backend only
+    accepts these uploads once the scan is started (``sodaCoreScanStart``) — flows that publish results open
+    that bracket via ``BatchedScanContext.start_scan``, which builds its queue itself; this builder serves the
+    connection-test commands (whose scans accept logs without a start) and direct composition.
 
-    ``stage`` is a closed backend enum (``CoreStageType``: "main" |
-    "diagnosticWarehouse"; unknown values degrade to MAIN server-side).
+    ``stage`` is a closed backend enum (``CoreStageType``: "main" | "diagnosticWarehouse"; unknown values
+    degrade to MAIN server-side).
     """
     if scan_id is None:
         # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
@@ -128,15 +130,12 @@ def build_streaming_logs(
 def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
-    """File-path-resolving wrapper around ``build_streaming_logs`` for
-    connection tests: resolves the Cloud client from the ``-sc`` YAML, streams
-    to the scan's main stage. Returns None when there is no scan id / cloud
-    config. Must be closed to flush the final batch.
+    """File-path-resolving wrapper around ``build_streaming_logs`` for connection tests: resolves the Cloud
+    client from the ``-sc`` YAML, streams to the scan's main stage. Returns None when there is no scan id /
+    cloud config. Must be closed to flush the final batch.
 
-    Public because connection-test commands outside soda-core (e.g. the
-    soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
-    their logs to the same scan-id-keyed endpoint; flows that already hold a
-    ``SodaCloud`` call ``build_streaming_logs`` directly.
+    Public because connection-test commands outside soda-core (e.g. the soda-extensions
+    ``diagnostics-warehouse test`` command) reuse it to stream their logs to the same scan-id-keyed endpoint.
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     if not scan_id or not soda_cloud_file_path:
@@ -205,14 +204,12 @@ def handle_discover_data_source(
     failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure
     report is sent.
 
-    With a ``batched_scan_context`` the run opens the async ingestion bracket
-    here — the handler is the first point where the scan coordinates
-    (definition name, data source name, data timestamp) are all resolved — so
-    the discovery queries stream their logs, and the upload routes through
-    ``context.insert_results`` (async batch pipeline on managed runs, sync
-    fallback otherwise). The payload build is unchanged: once streaming, the
-    ``logs`` yield no records, so the payload's ``logs`` field is empty and the
-    stream stays the single log channel.
+    With a ``batched_scan_context`` the run opens the async ingestion bracket here — the handler is the first
+    point where the scan coordinates (definition name, data source name, data timestamp) are all resolved — so
+    the discovery queries stream their logs, and the upload routes through ``context.insert_results`` (async
+    batch pipeline on managed runs, sync fallback otherwise). The payload build is unchanged: once streaming,
+    the ``logs`` yield no records, so the payload's ``logs`` field is empty and the stream stays the single log
+    channel.
     """
     from soda_core.discovery.discovery_payload import (
         build_discovery_payload,
@@ -221,11 +218,14 @@ def handle_discover_data_source(
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 
+    # One dataTimestamp for the whole scan: sodaCoreScanStart and the results payload must carry the same value
+    # (SODA_SCAN_DATA_TIMESTAMP from the launcher, now otherwise).
+    data_timestamp: datetime = resolve_data_timestamp(datetime.now(timezone.utc))
     if batched_scan_context is not None:
         batched_scan_context.start_scan(
             definition_name=scan_definition_name,
             default_data_source=data_source_impl.name,
-            data_timestamp=resolve_data_timestamp(datetime.now(timezone.utc)),
+            data_timestamp=data_timestamp,
         )
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
@@ -236,6 +236,7 @@ def handle_discover_data_source(
         dqns=dqns,
         data_source_name=data_source_impl.name,
         scan_definition_name=scan_definition_name,
+        data_timestamp=data_timestamp,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
         log_records=logs.get_log_records() if logs else None,
