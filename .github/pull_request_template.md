@@ -1,15 +1,11 @@
 ## Description
 
-Please provide a description of your changes:
+<!-- What does this PR change and why? Link the related issue if there is one. -->
 
-- What problem are you solving?
-- Any expected impact on downstream packages/services?
-- Reference issue # if available.
-
+Fixes #
 
 ## Checklist
 
-- [ ] I added a test to verify the new functionality.
-- [ ] I verified this PR does not break [soda-extensions][1].
-
-[1]: (https://github.com/sodadata/soda-extensions/actions/workflows/main.workflow.yaml)
+- [ ] Tests added or updated to cover the change
+- [ ] Documentation updated where relevant
+- [ ] PR title follows the conventional commit format (e.g. `fix(sqlserver): ...`)
