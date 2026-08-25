@@ -4,25 +4,11 @@ from typing import Callable, Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import (
-    COLUMN,
-    CREATE_TABLE,
-    CREATE_TABLE_IF_NOT_EXISTS,
-    INSERT_INTO,
-    VALUES,
-    VALUES_ROW,
-)
+from soda_core.common.sql_ast import COLUMN, CREATE_TABLE, CREATE_TABLE_IF_NOT_EXISTS, INSERT_INTO, VALUES, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
-from soda_sqlserver.common.data_sources.sqlserver_data_source import (
-    SqlServerDataSourceImpl,
-    SqlServerSqlDialect,
-)
-from soda_synapse.common.data_sources.synapse_data_source_connection import (
-    SynapseDataSource as SynapseDataSourceModel,
-)
-from soda_synapse.common.data_sources.synapse_data_source_connection import (
-    SynapseDataSourceConnection,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerDataSourceImpl, SqlServerSqlDialect
+from soda_synapse.common.data_sources.synapse_data_source_connection import SynapseDataSource as SynapseDataSourceModel
+from soda_synapse.common.data_sources.synapse_data_source_connection import SynapseDataSourceConnection
 
 logger: logging.Logger = soda_logger
 

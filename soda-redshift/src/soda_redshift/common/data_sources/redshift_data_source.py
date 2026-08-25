@@ -17,22 +17,14 @@ from soda_core.common.sql_ast import (
     VALUES,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
-from soda_redshift.common.data_sources.redshift_data_source_connection import (
-    RedshiftDataSourceConnection,
-)
-from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-    RedshiftMetadataPrimaryKeysQuery,
-)
-from soda_redshift.statements.redshift_metadata_tables_query import (
-    RedshiftMetadataTablesQuery,
-)
+from soda_redshift.common.data_sources.redshift_data_source_connection import RedshiftDataSourceConnection
+from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
+from soda_redshift.statements.redshift_metadata_tables_query import RedshiftMetadataTablesQuery
 
 logger: logging.Logger = soda_logger
 

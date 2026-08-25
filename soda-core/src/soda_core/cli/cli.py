@@ -29,24 +29,14 @@ from soda_core.cli.handlers.dependencies import (
     run_with_failure_reporting,
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
-from soda_core.cli.handlers.request import (
-    handle_fetch_proposal,
-    handle_push_proposal,
-    handle_transition_request,
-)
-from soda_core.cli.handlers.soda_cloud import (
-    handle_create_soda_cloud,
-    handle_test_soda_cloud,
-)
+from soda_core.cli.handlers.request import handle_fetch_proposal, handle_push_proposal, handle_transition_request
+from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_request import RequestStatus
-from soda_core.contracts.impl.check_selector import (
-    CheckSelector,
-    CheckSelectorParseException,
-)
+from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 

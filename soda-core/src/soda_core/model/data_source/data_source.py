@@ -2,9 +2,7 @@ import abc
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 
 class DataSourceBase(BaseModel, abc.ABC):

@@ -15,15 +15,10 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from helpers.test_functions import dedent_and_strip
-from soda_core.common.logging_constants import (  # noqa: F401 – side-effect import
-    Emoticons,
-)
+from soda_core.common.logging_constants import Emoticons  # noqa: F401 – side-effect import
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSession,
-    Measurement,
-)
+from soda_core.contracts.contract_verification import ContractVerificationSession, Measurement
 from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,
     ContractImpl,

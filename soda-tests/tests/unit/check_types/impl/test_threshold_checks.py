@@ -15,38 +15,15 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 import pytest
-from helpers.impl_test_helpers import (
-    build_contract_impl,
-    build_measurement_values,
-    get_check_impl,
-)
+from helpers.impl_test_helpers import build_contract_impl, build_measurement_values, get_check_impl
 from soda_core.contracts.contract_verification import CheckOutcome
-from soda_core.contracts.impl.check_types.aggregate_check import (
-    AggregateCheckImpl,
-    AggregateFunctionMetricImpl,
-)
-from soda_core.contracts.impl.check_types.failed_rows_check import (
-    FailedRowsCheckImpl,
-    FailedRowsExpressionMetricImpl,
-)
+from soda_core.contracts.impl.check_types.aggregate_check import AggregateCheckImpl, AggregateFunctionMetricImpl
+from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCheckImpl, FailedRowsExpressionMetricImpl
 from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckImpl
-from soda_core.contracts.impl.check_types.metric_check import (
-    MetricCheckImpl,
-    MetricExpressionMetricImpl,
-)
-from soda_core.contracts.impl.check_types.missing_check import (
-    MissingCheckImpl,
-    MissingCountMetricImpl,
-)
-from soda_core.contracts.impl.check_types.row_count_check import (
-    RowCountCheckImpl,
-    RowCountMetricImpl,
-)
-from soda_core.contracts.impl.contract_verification_impl import (
-    CheckImpl,
-    ContractImpl,
-    DerivedPercentageMetricImpl,
-)
+from soda_core.contracts.impl.check_types.metric_check import MetricCheckImpl, MetricExpressionMetricImpl
+from soda_core.contracts.impl.check_types.missing_check import MissingCheckImpl, MissingCountMetricImpl
+from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckImpl, RowCountMetricImpl
+from soda_core.contracts.impl.contract_verification_impl import CheckImpl, ContractImpl, DerivedPercentageMetricImpl
 
 # ---------------------------------------------------------------------------
 # Configuration dataclass: one entry per check type

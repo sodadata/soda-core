@@ -11,10 +11,7 @@ affected paths: contract verify queries, column metadata queries, and DDL.
 
 from __future__ import annotations
 
-from soda_athena.common.data_sources.athena_data_source import (
-    AthenaSqlDialect,
-    _collapse_athena_prefixes,
-)
+from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect, _collapse_athena_prefixes
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_ast import CTE, SELECT, STAR, WITH

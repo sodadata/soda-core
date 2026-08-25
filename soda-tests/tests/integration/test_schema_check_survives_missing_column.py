@@ -1,10 +1,7 @@
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import CheckOutcome, ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
 # These tests deliberately reference a missing column to exercise the SQL-error

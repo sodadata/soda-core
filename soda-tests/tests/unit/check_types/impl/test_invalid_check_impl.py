@@ -10,15 +10,8 @@ Generic threshold pass/fail/warn/NOT_EVALUATED patterns are covered in
 test_threshold_checks.py.  Percent threshold is covered there too.
 """
 
-from helpers.impl_test_helpers import (
-    build_contract_impl,
-    build_measurement_values,
-    get_check_impl,
-)
-from soda_core.contracts.impl.check_types.invalidity_check import (
-    InvalidCheckImpl,
-    InvalidCountMetricImpl,
-)
+from helpers.impl_test_helpers import build_contract_impl, build_measurement_values, get_check_impl
+from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckImpl, InvalidCountMetricImpl
 from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 

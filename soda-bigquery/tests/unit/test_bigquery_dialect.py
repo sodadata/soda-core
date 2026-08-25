@@ -1,8 +1,5 @@
 import pytest
-from soda_bigquery.common.data_sources.bigquery_data_source import (
-    BigQueryMetadataPrimaryKeysQuery,
-    BigQuerySqlDialect,
-)
+from soda_bigquery.common.data_sources.bigquery_data_source import BigQueryMetadataPrimaryKeysQuery, BigQuerySqlDialect
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT

@@ -26,10 +26,7 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_verify_contract
-from soda_core.cli.handlers.dependencies import (
-    resolve_soda_cloud_for_failure_report,
-    run_with_failure_reporting,
-)
+from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report, run_with_failure_reporting
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource

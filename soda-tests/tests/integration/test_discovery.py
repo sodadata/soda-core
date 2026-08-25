@@ -7,11 +7,7 @@ from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import handle_discover_data_source
-from soda_core.cli.handlers.dependencies import (
-    resolve_data_source,
-    resolve_soda_cloud,
-    run_with_failure_reporting,
-)
+from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_soda_cloud, run_with_failure_reporting
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.discovery.discovery import discover_dataset_dqns
 from soda_core.discovery.discovery_payload import build_discovery_payload

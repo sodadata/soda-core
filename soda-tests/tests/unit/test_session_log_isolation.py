@@ -28,24 +28,14 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import pytest
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionYaml,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common import logs as logs_module
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import _build_check_collection_results_json_dict
-from soda_core.contracts.contract_verification import (
-    CheckCollectionStatus,
-    Contract,
-    YamlFileContentInfo,
-)
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationHandlerRegistry,
-)
+from soda_core.contracts.contract_verification import CheckCollectionStatus, Contract, YamlFileContentInfo
+from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
 
 _LOGGING_KIND = "logging-isolation-test"
 _RAISING_KIND = "logging-isolation-raise-test"

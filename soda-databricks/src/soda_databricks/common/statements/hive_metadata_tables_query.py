@@ -6,10 +6,7 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_tables_query import (
-    FullyQualifiedTableName,
-    MetadataTablesQuery,
-)
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
 
 

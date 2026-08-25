@@ -5,10 +5,7 @@ pytest's JUnit XML — immune to ``-s`` stdout pollution) and ``_inner_run_skipp
 stdout-summary fallback used only when the XML is missing/unparseable).
 """
 
-from helpers.memory_container_plugin import (
-    _inner_outcome_from_junit,
-    _inner_run_skipped,
-)
+from helpers.memory_container_plugin import _inner_outcome_from_junit, _inner_run_skipped
 
 
 class TestInnerRunSkipped:

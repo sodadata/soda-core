@@ -2,22 +2,8 @@ from __future__ import annotations
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import (
-    DataSourceNamespace,
-    DbSchemaDataSourceNamespace,
-    SchemaDataSourceNamespace,
-)
-from soda_core.common.sql_ast import (
-    AND,
-    COLUMN,
-    EQ,
-    FROM,
-    IN,
-    JOIN,
-    LITERAL,
-    SELECT,
-    WHERE,
-)
+from soda_core.common.metadata_types import DataSourceNamespace, DbSchemaDataSourceNamespace, SchemaDataSourceNamespace
+from soda_core.common.sql_ast import AND, COLUMN, EQ, FROM, IN, JOIN, LITERAL, SELECT, WHERE
 from soda_core.common.sql_dialect import SqlDialect
 
 

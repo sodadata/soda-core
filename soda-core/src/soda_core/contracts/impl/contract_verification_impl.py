@@ -15,11 +15,7 @@ from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-    SodaCloudYamlSource,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_verification import (
     Check,
     CheckCollectionStatus,
@@ -46,9 +42,7 @@ from soda_core.contracts.impl.contract_yaml import (
     is_known_threshold_level,
     normalize_threshold_level,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
 

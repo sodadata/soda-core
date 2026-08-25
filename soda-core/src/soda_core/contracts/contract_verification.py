@@ -11,9 +11,7 @@ from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
 
@@ -57,9 +55,7 @@ class ContractVerificationSession:
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg
         from soda_core.contracts.impl.check_selector import CheckSelector
-        from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationSessionImpl,
-        )
+        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationSessionImpl
 
         soda_cloud_use_runner = deprecated_kwarg(
             kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner

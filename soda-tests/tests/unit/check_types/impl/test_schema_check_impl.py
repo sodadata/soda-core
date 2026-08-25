@@ -15,11 +15,7 @@ mismatch testing to integration tests.
 from helpers.impl_test_helpers import build_contract_impl, get_check_impl
 from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
 from soda_core.contracts.contract_verification import CheckOutcome, Measurement
-from soda_core.contracts.impl.check_types.schema_check import (
-    SchemaCheckImpl,
-    SchemaCheckResult,
-    SchemaMetricImpl,
-)
+from soda_core.contracts.impl.check_types.schema_check import SchemaCheckImpl, SchemaCheckResult, SchemaMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import MeasurementValues
 
 

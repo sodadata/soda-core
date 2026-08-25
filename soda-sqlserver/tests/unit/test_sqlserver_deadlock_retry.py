@@ -6,9 +6,7 @@ import time
 
 import pyodbc
 import pytest
-from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SqlServerDataSourceConnection,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
 
 def deadlock_error() -> pyodbc.OperationalError:

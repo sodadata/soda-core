@@ -160,9 +160,7 @@ def test_supports_percentile_within_group_derived_from_server_facts():
 
 
 def test_parse_server_major_version():
-    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-        SqlServerDataSourceConnection,
-    )
+    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
     parse = SqlServerDataSourceConnection._parse_server_major_version
     assert parse("15.00.4123") == 15

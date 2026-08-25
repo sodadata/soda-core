@@ -15,18 +15,10 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
-from soda_databricks.common.data_sources import (
-    databricks_data_source_connection as conn_mod,
-)
-from soda_databricks.common.data_sources.databricks_data_source_connection import (
-    DatabricksDataSourceConnection,
-)
-from soda_databricks.model.data_source.databricks_connection_properties import (
-    DatabricksTokenAuth,
-)
-from soda_databricks.model.data_source.databricks_data_source import (
-    DatabricksDataSource,
-)
+from soda_databricks.common.data_sources import databricks_data_source_connection as conn_mod
+from soda_databricks.common.data_sources.databricks_data_source_connection import DatabricksDataSourceConnection
+from soda_databricks.model.data_source.databricks_connection_properties import DatabricksTokenAuth
+from soda_databricks.model.data_source.databricks_data_source import DatabricksDataSource
 
 
 def infer(connection: dict):

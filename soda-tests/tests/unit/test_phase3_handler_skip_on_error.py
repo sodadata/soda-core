@@ -22,11 +22,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionYaml,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
@@ -45,9 +41,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
     PostProcessingSessionItem,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 _HANDLER_SKIP_KIND = "phase3-handler-skip-stub"
 

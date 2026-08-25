@@ -12,10 +12,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.telemetry.memory_span_exporter import MemorySpanExporter
-from soda_core.telemetry.soda_exporter import (
-    SodaConsoleSpanExporter,
-    SodaOTLPSpanExporter,
-)
+from soda_core.telemetry.soda_exporter import SodaConsoleSpanExporter, SodaOTLPSpanExporter
 
 
 class SodaTelemetry:

@@ -8,13 +8,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
 from soda_core.common.utils import format_items
-from soda_core.contracts.contract_verification import (
-    Check,
-    CheckOutcome,
-    CheckResult,
-    Measurement,
-    Threshold,
-)
+from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Measurement, Threshold
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,

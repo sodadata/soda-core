@@ -17,19 +17,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import pytest
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionYaml,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logs import Logs
-from soda_core.contracts.contract_verification import (
-    CheckCollectionStatus,
-    Contract,
-    YamlFileContentInfo,
-)
+from soda_core.contracts.contract_verification import CheckCollectionStatus, Contract, YamlFileContentInfo
 
 # Unique kinds per stub so registrations don't collide with other test
 # modules' sentinel impls or with the real subtypes.

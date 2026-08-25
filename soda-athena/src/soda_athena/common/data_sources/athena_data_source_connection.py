@@ -12,9 +12,7 @@ from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 logger: logging.Logger = soda_logger
 

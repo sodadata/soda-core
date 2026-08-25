@@ -25,9 +25,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-
-[tool.isort]
-profile = "black"
-
-[tool.black]
-line-length = 120

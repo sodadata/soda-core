@@ -1,10 +1,6 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import (
-    CREATE_TABLE_COLUMN,
-    CREATE_TABLE_IF_NOT_EXISTS,
-    DROP_TABLE_IF_EXISTS,
-)
+from soda_core.common.sql_ast import CREATE_TABLE_COLUMN, CREATE_TABLE_IF_NOT_EXISTS, DROP_TABLE_IF_EXISTS
 from soda_core.common.sql_dialect import FROM, SELECT, STAR
 
 

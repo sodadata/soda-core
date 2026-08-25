@@ -7,19 +7,10 @@ from soda_core.common.exceptions import InvalidArgumentException, SodaCloudExcep
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-    build_data_source_yaml_sources,
-)
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSession,
-    ContractVerificationSessionResult,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
+from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 

@@ -1,13 +1,5 @@
 import pytest
-from soda_core.common.sql_dialect import (
-    COLUMN,
-    FROM,
-    RANDOM,
-    REGEX_LIKE,
-    SELECT,
-    STAR,
-    SamplerType,
-)
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 
@@ -83,9 +75,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
     key_column_usage are filtered to tables the current user owns or holds a
     non-SELECT privilege on, so a read-only monitoring user silently gets zero
     primary keys through them."""
-    from soda_postgres.statements.postgres_metadata_primary_keys_query import (
-        PostgresMetadataPrimaryKeysQuery,
-    )
+    from soda_postgres.statements.postgres_metadata_primary_keys_query import PostgresMetadataPrimaryKeysQuery
 
     dialect = PostgresSqlDialect()
     query = PostgresMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)

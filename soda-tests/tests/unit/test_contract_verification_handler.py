@@ -5,18 +5,13 @@ from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.contracts.contract_verification import (
-    ContractVerificationResult,
-    PostProcessingStage,
-)
+from soda_core.contracts.contract_verification import ContractVerificationResult, PostProcessingStage
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     ContractVerificationHandler,
     ContractVerificationHandlerRegistry,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 test_table_specification = (
     TestTableSpecification.builder()

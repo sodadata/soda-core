@@ -90,9 +90,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
     information_schema constraint views only list tables the current user owns, so a
     read-only monitoring user silently gets zero primary keys through them (same reason
     the schemas/tables/columns queries read SVV/pg_catalog views)."""
-    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-        RedshiftMetadataPrimaryKeysQuery,
-    )
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
 
     dialect = RedshiftSqlDialect()
     query = RedshiftMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
@@ -111,9 +109,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
 
 def test_primary_keys_constraint_definition_parsing_preserves_order():
     from soda_core.common.data_source_results import QueryResult
-    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-        RedshiftMetadataPrimaryKeysQuery,
-    )
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
 
     parse = RedshiftMetadataPrimaryKeysQuery._parse_primary_key_columns
     assert parse("PRIMARY KEY (id)") == ["id"]

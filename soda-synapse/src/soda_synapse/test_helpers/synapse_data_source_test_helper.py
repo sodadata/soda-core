@@ -5,14 +5,9 @@ import os
 from typing import Optional
 
 from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
-from soda_core.common.statements.metadata_tables_query import (
-    FullyQualifiedTableName,
-    MetadataTablesQuery,
-)
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
-from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
-    SqlServerDataSourceTestHelper,
-)
+from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import SqlServerDataSourceTestHelper
 
 logger = logging.getLogger(__name__)
 

@@ -47,9 +47,7 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
-from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SqlServerDataSourceConnection,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
 logger: logging.Logger = soda_logger
 

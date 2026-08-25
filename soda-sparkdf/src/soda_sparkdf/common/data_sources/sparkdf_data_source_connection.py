@@ -4,9 +4,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import Field, SecretStr, field_validator
 from soda_core.model.data_source.data_source import DataSourceBase
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 
 class SparkDataFrameConnectionProperties(DataSourceConnectionProperties, ABC):

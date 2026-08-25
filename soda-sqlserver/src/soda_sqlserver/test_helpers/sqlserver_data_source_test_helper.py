@@ -5,10 +5,7 @@ from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
-from soda_sqlserver.common.data_sources.sqlserver_data_source import (
-    SqlServerDataSourceImpl,
-    SqlServerSqlDialect,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerDataSourceImpl, SqlServerSqlDialect
 
 
 class SqlServerDataSourceTestHelper(DataSourceTestHelper):

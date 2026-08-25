@@ -7,9 +7,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, Measurement
-from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
-    FailedRowsCheckYaml,
-)
+from soda_core.contracts.impl.check_types.failed_rows_check_yaml import FailedRowsCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,

@@ -6,12 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    DataSourceNamespace,
-    SamplerType,
-    SodaDataTypeName,
-)
+from soda_core.common.metadata_types import ColumnMetadata, DataSourceNamespace, SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     ALTER_TABLE_ADD_COLUMN,
@@ -24,15 +19,9 @@ from soda_core.common.sql_ast import (
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.statements.table_types import TableType
-from soda_databricks.common.data_sources.databricks_data_source_connection import (
-    DatabricksDataSourceConnection,
-)
-from soda_databricks.common.statements.hive_metadata_tables_query import (
-    HiveMetadataTablesQuery,
-)
-from soda_databricks.model.data_source.databricks_data_source import (
-    DatabricksDataSource as DatabricksDataSourceModel,
-)
+from soda_databricks.common.data_sources.databricks_data_source_connection import DatabricksDataSourceConnection
+from soda_databricks.common.statements.hive_metadata_tables_query import HiveMetadataTablesQuery
+from soda_databricks.model.data_source.databricks_data_source import DatabricksDataSource as DatabricksDataSourceModel
 
 logger: Logger = soda_logger
 

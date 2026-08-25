@@ -8,12 +8,8 @@ must keep the unqualified form.
 
 import pytest
 from soda_core.common.statements.table_types import TableType
-from soda_databricks.common.data_sources.databricks_data_source import (
-    DatabricksHiveSqlDialect,
-)
-from soda_databricks.common.statements.hive_metadata_tables_query import (
-    HiveMetadataTablesQuery,
-)
+from soda_databricks.common.data_sources.databricks_data_source import DatabricksHiveSqlDialect
+from soda_databricks.common.statements.hive_metadata_tables_query import HiveMetadataTablesQuery
 
 
 def _query() -> HiveMetadataTablesQuery:
