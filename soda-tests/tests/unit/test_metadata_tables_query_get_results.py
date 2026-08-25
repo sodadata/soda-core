@@ -6,6 +6,10 @@ an unrecognized table type (e.g. postgres' "FOREIGN TABLE") defaults to TABLE
 and is still returned (v3 parity).
 """
 
+import logging
+from unittest import mock
+
+import soda_core.common.sql_dialect as sql_dialect_module
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -58,3 +62,28 @@ def test_filters_out_types_not_requested():
         types_to_return=[TableType.TABLE],
     )
     assert results == [FullyQualifiedTableName(database_name="soda", schema_name="public", table_name="customers")]
+
+
+def test_dremio_style_table_type_maps_to_table_without_warning(caplog):
+    """Dremio reports TABLE_TYPE 'TABLE' for physical datasets, not 'BASE TABLE'."""
+    with caplog.at_level(logging.WARNING, logger="soda"):
+        results = _get_results([("soda", "public", "customers", "TABLE")])
+
+    assert results == [FullyQualifiedTableName(database_name="soda", schema_name="public", table_name="customers")]
+    assert caplog.records == []
+
+
+def test_unmapped_table_type_warns_once_per_type():
+    """get_results runs per metadata row, so an unmapped type must not log per table."""
+    dialect = SqlDialect()
+    query = MetadataTablesQuery(sql_dialect=dialect, data_source_connection=None)
+    rows = [("soda", "public", f"t{i}", "FOREIGN TABLE") for i in range(5)]
+    rows += [("soda", "public", f"s{i}", "SYSTEM TABLE") for i in range(5)]
+
+    with mock.patch.object(sql_dialect_module.logger, "warning") as warning:
+        query.get_results(QueryResult(rows=rows, columns=_COLUMNS), _ALL_TYPES)
+
+    warned_types = [call.args[0] for call in warning.call_args_list]
+    assert len(warned_types) == 2
+    assert any("FOREIGN TABLE" in message for message in warned_types)
+    assert any("SYSTEM TABLE" in message for message in warned_types)
