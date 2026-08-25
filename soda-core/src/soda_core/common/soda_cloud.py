@@ -2091,7 +2091,9 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         }
     else:
         # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
-        if check_result.diagnostic_metric_values is None:
+        # Falsy (None or empty) means there is nothing to report — a check that was never evaluated has
+        # no diagnostics whatever its type, and only the branches above can read a plain dict.
+        if not check_result.diagnostic_metric_values:
             return None
         if isinstance(check_result.diagnostic_metric_values, SodaCloudJsonable):
             return check_result.diagnostic_metric_values.get_soda_cloud_output()

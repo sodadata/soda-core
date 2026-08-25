@@ -353,6 +353,13 @@ class FailedRowsCountQuery(Query):
                 # likely to reject. Maximum compatibility wins here; the
                 # memory-optimized streaming stays reserved for the
                 # soda-generated DWH transfer queries.
+                #
+                # A data source whose cursor is lazy in its own right is not
+                # bound by that choice — the variant picked here decides which
+                # FETCH strategy soda-core asks for, not whether the adapter
+                # buffers. The Salesforce connector streams its REST reads
+                # under the same operator toggle, so this fallback is bounded
+                # there regardless of which variant is called.
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = row_count
                 if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:

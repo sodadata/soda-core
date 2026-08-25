@@ -592,7 +592,12 @@ class CheckCollectionImpl:
             if self.dataset_configuration.compute_warehouse_override:
                 self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
 
-        if self.should_apply_sampling:
+        # The CTE is sampled only when sampling is both requested and supported. The capability term is
+        # load-bearing: without it .SAMPLE() attaches to the CTE and query BUILDING reaches the
+        # dialect's _build_sample_sql, which raises NotImplementedError during __init__ — before the
+        # execute loop exists to catch anything — so the whole verification aborts. verify() reports the
+        # refusal via _log_sampling_refusal; it cannot prevent that abort on its own.
+        if self.should_apply_sampling and self.data_source_supports_sampling:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
                 f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', "
@@ -663,6 +668,16 @@ class CheckCollectionImpl:
     @property
     def should_apply_sampling(self) -> bool:
         return self.is_test_verification_on_runner and self.is_sampling_enabled
+
+    @property
+    def data_source_supports_sampling(self) -> bool:
+        """Whether this collection's data source can honor a row sampler.
+
+        Keyed on the dialect's own capability, which defaults to supported — so a source only answers
+        False by declaring it cannot sample. True when there is no data source: nothing is queried,
+        so there is nothing to refuse.
+        """
+        return self.data_source_impl is None or self.data_source_impl.sql_dialect.supports_row_sampling()
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         keys: list[str] = self.yaml.yaml_object.keys()
@@ -783,6 +798,26 @@ class CheckCollectionImpl:
                     columns.append(column)
         return columns
 
+    def _execute_queries(self) -> list[Measurement]:
+        measurements: list[Measurement] = []
+        for query in self.queries:
+            try:
+                measurements.extend(query.execute())
+            except SodaCoreException as e:
+                logger.error(f"Query execution failed, continuing with remaining checks: {e}")
+        return measurements
+
+    def _log_sampling_refusal(self) -> None:
+        # Leaving every metric unmeasured, so each check reports NOT_EVALUATED. Running the queries
+        # anyway would silently return full-scan numbers as though they were sampled, which is a wrong
+        # answer rather than a missing one.
+        logger.error(
+            f"Row sampling was requested for dataset {self.dataset_identifier.to_string()}, but "
+            f"data source '{self.data_source_impl.name}' of type "
+            f"'{self.data_source_impl.type_name}' cannot sample rows. No checks were evaluated. "
+            f"Remove the sampling configuration for this dataset to run them against all rows."
+        )
+
     def verify(self) -> CheckCollectionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationHandlerRegistry,
@@ -840,12 +875,10 @@ class CheckCollectionImpl:
             # A SodaCoreException from one query (e.g. an aggregation referencing a column
             # that has been dropped) must not abort the scan — other queries, including the
             # schema query, still need to run so the user sees the real cause.
-            for query in self.queries:
-                try:
-                    query_measurements: list[Measurement] = query.execute()
-                    measurements.extend(query_measurements)
-                except SodaCoreException as e:
-                    logger.error(f"Query execution failed, continuing with remaining checks: {e}")
+            if self.should_apply_sampling and not self.data_source_supports_sampling:
+                self._log_sampling_refusal()
+            else:
+                measurements.extend(self._execute_queries())
 
             measurement_values: MeasurementValues = MeasurementValues(measurements)
 
@@ -865,6 +898,28 @@ class CheckCollectionImpl:
                         logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
+                        )
+                    elif check_impl.unsupported_by_data_source:
+                        # NOT_EVALUATED, not EXCLUDED: the user asked for this check and is not getting
+                        # it, which is a different thing from having deselected it themselves.
+                        # Error, so the contract lands on ERROR (exit 3) rather than UNKNOWN (exit 0).
+                        # Unlike a NOT_EVALUATED from an unmeasured metric — transient, may succeed next
+                        # run — this one is permanent: the check will never evaluate on this source until
+                        # someone edits the contract. Exiting 0 would leave it under-asserting silently.
+                        logger.error(
+                            f"Not evaluating check at path '{check_impl.relative_path}': "
+                            f"{check_impl.unsupported_by_data_source}"
+                        )
+                        # Empty, never None. The Cloud payload builder dispatches partly on the check
+                        # TYPE and partly on the result CLASS: type-matched branches call .get() on this
+                        # (fine when empty), while a check whose branch is class-matched — schema,
+                        # freshness — falls through to the arm that reads a falsy value as "nothing to
+                        # report". None would crash the first set; a populated dict crashes the second.
+                        check_result = CheckResult(
+                            check=check_impl._build_check_info(),
+                            outcome=CheckOutcome.NOT_EVALUATED,
+                            threshold_value=None,
+                            diagnostic_metric_values={},
                         )
                     else:
                         # Framework-level NOT_EVALUATED gating: if a check declares

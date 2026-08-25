@@ -231,6 +231,26 @@ class DataSourceImpl(ABC):
         return False
 
     @property
+    def supported_check_types(self) -> Optional[frozenset[str]]:
+        """Check types this data source can evaluate, or None for no restriction.
+
+        Default None, so every existing data source keeps running every registered check type. This is
+        for a source that can only answer part of the contract language: a check outside the declared
+        set reports NOT_EVALUATED naming the data source, instead of failing further in with an error
+        that reads like a defect — a raw MALFORMED_QUERY from the source, say.
+
+        Declare the whole supported set rather than the gaps, so a check type added to soda-core is
+        unsupported on such a source until someone has verified it.
+
+        Enforced in the shared ``CheckImpl.parse_check``: every check type in the
+        ``CheckImpl.check_parsers`` registry, for every ``CheckCollectionImpl`` subtype — contracts,
+        data standards, metric monitoring. Reconciliation parses its own checks and escapes it, so a
+        recon diff type listed in the set states what the source can answer rather than something this
+        gate enforces.
+        """
+        return None
+
+    @property
     def supports_row_hashing(self) -> bool:
         """Whether this data source's query language can compute a row hash (e.g. MD5/CAST).
 
@@ -330,6 +350,11 @@ class DataSourceImpl(ABC):
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+
+    def get_schema_check_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        """Columns metadata for the schema check. A source whose accessor absorbs its own failures for
+        bulk callers overrides this so the schema check still sees them raise."""
+        return self.get_columns_metadata(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         """Builds the table namespace for column metadata queries. Override for custom namespace logic."""

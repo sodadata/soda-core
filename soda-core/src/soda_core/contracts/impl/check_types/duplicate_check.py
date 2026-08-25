@@ -280,6 +280,18 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
     def get_required_metric_impls(self) -> list[MetricImpl]:
         return [self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl]
 
+    def unsupported_reason(self, data_source_impl: Optional[DataSourceImpl]) -> Optional[str]:
+        # Without the hash the distinct count is unmeasured, which convert_db_value coerces to 0 —
+        # making duplicate_count equal row_count and reporting every row as a duplicate.
+        if data_source_impl is not None and not data_source_impl.supports_row_hashing:
+            # "dataset-level", not "multi-column": the hash is emitted even for `columns: [one]`.
+            return (
+                f"a dataset-level duplicate check identifies rows by a row hash, which data source "
+                f"'{data_source_impl.name}' cannot express in its query language. Declaring the check "
+                f"under a single column instead avoids the hash, but excludes missing values"
+            )
+        return None
+
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
