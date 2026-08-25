@@ -26,7 +26,6 @@ from soda_core.common.sql_ast import (
     LOWER,
     ORDER_BY_ASC,
     RAW_SQL,
-    REGEX_LIKE,
     SELECT,
     WHERE,
 )
@@ -105,9 +104,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def is_system_schema(self, schema_name: str) -> bool:
         return schema_name.lower().startswith("pg_") or super().is_system_schema(schema_name)
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"{expression} ~ {self.literal_string(matches.regex_pattern)}"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"{expression} ~ {pattern}"
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type is SamplerType.PERCENTAGE
