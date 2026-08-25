@@ -107,7 +107,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
-        return f"{expression} ~ '{matches.regex_pattern}'"
+        return f"{expression} ~ {self.literal_string(matches.regex_pattern)}"
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type is SamplerType.PERCENTAGE

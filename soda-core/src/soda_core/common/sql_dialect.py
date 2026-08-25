@@ -416,9 +416,6 @@ class SqlDialect:
         string_literal: str = value.replace("'", "''")
         return string_literal
 
-    def escape_regex(self, value: str):
-        return value
-
     def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:
         return add_semicolon if add_semicolon is not None else self.USES_SEMICOLONS_BY_DEFAULT
 
@@ -1250,7 +1247,13 @@ class SqlDialect:
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_LIKE({expression}, '{matches.regex_pattern}')"
+        # The pattern is a string literal like any other, so it goes through
+        # literal_string(). Data sources whose parser consumes backslashes in
+        # string literals (Snowflake, Databricks, Redshift) would otherwise
+        # hand the regex engine `d` where the user wrote `\d`, silently
+        # matching nothing, and an apostrophe in a pattern would break the
+        # query outright.
+        return f"REGEXP_LIKE({expression}, {self.literal_string(matches.regex_pattern)})"
 
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"

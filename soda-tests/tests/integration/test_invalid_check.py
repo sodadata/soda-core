@@ -21,6 +21,38 @@ test_table_specification = (
     .build()
 )
 
+# Dedicated table for the escaped-metacharacter regex test: '1.5' must match
+# `^1\.5$` and '1x5' must not. Both rows are needed -- with only '1.5' the
+# pattern matches either way and the test proves nothing.
+# Dedicated table for the apostrophe regex test: "it's" must match `^it's$` and "its"
+# must not. An apostrophe in a pattern is what breaks a hand-quoted literal outright,
+# rather than silently mismatching the way an eaten backslash does.
+apostrophe_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("invalid_regex_quote")
+    .column_varchar("value")
+    .rows(
+        rows=[
+            ("it's",),
+            ("its",),
+        ]
+    )
+    .build()
+)
+
+escaped_metacharacter_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("invalid_regex_escape")
+    .column_varchar("value")
+    .rows(
+        rows=[
+            ("1.5",),
+            ("1x5",),
+        ]
+    )
+    .build()
+)
+
 
 @pytest.mark.parametrize(
     "contract_yaml_str",
@@ -153,6 +185,84 @@ def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHe
                 valid_format:
                   regex: '{regex_pattern}'
                   name: one-two-threes
+                checks:
+                  - invalid:
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+
+def test_invalid_count_valid_regex_escaped_metacharacter(data_source_test_helper: DataSourceTestHelper):
+    """A backslash in a regex must survive into the data source's regex engine.
+
+    Data sources whose SQL parser consumes backslashes inside string literals
+    (Snowflake, Databricks, Redshift) drop the backslash before the engine ever
+    sees it, turning `1\\.5` into `1.5` -- where `.` matches any character, so
+    '1x5' is silently accepted as valid. The other regex tests here all use
+    backslash-free patterns (`^[123]$`), which is why that went unnoticed.
+    See SCS-1413 / SCS-1230.
+
+    Escaping a metacharacter is used rather than a shorthand like `\\d` so the test
+    means the same thing on every engine: `\\d` is a PCRE-ism that POSIX engines read
+    as a literal `d`, and a pattern that matches nothing cannot distinguish "the
+    shorthand is unsupported" from "the backslash was eaten". An escaped metacharacter
+    discriminates: drop the backslash and `.` starts matching '1x5'.
+    """
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
+        pytest.skip("data source does not evaluate the pattern as a regex")
+
+    test_table = data_source_test_helper.ensure_test_table(escaped_metacharacter_test_table_specification)
+
+    # Only '1x5' is invalid. If the backslash is eaten, `.` matches 'x' too and
+    # the check finds nothing invalid, so assert_contract_fail itself fails.
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: value
+                valid_format:
+                  regex: '^1\\.5$'
+                  name: one-point-five
+                checks:
+                  - invalid:
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+
+def test_invalid_count_valid_regex_apostrophe(data_source_test_helper: DataSourceTestHelper):
+    """An apostrophe in a pattern must be escaped for the data source's literal syntax.
+
+    Unlike an eaten backslash, which silently mismatches, an unescaped quote terminates
+    the string literal and breaks the query outright. Every dialect spells the escape
+    differently -- '' for most, \\' inside BigQuery's triple-quoted form and for
+    Databricks -- so this runs the whole set against a live engine rather than trusting
+    the per-dialect unit tests alone. See SCS-1413.
+    """
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
+        pytest.skip("data source does not evaluate the pattern as a regex")
+
+    test_table = data_source_test_helper.ensure_test_table(apostrophe_test_table_specification)
+
+    # Only 'its' is invalid; "it's" matches the pattern exactly.
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: value
+                valid_format:
+                  regex: "^it's$"
+                  name: it-apostrophe-s
                 checks:
                   - invalid:
         """,

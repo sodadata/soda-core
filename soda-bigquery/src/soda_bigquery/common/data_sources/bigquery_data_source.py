@@ -264,7 +264,11 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
+        # literal_string() below is BigQuery's own triple-quoted form, which escapes
+        # the backslash as \\ -- so the pattern reaches the regex engine exactly as the
+        # r'' prefix used to deliver it, and an apostrophe is escaped as \' instead of
+        # terminating the literal. See SCS-1413.
+        return f"REGEXP_CONTAINS({expression}, {self.literal_string(matches.regex_pattern)})"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """BigQuery has no ordered-set aggregates; render as

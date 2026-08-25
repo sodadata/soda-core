@@ -318,7 +318,8 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
         # CS: Case sensitive; AS: Accent sensitive
         # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
-        return f"PATINDEX ('%{regex_pattern}%', {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+        pattern_literal: str = self.literal_string(f"%{regex_pattern}%")
+        return f"PATINDEX ({pattern_literal}, {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
 
     def supports_regex_advanced(self) -> bool:
         return False
