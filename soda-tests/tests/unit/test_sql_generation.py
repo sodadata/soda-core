@@ -465,3 +465,16 @@ def test_empty_invalid_values_renders_portable_always_false_predicate():
     sql_dialect: SqlDialect = SqlDialect()
     expr = _missing_and_validity(invalid_values=[]).is_invalid_expr(COLUMN("c"))
     assert sql_dialect.build_expression_sql(expr) == "1 = 0"
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """The regex pattern is a string literal and must be escaped like one.
+
+    Hand-wrapping it in quotes leaves an apostrophe in a user pattern to break the
+    query outright, and on data sources whose parser consumes backslashes it silently
+    strips the escape so the pattern matches nothing. Every dialect that overrides
+    _build_regex_like_sql has its own copy of this test. See SCS-1413.
+    """
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == """REGEXP_LIKE("c", '^it''s$')"""
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^\d$")) == """REGEXP_LIKE("c", '^\\d$')"""

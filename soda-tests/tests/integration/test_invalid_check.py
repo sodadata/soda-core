@@ -191,9 +191,11 @@ def test_invalid_count_valid_regex_escaped_metacharacter(data_source_test_helper
     backslash-free patterns (`^[123]$`), which is why that went unnoticed.
     See SCS-1413 / SCS-1230.
 
-    Escaping a metacharacter is used rather than a shorthand like `\\d` because
-    it is valid in POSIX ERE as well as PCRE -- Redshift's REGEXP_LIKE is POSIX,
-    where `\\d` is not a digit class on any code path.
+    Escaping a metacharacter is used rather than a shorthand like `\\d` so the test
+    means the same thing on every engine: `\\d` is a PCRE-ism that POSIX engines read
+    as a literal `d`, and a pattern that matches nothing cannot distinguish "the
+    shorthand is unsupported" from "the backslash was eaten". An escaped metacharacter
+    discriminates: drop the backslash and `.` starts matching '1x5'.
     """
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
         pytest.skip("data source does not evaluate the pattern as a regex")
