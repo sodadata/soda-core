@@ -39,9 +39,11 @@ class MemoryOptimizedDriverSettings:
 
     Operator guidance: enable this (set ``MEMORY_OPTIMIZED_DRIVER_ENABLED=true``)
     when reads of very wide source rows run out of memory — without it the source
-    read buffers the whole result client-side. Only postgres sources benefit today
-    (other adapters fall back to the buffered read regardless). Expect a throughput
-    cost (~14% slower @100k rows) in exchange for bounded peak memory.
+    read buffers the whole result client-side. Two sources honour it today: postgres,
+    via the streaming fetch selected in ``execute_query_one_by_one_prefer_streaming``,
+    and Salesforce, whose connector streams its REST reads directly. Every other
+    adapter buffers regardless. Expect a throughput cost on postgres (~14% slower
+    @100k rows) in exchange for bounded peak memory.
     """
 
     ENV_VAR: str = "MEMORY_OPTIMIZED_DRIVER_ENABLED"
@@ -447,10 +449,17 @@ class DataSourceConnection(ABC):
         *guaranteeing*: streaming engages only when the driver is enabled
         (``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env var or the Soda Cloud override)
         AND this adapter advertises a streaming impl (``supports_streaming_fetch``).
-        Today only postgres does (server-side named cursor, byte-budgeted batches,
-        bounding peak memory to ~one batch plus the largest single row); every other
-        adapter — and every adapter when the driver is disabled — keeps the proven
-        buffered behavior.
+        Today only postgres advertises one (server-side named cursor, byte-budgeted
+        batches, bounding peak memory to ~one batch plus the largest single row);
+        every other adapter — and every adapter when the driver is disabled — is sent
+        down the buffered fetch here.
+
+        That is a statement about the fetch strategy this method selects, NOT a
+        guarantee that the adapter buffers. An adapter whose cursor is lazy in its own
+        right stays bounded on either branch: the Salesforce connector streams its REST
+        reads under the same ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` toggle without
+        advertising the capability, because the seam it needs is the cursor rather than
+        this dispatch.
         """
         # Two terms, one feature: the "memory-optimized driver" is the operator-facing
         # toggle (the MEMORY_OPTIMIZED_DRIVER_ENABLED env var / Soda Cloud flag);
