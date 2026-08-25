@@ -133,6 +133,7 @@ class SqlDialect:
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
+        self._warned_table_types: set[str] = set()
 
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
@@ -1497,7 +1498,9 @@ class SqlDialect:
         return self.default_casify("table_type")
 
     def convert_table_type_to_enum(self, table_type: str) -> TableType:
-        if table_type == "BASE TABLE":
+        # "TABLE" is what Dremio (and other FlightSQL sources) report for a physical dataset,
+        # where the SQL standard information_schema says "BASE TABLE".
+        if table_type in ("BASE TABLE", "TABLE"):
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
@@ -1505,8 +1508,20 @@ class SqlDialect:
             return TableType.MATERIALIZED_VIEW
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
-            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
+
+    def _warn_unmapped_table_type_once(self, table_type: str) -> None:
+        """
+        Warn at most once per distinct unmapped type.
+
+        convert_table_type_to_enum runs once per metadata row, so warning per call turns an
+        unmapped type on a large data source into one log line per table.
+        """
+        if table_type in self._warned_table_types:
+            return
+        self._warned_table_types.add(table_type)
+        logger.warning(f"Unmapped table type: {table_type}, defaulting to TABLE")
 
     def column_column_name(self) -> str:
         """

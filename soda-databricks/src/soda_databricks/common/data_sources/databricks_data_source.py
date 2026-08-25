@@ -403,7 +403,8 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
 
     def convert_table_type_to_enum(self, table_type: str) -> TableType:
-        if table_type == "MANAGED":
+        # Unity Catalog reports MANAGED and EXTERNAL for the two kinds of physical table.
+        if table_type in ("MANAGED", "EXTERNAL"):
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
@@ -411,7 +412,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             return TableType.VIEW  # For now, a materialized view is treated as a view.
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
-            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
 
     def metadata_casify(self, identifier: str) -> str:
