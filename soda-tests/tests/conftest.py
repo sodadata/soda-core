@@ -5,9 +5,7 @@ import pytest
 from helpers.test_fixtures import *  # noqa: F401
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.streaming import StreamingOrchestrator
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationHandlerRegistry,
-)
+from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
 
 # Surface snapshot fallback events in pytest output (custom progress char,
 # end-of-session summary). Loaded as a plugin so its hooks register cleanly.

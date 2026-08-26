@@ -2,11 +2,7 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
 from soda_core.common.sql_dialect import SqlDialect
 
 table_a_specification = (

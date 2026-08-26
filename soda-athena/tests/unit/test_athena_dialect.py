@@ -1,7 +1,4 @@
-from soda_athena.common.data_sources.athena_data_source import (
-    AthenaSqlDialect,
-    _collapse_athena_prefixes,
-)
+from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect, _collapse_athena_prefixes
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR
 
 
@@ -222,9 +219,7 @@ def test_ddl_float_type_name_stays_hive_float():
 def test_lenient_timestamp_converter_accepts_both_precisions():
     from datetime import datetime
 
-    from soda_athena.common.data_sources.athena_data_source_connection import (
-        LenientTypeConverter,
-    )
+    from soda_athena.common.data_sources.athena_data_source_connection import LenientTypeConverter
 
     converter = LenientTypeConverter()
     convert = converter.mappings["timestamp"]

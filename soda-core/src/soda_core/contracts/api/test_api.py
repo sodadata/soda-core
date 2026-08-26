@@ -2,10 +2,7 @@ from typing import Dict, Optional, Union
 
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSession,
-    ContractVerificationSessionResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 

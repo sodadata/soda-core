@@ -550,10 +550,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     # instead of inline SQL — the inline path trips cloud adapter request
     # limits at these sizes. The flag is reset right after prepare_fn so no
     # other fixture flow ever sees it on.
-    from helpers.data_source_test_helper import (
-        activate_fixture_bulk_inserter,
-        deactivate_fixture_bulk_inserter,
-    )
+    from helpers.data_source_test_helper import activate_fixture_bulk_inserter, deactivate_fixture_bulk_inserter
 
     bulk_prev = activate_fixture_bulk_inserter()
     try:

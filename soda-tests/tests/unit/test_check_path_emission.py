@@ -22,13 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import _build_check_result_cloud_dict
-from soda_core.contracts.contract_verification import (
-    Check,
-    CheckOutcome,
-    CheckResult,
-    Contract,
-    YamlFileContentInfo,
-)
+from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Contract, YamlFileContentInfo
 
 
 def _make_contract() -> Contract:
@@ -113,9 +107,7 @@ class _StubCheckImpl:
 
     # Borrow the production property verbatim so any future refactor that
     # adds branches is exercised by these tests.
-    from soda_core.contracts.impl.contract_verification_impl import (  # noqa: E402
-        CheckImpl as _RealCheckImpl,
-    )
+    from soda_core.contracts.impl.contract_verification_impl import CheckImpl as _RealCheckImpl  # noqa: E402
 
     check_path = _RealCheckImpl.check_path
 
@@ -186,11 +178,7 @@ def test_verify_raises_when_non_contract_impl_missing_collection_id():
     ``collection_id``. Without it the wire ``checkPath`` would be bare and
     the backend filter would drop every check. ``verify()`` raises early.
     """
-    from soda_core.check_collections.base import (
-        CheckCollectionImpl,
-        CheckCollectionResult,
-        CheckCollectionYaml,
-    )
+    from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 
     class _NoCollectionIdImpl(CheckCollectionImpl):
         wire_source = "data-standard"

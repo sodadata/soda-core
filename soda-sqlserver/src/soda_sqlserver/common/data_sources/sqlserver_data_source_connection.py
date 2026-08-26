@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import logging
+import random
 import struct
+import time
 from abc import ABC
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Any, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pyodbc
 from pydantic import Field, SecretStr
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 logger: logging.Logger = soda_logger
+
+
+T = TypeVar("T")
 
 
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
@@ -106,12 +110,61 @@ def handle_datetimeoffset(dto_value):
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):
+    # SQL Server resolves lock conflicts by killing one participant with error 1205
+    # (SQLSTATE 40001) and rolling its transaction back; Microsoft's guidance is to
+    # rerun the killed transaction. Concurrent DDL and catalog scans in the same
+    # database can deadlock on the system base tables, so statements are retried a
+    # few times before the error is propagated. The pause is drawn uniformly from
+    # an exponentially growing window (full jitter) so that the parties of a killed
+    # deadlock don't retry in lockstep and immediately deadlock again.
+    DEADLOCK_MAX_ATTEMPTS: int = 3
+    DEADLOCK_RETRY_BACKOFF_SECONDS: float = 0.1
+
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         # Set before super().__init__(), which auto-opens the connection and
         # populates these from the live server in _create_connection.
         self.server_major_version: Optional[int] = None
         self.engine_edition: Optional[int] = None
         super().__init__(name, connection_properties)
+
+    def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
+        execute = super().execute_query
+        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
+        execute = super().execute_update
+        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+
+    @staticmethod
+    def _is_deadlock_error(e: pyodbc.Error) -> bool:
+        # pyodbc error args are (sqlstate, message); 40001 is the serialization
+        # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
+        return bool(e.args) and e.args[0] == "40001"
+
+    def _execute_with_deadlock_retry(self, operation: Callable[[], T]) -> T:
+        """Assumes ``operation`` is a single-statement unit of work: recovery
+        issues a connection-wide rollback, discarding any earlier uncommitted
+        statements on this connection (SQL Server runs autocommit=False).
+        Only the buffered paths (execute_query/execute_update) are wrapped;
+        the callback/iterator paths (execute_query_one_by_one*,
+        execute_query_iterate) may have already delivered rows when a deadlock
+        strikes mid-fetch, so re-executing them would double-process rows."""
+        for attempt in range(1, max(self.DEADLOCK_MAX_ATTEMPTS, 1) + 1):
+            try:
+                return operation()
+            except pyodbc.Error as e:
+                if not self._is_deadlock_error(e) or attempt == self.DEADLOCK_MAX_ATTEMPTS:
+                    raise
+                logger.warning(
+                    f"Deadlock victim on '{self.name}' "
+                    f"(attempt {attempt}/{self.DEADLOCK_MAX_ATTEMPTS}), retrying: {e}"
+                )
+                try:
+                    self.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback after deadlock on '{self.name}' failed: {rollback_error}")
+                backoff_cap = self.DEADLOCK_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                time.sleep(random.uniform(0, backoff_cap))
 
     # Normalize pyodbc.Row objects so downstream consumers see plain tuples.
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:

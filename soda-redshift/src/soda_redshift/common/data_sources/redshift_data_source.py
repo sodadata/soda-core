@@ -13,27 +13,18 @@ from soda_core.common.sql_ast import (
     DISTINCT,
     FROM,
     PERCENTILE_WITHIN_GROUP,
-    REGEX_LIKE,
     TUPLE,
     VALUES,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
-from soda_redshift.common.data_sources.redshift_data_source_connection import (
-    RedshiftDataSourceConnection,
-)
-from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-    RedshiftMetadataPrimaryKeysQuery,
-)
-from soda_redshift.statements.redshift_metadata_tables_query import (
-    RedshiftMetadataTablesQuery,
-)
+from soda_redshift.common.data_sources.redshift_data_source_connection import RedshiftDataSourceConnection
+from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
+from soda_redshift.statements.redshift_metadata_tables_query import RedshiftMetadataTablesQuery
 
 logger: logging.Logger = soda_logger
 
@@ -177,9 +168,8 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
             ["time", "time without time zone"],
         ]
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"{expression} ~ '{matches.regex_pattern}'"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"{expression} ~ {pattern}"
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):

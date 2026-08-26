@@ -16,11 +16,7 @@ Regression tests for two linked bugs surfaced on Databricks (DBR 18.2 / Spark 4.
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    CheckResult,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult, ContractVerificationResult
 
 _test_table_specification = (
     TestTableSpecification.builder()

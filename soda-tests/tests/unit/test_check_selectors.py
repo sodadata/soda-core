@@ -1,10 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from soda_core.contracts.impl.check_selector import (
-    CheckSelector,
-    CheckSelectorParseException,
-)
+from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
 
 
 def _make_check_impl(

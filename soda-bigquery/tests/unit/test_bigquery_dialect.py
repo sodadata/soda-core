@@ -1,11 +1,8 @@
 import pytest
-from soda_bigquery.common.data_sources.bigquery_data_source import (
-    BigQueryMetadataPrimaryKeysQuery,
-    BigQuerySqlDialect,
-)
+from soda_bigquery.common.data_sources.bigquery_data_source import BigQueryMetadataPrimaryKeysQuery, BigQuerySqlDialect
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 
 
 def test_random():
@@ -398,3 +395,17 @@ def test_time_delta_single_week_still_floors_by_seven_days():
     )
     assert "WEEK" not in sql
     assert sql.endswith("DAY) / 7) AS INT)")
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """BigQuerySqlDialect overrides _build_regex_like_sql, so it needs its own copy of
+    the base-dialect guarantee. Its literal_string() is the triple-quoted form, which
+    escapes the backslash as `\\\\` -- so the pattern reaches the regex engine exactly as
+    the old r'' prefix delivered it -- and escapes an apostrophe as `\\'` rather than
+    letting it terminate the literal. See SCS-1413.
+    """
+    sql_dialect = BigQuerySqlDialect()
+    assert (
+        sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "REGEXP_CONTAINS(`c`, '''^1\\\\.5$''')"
+    )
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "REGEXP_CONTAINS(`c`, '''^it\\'s$''')"

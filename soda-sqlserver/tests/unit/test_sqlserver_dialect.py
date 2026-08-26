@@ -4,7 +4,7 @@ import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, LIMIT, STAR
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerSqlDialect
 
 
@@ -162,9 +162,7 @@ def test_supports_percentile_within_group_derived_from_server_facts():
 
 
 def test_parse_server_major_version():
-    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-        SqlServerDataSourceConnection,
-    )
+    from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
     parse = SqlServerDataSourceConnection._parse_server_major_version
     assert parse("15.00.4123") == 15
@@ -355,3 +353,20 @@ def test_paginated_sql_distinct_with_normalized_key_dedups_in_a_cte():
 def test_paginated_sql_distinct_rejects_an_unprojected_order_by_column():
     with pytest.raises(ValueError, match=r"can only order by projected columns"):
         _paginated(order_by=["other"], distinct=True)
+
+
+def test_regex_like_rewrites_and_escapes_the_pattern():
+    """sqlserver is the one dialect whose matcher is not a regex engine.
+
+    PATINDEX takes a LIKE-style pattern, so the text is rewritten (`a-z` expanded,
+    wrapped in `%…%`) before being escaped as a literal. The rewrite happens in
+    _rewrite_regex_pattern so the escaping in the base builder still applies -- an
+    apostrophe in a user pattern used to break the query outright. See SCS-1413.
+    """
+    sql_dialect = SqlServerSqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == (
+        "PATINDEX ('%^it''s$%', [c] COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+    )
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^[a-z]+$")) == (
+        "PATINDEX ('%^[abcdefghijklmnopqrstuvwxyz]+$%', [c] COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+    )

@@ -14,9 +14,7 @@ from datetime import timezone
 from unittest.mock import MagicMock
 
 from soda_core.common.logs import Logs
-from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
-    SnowflakeDataSourceConnection,
-)
+from soda_snowflake.common.data_sources.snowflake_data_source_connection import SnowflakeDataSourceConnection
 
 
 def _make_connection(rows, description):

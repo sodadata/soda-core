@@ -5,12 +5,7 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import (
-    DataSourceNamespace,
-    SamplerType,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import DataSourceNamespace, SamplerType, SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     CAST,
@@ -26,27 +21,18 @@ from soda_core.common.sql_ast import (
     LOWER,
     ORDER_BY_ASC,
     RAW_SQL,
-    REGEX_LIKE,
     SELECT,
     WHERE,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
-from soda_postgres.common.data_sources.postgres_data_source_connection import (
-    PostgresDataSourceConnection,
-)
-from soda_postgres.statements.postgres_metadata_primary_keys_query import (
-    PostgresMetadataPrimaryKeysQuery,
-)
-from soda_postgres.statements.postgres_metadata_tables_query import (
-    PostgresMetadataTablesQuery,
-)
+from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
+from soda_postgres.statements.postgres_metadata_primary_keys_query import PostgresMetadataPrimaryKeysQuery
+from soda_postgres.statements.postgres_metadata_tables_query import PostgresMetadataTablesQuery
 
 logger: Logger = soda_logger
 
@@ -105,9 +91,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def is_system_schema(self, schema_name: str) -> bool:
         return schema_name.lower().startswith("pg_") or super().is_system_schema(schema_name)
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"{expression} ~ '{matches.regex_pattern}'"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"{expression} ~ {pattern}"
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type is SamplerType.PERCENTAGE

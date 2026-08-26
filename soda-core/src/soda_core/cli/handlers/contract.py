@@ -4,10 +4,7 @@ from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common._deprecation import deprecated_kwarg
-from soda_core.common.exceptions import (
-    ContractParserException,
-    InvalidArgumentException,
-)
+from soda_core.common.exceptions import ContractParserException, InvalidArgumentException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
@@ -15,9 +12,7 @@ from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 
 def handle_verify_contract(

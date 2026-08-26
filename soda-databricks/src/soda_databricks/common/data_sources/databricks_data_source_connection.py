@@ -4,14 +4,9 @@ import logging
 from datetime import timezone, tzinfo
 
 from databricks import sql
-from soda_core.common.data_source_connection import (
-    DataSourceConnection,
-    parse_session_timezone,
-)
+from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
 from soda_core.common.logging_constants import soda_logger
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 from soda_databricks.model.data_source.databricks_connection_properties import (
     DatabricksAzureServicePrincipal,
     DatabricksConnectionProperties,
@@ -42,7 +37,16 @@ class DatabricksDataSourceConnection(DataSourceConnection):
                 **connection_kwargs,
             )
 
-        # Token (PAT) auth: access_token flows through connection_kwargs unchanged.
+        # Token (PAT) auth: access_token flows through connection_kwargs unchanged. Never hand
+        # the connector a credential-less connect(): with no credentials_provider and a falsy
+        # access_token it falls back to its interactive browser OAuth (U2M) flow, which opens a
+        # browser URL and blocks on localhost:8020 — an infinite hang in a headless run.
+        if not connection_kwargs.get("access_token"):
+            raise ValueError(
+                "Databricks connection has no credentials: 'access_token' is missing or empty and no OAuth "
+                "auth_type is configured. Refusing to connect, because the Databricks SQL connector would "
+                "otherwise start an interactive browser login that cannot complete in a non-interactive run."
+            )
         return sql.connect(
             user_agent_entry="Soda Core",
             **connection_kwargs,
@@ -60,10 +64,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
             return None
 
         from databricks.sdk.core import Config
-        from databricks.sdk.credentials_provider import (
-            azure_service_principal,
-            oauth_service_principal,
-        )
+        from databricks.sdk.credentials_provider import azure_service_principal, oauth_service_principal
 
         host = f"https://{connection_kwargs['server_hostname']}"
 

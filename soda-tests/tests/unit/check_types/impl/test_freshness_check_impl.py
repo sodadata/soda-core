@@ -16,10 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from helpers.impl_test_helpers import build_contract_impl, build_measurement_values
 from soda_core.contracts.contract_verification import CheckOutcome
-from soda_core.contracts.impl.check_types.freshness_check import (
-    FreshnessCheckImpl,
-    FreshnessCheckResult,
-)
+from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckImpl, FreshnessCheckResult
 
 
 def _freshness_yaml(unit: str = "hour", threshold: int = 24) -> str:

@@ -30,7 +30,6 @@ from soda_core.common.sql_ast import (
     OFFSET,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
-    REGEX_LIKE,
     STRING_HASH,
     TIME_DELTA,
     TUPLE,
@@ -42,9 +41,7 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
-from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SqlServerDataSourceConnection,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
 logger: logging.Logger = soda_logger
 
@@ -306,18 +303,23 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        regex_pattern = matches.regex_pattern
+    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
         # alpha expansion doesn't work properly for case sensitive ranges in SQLServer
-        # this is quite a hack to fit the common use-cases.  generally regex's are only partially supported anyway
+        # this is quite a hack to fit the common use-cases.  generally regex's are only
+        # partially supported anyway
         regex_pattern = regex_pattern.replace("a-z", "abcdefghijklmnopqrstuvwxyz")
         regex_pattern = regex_pattern.replace("A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        # PATINDEX matches a substring, so the pattern is wrapped rather than anchored.
+        # Wrapping here rather than around the rendered literal keeps the % inside the
+        # quotes that the base escaping puts on.
+        return f"%{regex_pattern}%"
+
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
         # collations define rules for sorting strings and distinguishing similar characters
         # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
         # CS: Case sensitive; AS: Accent sensitive
         # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
-        return f"PATINDEX ('%{regex_pattern}%', {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+        return f"PATINDEX ({pattern}, {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
 
     def supports_regex_advanced(self) -> bool:
         return False

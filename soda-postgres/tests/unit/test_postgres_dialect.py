@@ -1,5 +1,5 @@
 import pytest
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 
@@ -75,9 +75,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
     key_column_usage are filtered to tables the current user owns or holds a
     non-SELECT privilege on, so a read-only monitoring user silently gets zero
     primary keys through them."""
-    from soda_postgres.statements.postgres_metadata_primary_keys_query import (
-        PostgresMetadataPrimaryKeysQuery,
-    )
+    from soda_postgres.statements.postgres_metadata_primary_keys_query import PostgresMetadataPrimaryKeysQuery
 
     dialect = PostgresSqlDialect()
     query = PostgresMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
@@ -92,3 +90,14 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
     # Schema filter is case-insensitive (mirrors PostgresMetadataTablesQuery), so a schema
     # spelled in a different case doesn't silently match nothing.
     assert 'LOWER("schemas"."nspname") = \'myschema\'' in sql
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """PostgresSqlDialect overrides _build_regex_like_sql (it renders `~`), so it needs
+    its own copy of the base-dialect guarantee. Postgres literals are standard
+    conforming, so the backslash passes through unchanged -- but an apostrophe in a
+    user pattern still breaks the query unless it is escaped. See SCS-1413.
+    """
+    sql_dialect = PostgresSqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "\"c\" ~ '^1\\.5$'"
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "\"c\" ~ '^it''s$'"

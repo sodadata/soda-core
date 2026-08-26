@@ -7,9 +7,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, Measurement
-from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
-    FailedRowsCheckYaml,
-)
+from soda_core.contracts.impl.check_types.failed_rows_check_yaml import FailedRowsCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
@@ -353,6 +351,13 @@ class FailedRowsCountQuery(Query):
                 # likely to reject. Maximum compatibility wins here; the
                 # memory-optimized streaming stays reserved for the
                 # soda-generated DWH transfer queries.
+                #
+                # A data source whose cursor is lazy in its own right is not
+                # bound by that choice — the variant picked here decides which
+                # FETCH strategy soda-core asks for, not whether the adapter
+                # buffers. The Salesforce connector streams its REST reads
+                # under the same operator toggle, so this fallback is bounded
+                # there regardless of which variant is called.
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = row_count
                 if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:

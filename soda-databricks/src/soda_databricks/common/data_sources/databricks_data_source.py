@@ -6,12 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    DataSourceNamespace,
-    SamplerType,
-    SodaDataTypeName,
-)
+from soda_core.common.metadata_types import ColumnMetadata, DataSourceNamespace, SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     ALTER_TABLE_ADD_COLUMN,
@@ -24,15 +19,9 @@ from soda_core.common.sql_ast import (
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.statements.table_types import TableType
-from soda_databricks.common.data_sources.databricks_data_source_connection import (
-    DatabricksDataSourceConnection,
-)
-from soda_databricks.common.statements.hive_metadata_tables_query import (
-    HiveMetadataTablesQuery,
-)
-from soda_databricks.model.data_source.databricks_data_source import (
-    DatabricksDataSource as DatabricksDataSourceModel,
-)
+from soda_databricks.common.data_sources.databricks_data_source_connection import DatabricksDataSourceConnection
+from soda_databricks.common.statements.hive_metadata_tables_query import HiveMetadataTablesQuery
+from soda_databricks.model.data_source.databricks_data_source import DatabricksDataSource as DatabricksDataSourceModel
 
 logger: Logger = soda_logger
 
@@ -79,6 +68,11 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         except Exception as e:
             logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
             return []
+
+    def get_schema_check_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        # Bypasses the swallow above: the bulk-metadata sweep wants an empty list, but a schema check
+        # reading one dataset needs the failure to reach SchemaQuery, which reports it as an error.
+        return super().get_columns_metadata(dataset_prefixes, dataset_name)
 
     @property
     def bulk_columns_metadata_available(self) -> bool:
@@ -398,7 +392,8 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
 
     def convert_table_type_to_enum(self, table_type: str) -> TableType:
-        if table_type == "MANAGED":
+        # Unity Catalog reports MANAGED and EXTERNAL for the two kinds of physical table.
+        if table_type in ("MANAGED", "EXTERNAL"):
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
@@ -406,7 +401,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             return TableType.VIEW  # For now, a materialized view is treated as a view.
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
-            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
 
     def metadata_casify(self, identifier: str) -> str:

@@ -11,9 +11,7 @@ from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
 
@@ -57,9 +55,7 @@ class ContractVerificationSession:
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg
         from soda_core.contracts.impl.check_selector import CheckSelector
-        from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationSessionImpl,
-        )
+        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationSessionImpl
 
         soda_cloud_use_runner = deprecated_kwarg(
             kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
@@ -350,6 +346,10 @@ class Check:
     # the ``CheckCollectionImpl.verify()`` alignment guard rejects the
     # upload when these don't match ``self.wire_source``.
     source: Optional[str] = None
+    # Optional second threshold at warn severity (a threshold and its `additional`
+    # threshold). None for fail-only and legacy checks. Defaults keep external
+    # Check(...) constructors working.
+    warn_threshold: Optional[Threshold] = None
 
 
 class CheckResult:
@@ -444,7 +444,11 @@ class CheckResult:
         row = {}
         row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
         row["Check"] = self.check.name
-        row["Threshold"] = self.check.threshold
+        row["Threshold"] = (
+            f"{self.check.threshold}\n{self.check.warn_threshold}"
+            if self.check.warn_threshold
+            else self.check.threshold
+        )
         row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
 
         if is_verbose():
@@ -558,6 +562,8 @@ class ScanTokenUsage:
     total_tokens: int
     model: Optional[str] = None
     operation: Optional[str] = None  # "autopilot" or "llmCheck" (matches server Gson @SerializedName)
+    # Case-sensitive "SODA" or "BYOK"; Cloud Gson maps anything else to null without error.
+    agent_source: Optional[str] = None
 
 
 class PostProcessingStageState(Enum):

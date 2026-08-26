@@ -7,12 +7,7 @@ from unittest import mock
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict, matcher_string_contains
-from helpers.mock_soda_cloud import (
-    MockHttpMethod,
-    MockRequest,
-    MockResponse,
-    MockSodaCloud,
-)
+from helpers.mock_soda_cloud import MockHttpMethod, MockRequest, MockResponse, MockSodaCloud
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -27,7 +22,9 @@ from soda_core.common.exceptions import (
 from soda_core.common.soda_cloud import (
     ContractSkeletonGenerationState,
     SodaCloud,
+    _build_check_collection_results_json_dict,
     _build_diagnostics_json_dict,
+    _build_token_usage_dicts,
 )
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -45,9 +42,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -197,6 +192,70 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     assert (
         len(data_source_test_helper.soda_cloud.requests) == 2
     ), f"Expected 2 requests, got more: {data_source_test_helper.soda_cloud.requests}"
+
+
+def test_soda_cloud_results_with_additional_threshold(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
+    """End-to-end through the engine exit: a threshold + `additional:` pair must reach the
+    Cloud payload as BOTH `diagnostics.fail` and `diagnostics.warn`. The impl-level tests
+    assert `CheckImpl.warn_threshold` and the wire tests hand-build the `Check` dataclass,
+    so without this test the `warn_threshold=` kwarg in `_build_check_info` — the only
+    carrier of the warn threshold out of the engine — could be dropped with the whole
+    suite staying green."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
+            MockResponse(
+                method=MockHttpMethod.POST,
+                status_code=200,
+                json_object={
+                    "scanId": "ssscanid",
+                    "checks": [
+                        {"id": "123e4567-e89b-12d3-a456-426655440000", "identities": ["0e741893"]},
+                    ],
+                },
+            ),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+              - name: age
+                missing_values: [-1, -2]
+                checks:
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 5
+                        additional:
+                          must_be_less_than_or_equal: 1
+                          level: warn
+        """,
+    )
+
+    results_request: MockRequest = data_source_test_helper.soda_cloud.requests[1]
+    assert results_request.json["type"] == "sodaCoreInsertScanResults"
+    assert_dict(
+        results_request.json,
+        {
+            "checks": [
+                {
+                    "checkPath": "columns.age.checks.missing",
+                    "outcome": "warn",
+                    "diagnostics": {
+                        "value": 2,
+                        "fail": {"greaterThan": 5},
+                        "warn": {"greaterThan": 1},
+                    },
+                },
+            ],
+        },
+    )
 
 
 def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
@@ -770,9 +829,7 @@ def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected
 
 
 def _build_freshness_check_result(unit: str, threshold_value: float) -> "FreshnessCheckResult":
-    from soda_core.contracts.impl.check_types.freshness_check import (
-        FreshnessCheckResult,
-    )
+    from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
 
     return FreshnessCheckResult(
         check=mock.MagicMock(),
@@ -835,8 +892,6 @@ def test_build_diagnostics_json_dict_omits_measure_for_non_time_checks():
 
 
 def test_build_token_usage_dicts_serialization():
-    from soda_core.common.soda_cloud import _build_token_usage_dicts
-
     mock_result = mock.MagicMock()
     mock_result.token_usage = [
         ScanTokenUsage(
@@ -845,28 +900,115 @@ def test_build_token_usage_dicts_serialization():
             total_tokens=2000,
             model="gpt-4o",
             operation="autopilot",
+            agent_source="SODA",
+        ),
+        ScanTokenUsage(
+            prompt_tokens=300,
+            completion_tokens=100,
+            total_tokens=400,
+            model="gpt-4o-mini",
+            operation="autopilot",
         ),
     ]
     token_dicts = _build_token_usage_dicts(mock_result)
-    assert len(token_dicts) == 1
-    assert token_dicts[0] == {
-        "promptTokens": 1500,
-        "completionTokens": 500,
-        "totalTokens": 2000,
-        "model": "gpt-4o",
-        "operation": "autopilot",
-    }
+    assert token_dicts == [
+        {
+            "promptTokens": 1500,
+            "completionTokens": 500,
+            "totalTokens": 2000,
+            "model": "gpt-4o",
+            "operation": "autopilot",
+            "agentSource": "SODA",
+        },
+        {
+            "promptTokens": 300,
+            "completionTokens": 100,
+            "totalTokens": 400,
+            "model": "gpt-4o-mini",
+            "operation": "autopilot",
+        },
+    ]
 
 
 def test_build_token_usage_dicts_empty_when_no_usage():
-    from soda_core.common.soda_cloud import _build_token_usage_dicts
-
     mock_result = mock.MagicMock()
     mock_result.token_usage = None
     assert _build_token_usage_dicts(mock_result) == []
 
     mock_result.token_usage = []
     assert _build_token_usage_dicts(mock_result) == []
+
+
+def _build_result_with_token_usage(token_usage: Optional[list[ScanTokenUsage]]) -> mock.MagicMock:
+    timestamp = datetime(2026, 8, 18, tzinfo=timezone.utc)
+    result = mock.MagicMock()
+    result.check_collection = mock.MagicMock(soda_qualified_dataset_name="test_ds/schema/table")
+    result.data_source = None
+    result.data_timestamp = timestamp
+    result.started_timestamp = timestamp
+    result.ended_timestamp = timestamp
+    result.check_results = []
+    result.log_records = None
+    result.post_processing_stages = None
+    result.token_usage = token_usage
+    result.measurement_dicts = []
+    result.has_errors = False
+    result.is_warned = False
+    result.is_failed = False
+    return result
+
+
+def test_build_check_collection_results_serializes_token_usage_in_result_and_entry_order():
+    results = [
+        _build_result_with_token_usage(None),
+        _build_result_with_token_usage(
+            [
+                ScanTokenUsage(10, 20, 30, model="model-a", operation="autopilot", agent_source="SODA"),
+                ScanTokenUsage(40, 50, 90, model="model-b", operation="llmCheck"),
+            ]
+        ),
+        _build_result_with_token_usage([]),
+        _build_result_with_token_usage(
+            [ScanTokenUsage(60, 70, 130, model="model-c", operation="autopilot", agent_source="BYOK")]
+        ),
+    ]
+
+    payload = _build_check_collection_results_json_dict(results, wire_source="data-standard")
+
+    assert payload["tokenUsage"] == [
+        {
+            "promptTokens": 10,
+            "completionTokens": 20,
+            "totalTokens": 30,
+            "model": "model-a",
+            "operation": "autopilot",
+            "agentSource": "SODA",
+        },
+        {
+            "promptTokens": 40,
+            "completionTokens": 50,
+            "totalTokens": 90,
+            "model": "model-b",
+            "operation": "llmCheck",
+        },
+        {
+            "promptTokens": 60,
+            "completionTokens": 70,
+            "totalTokens": 130,
+            "model": "model-c",
+            "operation": "autopilot",
+            "agentSource": "BYOK",
+        },
+    ]
+
+
+def test_build_check_collection_results_keeps_empty_token_usage_list():
+    payload = _build_check_collection_results_json_dict(
+        [_build_result_with_token_usage(None), _build_result_with_token_usage([])],
+        wire_source="data-standard",
+    )
+
+    assert payload["tokenUsage"] == []
 
 
 @mock.patch("requests.post")

@@ -1,6 +1,6 @@
 import pytest
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSqlDialect
 
 
@@ -191,9 +191,7 @@ def test_primary_keys_queries_table_constraints_then_shows_per_table():
     SHOW PRIMARY KEYS IN TABLE per such table. Requested tables without a PK get no SHOW and are
     absent; composite keys come back ordered by key_sequence even when SHOW rows arrive
     out of order."""
-    from soda_snowflake.common.data_sources.snowflake_data_source import (
-        SnowflakeMetadataPrimaryKeysQuery,
-    )
+    from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeMetadataPrimaryKeysQuery
 
     connection = _StubConnection(
         [
@@ -226,9 +224,7 @@ def test_primary_keys_queries_table_constraints_then_shows_per_table():
 def test_primary_keys_show_parsing_locates_columns_by_name():
     """SHOW output is parsed by column NAME from the cursor description, not by position — a
     reordered SHOW output must still parse correctly (and a missing column fails loud)."""
-    from soda_snowflake.common.data_sources.snowflake_data_source import (
-        SnowflakeMetadataPrimaryKeysQuery,
-    )
+    from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeMetadataPrimaryKeysQuery
 
     reordered_columns = (("key_sequence",), ("column_name",), ("table_name",))
     show_result = QueryResult(
@@ -236,3 +232,42 @@ def test_primary_keys_show_parsing_locates_columns_by_name():
         rows=[(2, "ID", "ORDERS"), (1, "TENANT_ID", "ORDERS")],
     )
     assert SnowflakeMetadataPrimaryKeysQuery._ordered_key_columns(show_result) == ["TENANT_ID", "ID"]
+
+
+# ---------------------------------------------------------------------------
+# Regex literals — Snowflake's SQL parser consumes backslashes in single-quoted
+# string literals ('\d' arrives at the regex engine as 'd'), so a regex pattern
+# has to go through the same escaping as any other string literal. Without it,
+# a `valid regex` like ^\d+$ silently matches nothing and every non-null row is
+# reported invalid. See SCS-1413.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "regex_pattern, expected_sql",
+    [
+        pytest.param(
+            r"^[+-]?((\d+(\.\d*)?)|(\.\d+))$",
+            r"""REGEXP_LIKE("c", '^[+-]?((\\d+(\\.\\d*)?)|(\\.\\d+))$')""",
+            id="decimal_pattern_backslashes_doubled",
+        ),
+        pytest.param(
+            r"^\d+$",
+            r"""REGEXP_LIKE("c", '^\\d+$')""",
+            id="digits_backslash_doubled",
+        ),
+        pytest.param(
+            "^[A-Z]+$",
+            """REGEXP_LIKE("c", '^[A-Z]+$')""",
+            id="no_backslash_unchanged",
+        ),
+        pytest.param(
+            "^it's$",
+            """REGEXP_LIKE("c", '^it''s$')""",
+            id="single_quote_escaped",
+        ),
+    ],
+)
+def test_regex_like_escapes_pattern(regex_pattern, expected_sql):
+    sql_dialect: SnowflakeSqlDialect = SnowflakeSqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), regex_pattern)) == expected_sql

@@ -5,10 +5,7 @@ from datetime import datetime, timezone
 from logging import LogRecord
 from typing import Optional
 
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.soda_cloud import build_log_cloud_json_dict
 from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO

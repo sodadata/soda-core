@@ -569,3 +569,49 @@ def test_sql_ast_select_distinct_flag():
     assert sql_dialect.build_select_sql([SELECT(["a", "b"]), FROM("customers")]) == (
         'SELECT "a",\n' '       "b"\n' 'FROM "customers";'
     )
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """The regex pattern is a string literal and must be escaped like one.
+
+    Hand-wrapping it in quotes leaves an apostrophe in a user pattern to break the
+    query outright, and on data sources whose parser consumes backslashes it silently
+    strips the escape so the pattern matches nothing. Every dialect that overrides
+    _build_regex_like_sql has its own copy of this test. See SCS-1413.
+    """
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == """REGEXP_LIKE("c", '^it''s$')"""
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^\d$")) == """REGEXP_LIKE("c", '^\\d$')"""
+
+
+def test_regex_like_seam_escapes_for_dialects_that_only_change_syntax():
+    """A dialect that overrides only the syntax seam still gets escaping.
+
+    This is the property the seam exists for: _regex_like_sql receives the pattern
+    already quoted, so a dialect cannot render a regex without it. Before SCS-1413
+    each dialect overrode the whole builder and had to remember to escape; five
+    didn't.
+    """
+
+    class TildeDialect(SqlDialect, sqlglot_dialect="test"):
+        def _regex_like_sql(self, expression: str, pattern: str) -> str:
+            return f"{expression} ~ {pattern}"
+
+    sql_dialect = TildeDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == """"c" ~ '^it''s$'"""
+
+
+def test_regex_like_seam_escapes_for_dialects_that_rewrite_the_pattern():
+    """The other seam: rewriting the pattern text cannot skip the escaping either.
+
+    _rewrite_regex_pattern runs before literal_string, so a dialect that adapts the
+    pattern for its matcher (sqlserver) still gets the quote escaped. Together with
+    the syntax seam this is why _build_regex_like_sql is @final. See SCS-1413.
+    """
+
+    class WrappingDialect(SqlDialect, sqlglot_dialect="test"):
+        def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
+            return f"%{regex_pattern}%"
+
+    sql_dialect = WrappingDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == ("""REGEXP_LIKE("c", '%^it''s$%')""")

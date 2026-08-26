@@ -11,10 +11,7 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-from soda_core.common.exceptions import (
-    InvalidDataSourceConfigurationException,
-    YamlParserException,
-)
+from soda_core.common.exceptions import InvalidDataSourceConfigurationException, YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 

@@ -7,14 +7,11 @@ from abc import abstractmethod
 from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
-from typing import Any, ClassVar, Optional, Tuple
+from typing import Any, ClassVar, Optional, Tuple, final
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -136,6 +133,7 @@ class SqlDialect:
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
+        self._warned_table_types: set[str] = set()
 
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
@@ -419,9 +417,6 @@ class SqlDialect:
         string_literal: str = value.replace("'", "''")
         return string_literal
 
-    def escape_regex(self, value: str):
-        return value
-
     def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:
         return add_semicolon if add_semicolon is not None else self.USES_SEMICOLONS_BY_DEFAULT
 
@@ -558,9 +553,7 @@ class SqlDialect:
         # terms, matched to its own projection, so this validation has nothing to say about
         # them. Skipping them is what keeps the check a real check for the string case
         # instead of a false alarm for every expression caller.
-        missing_order_by_columns = [
-            column for column in order_by if isinstance(column, str) and column not in columns
-        ]
+        missing_order_by_columns = [column for column in order_by if isinstance(column, str) and column not in columns]
         if missing_order_by_columns:
             raise ValueError(
                 f"select_all_paginated_sql(distinct=True) can only order by projected columns, but "
@@ -1366,9 +1359,46 @@ class SqlDialect:
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
+    @final
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
+        """Renders REGEX_LIKE. Final on purpose -- override the two seams below.
+
+        REGEX_LIKE.regex_pattern is a bare str rather than an expression node, so
+        unlike LIKE -- whose pattern is a LITERAL and is escaped by the expression
+        renderer in every dialect for free -- nothing escapes it unless this method
+        does. Six dialects each hand-quoted it and five got it wrong (SCS-1413).
+
+        Escaping therefore happens here, once, and cannot be skipped: a dialect that
+        needs different syntax overrides _regex_like_sql, and one that needs the
+        pattern text itself rewritten overrides _rewrite_regex_pattern, which runs
+        before the escaping rather than instead of it.
+        """
         expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_LIKE({expression}, '{matches.regex_pattern}')"
+        pattern: str = self.literal_string(self._rewrite_regex_pattern(matches.regex_pattern))
+        return self._regex_like_sql(expression, pattern)
+
+    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
+        """Adapt the pattern text to what this engine's matcher understands.
+
+        Runs on the raw pattern, before it is escaped as a literal. Return it
+        unchanged unless the engine needs a different dialect of regex -- sqlserver
+        expands `a-z` / `A-Z` and wraps the pattern for PATINDEX here.
+        """
+        return regex_pattern
+
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        """Per-dialect regex syntax. `pattern` arrives already escaped as a string
+        literal, quotes and all -- do not re-quote it.
+
+        Override for a different function name or operator. Three shapes are in use:
+        a function call (base, duckdb's REGEXP_MATCHES, bigquery's REGEXP_CONTAINS),
+        an infix operator (postgres and redshift's `~`), and a whole-predicate
+        rewrite (sqlserver's PATINDEX(...) > 0, and soda-extensions' db2z, which
+        binds the pattern into an XQuery fn:matches). A dialect needing a
+        non-standard literal form does not belong here -- that is what its own
+        literal_string() override is for, as bigquery's triple-quoted form shows.
+        """
+        return f"REGEXP_LIKE({expression}, {pattern})"
 
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"
@@ -1612,7 +1642,9 @@ class SqlDialect:
         return self.default_casify("table_type")
 
     def convert_table_type_to_enum(self, table_type: str) -> TableType:
-        if table_type == "BASE TABLE":
+        # "TABLE" is what Dremio (and other FlightSQL sources) report for a physical dataset,
+        # where the SQL standard information_schema says "BASE TABLE".
+        if table_type in ("BASE TABLE", "TABLE"):
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
@@ -1620,8 +1652,20 @@ class SqlDialect:
             return TableType.MATERIALIZED_VIEW
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
-            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
+
+    def _warn_unmapped_table_type_once(self, table_type: str) -> None:
+        """
+        Warn at most once per distinct unmapped type.
+
+        convert_table_type_to_enum runs once per metadata row, so warning per call turns an
+        unmapped type on a large data source into one log line per table.
+        """
+        if table_type in self._warned_table_types:
+            return
+        self._warned_table_types.add(table_type)
+        logger.warning(f"Unmapped table type: {table_type}, defaulting to TABLE")
 
     def column_column_name(self) -> str:
         """

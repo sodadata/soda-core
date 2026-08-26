@@ -16,9 +16,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
-from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SqlServerDataSourceConnection,
-)
+from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
 
 
 def _make_connection(returned_offset_value):
