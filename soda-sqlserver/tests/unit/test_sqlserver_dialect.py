@@ -2,7 +2,7 @@ from datetime import date
 
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, STAR
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerSqlDialect
 
 
@@ -250,3 +250,20 @@ def test_paginated_sql_normalizes_only_the_flagged_key_column():
     # LOWER fold + raw tiebreaker so OFFSET/FETCH paging is deterministic; "label" stays raw.
     assert "LOWER([code]) ASC, [code] ASC" in sql
     assert sql.upper().count("LOWER(") == 1
+
+
+def test_regex_like_rewrites_and_escapes_the_pattern():
+    """sqlserver is the one dialect whose matcher is not a regex engine.
+
+    PATINDEX takes a LIKE-style pattern, so the text is rewritten (`a-z` expanded,
+    wrapped in `%…%`) before being escaped as a literal. The rewrite happens in
+    _rewrite_regex_pattern so the escaping in the base builder still applies -- an
+    apostrophe in a user pattern used to break the query outright. See SCS-1413.
+    """
+    sql_dialect = SqlServerSqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == (
+        "PATINDEX ('%^it''s$%', [c] COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+    )
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^[a-z]+$")) == (
+        "PATINDEX ('%^[abcdefghijklmnopqrstuvwxyz]+$%', [c] COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+    )

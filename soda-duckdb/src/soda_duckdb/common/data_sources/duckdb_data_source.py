@@ -119,9 +119,8 @@ class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
     def supports_data_type_datetime_precision(self) -> bool:
         return False
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_MATCHES({expression}, {self.literal_string(matches.regex_pattern)})"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"REGEXP_MATCHES({expression}, {pattern})"
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         schema_name: str = prefixes[0]

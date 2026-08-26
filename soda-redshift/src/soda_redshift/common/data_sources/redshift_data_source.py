@@ -13,7 +13,6 @@ from soda_core.common.sql_ast import (
     DISTINCT,
     FROM,
     PERCENTILE_WITHIN_GROUP,
-    REGEX_LIKE,
     TUPLE,
     VALUES,
 )
@@ -177,9 +176,8 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
             ["time", "time without time zone"],
         ]
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"{expression} ~ {self.literal_string(matches.regex_pattern)}"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"{expression} ~ {pattern}"
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):

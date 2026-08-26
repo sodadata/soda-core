@@ -7,7 +7,7 @@ from abc import abstractmethod
 from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
-from typing import Any, ClassVar, Optional, Tuple
+from typing import Any, ClassVar, Optional, Tuple, final
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -1246,15 +1246,46 @@ class SqlDialect:
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
+    @final
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
+        """Renders REGEX_LIKE. Final on purpose -- override the two seams below.
+
+        REGEX_LIKE.regex_pattern is a bare str rather than an expression node, so
+        unlike LIKE -- whose pattern is a LITERAL and is escaped by the expression
+        renderer in every dialect for free -- nothing escapes it unless this method
+        does. Six dialects each hand-quoted it and five got it wrong (SCS-1413).
+
+        Escaping therefore happens here, once, and cannot be skipped: a dialect that
+        needs different syntax overrides _regex_like_sql, and one that needs the
+        pattern text itself rewritten overrides _rewrite_regex_pattern, which runs
+        before the escaping rather than instead of it.
+        """
         expression: str = self.build_expression_sql(matches.expression)
-        # The pattern is a string literal like any other, so it goes through
-        # literal_string(). Data sources whose parser consumes backslashes in
-        # string literals (Snowflake, Databricks, Redshift) would otherwise
-        # hand the regex engine `d` where the user wrote `\d`, silently
-        # matching nothing, and an apostrophe in a pattern would break the
-        # query outright.
-        return f"REGEXP_LIKE({expression}, {self.literal_string(matches.regex_pattern)})"
+        pattern: str = self.literal_string(self._rewrite_regex_pattern(matches.regex_pattern))
+        return self._regex_like_sql(expression, pattern)
+
+    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
+        """Adapt the pattern text to what this engine's matcher understands.
+
+        Runs on the raw pattern, before it is escaped as a literal. Return it
+        unchanged unless the engine needs a different dialect of regex -- sqlserver
+        expands `a-z` / `A-Z` and wraps the pattern for PATINDEX here.
+        """
+        return regex_pattern
+
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        """Per-dialect regex syntax. `pattern` arrives already escaped as a string
+        literal, quotes and all -- do not re-quote it.
+
+        Override for a different function name or operator. Three shapes are in use:
+        a function call (base, duckdb's REGEXP_MATCHES, bigquery's REGEXP_CONTAINS),
+        an infix operator (postgres and redshift's `~`), and a whole-predicate
+        rewrite (sqlserver's PATINDEX(...) > 0, and soda-extensions' db2z, which
+        binds the pattern into an XQuery fn:matches). A dialect needing a
+        non-standard literal form does not belong here -- that is what its own
+        literal_string() override is for, as bigquery's triple-quoted form shows.
+        """
+        return f"REGEXP_LIKE({expression}, {pattern})"
 
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"

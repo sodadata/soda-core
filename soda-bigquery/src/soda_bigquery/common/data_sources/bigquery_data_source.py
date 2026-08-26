@@ -23,7 +23,6 @@ from soda_core.common.sql_ast import (
     LITERAL,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
-    REGEX_LIKE,
     STRING_HASH,
     TIME_DELTA,
     TUPLE,
@@ -262,13 +261,10 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"TO_JSON_STRING(STRUCT({super()._build_tuple_sql(tuple)}))"
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        # literal_string() below is BigQuery's own triple-quoted form, which escapes
-        # the backslash as \\ -- so the pattern reaches the regex engine exactly as the
-        # r'' prefix used to deliver it, and an apostrophe is escaped as \' instead of
-        # terminating the literal. See SCS-1413.
-        return f"REGEXP_CONTAINS({expression}, {self.literal_string(matches.regex_pattern)})"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        # `pattern` arrives quoted by this dialect's own literal_string(), the
+        # triple-quoted form that escapes the backslash as \\ and an apostrophe as \'.
+        return f"REGEXP_CONTAINS({expression}, {pattern})"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """BigQuery has no ordered-set aggregates; render as
