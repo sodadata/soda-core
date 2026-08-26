@@ -6,12 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    DataSourceNamespace,
-    SamplerType,
-    SodaDataTypeName,
-)
+from soda_core.common.metadata_types import ColumnMetadata, DataSourceNamespace, SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     AND,
@@ -31,16 +26,12 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
-from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
-    SnowflakeDataSourceConnection,
-)
+from soda_snowflake.common.data_sources.snowflake_data_source_connection import SnowflakeDataSourceConnection
 
 logger: Logger = soda_logger
 

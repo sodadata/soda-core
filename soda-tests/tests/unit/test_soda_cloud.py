@@ -7,12 +7,7 @@ from unittest import mock
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict, matcher_string_contains
-from helpers.mock_soda_cloud import (
-    MockHttpMethod,
-    MockRequest,
-    MockResponse,
-    MockSodaCloud,
-)
+from helpers.mock_soda_cloud import MockHttpMethod, MockRequest, MockResponse, MockSodaCloud
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -47,9 +42,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -836,9 +829,7 @@ def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected
 
 
 def _build_freshness_check_result(unit: str, threshold_value: float) -> "FreshnessCheckResult":
-    from soda_core.contracts.impl.check_types.freshness_check import (
-        FreshnessCheckResult,
-    )
+    from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
 
     return FreshnessCheckResult(
         check=mock.MagicMock(),

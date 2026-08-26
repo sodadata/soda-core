@@ -9,15 +9,8 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
-from soda_core.contracts.api.verify_api import (
-    ContractVerificationSession,
-    all_none_or_empty,
-    verify_contract,
-)
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSessionResult,
-    SodaException,
-)
+from soda_core.contracts.api.verify_api import ContractVerificationSession, all_none_or_empty, verify_contract
+from soda_core.contracts.contract_verification import ContractVerificationSessionResult, SodaException
 
 
 def test_contract_verification_file_api():

@@ -13,19 +13,12 @@ from typing import Callable, Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.snapshot_connection import (
-    SnapshotDataSourceConnection,
-    is_any_rerun_in_progress,
-)
+from helpers.snapshot_connection import SnapshotDataSourceConnection, is_any_rerun_in_progress
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -49,11 +42,7 @@ from soda_core.common.statements.metadata_tables_query import (
     TableType,
 )
 from soda_core.common.statements.table_types import FullyQualifiedMaterializedViewName
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-    SodaCloudYamlSource,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
@@ -237,108 +226,74 @@ class DataSourceTestHelper:
     @classmethod
     def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
-            from soda_postgres.test_helpers.postgres_data_source_test_helper import (
-                PostgresDataSourceTestHelper,
-            )
+            from soda_postgres.test_helpers.postgres_data_source_test_helper import PostgresDataSourceTestHelper
 
             return PostgresDataSourceTestHelper(name)
         elif test_datasource == "snowflake":
-            from soda_snowflake.test_helpers.snowflake_data_source_test_helper import (
-                SnowflakeDataSourceTestHelper,
-            )
+            from soda_snowflake.test_helpers.snowflake_data_source_test_helper import SnowflakeDataSourceTestHelper
 
             return SnowflakeDataSourceTestHelper(name)
         elif test_datasource == "databricks":
-            from soda_databricks.test_helpers.databricks_data_source_test_helper import (
-                DatabricksDataSourceTestHelper,
-            )
+            from soda_databricks.test_helpers.databricks_data_source_test_helper import DatabricksDataSourceTestHelper
 
             return DatabricksDataSourceTestHelper(name)
         elif test_datasource == "duckdb":
-            from soda_duckdb.test_helpers.duckdb_data_source_test_helper import (
-                DuckdbDataSourceTestHelper,
-            )
+            from soda_duckdb.test_helpers.duckdb_data_source_test_helper import DuckdbDataSourceTestHelper
 
             return DuckdbDataSourceTestHelper(name)
         elif test_datasource == "bigquery":
-            from soda_bigquery.test_helpers.bigquery_data_source_test_helper import (
-                BigQueryDataSourceTestHelper,
-            )
+            from soda_bigquery.test_helpers.bigquery_data_source_test_helper import BigQueryDataSourceTestHelper
 
             return BigQueryDataSourceTestHelper(name)
 
         elif test_datasource == "oracle":
-            from soda_oracle.test_helpers.oracle_data_source_test_helper import (
-                OracleDataSourceTestHelper,
-            )
+            from soda_oracle.test_helpers.oracle_data_source_test_helper import OracleDataSourceTestHelper
 
             return OracleDataSourceTestHelper(name)
 
         elif test_datasource == "sqlserver":
-            from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
-                SqlServerDataSourceTestHelper,
-            )
+            from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import SqlServerDataSourceTestHelper
 
             return SqlServerDataSourceTestHelper(name)
         elif test_datasource == "synapse":
-            from soda_synapse.test_helpers.synapse_data_source_test_helper import (
-                SynapseDataSourceTestHelper,
-            )
+            from soda_synapse.test_helpers.synapse_data_source_test_helper import SynapseDataSourceTestHelper
 
             return SynapseDataSourceTestHelper(name)
         elif test_datasource == "redshift":
-            from soda_redshift.test_helpers.redshift_data_source_test_helper import (
-                RedshiftDataSourceTestHelper,
-            )
+            from soda_redshift.test_helpers.redshift_data_source_test_helper import RedshiftDataSourceTestHelper
 
             return RedshiftDataSourceTestHelper(name)
         elif test_datasource == "fabric":
-            from soda_fabric.test_helpers.fabric_data_source_test_helper import (
-                FabricDataSourceTestHelper,
-            )
+            from soda_fabric.test_helpers.fabric_data_source_test_helper import FabricDataSourceTestHelper
 
             return FabricDataSourceTestHelper(name)
         elif test_datasource == "athena":
-            from soda_athena.test_helpers.athena_data_source_test_helper import (
-                AthenaDataSourceTestHelper,
-            )
+            from soda_athena.test_helpers.athena_data_source_test_helper import AthenaDataSourceTestHelper
 
             return AthenaDataSourceTestHelper(name)
         elif test_datasource == "sparkdf":
-            from soda_sparkdf.test_helpers.sparkdf_data_source_test_helper import (
-                SparkDataFrameDataSourceTestHelper,
-            )
+            from soda_sparkdf.test_helpers.sparkdf_data_source_test_helper import SparkDataFrameDataSourceTestHelper
 
             return SparkDataFrameDataSourceTestHelper(name)
 
         elif test_datasource == "dremio":
-            from soda_dremio.test_helpers.dremio_data_source_test_helper import (
-                DremioDataSourceTestHelper,
-            )
+            from soda_dremio.test_helpers.dremio_data_source_test_helper import DremioDataSourceTestHelper
 
             return DremioDataSourceTestHelper(name)
         elif test_datasource == "trino":
-            from soda_trino.test_helpers.trino_data_source_test_helper import (
-                TrinoDataSourceTestHelper,
-            )
+            from soda_trino.test_helpers.trino_data_source_test_helper import TrinoDataSourceTestHelper
 
             return TrinoDataSourceTestHelper(name)
         elif test_datasource == "db2":
-            from soda_db2.test_helpers.db2_data_source_test_helper import (
-                Db2DataSourceTestHelper,
-            )
+            from soda_db2.test_helpers.db2_data_source_test_helper import Db2DataSourceTestHelper
 
             return Db2DataSourceTestHelper(name)
         elif test_datasource == "hana":
-            from soda_hana.test_helpers.hana_data_source_test_helper import (
-                HanaDataSourceTestHelper,
-            )
+            from soda_hana.test_helpers.hana_data_source_test_helper import HanaDataSourceTestHelper
 
             return HanaDataSourceTestHelper(name)
         elif test_datasource == "salesforce":
-            from soda_salesforce.test_helpers.salesforce_data_source_test_helper import (
-                SalesforceDataSourceTestHelper,
-            )
+            from soda_salesforce.test_helpers.salesforce_data_source_test_helper import SalesforceDataSourceTestHelper
 
             return SalesforceDataSourceTestHelper(name)
         else:
@@ -871,10 +826,7 @@ class DataSourceTestHelper:
                 # rows that pass the next run's row-count check. Fail loudly
                 # instead; the host-side __prepare_outside__ is the only
                 # legitimate (re)creator of these tables.
-                from helpers.memory_container_stub import (
-                    in_memory_container,
-                    lookup_forced_table_name,
-                )
+                from helpers.memory_container_stub import in_memory_container, lookup_forced_table_name
 
                 if in_memory_container() and lookup_forced_table_name(test_table_specification.unique_name):
                     raise AssertionError(

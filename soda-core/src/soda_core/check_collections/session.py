@@ -15,25 +15,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Union
 
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionSessionResult,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger = soda_logger
 

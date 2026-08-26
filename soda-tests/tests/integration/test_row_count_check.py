@@ -3,10 +3,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import CheckOutcome, ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()

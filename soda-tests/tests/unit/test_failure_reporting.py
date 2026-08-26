@@ -2,10 +2,7 @@ import logging
 from unittest.mock import MagicMock
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.failure_reporting import (
-    ScanExecutionFailedException,
-    report_scan_execution_failure,
-)
+from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException, report_scan_execution_failure
 from soda_core.common.exceptions import SodaCoreException
 
 

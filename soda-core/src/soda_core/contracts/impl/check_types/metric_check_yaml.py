@@ -6,12 +6,7 @@ from typing import Optional
 
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.yaml import YamlObject
-from soda_core.contracts.impl.contract_yaml import (
-    CheckYaml,
-    CheckYamlParser,
-    ColumnYaml,
-    MissingAncValidityCheckYaml,
-)
+from soda_core.contracts.impl.contract_yaml import CheckYaml, CheckYamlParser, ColumnYaml, MissingAncValidityCheckYaml
 
 logger: logging.Logger = soda_logger
 

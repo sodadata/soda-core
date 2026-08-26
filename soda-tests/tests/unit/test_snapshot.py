@@ -8,17 +8,8 @@ import pickle
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers.snapshot_connection import (
-    FakeCursor,
-    PicklableColumn,
-    SnapshotDataSourceConnection,
-)
-from helpers.snapshot_manager import (
-    SnapshotEntry,
-    SnapshotManager,
-    SnapshotMismatchError,
-    SnapshotNotFoundError,
-)
+from helpers.snapshot_connection import FakeCursor, PicklableColumn, SnapshotDataSourceConnection
+from helpers.snapshot_manager import SnapshotEntry, SnapshotManager, SnapshotMismatchError, SnapshotNotFoundError
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 
 # ---------------------------------------------------------------------------

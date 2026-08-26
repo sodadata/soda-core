@@ -1,10 +1,5 @@
 from soda_core.common.soda_cloud import _build_diagnostics_json_dict
-from soda_core.contracts.contract_verification import (
-    Check,
-    CheckOutcome,
-    CheckResult,
-    Threshold,
-)
+from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Threshold
 
 
 def build_check_result(threshold: Threshold, warn_threshold: Threshold = None) -> CheckResult:

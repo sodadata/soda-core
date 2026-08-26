@@ -8,22 +8,13 @@ from typing import Optional
 
 from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    VariableResolver,
-    YamlList,
-    YamlObject,
-    YamlValue,
-)
+from soda_core.common.yaml import ContractYamlSource, VariableResolver, YamlList, YamlObject, YamlValue
 
 logger: logging.Logger = soda_logger
 

@@ -3,16 +3,7 @@ import logging
 import os
 import sys
 from datetime import datetime
-from logging import (
-    CRITICAL,
-    DEBUG,
-    ERROR,
-    INFO,
-    WARNING,
-    Formatter,
-    LogRecord,
-    StreamHandler,
-)
+from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, StreamHandler
 from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys

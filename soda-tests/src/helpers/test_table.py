@@ -5,11 +5,7 @@ from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
 from soda_core.common.statements.table_types import TableType
 
 MAX_TABLE_NAME_LENGTH = 63  # Postgres max table name length.  Needed or else table names may be incorrectly truncated.

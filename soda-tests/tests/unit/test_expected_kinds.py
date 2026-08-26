@@ -16,11 +16,7 @@ from __future__ import annotations
 from typing import Optional
 
 import pytest
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionYaml,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logs import Logs

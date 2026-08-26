@@ -31,15 +31,7 @@ from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
-from soda_core.common.sql_dialect import (
-    CTE,
-    FROM,
-    SELECT,
-    STAR,
-    WHERE,
-    DatasetIdentifier,
-    SqlExpressionStr,
-)
+from soda_core.common.sql_dialect import CTE, FROM, SELECT, STAR, WHERE, DatasetIdentifier, SqlExpressionStr
 from soda_core.common.yaml import CheckCollectionYamlSource, YamlObject
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
@@ -52,9 +44,7 @@ from soda_core.contracts.contract_verification import (
     ScanTokenUsage,
     YamlFileContentInfo,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import (
-    DiagnosticsWarehouseFiles,
-)
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
 
@@ -496,9 +486,7 @@ class CheckCollectionImpl:
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
-        from soda_core.contracts.impl.check_types.row_count_check import (
-            RowCountMetricImpl,
-        )
+        from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
         from soda_core.contracts.impl.contract_verification_impl import MetricsResolver
 
         self.logs: Logs = logs if logs is not None else Logs()
@@ -705,10 +693,7 @@ class CheckCollectionImpl:
 
     def _build_queries(self) -> list:
         from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
-        from soda_core.contracts.impl.contract_verification_impl import (
-            AggregationMetricImpl,
-            AggregationQuery,
-        )
+        from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl, AggregationQuery
 
         queries: list = []
 
@@ -1080,9 +1065,7 @@ class CheckCollectionImpl:
         ``response_json=None`` to match this path's "run handlers regardless
         of upload success" semantics.
         """
-        from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationHandlerRegistry,
-        )
+        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
 
         scan_id = verification_result.scan_id
         for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:

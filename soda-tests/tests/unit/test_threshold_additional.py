@@ -5,16 +5,8 @@ from helpers.impl_test_helpers import build_contract_impl
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, YamlObject
-from soda_core.contracts.contract_verification import (
-    CheckCollectionStatus,
-    CheckOutcome,
-    ContractVerificationSession,
-)
-from soda_core.contracts.impl.contract_verification_impl import (
-    ThresholdImpl,
-    ThresholdLevel,
-    warn_can_fire_alone,
-)
+from soda_core.contracts.contract_verification import CheckCollectionStatus, CheckOutcome, ContractVerificationSession
+from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl, ThresholdLevel, warn_can_fire_alone
 from soda_core.contracts.impl.contract_yaml import ThresholdYaml
 
 

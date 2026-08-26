@@ -2,11 +2,7 @@ import datetime
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
 
 
 def test_soda_data_types(data_source_test_helper: DataSourceTestHelper):

@@ -3,9 +3,7 @@ from datetime import date
 import pytest
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
-from soda_databricks.common.data_sources.databricks_data_source import (
-    DatabricksSqlDialect,
-)
+from soda_databricks.common.data_sources.databricks_data_source import DatabricksSqlDialect
 
 
 @pytest.mark.parametrize(
@@ -101,9 +99,7 @@ def test_max_sql_statement_length_respects_databricks_16mib_cap():
     # Databricks rejects statements over its documented 16 MiB query-text
     # cap ("Query text size exceeds limit", observed live at ~30 MB on
     # 2026-06-12); 1 MiB is reserved for chars-vs-bytes skew.
-    from soda_databricks.common.data_sources.databricks_data_source import (
-        DatabricksSqlDialect,
-    )
+    from soda_databricks.common.data_sources.databricks_data_source import DatabricksSqlDialect
 
     sql_dialect = DatabricksSqlDialect()
     assert sql_dialect.get_max_sql_statement_length() == 15 * 1024 * 1024

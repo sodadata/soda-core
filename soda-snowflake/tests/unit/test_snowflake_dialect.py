@@ -1,14 +1,6 @@
 import pytest
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_dialect import (
-    COLUMN,
-    FROM,
-    RANDOM,
-    REGEX_LIKE,
-    SELECT,
-    STAR,
-    SamplerType,
-)
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSqlDialect
 
 
@@ -199,9 +191,7 @@ def test_primary_keys_queries_table_constraints_then_shows_per_table():
     SHOW PRIMARY KEYS IN TABLE per such table. Requested tables without a PK get no SHOW and are
     absent; composite keys come back ordered by key_sequence even when SHOW rows arrive
     out of order."""
-    from soda_snowflake.common.data_sources.snowflake_data_source import (
-        SnowflakeMetadataPrimaryKeysQuery,
-    )
+    from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeMetadataPrimaryKeysQuery
 
     connection = _StubConnection(
         [
@@ -234,9 +224,7 @@ def test_primary_keys_queries_table_constraints_then_shows_per_table():
 def test_primary_keys_show_parsing_locates_columns_by_name():
     """SHOW output is parsed by column NAME from the cursor description, not by position — a
     reordered SHOW output must still parse correctly (and a missing column fails loud)."""
-    from soda_snowflake.common.data_sources.snowflake_data_source import (
-        SnowflakeMetadataPrimaryKeysQuery,
-    )
+    from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeMetadataPrimaryKeysQuery
 
     reordered_columns = (("key_sequence",), ("column_name",), ("table_name",))
     show_result = QueryResult(

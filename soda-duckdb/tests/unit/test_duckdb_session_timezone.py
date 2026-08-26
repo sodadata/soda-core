@@ -17,10 +17,7 @@ from __future__ import annotations
 from datetime import tzinfo
 
 import duckdb
-from soda_duckdb.common.data_sources.duckdb_data_source import (
-    DuckDBCursor,
-    DuckDBDataSourceConnectionWrapper,
-)
+from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBCursor, DuckDBDataSourceConnectionWrapper
 
 
 class TestDuckDBCursorContextManager:
@@ -74,9 +71,7 @@ class TestDuckDBFetchSessionTimezone:
         # DuckDB connection so the with-cursor path runs end-to-end. The
         # adapter doesn't need any other state to satisfy
         # ``_fetch_session_timezone``.
-        from soda_duckdb.common.data_sources.duckdb_data_source import (
-            DuckDBDataSourceConnection,
-        )
+        from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceConnection
 
         instance = DuckDBDataSourceConnection.__new__(DuckDBDataSourceConnection)
         raw = duckdb.connect(":memory:")

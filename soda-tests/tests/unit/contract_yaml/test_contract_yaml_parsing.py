@@ -5,10 +5,7 @@ Unit tests for ContractYaml parsing of basic dataset and column structures.
 import pytest
 from helpers.test_functions import dedent_and_strip
 from helpers.yaml_parsing_helpers import parse_column_check, parse_contract
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SodaDataTypeName

@@ -4,14 +4,9 @@ import logging
 from datetime import timezone, tzinfo
 
 from databricks import sql
-from soda_core.common.data_source_connection import (
-    DataSourceConnection,
-    parse_session_timezone,
-)
+from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
 from soda_core.common.logging_constants import soda_logger
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 from soda_databricks.model.data_source.databricks_connection_properties import (
     DatabricksAzureServicePrincipal,
     DatabricksConnectionProperties,
@@ -69,10 +64,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
             return None
 
         from databricks.sdk.core import Config
-        from databricks.sdk.credentials_provider import (
-            azure_service_principal,
-            oauth_service_principal,
-        )
+        from databricks.sdk.credentials_provider import azure_service_principal, oauth_service_principal
 
         host = f"https://{connection_kwargs['server_hostname']}"
 

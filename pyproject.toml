@@ -65,6 +65,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.isort]
 profile = "black"
+# profile = "black" sets line_length = 88 and does NOT read [tool.black]
+# line-length below, so without this isort wraps imports at 88 while black is
+# happy up to 120 -- a 100-char import line passes black and fails isort.
+line_length = 120
 
 [tool.black]
 line-length = 120

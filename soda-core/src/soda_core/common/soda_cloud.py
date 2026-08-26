@@ -17,10 +17,7 @@ import requests
 from pydantic import ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
@@ -2006,9 +2003,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         return None
 
     from soda_core.contracts.contract_interfaces import SodaCloudJsonable
-    from soda_core.contracts.impl.check_types.freshness_check import (
-        FreshnessCheckResult,
-    )
+    from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
     if check_result.autogenerate_diagnostics_payload:
