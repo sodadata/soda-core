@@ -215,6 +215,19 @@ class DataSourceImpl(ABC):
     # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
     # returns a ValueComparatorProtocol; the others are booleans.)
     @property
+    def normalizes_own_text_ordering(self) -> bool:
+        """Whether this data source must fold its OWN text keys to become codepoint-comparable.
+
+        Default False. ``orders_text_case_insensitively`` says "my ordering differs, fold the other
+        side to match me" — which only works when the peer's fold can reproduce this source's
+        order. It cannot when the ordering is accent-insensitive: the fold is ``LOWER()``, which
+        drops case but keeps accents, so `café` still sorts on the wrong side of `cafz`. A source in
+        that position returns True here instead, and the merge-join folds *this* side — through its
+        own ``order_by_key_expression`` — leaving the peer's native codepoint order untouched.
+        """
+        return False
+
+    @property
     def orders_text_case_insensitively(self) -> bool:
         """Whether this data source's SQL orders text columns case-insensitively.
 
