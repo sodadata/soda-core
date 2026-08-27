@@ -296,7 +296,11 @@ class InvalidReferenceCountQuery(Query):
             # e.g. if column_name is "country" and the expression is country::json->>'country_code',
             # we only replace the standalone "country" to get "C".country::json->>'country_code',
             # without corrupting "country_code" inside the string literal.
-            aliased_column_name = f'"{self.referencing_alias}".{column_name}'
+            # Quote the alias through the dialect rather than hardcoding a double quote: a
+            # dialect that quotes identifiers differently — MySQL and BigQuery use backticks —
+            # reads a double-quoted alias as a string literal and answers with a syntax error.
+            quoted_alias: str = self.data_source_impl.sql_dialect.quote_default(self.referencing_alias)
+            aliased_column_name = f"{quoted_alias}.{column_name}"
             pattern = r"\b" + re.escape(column_name) + r"\b"
             referencing_column_expression = SqlExpressionStr(
                 re.sub(pattern, aliased_column_name, referencing_column_expression.expression_str)
