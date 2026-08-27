@@ -296,6 +296,10 @@ class DataSourceTestHelper:
             from soda_salesforce.test_helpers.salesforce_data_source_test_helper import SalesforceDataSourceTestHelper
 
             return SalesforceDataSourceTestHelper(name)
+        elif test_datasource == "mysql":
+            from soda_mysql.test_helpers.mysql_data_source_test_helper import MysqlDataSourceTestHelper
+
+            return MysqlDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
