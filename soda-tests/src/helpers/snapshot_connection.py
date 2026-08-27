@@ -21,8 +21,13 @@ sql_logger = soda_logger
 # A picklable replacement for DBAPI cursor.description column entries.
 # DB drivers like psycopg3 use C-extension Column objects that can't be pickled.
 # This namedtuple preserves both attribute access (.name) and index access ([0]).
+# PEP-249 fixes the first seven entries; a driver may append its own. `driver_extra` carries an
+# eighth so a snapshot does not silently drop it — MySQL puts the charset id there, which is what
+# tells a binary column from a text one.
 PicklableColumn = namedtuple(
-    "PicklableColumn", ["name", "type_code", "display_size", "internal_size", "precision", "scale", "null_ok"]
+    "PicklableColumn",
+    ["name", "type_code", "display_size", "internal_size", "precision", "scale", "null_ok", "driver_extra"],
+    defaults=(None,),
 )
 
 # Sentinel object used as a fake DBAPI connection in replay mode.
@@ -1033,6 +1038,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 precision=col[4] if len(col) > 4 else None,
                 scale=col[5] if len(col) > 5 else None,
                 null_ok=col[6] if len(col) > 6 else None,
+                driver_extra=col[7] if len(col) > 7 else None,
             )
             for col in description
         )
