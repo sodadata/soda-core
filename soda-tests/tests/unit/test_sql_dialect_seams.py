@@ -270,3 +270,33 @@ def test_supports_row_sampling_base_is_true():
     # The recon sampling fail-loud guard fires only when this is False; base SQL sources must
     # report True so a sampled recon on them is never flipped to NOT_EVALUATED.
     assert dialect().supports_row_sampling() is True
+
+
+# ---------------------------------------------------------------------------
+# returns_native_boolean_values()
+#
+# Whether the driver hands back a real bool for a canonically BOOLEAN column.
+# Consumers of query results branch on this instead of on a data source name;
+# answering False changes handling for that source only, leaving every other
+# source's data untouched.
+# ---------------------------------------------------------------------------
+
+
+def test_returns_native_boolean_values_defaults_true():
+    assert dialect().returns_native_boolean_values() is True
+
+
+def test_a_dialect_can_declare_a_non_native_boolean_driver():
+    # SqlDialect.__init_subclass__ requires the sqlglot dialect name.
+    class IntBooleanDialect(SqlDialect, sqlglot_dialect="mysql"):
+        def returns_native_boolean_values(self) -> bool:
+            return False
+
+    assert IntBooleanDialect().returns_native_boolean_values() is False
+
+
+def test_it_is_a_method_not_a_property():
+    # Consistent with the supports_* family, so an override following that convention cannot
+    # silently shadow it with a property that is always truthy.
+    assert callable(SqlDialect.returns_native_boolean_values)
+    assert not isinstance(SqlDialect.__dict__["returns_native_boolean_values"], property)
