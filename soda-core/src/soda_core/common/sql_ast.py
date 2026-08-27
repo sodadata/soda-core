@@ -308,6 +308,27 @@ class TUPLE(SqlExpression):
 @dataclass
 class COMBINED_HASH(SqlExpression):
     expressions: list[SqlExpression | str]
+    # Whether the hash should treat two values the data source considers EQUAL as one, rather
+    # than hashing their bytes. Default-off, so every existing caller renders byte-for-byte
+    # unchanged on every dialect.
+    #
+    # The two uses of this node need opposite answers, which is why it is a flag rather than a
+    # dialect-wide choice:
+    #   - duplicate equivalence (the duplicate check's verdict, and the failed-rows query that
+    #     has to return the very rows that verdict counted) must agree with what the data source
+    #     considers a duplicate. On a case/accent-insensitive collation, 'ABC' and 'abc' ARE one
+    #     value, so hashing their bytes made the check report duplicates it could not then show.
+    #   - row identity (`__soda_row_id`) and diagnostics-warehouse keys must stay byte-exact:
+    #     folding there would give two genuinely different rows the same id.
+    #
+    # Byte-exactness is what row identity REQUIRES; it is not on its own enough to make the hash
+    # collision-free, and this flag does not change that either way. Two pre-existing sources of
+    # collision in the base rendering, both measured on MySQL 8.4:
+    #   - the CONCAT_WS separator is not escaped, so ('P','Q||R') and ('P||Q','R') are two rows
+    #     the server calls distinct and one hash group;
+    #   - CAST(x AS VARCHAR) yields NULL for bytes that are not valid text, so four distinct
+    #     VARBINARY values collapsed to two groups — one of them shared with a genuine NULL key.
+    fold_equal_values: bool = False
 
     def __post_init__(self):
         super().__post_init__()
