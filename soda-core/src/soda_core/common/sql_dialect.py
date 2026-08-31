@@ -102,6 +102,7 @@ from soda_core.common.sql_ast import (
     WHERE,
     WINDOW_FUNCTION,
     WITH,
+    ComparisonMode,
     Operator,
     SqlColumnTerm,
     SqlExpression,
@@ -1576,16 +1577,16 @@ class SqlDialect:
     def _build_combined_hash_sql(self, combined_hash: COMBINED_HASH) -> str:
         """Convert a set of columns into a unique hashed string which can be used as a key."""
         operands: list[SqlExpression] = [
-            self._build_hash_operand(expression, combined_hash.fold_equal_values)
+            self._build_hash_operand(expression, combined_hash.comparison_mode)
             for expression in combined_hash.expressions
         ]
         joined: SqlExpression = operands[0] if len(operands) == 1 else CONCAT_WS(separator="'||'", expressions=operands)
         return self.build_expression_sql(STRING_HASH(joined))
 
-    def _build_hash_operand(self, expression: SqlExpression | str, fold_equal_values: bool) -> SqlExpression:
+    def _build_hash_operand(self, expression: SqlExpression | str, comparison_mode: ComparisonMode) -> SqlExpression:
         """One operand of a combined hash: its value as text, or the NULL sentinel.
 
-        ``fold_equal_values`` asks for values the data source's own equality considers equal to
+        ``"database-equality"`` asks for values the data source's own equality considers equal to
         hash alike, so that a duplicate check's failed-row groups match the verdict it reported.
         Ignored here: the base rendering is byte-exact, which is what ``__soda_row_id`` needs and
         what a case-sensitive source answers anyway. A dialect whose source folds case or accents

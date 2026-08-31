@@ -4,7 +4,7 @@ import logging
 import weakref
 from dataclasses import dataclass, field
 from numbers import Number
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName, SqlDataType
@@ -305,18 +305,25 @@ class TUPLE(SqlExpression):
         self.handle_parent_node_update(self.expressions)
 
 
+# Whose equality a hash agrees with. "exact" hashes the bytes; "database-equality" hashes so that
+# two values the data source itself calls equal hash alike — on a case- or accent-insensitive
+# collation those are different answers. Named for the equality, not for a transformation: nothing
+# is normalised, the dialect hashes the collation's own sort key.
+ComparisonMode = Literal["exact", "database-equality"]
+
+
 @dataclass
 class COMBINED_HASH(SqlExpression):
     expressions: list[SqlExpression | str]
-    # When True, two values the data source's own equality considers equal hash alike; when False
-    # their bytes are hashed. Default False, so every existing caller is unchanged.
+    # Whose definition of "equal" the hash agrees with. Defaults to "exact", so every existing
+    # caller is unchanged.
     #
-    # A flag rather than a per-dialect choice because the two callers need opposite answers:
+    # Per-node rather than per-dialect because the two callers need opposite answers:
     #   - a duplicate check must group the way the data source does, or the failed-rows query
     #     cannot return the rows the check's own verdict counted;
     #   - row identity (`__soda_row_id`) and the diagnostics-warehouse keys must stay byte-exact,
     #     or two different rows are given the same id.
-    fold_equal_values: bool = False
+    comparison_mode: ComparisonMode = "exact"
 
     def __post_init__(self):
         super().__post_init__()

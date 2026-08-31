@@ -1,13 +1,13 @@
-"""The COMBINED_HASH operand seam: its shape, and that `fold_equal_values` is opt-in.
+"""The COMBINED_HASH operand seam: its shape, and that folding is opt-in.
 
 `COMBINED_HASH` builds the key that identifies a row — `__soda_row_id`, the diagnostics-warehouse
-keys, a duplicate check's failed-row groups. `fold_equal_values` asks for values the data source's
-own equality considers equal to hash alike, so a duplicate check's groups match the verdict it
-reported. Only a dialect on a case- or accent-insensitive source has anything to do about that, and
-it acts by overriding `_build_hash_operand`.
+keys, a duplicate check's failed-row groups. `comparison_mode="database-equality"` asks for values
+the data source's own equality considers equal to hash alike, so a duplicate check's groups match
+the verdict it reported. Only a dialect on a case- or accent-insensitive source has anything to do
+about that, and it acts by overriding `_build_hash_operand`.
 
 Two things are pinned here. First the shape, because every dialect inherits it and a key that
-changes shape silently orphans every previously stored `__soda_row_id`. Second that the flag is
+changes shape silently orphans every previously stored `__soda_row_id`. Second that the mode is
 inert in the base and in every shipped dialect: it was added for MySQL, and a dialect picking it up
 by accident would rewrite those keys.
 """
@@ -78,7 +78,7 @@ _DIALECT_CASES = [
 # written before and after would no longer join. Nothing else in the suite would notice, because the
 # SQL stays valid and self-consistent — the old and new hashes only disagree with each other.
 #
-# Captured from the rendering that predates the `fold_equal_values` flag, so these are literally the
+# Captured from the rendering that predates `comparison_mode`, so these are literally the
 # pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel and the
 # separator, Redshift concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected:
 # this file's job is to detect drift, not to fix it. Changing one deliberately means migrating every
@@ -190,7 +190,7 @@ def test_folding_is_inert_in_every_shipped_dialect(name, module_path, class_name
     sql_dialect = _dialect(module_path, class_name)
 
     assert sql_dialect.build_expression_sql(
-        COMBINED_HASH(expressions, fold_equal_values=True)
+        COMBINED_HASH(expressions, comparison_mode="database-equality")
     ) == sql_dialect.build_expression_sql(COMBINED_HASH(expressions))
 
 
@@ -239,14 +239,14 @@ class TestTheMultiColumnDuplicateVerdictFolds:
     def test_the_unfiltered_verdict_folds(self):
         expression = self._sql_expression([COLUMN("a"), COLUMN("b")])
 
-        assert self._combined_hash(expression).fold_equal_values is True
+        assert self._combined_hash(expression).comparison_mode == "database-equality"
 
     def test_the_filtered_verdict_folds_identically(self):
         # The CASE_WHEN branch is a separate construction and would be easy to update alone; a
         # check with a filter must not answer differently from one without.
         expression = self._sql_expression([COLUMN("a"), COLUMN("b")], check_filter="a IS NOT NULL")
 
-        assert self._combined_hash(expression).fold_equal_values is True
+        assert self._combined_hash(expression).comparison_mode == "database-equality"
 
     def test_the_verdict_and_the_failed_rows_query_group_alike(self):
         """Both sides of the seam, asserted together, on a dialect that honours the flag.
