@@ -344,10 +344,17 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         filter_expr: SqlExpression = SqlExpressionStr.optional(self.check_filter)
+        # "database-equality" so a multi-column duplicate check agrees with the single-column one
+        # above, which uses COUNT(DISTINCT(column)) and therefore folds under the data source's
+        # own text comparison. Without it the two answered differently about the same data on a
+        # case-insensitive collation, and the failed-rows query — which hashes the same way —
+        # could not return the rows this count reported. Identity on byte-exact dialects, so
+        # their SQL is unchanged.
+        combined_hash = COMBINED_HASH(self.column_expressions, comparison_mode="database-equality")
         if filter_expr:
-            return COUNT(DISTINCT(CASE_WHEN(filter_expr, COMBINED_HASH(self.column_expressions))))
+            return COUNT(DISTINCT(CASE_WHEN(filter_expr, combined_hash)))
         else:
-            return COUNT(DISTINCT(COMBINED_HASH(self.column_expressions)))
+            return COUNT(DISTINCT(combined_hash))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

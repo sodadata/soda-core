@@ -102,6 +102,7 @@ from soda_core.common.sql_ast import (
     WHERE,
     WINDOW_FUNCTION,
     WITH,
+    ComparisonMode,
     Operator,
     SqlColumnTerm,
     SqlExpression,
@@ -1575,17 +1576,27 @@ class SqlDialect:
 
     def _build_combined_hash_sql(self, combined_hash: COMBINED_HASH) -> str:
         """Convert a set of columns into a unique hashed string which can be used as a key."""
+        operands: list[SqlExpression] = [
+            self._build_hash_operand(expression, combined_hash.comparison_mode)
+            for expression in combined_hash.expressions
+        ]
+        joined: SqlExpression = operands[0] if len(operands) == 1 else CONCAT_WS(separator="'||'", expressions=operands)
+        return self.build_expression_sql(STRING_HASH(joined))
 
-        def format_expr(e: SqlExpression) -> SqlExpression:
-            """Convert expression to a string, and replace nulls with a predefined string."""
-            return COALESCE([CAST(e, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())])
+    def _build_hash_operand(self, expression: SqlExpression | str, comparison_mode: ComparisonMode) -> SqlExpression:
+        """One operand of a combined hash: its value as text, or the NULL sentinel.
 
-        formatted_expressions: list[SqlExpression] = [format_expr(e) for e in combined_hash.expressions]
-        if len(formatted_expressions) == 1:
-            string_to_hash = formatted_expressions[0]
-        else:
-            string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
-        return self.build_expression_sql(STRING_HASH(string_to_hash))
+        ``"database-equality"`` asks for values the data source's own equality considers equal to
+        hash alike, so that a duplicate check's failed-row groups match the verdict it reported.
+        Ignored here: the base rendering is byte-exact, which is what ``__soda_row_id`` needs and
+        what a case-sensitive source answers anyway. A dialect whose source folds case or accents
+        overrides this to honour it. Note the SQL Server family folds by default and does not
+        override, so its multi-column duplicate checks group byte-exactly while their single-column
+        counterparts follow the collation.
+        """
+        return COALESCE(
+            [CAST(expression, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())]
+        )
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
@@ -1898,6 +1909,12 @@ class SqlDialect:
         sampler_limit: Number,
         sampler_type: SamplerType,
     ) -> str:
+        """Bound `sql` to a sample of the rows.
+
+        A dialect that cannot express a sample as a TABLESAMPLE clause, but can another way,
+        overrides this entirely — soda-mysql wraps each source in a row-limited derived table.
+        One that cannot sample at all runs unsampled, with a warning from apply_sampling_to_sql.
+        """
         return apply_sampling_to_sql(
             sql=sql,
             sampler_limit=sampler_limit,

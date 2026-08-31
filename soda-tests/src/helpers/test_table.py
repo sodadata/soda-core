@@ -103,6 +103,9 @@ class TestTableSpecificationBuilder:
         Maps to the adapter's largest variable-length string type:
           * postgres / snowflake / bigquery / databricks / duckdb: ``TEXT``
             (or the adapter's equivalent unbounded string)
+          * mysql: ``LONGTEXT`` — reached through the plain ``TEXT`` mapping
+            below, since MySQL's own ``TEXT`` caps at 65,535 bytes and its
+            dialect already maps ``SodaDataTypeName.TEXT`` onto ``LONGTEXT``
           * sqlserver / fabric / synapse: ``varchar(max)`` (SqlServer's
             unbounded varchar — distinct from ``varchar(default_length)``
             which truncates at 8000 chars)
