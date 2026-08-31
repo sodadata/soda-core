@@ -7,7 +7,6 @@ This test verifies the type is recognized and defaults are correct.
 Common fields (name, filter, threshold, metric, attributes) are tested in test_common_check_yaml_features.py.
 """
 
-
 from helpers.yaml_parsing_helpers import parse_check_from_contract
 
 
