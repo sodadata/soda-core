@@ -223,6 +223,20 @@ class _LazyRealConnectionFactory:
 
 
 class DataSourceTestHelper:
+    # column_expression carries customer-supplied SQL, so a test exercising it needs the spelling
+    # of the data source under test. These are the Postgres/DuckDB spellings the feature suite was
+    # written with; a dialect that spells casts or JSON access differently overrides the dict rather
+    # than the shared test carrying an `if test_datasource == ...` block. Not generated from the
+    # dialect: `CAST` has an AST node, but JSON path access has none, so three of the five have
+    # nothing to generate from.
+    column_expressions: dict[str, str] = {
+        "id_varchar": '"id"::varchar',
+        "age_str_integer": '"age_str"::integer',
+        "json_unique_id": "json_col::json->>'unique_id'",
+        "country_code": "country::json->>'country_code'",
+        "metadata_created": "metadata::json->>'created'",
+    }
+
     @classmethod
     def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":

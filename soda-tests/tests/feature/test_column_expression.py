@@ -1,30 +1,8 @@
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
-from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import CheckOutcome
-
-# column_expression carries customer-supplied SQL, so these fixtures are inherently
-# dialect-flavoured. The values below are the Postgres/DuckDB spellings the file was written
-# with; a dialect that spells casts or JSON access differently overrides them rather than
-# skipping the file. Plain constants, not a dict, so the contract f-strings need no subscript.
-if test_datasource == "mysql":
-    # MySQL has no `::` cast operator, and its JSON extraction takes a path expression rather
-    # than a bare key. JSON_VALUE rather than `->>`: `->>` renders a JSON null as the literal
-    # text 'null', while JSON_VALUE yields SQL NULL like Postgres' `->>` does.
-    EXPR_ID_VARCHAR = "CAST(`id` AS CHAR)"
-    EXPR_AGE_STR_INTEGER = "CAST(`age_str` AS SIGNED)"
-    EXPR_JSON_UNIQUE_ID = "JSON_VALUE(json_col, '$.unique_id')"
-    EXPR_COUNTRY_CODE = "JSON_VALUE(country, '$.country_code')"
-    EXPR_METADATA_CREATED = "JSON_VALUE(metadata, '$.created')"
-else:
-    EXPR_ID_VARCHAR = '"id"::varchar'
-    EXPR_AGE_STR_INTEGER = '"age_str"::integer'
-    EXPR_JSON_UNIQUE_ID = "json_col::json->>'unique_id'"
-    EXPR_COUNTRY_CODE = "country::json->>'country_code'"
-    EXPR_METADATA_CREATED = "metadata::json->>'created'"
-
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -62,6 +40,12 @@ reference_table_specification = (
 
 
 def test_column_level_column_expression_metric_checks_fail(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     reference_table = data_source_test_helper.ensure_test_table(reference_table_specification)
 
@@ -198,6 +182,12 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
 
 
 def test_check_level_column_expression_metric_checks_fail(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     # Test only a couple of check types, the override mechanism is universal.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -260,6 +250,12 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
 
 
 def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
