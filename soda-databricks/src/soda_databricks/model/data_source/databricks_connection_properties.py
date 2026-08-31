@@ -11,8 +11,7 @@ AUTH_TYPE_OAUTH_M2M = "databricks-oauth-m2m"
 AUTH_TYPE_AZURE_SP = "azure-service-principal"
 
 
-class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC):
-    ...
+class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC): ...
 
 
 class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):
