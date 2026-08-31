@@ -210,20 +210,23 @@ class DataSourceImpl(ABC):
         return self._can_create_materialized_view
 
     # The capability hooks below are all default-off / behavior-preserving. They are consumed by
-    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
-    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
-    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
-    # returns a ValueComparatorProtocol; the others are booleans.)
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff), and let a
+    # source whose ordering or comparison differs from plain codepoint SQL opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. Overridden by
+    # soda-salesforce (SOQL-first, case-insensitive) and soda-mysql (accent-insensitive ordering).
+    # (get_value_comparator returns a ValueComparatorProtocol; the others are booleans.)
     @property
     def normalizes_own_text_ordering(self) -> bool:
-        """Whether this data source must fold its OWN text keys to become codepoint-comparable.
+        """Whether reconciliation should fold THIS source's text keys rather than the peer's.
 
-        Default False. ``orders_text_case_insensitively`` says "my ordering differs, fold the other
-        side to match me" — which only works when the peer's fold can reproduce this source's
-        order. It cannot when the ordering is accent-insensitive: the fold is ``LOWER()``, which
-        drops case but keeps accents, so `café` still sorts on the wrong side of `cafz`. A source in
-        that position returns True here instead, and the merge-join folds *this* side — through its
-        own ``order_by_key_expression`` — leaving the peer's native codepoint order untouched.
+        Cross-source reconciliation merge-joins two streams, so both sides must arrive in the same
+        order. Default False: the peer is folded to match this source, using ``LOWER()``.
+
+        Return True when ``LOWER()`` cannot reproduce this source's order. It only removes case, so
+        a source that also ignores accents orders ``café`` before ``cafz`` while a lowered peer
+        orders it after — and the join reports differences that do not exist. Folding this source
+        instead, through its own ``order_by_key_expression``, gives both sides the peer's plain
+        codepoint order.
         """
         return False
 
