@@ -1909,6 +1909,12 @@ class SqlDialect:
         sampler_limit: Number,
         sampler_type: SamplerType,
     ) -> str:
+        """Bound `sql` to a sample of the rows.
+
+        A dialect that cannot express a sample as a TABLESAMPLE clause, but can another way,
+        overrides this entirely — soda-mysql wraps each source in a row-limited derived table.
+        One that cannot sample at all runs unsampled, with a warning from apply_sampling_to_sql.
+        """
         return apply_sampling_to_sql(
             sql=sql,
             sampler_limit=sampler_limit,

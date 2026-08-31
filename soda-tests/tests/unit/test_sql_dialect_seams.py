@@ -21,6 +21,7 @@ from datetime import datetime
 
 import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.metadata_types import SamplerType
 from soda_core.common.sql_ast import ALIAS, SqlExpressionStr
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -270,3 +271,53 @@ def test_supports_row_sampling_base_is_true():
     # The recon sampling fail-loud guard fires only when this is False; base SQL sources must
     # report True so a sampled recon on them is never flipped to NOT_EVALUATED.
     assert dialect().supports_row_sampling() is True
+
+
+# ---------------------------------------------------------------------------
+# apply_sampling() warns when the dialect renders no sample clause
+#
+# sqlglot emits nothing for a target with no TABLESAMPLE and returns the
+# statement unchanged, so the caller silently receives a full scan. The warning
+# does not change what is returned — an unsamplable dialect still runs
+# unsampled — it only stops that being invisible.
+# ---------------------------------------------------------------------------
+
+
+def test_a_dialect_that_renders_a_sample_does_not_warn(caplog):
+    postgres = pytest.importorskip("soda_postgres.common.data_sources.postgres_data_source")
+    sql_dialect = postgres.PostgresSqlDialect()
+
+    with caplog.at_level("WARNING"):
+        sampled = sql_dialect.apply_sampling("SELECT COUNT(*) FROM t", 10, SamplerType.ABSOLUTE_LIMIT)
+
+    assert "TABLESAMPLE" in sampled.upper()
+    assert "renders no sample clause" not in caplog.text
+
+
+def test_a_dialect_that_renders_nothing_warns_and_returns_the_sql_unchanged(caplog):
+    redshift = pytest.importorskip("soda_redshift.common.data_sources.redshift_data_source")
+    sql_dialect = redshift.RedshiftSqlDialect()
+    sql = "SELECT COUNT(*) FROM t"
+
+    with caplog.at_level("WARNING"):
+        sampled = sql_dialect.apply_sampling(sql, 10, SamplerType.ABSOLUTE_LIMIT)
+
+    # Behaviour is unchanged: still the full-scan statement. sqlglot reformats regardless, so the
+    # check is that no sample clause was added, not that the string is byte-identical.
+    assert "TABLESAMPLE" not in sampled.upper()
+    assert "COUNT(*)" in sampled
+    assert "renders no sample clause" in caplog.text
+    assert "ABSOLUTE_LIMIT" in caplog.text
+
+
+def test_the_warning_is_not_gated_on_supports_sampler():
+    """The flag cannot be the gate: five dialects render a sample while declaring False.
+
+    Refusing on `supports_sampler` would disable sampling that works today, which is why
+    apply_sampling compares the rendered SQL instead.
+    """
+    postgres = pytest.importorskip("soda_postgres.common.data_sources.postgres_data_source")
+    sql_dialect = postgres.PostgresSqlDialect()
+
+    assert sql_dialect.supports_sampler(SamplerType.ABSOLUTE_LIMIT) is False
+    assert "TABLESAMPLE" in sql_dialect.apply_sampling("SELECT COUNT(*) FROM t", 10, SamplerType.ABSOLUTE_LIMIT).upper()
