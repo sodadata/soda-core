@@ -21,7 +21,7 @@ from datetime import datetime
 
 import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.sql_ast import SqlExpressionStr
+from soda_core.common.sql_ast import ALIAS, SqlExpressionStr
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -214,6 +214,56 @@ def test_distinct_still_rejects_an_unprojected_order_by_COLUMN_next_to_an_expres
     them."""
     with pytest.raises(ValueError, match=r"can only order by projected columns"):
         _paginated(order_by=[SqlExpressionStr("TRIM(code)"), "other"], distinct=True)
+
+
+# ---------------------------------------------------------------------------
+# The two DISTINCT shapes are not interchangeable, so their union is rejected.
+# The flat select renders against the BASE table, so a caller-built expression term
+# binds there. The de-duplicating CTE's outer select renders against the CTE's OUTPUT
+# columns, so the same term does NOT bind there — but a case-folded plain key only
+# works there. A caller asking for both gets a named error, not broken SQL.
+# ---------------------------------------------------------------------------
+
+
+def test_distinct_cte_rejects_an_expression_term_beside_a_normalized_key():
+    with pytest.raises(ValueError, match=r"cannot combine normalize_key_columns with"):
+        _paginated(
+            order_by=["code", SqlExpressionStr("(a || b)")],
+            normalize_key_columns=frozenset({"code"}),
+            distinct=True,
+        )
+
+
+def test_distinct_cte_rejects_an_expression_in_the_projection():
+    """Same reason from the other side: the outer select re-renders `columns` against the CTE,
+    where `(a || b)` no longer resolves — it is the CTE's aliased output column by then."""
+    with pytest.raises(ValueError, match=r"cannot combine normalize_key_columns with"):
+        _paginated(
+            order_by=["code"],
+            normalize_key_columns=frozenset({"code"}),
+            distinct=True,
+            columns=("code", ALIAS(SqlExpressionStr("(a || b)"), "label")),
+        )
+
+
+def test_distinct_expression_term_without_normalization_still_renders_flat():
+    """The guard is scoped to the CTE shape — it must not take away the flat shape, which is
+    the one that actually serves expression callers (reference_diff never normalizes keys)."""
+    sql = _paginated(
+        order_by=[SqlExpressionStr("(a || b)")],
+        columns=("code", ALIAS(SqlExpressionStr("(a || b)"), "label")),
+        distinct=True,
+    )
+    assert sql.startswith("SELECT DISTINCT")
+    assert "_soda_distinct_page" not in sql
+    assert "ORDER BY ((a || b)) ASC" in sql
+
+
+def test_distinct_with_normalized_key_and_plain_names_is_unaffected():
+    """The live composed path stays exactly as it was — the guard is a tripwire, not a gate."""
+    assert "_soda_distinct_page" in _paginated(
+        order_by=["code"], normalize_key_columns=frozenset({"code"}), distinct=True
+    )
 
 
 def test_supports_row_sampling_base_is_true():

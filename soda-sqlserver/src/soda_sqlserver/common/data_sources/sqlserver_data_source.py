@@ -35,6 +35,7 @@ from soda_core.common.sql_ast import (
     TUPLE,
     VALUES,
     WITH,
+    SqlColumnTerm,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -330,9 +331,9 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,
-        columns: list[str],
+        columns: list[SqlColumnTerm],
         filter: Optional[str],
-        order_by: list[str],
+        order_by: list[SqlColumnTerm],
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),

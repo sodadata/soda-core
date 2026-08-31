@@ -4,7 +4,7 @@ import logging
 import weakref
 from dataclasses import dataclass, field
 from numbers import Number
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName, SqlDataType
@@ -211,6 +211,15 @@ class SqlExpression(BaseSqlExpression):
 
     def AS(self, alias: str) -> "ALIAS":
         return ALIAS(self, alias)
+
+
+# What a caller may hand the dialect for a projected column or an ORDER BY term: either a plain
+# column NAME, or an expression the caller assembled itself. The latter is how a consumer applies
+# a per-column transformation the dialect knows nothing about — soda-reconciliation projects
+# `(<user expression>) AS "<column>"` and orders by `(<user expression>)`. Only a NAME can be
+# matched against a projection or looked up in a set of column names; an expression term is
+# already the exact thing to render, so the dialect emits it as-is.
+SqlColumnTerm = Union[str, SqlExpression]
 
 
 @dataclass

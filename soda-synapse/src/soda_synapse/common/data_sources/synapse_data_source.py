@@ -129,6 +129,12 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         normalize_key_columns: frozenset[str] = frozenset(),
         distinct: bool = False,
     ) -> str:
+        """Unlike the base dialect, `columns` and `order_by` here are plain column NAMES only
+        (`list[str]`, not `SqlColumnTerm`): this paginator hand-builds raw SQL and pushes every
+        one of them through `_quote_identifier_safe`, which only makes sense for an identifier.
+        A caller-built expression term would be quoted as if it were a column name. That is the
+        same reason Synapse cannot serve per-side queries or column expressions.
+        """
         # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
         # ROW_NUMBER(). The earlier implementation joined `t.<key> = p.<key>` to drop the rn
         # column from the result set, but `NULL = NULL` is false and duplicate keys amplify

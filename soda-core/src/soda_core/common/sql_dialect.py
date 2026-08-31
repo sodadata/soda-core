@@ -103,6 +103,7 @@ from soda_core.common.sql_ast import (
     WINDOW_FUNCTION,
     WITH,
     Operator,
+    SqlColumnTerm,
     SqlExpression,
     SqlExpressionStr,
 )
@@ -434,15 +435,22 @@ class SqlDialect:
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,
-        columns: list[str],
+        columns: list[SqlColumnTerm],
         filter: Optional[str],
-        order_by: list[str],
+        order_by: list[SqlColumnTerm],
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),
         distinct: bool = False,
     ) -> str:
         """Render one page of a SELECT over a dataset.
+
+        ``columns`` and ``order_by`` each take a ``SqlColumnTerm``: a plain column NAME, or an
+        expression the caller built itself. soda-reconciliation uses the latter for per-column
+        expressions — it projects ``(<expr>) AS "<column>"`` and orders by ``(<expr>)`` — so the
+        dialect renders terms it cannot introspect. That is why the code below tests
+        ``isinstance(..., str)`` before treating a term as a name: only a name can be matched
+        against the projection or looked up in ``normalize_key_columns``.
 
         ``distinct=True`` renders ``SELECT DISTINCT``, de-duplicating on the projected
         columns. Callers must render distinct through this parameter rather than by
@@ -471,9 +479,9 @@ class SqlDialect:
     def _paginated_select_statements(
         self,
         dataset_identifier: DatasetIdentifier,
-        columns: list[str],
+        columns: list[SqlColumnTerm],
         filter: Optional[str],
-        order_by: list[str],
+        order_by: list[SqlColumnTerm],
         normalize_key_columns: frozenset[str],
         distinct: bool,
     ) -> list:
@@ -495,6 +503,14 @@ class SqlDialect:
         Semantics are unchanged by the wrapper: `LOWER(<key>)` is a function of the projected
         key, so de-duplicating before ordering cannot reorder anything, and DISTINCT still
         applies before LIMIT/OFFSET, so pages neither overlap nor carry duplicates.
+
+        Why not use the CTE for every distinct page and drop the flat shape? Because the CTE is
+        not a superset. Its outer select reads from the CTE, so it can only render terms that
+        resolve against the CTE's OUTPUT columns; the flat select renders against the BASE
+        table. A caller-built expression term (`("a" || "b")`, projected as `... AS "k2"`) is
+        only in scope in the flat shape — inside the CTE shape it fails to bind. So the flat
+        shape is not a convenience, it is the only one that serves expression callers, and
+        `_validate_distinct_page_cte` rejects the combination neither shape can serve.
         """
         where_clauses = []
 
@@ -506,6 +522,7 @@ class SqlDialect:
         if distinct:
             self._validate_distinct_pagination(columns=columns, order_by=order_by)
             if any(isinstance(column, str) and column in normalize_key_columns for column in order_by):
+                self._validate_distinct_page_cte(columns=columns, order_by=order_by)
                 return [
                     WITH(
                         [
@@ -533,7 +550,7 @@ class SqlDialect:
             *order_by_terms,
         ]
 
-    def _validate_distinct_pagination(self, columns: list[str], order_by: list[str]) -> None:
+    def _validate_distinct_pagination(self, columns: list[SqlColumnTerm], order_by: list[SqlColumnTerm]) -> None:
         """A DISTINCT page can only be ordered by columns it projects.
 
         Postgres ("for SELECT DISTINCT, ORDER BY expressions must appear in select list"), T-SQL
@@ -560,7 +577,34 @@ class SqlDialect:
                 f"order_by {missing_order_by_columns} is not in columns {columns}"
             )
 
-    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
+    def _validate_distinct_page_cte(self, columns: list[SqlColumnTerm], order_by: list[SqlColumnTerm]) -> None:
+        """The de-duplicating CTE shape only works when every term is a plain column NAME.
+
+        The flat shape renders against the BASE table, so a caller-built expression term is
+        in scope there. The CTE shape does not: its outer select reads from the CTE, whose
+        output columns are the projection's ALIASES. Re-rendering `("a" || "b")` outside that
+        scope resolves to something else, or — on Postgres, DuckDB and BigQuery — fails with
+        `column "a" does not exist`. The two shapes are therefore not interchangeable, and
+        their union is not expressible: a case-folded plain key NEEDS the CTE, an expression
+        term needs the flat select.
+
+        No caller hits this today (reference_diff is the only `distinct=True` caller and it
+        does not normalize keys), so this is a tripwire, not a live path. Raise a named error
+        naming the offending terms rather than let the next caller debug a warehouse binder
+        error. The way out is for the caller to fold the term itself and leave that column out
+        of `normalize_key_columns` — the same thing it already does for a column that has an
+        expression.
+        """
+        expression_terms = [term for term in (*columns, *order_by) if not isinstance(term, str)]
+        if expression_terms:
+            raise ValueError(
+                f"select_all_paginated_sql(distinct=True) cannot combine normalize_key_columns with "
+                f"caller-built expression terms {expression_terms}: the case-fold needs a "
+                f"de-duplicating CTE, and an expression term cannot be rendered outside it. Fold the "
+                f"term in the caller and omit that column from normalize_key_columns."
+            )
+
+    def _order_by_key(self, column: SqlColumnTerm, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
         """ORDER BY element(s) for one key column.
 
         Default-off: only columns the caller explicitly asked to normalize get case-folded (for
