@@ -1618,25 +1618,6 @@ class SqlDialect:
         """
         return True
 
-    def returns_native_boolean_values(self) -> bool:
-        """Whether this source's driver hands back a real ``bool`` for a canonically BOOLEAN column.
-
-        True for every dialect whose driver does. MySQL is the exception: its BOOLEAN is an alias
-        for TINYINT(1) and PyMySQL returns ``1``/``0``, so a consumer testing ``value is True``
-        silently classifies every true value as false.
-
-        A driver property expressed on the dialect because that is what result-consuming code is
-        given — profiling's column profilers hold a ``SqlDialect`` and nothing else, and
-        metric-monitoring already dispatches capabilities the same way (``is_supported_on``).
-        Consumers should branch on this rather than on a data source name, so a future adapter whose
-        driver behaves the same way is covered by overriding one flag.
-
-        Prefer this over widening a comparison to plain truthiness unconditionally when the values
-        cross a boundary that other sources' data also crosses: answering False here changes
-        handling for THIS source only.
-        """
-        return True
-
     def _build_random_sql(self, random: RANDOM) -> str:
         return "RANDOM()"
 
