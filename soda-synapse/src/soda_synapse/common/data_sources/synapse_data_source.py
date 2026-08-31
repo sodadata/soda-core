@@ -127,7 +127,14 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),
+        distinct: bool = False,
     ) -> str:
+        """Unlike the base dialect, `columns` and `order_by` here are plain column NAMES only
+        (`list[str]`, not `SqlColumnTerm`): this paginator hand-builds raw SQL and pushes every
+        one of them through `_quote_identifier_safe`, which only makes sense for an identifier.
+        A caller-built expression term would be quoted as if it were a column name. That is the
+        same reason Synapse cannot serve per-side queries or column expressions.
+        """
         # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
         # ROW_NUMBER(). The earlier implementation joined `t.<key> = p.<key>` to drop the rn
         # column from the result set, but `NULL = NULL` is false and duplicate keys amplify
@@ -182,11 +189,37 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # (possible when `columns` was resolved from the table's metadata).
         rn_alias = "__soda_rn"
 
+        # A de-duplicated page only differs by WHERE the rows come from: DISTINCT has to be
+        # applied *before* ROW_NUMBER (the window makes every row unique, so a DISTINCT beside
+        # it is a no-op) and it can't go on the outer SELECT either, because T-SQL rejects
+        # `SELECT DISTINCT ... ORDER BY <rn>` and rn must stay projected out. So when asked for
+        # it, de-duplicate in a leading CTE and let the paginating CTE read that instead of the
+        # table. The filter travels with it — WHERE runs before de-duplication either way.
+        #
+        # The `deduplicated` CTE projects only `columns`, so everything the ROW_NUMBER window
+        # orders by has to be one of them — enforced here (the base paginator applies the same
+        # rule for the same reason) rather than left to a Synapse "Invalid column name" error.
+        # Given that, a normalized key composes for free: the window's `LOWER(<key>) ASC,
+        # <key> ASC` fold sits in a plain (non-DISTINCT) select over the de-duplicated CTE,
+        # which T-SQL accepts, so no extra shape is needed.
+        if distinct:
+            self._validate_distinct_pagination(columns=columns, order_by=order_by)
+            lead_cte = (
+                f"deduplicated AS (\n"
+                f"    SELECT DISTINCT {columns_csv}\n"
+                f"    FROM {qualified_table}\n"
+                f"    {where_sql}\n"
+                f"),\n"
+            )
+            page_source, page_where = "deduplicated", ""
+        else:
+            lead_cte, page_source, page_where = "", qualified_table, where_sql
+
         return (
-            f"WITH paginated AS (\n"
+            f"WITH {lead_cte}paginated AS (\n"
             f"    SELECT {columns_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS {rn_alias}\n"
-            f"    FROM {qualified_table}\n"
-            f"    {where_sql}\n"
+            f"    FROM {page_source}\n"
+            f"    {page_where}\n"
             f")\n"
             f"SELECT {columns_csv}\n"
             f"FROM paginated\n"

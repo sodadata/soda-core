@@ -467,6 +467,110 @@ def test_empty_invalid_values_renders_portable_always_false_predicate():
     assert sql_dialect.build_expression_sql(expr) == "1 = 0"
 
 
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — statement-level DISTINCT.
+# `distinct` is a parameter on the dialect method (rather than a string rewrite of
+# the rendered SQL by the caller) because dialects are free to emit shapes in which
+# the leading SELECT token is not the one to modify — Synapse paginates with a
+# ROW_NUMBER CTE, so a `"SELECT" -> "SELECT DISTINCT"` replace would silently
+# de-duplicate the wrong (inner) select.
+# ---------------------------------------------------------------------------
+
+
+def _paginated_dataset_identifier() -> DatasetIdentifier:
+    return DatasetIdentifier(data_source_name="ds", prefixes=["soda_db", "public"], dataset_name="CUSTOMERS")
+
+
+def test_select_all_paginated_sql_is_not_distinct_by_default():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=10,
+        offset=20,
+    ) == (
+        'SELECT "id",\n'
+        '       "name"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        'ORDER BY "id" ASC\n'
+        "LIMIT 10\n"
+        "OFFSET 20;"
+    )
+
+
+def test_select_all_paginated_sql_distinct():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=10,
+        offset=20,
+        distinct=True,
+    ) == (
+        'SELECT DISTINCT "id",\n'
+        '       "name"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        'ORDER BY "id" ASC\n'
+        "LIMIT 10\n"
+        "OFFSET 20;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_with_filter():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=100,
+        offset=0,
+        distinct=True,
+    ) == (
+        'SELECT DISTINCT "id"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        "WHERE (country = 'BE')\n"
+        'ORDER BY "id" ASC\n'
+        "LIMIT 100\n"
+        "OFFSET 0;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_without_columns_or_order_by():
+    """No explicit columns -> `SELECT DISTINCT *`; empty order_by adds no ORDER BY clause."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=[],
+        filter=None,
+        order_by=[],
+        limit=5,
+        offset=0,
+        distinct=True,
+    ) == ("SELECT DISTINCT *\n" 'FROM "soda_db"."public"."CUSTOMERS"\n' "LIMIT 5\n" "OFFSET 0;")
+
+
+def test_sql_ast_select_distinct_flag():
+    """The SELECT node carries statement-level DISTINCT; the DISTINCT *expression* node
+    (`COUNT(DISTINCT(col))`) stays the argument-level form and is unaffected."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_select_sql([SELECT(["a", "b"], distinct=True), FROM("customers")]) == (
+        'SELECT DISTINCT "a",\n' '       "b"\n' 'FROM "customers";'
+    )
+    assert sql_dialect.build_select_sql([SELECT(["a", "b"]), FROM("customers")]) == (
+        'SELECT "a",\n' '       "b"\n' 'FROM "customers";'
+    )
+
+
 def test_regex_like_pattern_goes_through_literal_string():
     """The regex pattern is a string literal and must be escaped like one.
 

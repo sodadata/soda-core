@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBSqlDialect
