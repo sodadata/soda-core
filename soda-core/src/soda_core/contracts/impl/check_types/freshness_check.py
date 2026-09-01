@@ -100,7 +100,13 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
             if isinstance(max_timestamp, date):
                 max_timestamp = datetime.combine(max_timestamp, datetime.min.time())
             elif isinstance(max_timestamp, str):
-                max_timestamp = convert_str_to_datetime(max_timestamp)
+                converted_timestamp: Optional[datetime] = convert_str_to_datetime(max_timestamp)
+                if converted_timestamp is None:
+                    logger.error(
+                        f"Freshness column '{column_name}' returned value '{max_timestamp}' of data type '{type(max_timestamp).__name__}' which could not be parsed as a datetime."
+                    )
+                    return None
+                max_timestamp = converted_timestamp
 
         if not isinstance(max_timestamp, datetime):
             logger.error(
