@@ -506,7 +506,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -2161,7 +2161,7 @@ wheels = [
 
 [[package]]
 name = "soda-athena"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-athena" }
 dependencies = [
     { name = "pyathena" },
@@ -2178,7 +2178,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-bigquery"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-bigquery" }
 dependencies = [
     { name = "google-cloud-bigquery" },
@@ -2193,7 +2193,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-core"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-core" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -2220,7 +2220,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-core-workspace"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "." }
 
 [package.dev-dependencies]
@@ -2255,7 +2255,7 @@ dev = [
 
 [[package]]
 name = "soda-databricks"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-databricks" }
 dependencies = [
     { name = "databricks-sdk" },
@@ -2272,7 +2272,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-duckdb"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-duckdb" }
 dependencies = [
     { name = "duckdb" },
@@ -2289,7 +2289,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-fabric"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-fabric" }
 dependencies = [
     { name = "soda-core" },
@@ -2304,7 +2304,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-postgres"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-postgres" }
 dependencies = [
     { name = "psycopg", extra = ["binary"] },
@@ -2319,7 +2319,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-redshift"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-redshift" }
 dependencies = [
     { name = "boto3" },
@@ -2336,7 +2336,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-snowflake"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-snowflake" }
 dependencies = [
     { name = "snowflake-connector-python" },
@@ -2351,7 +2351,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-sparkdf"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-sparkdf" }
 dependencies = [
     { name = "freezegun" },
@@ -2370,7 +2370,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-sqlserver"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-sqlserver" }
 dependencies = [
     { name = "pyodbc" },
@@ -2385,7 +2385,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-synapse"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-synapse" }
 dependencies = [
     { name = "soda-core" },
@@ -2400,7 +2400,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-tests"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-tests" }
 dependencies = [
     { name = "python-dateutil" },
@@ -2417,7 +2417,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-trino"
-version = "4.22.1rc0"
+version = "4.23.0"
 source = { editable = "soda-trino" }
 dependencies = [
     { name = "soda-core" },
