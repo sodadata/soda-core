@@ -1,0 +1,80 @@
+---
+name: Claude DE Review
+
+# Engine review pass for soda-core. Applies the de-review skill
+# (.claude/skills/de-review/SKILL.md) — the invariants, per-change-type checks and
+# agent failure shapes distilled from this repo's review history.
+#
+# Advisory: it does NOT gate merge. Same shape as sodadata/soda's claude-be-review.yml.
+#
+# THIS REPOSITORY IS PUBLIC. Two consequences:
+#
+#  1. The review output is world-visible. The skill carries explicit rules against
+#     naming private repositories, internal packages, customers or internal ticket
+#     IDs. Keep those rules when editing it.
+#
+#  2. Roughly half of the pull requests here come from forks, and GitHub does not
+#     expose secrets to `pull_request` runs from a fork — so the `agent-review`
+#     label silently does nothing on those. The `@claude-de` comment trigger is the
+#     path that works for fork PRs, because `issue_comment` runs in the base repo
+#     with secrets available. That comment is a deliberate maintainer action on
+#     untrusted code: this job only reads the diff and never executes repository
+#     code, and it must stay that way — do not add a build, install or test step.
+
+on:
+  pull_request:
+    # Works for branches on this repo. For fork PRs use the @claude-de comment.
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  de-review:
+    # Comment "@claude-de" on the PR to run it. Restricted to org members so an
+    # outside contributor cannot trigger a secret-bearing run on their own code.
+    if: |
+      (github.event_name == 'pull_request' && github.event.label.name == 'agent-review') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '@claude-de') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          # This job never pushes; don't leave GITHUB_TOKEN in git config for a
+          # third-party action to read.
+          persist-credentials: false
+
+      - name: Run DE review
+        uses: anthropics/claude-code-action@ff9acae5886d41a99ed4ec14b7dc147d55834722 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Review this pull request following the de-review skill
+            (.claude/skills/de-review/SKILL.md). Read that file first, then apply it.
+
+            This repository is PUBLIC and your review is world-visible. Obey the
+            "This repository is public" section of the skill without exception: no
+            private repository or package names, no customers, no internal ticket
+            IDs, and no findings that depend on code outside this repository.
+
+            Use `gh pr diff` and `gh pr view` for the diff and the PR description.
+            Open changed files at the changed line — the diff alone cannot tell you
+            which class a hunk lands in.
+
+            Submit the result as a pull-request review with inline comments anchored
+            to lines in this PR's diff. Findings must be about the diff, not about
+            pre-existing code. If you have no blocking findings, approve and put the
+            notes in the review body.
