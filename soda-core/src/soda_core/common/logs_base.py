@@ -3,6 +3,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from logging import LogRecord
 
+# Marks a record's ``thread`` value as a caller-set grouping label (Soda Cloud exposes it as a log
+# filter). Every stdlib LogRecord already carries ``thread`` — the OS thread ident — so attribute
+# existence cannot tell a label from the default; this marker can. Lives here so the writer
+# (``logs._RootCapturer``) and the reader (``logs_queue.LogsQueue.emit``) cannot drift.
+THREAD_LABEL_ATTR = "soda_thread_label"
+
 
 class LogsBase(ABC):
     def __init__(self):

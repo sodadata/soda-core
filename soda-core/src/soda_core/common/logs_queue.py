@@ -15,7 +15,7 @@ from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import _mask_record
-from soda_core.common.logs_base import LogsBase
+from soda_core.common.logs_base import THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 
 DEFAULT_FLUSH_INTERVAL = 5
@@ -145,9 +145,11 @@ class LogsQueue(LogsBase):
         with self.condition:
             log_record.__setattr__("stage", self.stage)
             log_record.__setattr__("index", self.index)
-            if not hasattr(log_record, "thread"):
-                # The active Logs stamps a collection label as `thread` (grouping in Cloud); keep it when
-                # present — the queue's own uuid is only a fallback identity for unlabeled streams.
+            # Every LogRecord already carries `thread` (the OS thread ident), so attribute existence cannot
+            # tell a caller-set grouping label from the default. The active Logs stamps its label and marks
+            # it with THREAD_LABEL_ATTR; anything else gets this queue's uuid — a stable per-stream identity
+            # rather than a meaningless number.
+            if not getattr(log_record, THREAD_LABEL_ATTR, False):
                 log_record.__setattr__("thread", self.thread)
             log_record.__setattr__("dataset", self.dataset)
             self.index += 1

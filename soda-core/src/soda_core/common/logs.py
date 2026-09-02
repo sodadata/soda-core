@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from logging import Handler, LogRecord
 from typing import Optional
 
-from soda_core.common.logs_base import LogsBase
+from soda_core.common.logs_base import THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.logs_collector import LogsCollector
 
 
@@ -60,6 +60,9 @@ class _RootCapturer(Handler):
             return
         if active.label is not None:
             record.thread = active.label
+            # Marked so a streaming gatherer can tell this caller-set grouping label from the OS
+            # thread ident every LogRecord carries by default.
+            setattr(record, THREAD_LABEL_ATTR, True)
         try:
             active.gatherer.emit(record)
         except Exception:
