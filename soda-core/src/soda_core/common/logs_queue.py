@@ -87,6 +87,10 @@ class LogsQueue(LogsBase):
         # of the failure report.
         self._flushed_records: set[int] = set()
         self.log_queue = queue.Queue()
+        # Serialises _flush_logs between the worker thread and a caller-thread flush()
+        # (records_for_failure_report, close): unserialised, the two would each take a disjoint
+        # half of the queue and interleave their uploads.
+        self._flush_lock = threading.Lock()
         self.shutdown_flag = threading.Event()
         self.condition = threading.Condition()
         self._create_worker_thread()
@@ -111,9 +115,18 @@ class LogsQueue(LogsBase):
         return []
 
     def records_for_failure_report(self) -> list[LogRecord]:
-        # Error records not confirmed flushed (2xx) to the log stream — in-flight, rejected, or
-        # dropped-after-retries batches. The failure report attaches only these, so errors reach Cloud exactly
-        # once when the stream works and are never lost when it doesn't.
+        """The records ``sodaCoreMarkScanFailed`` should attach — and the flush that makes that answer safe.
+
+        The flush is not a side effect, it is how the answer is computed: ``sodaCoreMarkScanFailed`` does NOT
+        merge its ``logs`` with what the stream already delivered — Soda Cloud replaces the scan's stored logs
+        with exactly the attached list and moves the scan off the ongoing-log store, after which the streamed
+        records are deleted rather than promoted. Flushing first means a healthy stream leaves nothing unsent,
+        the report goes out empty, and Soda Cloud keeps the full streamed history; only records the stream
+        genuinely could not deliver are attached — the one case where attaching them is right, because they
+        reached Cloud through no other channel. The rule lives here, in the gatherer, so every
+        ``mark_scan_as_failed`` call site gets it without knowing it exists.
+        """
+        self.flush()
         return [record for record in self.logs if id(record) not in self._flushed_records]
 
     def reset(self):
@@ -159,6 +172,10 @@ class LogsQueue(LogsBase):
             if self.log_queue.qsize() >= self.batch_size:
                 self.condition.notify()
 
+    def flush(self) -> None:
+        """Ship whatever is queued, now, on the calling thread (serialised against the worker)."""
+        self._flush_logs(self.flush_interval)
+
     # Private API
 
     def _preserve_if_error_log(self, log: LogRecord):
@@ -186,52 +203,53 @@ class LogsQueue(LogsBase):
         # Soda Cloud need to be configured before first flush
         self._validate_prerequisites()
 
-        batch = []
-        while not self.log_queue.empty():
-            batch.append(self.log_queue.get())
+        with self._flush_lock:
+            batch = []
+            while not self.log_queue.empty():
+                batch.append(self.log_queue.get())
 
-        if batch and self.soda_cloud is not None:
-            for attempt in range(MAX_RETRIES):
-                try:
-                    if self.verbose:
-                        print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
-
-                    if self.scan_id:
-                        response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
-                    else:
-                        response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
-
-                    if self.verbose:
-                        print(
-                            f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
-                        )
-
-                    # Only a 2xx confirms the batch reached the stream; the isinstance guard keeps non-Response
-                    # test doubles (and any response without a real status) counting as unconfirmed. Only
-                    # error-record ids are tracked — see the _flushed_records comment in __init__.
-                    status_code = getattr(response, "status_code", None)
-                    if isinstance(status_code, int) and 200 <= status_code < 300:
-                        self._flushed_records.update(id(record) for record in batch if record.levelno >= logging.ERROR)
-
-                    return (
-                        self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))
-                        or self.flush_interval
-                    )
-                except Exception as e:
-                    if self.verbose:
-                        print(f"Attempt {attempt + 1}/{MAX_RETRIES} failed to send logs: {e}")
-
-                    if attempt == MAX_RETRIES - 1:
+            if batch and self.soda_cloud is not None:
+                for attempt in range(MAX_RETRIES):
+                    try:
                         if self.verbose:
-                            print("Max retries reached. Logs not sent. Returning to default flush interval.")
-                            print(exceptions.get_exception_stacktrace(e))
-                        return self.flush_interval
+                            print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
 
-                    if self.verbose:
-                        print(f"Retrying in {DEFAULT_FLUSH_INTERVAL} seconds...")
-                    time.sleep(DEFAULT_FLUSH_INTERVAL)
+                        if self.scan_id:
+                            response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
+                        else:
+                            response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
 
-        return current_flush_interval
+                        if self.verbose:
+                            print(
+                                f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
+                            )
+
+                        # Only a 2xx confirms the batch reached the stream; the isinstance guard keeps non-Response
+                        # test doubles (and any response without a real status) counting as unconfirmed. Only
+                        # error-record ids are tracked — see the _flushed_records comment in __init__.
+                        status_code = getattr(response, "status_code", None)
+                        if isinstance(status_code, int) and 200 <= status_code < 300:
+                            self._flushed_records.update(id(record) for record in batch if record.levelno >= logging.ERROR)
+
+                        return (
+                            self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))
+                            or self.flush_interval
+                        )
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"Attempt {attempt + 1}/{MAX_RETRIES} failed to send logs: {e}")
+
+                        if attempt == MAX_RETRIES - 1:
+                            if self.verbose:
+                                print("Max retries reached. Logs not sent. Returning to default flush interval.")
+                                print(exceptions.get_exception_stacktrace(e))
+                            return self.flush_interval
+
+                        if self.verbose:
+                            print(f"Retrying in {DEFAULT_FLUSH_INTERVAL} seconds...")
+                        time.sleep(DEFAULT_FLUSH_INTERVAL)
+
+            return current_flush_interval
 
     def get_next_batch_timeout(self, next_batch_time: Optional[str]) -> int:
         if next_batch_time is None:
