@@ -459,6 +459,7 @@ class SodaCloud:
         results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
+        model_version: Optional[str] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
 
@@ -481,6 +482,8 @@ class SodaCloud:
         @param scan_definition_suffix: Optional suffix appended to the
             head result's qualified name to derive the Soda Cloud
             scan-definition name. ``None`` uses the bare qualified name.
+        @param model_version: Optional payload model version (the backend's
+            dataset-registry routing key); ``None`` omits the field.
         """
         if not results:
             return None
@@ -488,6 +491,7 @@ class SodaCloud:
             results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
+            model_version=model_version,
         )
         payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -1860,8 +1864,13 @@ def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
+    model_version: Optional[str] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
+
+    ``model_version`` stamps the payload's ``version`` field — the backend's dataset-registry
+    routing key. Subtypes that build the payload themselves (metric monitoring's batched path)
+    pass their wire model version; None omits the field, matching the legacy builder output.
 
     Session-level fields (scanId, definitionName, data source, dataTimestamp)
     come from the first result; per-batch fields aggregate:
@@ -1965,6 +1974,8 @@ def _build_check_collection_results_json_dict(
         "resultsIngestionMode": ingestion_mode.value,
         "tokenUsage": token_usage,
     }
+    if model_version is not None:
+        payload["version"] = model_version
     # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
     # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
     # the ``metrics`` subscript-assign below is on a known-subscriptable type.
