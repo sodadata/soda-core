@@ -11,6 +11,8 @@ dependencies = [
     "soda-core==4.23.0",
     "PyAthena>=2.2.0,<4.0",
     "setuptools>=60",
+    # ZoneInfo needs an IANA database; slim images often ship without one.
+    "tzdata",
 ]
 
 [project.entry-points."soda.plugins.data_source.athena"]
