@@ -562,7 +562,6 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # run's logs (a managed run streams them instead).
             exit_code = run_batched_scan(
                 soda_cloud,
-                stage="main",
                 command=lambda context: handle_discover_data_source(
                     resolve_data_source(args.data_source),
                     soda_cloud,

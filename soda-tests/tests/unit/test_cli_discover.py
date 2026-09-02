@@ -5,8 +5,8 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from soda_core.cli.cli import create_cli_parser
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.batched_scan import BatchedScanContext
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
+from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.logs import Logs
 
 
@@ -16,7 +16,7 @@ def _fake_batched_context(soda_cloud=None) -> BatchedScanContext:
     )
 
 
-def _run_command_with_fake_context(soda_cloud, stage, command, **_kwargs):
+def _run_command_with_fake_context(soda_cloud, command, **_kwargs):
     return command(_fake_batched_context(soda_cloud))
 
 
@@ -59,7 +59,6 @@ def test_cli_arg_mapping_for_data_source_discover(
     mock_resolve_data_source.assert_called_once_with("ds.yaml")
     run_args, run_kwargs = mock_run_batched_scan.call_args
     assert run_args[0] is soda_cloud
-    assert run_kwargs["stage"] == "main"
     # The bracket's Logs collector and context are threaded through to the
     # handler; ANY because both are constructed inside the bracket.
     mock_handler.assert_called_once_with(

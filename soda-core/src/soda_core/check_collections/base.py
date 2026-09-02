@@ -19,13 +19,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
 from numbers import Number
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
-if TYPE_CHECKING:
-    # Type-only: the check-collection layer must not import the CLI layer at
-    # runtime (the CLI wiring imports this module).
-    from soda_core.cli.handlers.batched_scan import BatchedScanContext
-
+from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -498,7 +494,7 @@ class CheckCollectionImpl:
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
-        batched_scan_context: Optional["BatchedScanContext"] = None,
+        batched_scan_context: Optional[BatchedScanContext] = None,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -511,7 +507,7 @@ class CheckCollectionImpl:
         # Set on CLI runs wired through run_batched_scan (the context is threaded regardless of whether the run
         # is managed — its scan_id discriminates); None on every other construction path. Subtypes that publish
         # results themselves consult it to open the async ingestion bracket and route the upload through it.
-        self.batched_scan_context: Optional["BatchedScanContext"] = batched_scan_context
+        self.batched_scan_context: Optional[BatchedScanContext] = batched_scan_context
         self.yaml: CheckCollectionYaml = yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         # Stamp this collection's ``thread`` label on every record it emits.

@@ -13,6 +13,7 @@ from typing import Optional
 
 from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import _mask_record
 from soda_core.common.logs_base import LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
@@ -32,6 +33,25 @@ def _to_jsonl(batch: list[LogRecord]) -> str:
         else []
     )
     return "\n".join(log_cloud_serialized_json_lines)
+
+
+def build_streaming_gatherer(
+    soda_cloud: Optional[SodaCloud],
+    scan_id: Optional[str] = None,
+) -> Optional[LogsQueue]:
+    """A ``LogsQueue`` streaming to the scan's main log stage, or None when there is no scan id /
+    Cloud client so callers keep their in-memory gatherer. The construction site for scan-id-keyed
+    (``batchV4``) streaming — a scan-REFERENCE-keyed queue posts to a different endpoint, so
+    consumers of that branch (the failed-rows extractor's ``diagnosticWarehouse`` stage) construct
+    their own.
+    """
+    if scan_id is None:
+        # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is read
+        # from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
+        scan_id = EnvConfigHelper().soda_scan_id
+    if not scan_id or soda_cloud is None:
+        return None
+    return LogsQueue(soda_cloud=soda_cloud, stage="main", scan_id=scan_id, dataset="")
 
 
 class LogsQueue(LogsBase):

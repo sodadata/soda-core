@@ -7,17 +7,15 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Optional
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.logs_queue import LogsQueue
+from soda_core.common.logs_queue import build_streaming_gatherer
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 if TYPE_CHECKING:
-    # batched_scan imports build_streaming_logs from this module: type-only to
-    # keep the runtime import acyclic.
-    from soda_core.cli.handlers.batched_scan import BatchedScanContext
     from soda_core.common.data_source_impl import DataSourceImpl
     from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
 
@@ -96,43 +94,14 @@ def handle_test_data_source(
             upload_logs.close()
 
 
-def build_streaming_logs(
-    soda_cloud: Optional[SodaCloud],
-    stage: str,
-    scan_id: Optional[str] = None,
-) -> Optional[Logs]:
-    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so root-logger records stream to the
-    scan's Soda Cloud log stream while the command runs — or None when there is no scan id / Cloud client, so
-    callers fall back to an in-memory ``Logs``. Must be closed to flush the final batch. The backend only
-    accepts these uploads once the scan is started (``sodaCoreScanStart``) — flows that publish results open
-    that bracket via ``BatchedScanContext.start_scan``, which builds its queue itself; this builder serves the
-    connection-test commands (whose scans accept logs without a start) and direct composition.
-
-    ``stage`` is a closed backend enum (``CoreStageType``: "main" | "diagnosticWarehouse"; unknown values
-    degrade to MAIN server-side).
-    """
-    if scan_id is None:
-        # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
-        # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
-        scan_id = EnvConfigHelper().soda_scan_id
-    if not scan_id or soda_cloud is None:
-        return None
-
-    logs_queue = LogsQueue(
-        soda_cloud=soda_cloud,
-        stage=stage,
-        scan_id=scan_id,
-        dataset="",
-    )
-    return Logs(gatherer=logs_queue)
-
-
 def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
-    """File-path-resolving wrapper around ``build_streaming_logs`` for connection tests: resolves the Cloud
-    client from the ``-sc`` YAML, streams to the scan's main stage. Returns None when there is no scan id /
-    cloud config. Must be closed to flush the final batch.
+    """A ``Logs`` streaming to the scan's Cloud log stream for connection tests: resolves the Cloud client
+    from the ``-sc`` YAML, streams via ``build_streaming_gatherer``. Returns None when there is no scan id /
+    cloud config so callers fall back to an in-memory ``Logs``. Must be closed to flush the final batch.
+    (Connection-test scans accept log uploads without a ``sodaCoreScanStart`` — results-publishing flows
+    open that bracket via ``BatchedScanContext.start_scan`` instead.)
 
     Public because connection-test commands outside soda-core (e.g. the soda-extensions
     ``diagnostics-warehouse test`` command) reuse it to stream their logs to the same scan-id-keyed endpoint.
@@ -157,7 +126,8 @@ def build_test_connection_log_uploader(
         soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
-    return build_streaming_logs(soda_cloud=soda_cloud, stage="main", scan_id=scan_id)
+    gatherer = build_streaming_gatherer(soda_cloud, scan_id=scan_id)
+    return Logs(gatherer=gatherer) if gatherer is not None else None
 
 
 def _discover_dqns(
@@ -192,7 +162,7 @@ def handle_discover_data_source(
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
     logs: Optional[Logs] = None,
-    batched_scan_context: Optional["BatchedScanContext"] = None,
+    batched_scan_context: Optional[BatchedScanContext] = None,
 ) -> ExitCode:
     """Discover datasets and send the results to Soda Cloud.
 
