@@ -5,7 +5,6 @@ import logging
 import os
 import queue
 import threading
-import time
 import uuid
 from datetime import datetime, timezone
 from logging import LogRecord
@@ -15,12 +14,34 @@ from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import _mask_record
-from soda_core.common.logs_base import THREAD_LABEL_ATTR, LogsBase
+from soda_core.common.logging_constants import Emoticons
+from soda_core.common.logs_base import (
+    STREAM_DIAGNOSTICS_LOGGER,
+    THREAD_LABEL_ATTR,
+    LogsBase,
+)
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 
 DEFAULT_FLUSH_INTERVAL = 5
 MAX_LOG_LINES = int(os.environ.get("SODA_LOGS_BATCH_LIMIT_COUNT", "1000"))
 MAX_RETRIES = 3
+# Separate from the flush cadence so a retry storm is not tied to how often batches ship (and so tests
+# can drive the retry path without sleeping). Waited on the shutdown event rather than slept, so a
+# closing queue never holds a scan's teardown open for the full backoff.
+RETRY_DELAY_SECONDS = DEFAULT_FLUSH_INTERVAL
+
+# The stream's own diagnostics: batch sent, retry, batch dropped. Console-only by construction —
+# ``logs._RootCapturer`` refuses to capture this logger, so these records can never be fed into the
+# queue they report on, no matter which thread the flush runs on.
+stream_logger = logging.getLogger(STREAM_DIAGNOSTICS_LOGGER)
+
+# A plain 4xx means the upload will never be accepted (unknown scan, wrong scan state, malformed
+# batch); retrying only delays the run. 5xx — and the two 4xx that mean "later" — get another attempt.
+_RETRYABLE_4XX = {408, 429}
+
+
+def _is_retryable(status_code: int) -> bool:
+    return status_code in _RETRYABLE_4XX or not 400 <= status_code < 500
 
 
 def _to_jsonl(batch: list[LogRecord]) -> str:
@@ -86,6 +107,11 @@ class LogsQueue(LogsBase):
         # address for the next allocation, and a later (unsent) error record landing on it would silently drop out
         # of the failure report.
         self._flushed_records: set[int] = set()
+        # The stream is the run's only log channel once it is live, so a dropped batch is real data
+        # loss and must never pass silently — counted here, reported per drop and summarised in close().
+        self._dropped_record_count: int = 0
+        self._dropped_batch_count: int = 0
+        self._last_drop_reason: Optional[str] = None
         self.log_queue = queue.Queue()
         # Serialises _flush_logs between the worker thread and a caller-thread flush()
         # (records_for_failure_report, close): unserialised, the two would each take a disjoint
@@ -137,12 +163,15 @@ class LogsQueue(LogsBase):
         self.has_error_logs = False
         self.has_warning_logs = False
         self._flushed_records = set()
+        self._dropped_record_count = 0
+        self._dropped_batch_count = 0
+        self._last_drop_reason = None
         return self
 
     # To make sure all logs have been sent trigger close method
     def close(self):
         """
-        Flush remaining logs and stop the background thread.
+        Flush remaining logs, stop the background thread, and report any records the stream dropped.
         """
         try:
             self.shutdown_flag.set()
@@ -152,7 +181,13 @@ class LogsQueue(LogsBase):
             self._flush_logs(DEFAULT_FLUSH_INTERVAL)
         except Exception as e:
             # failure to close logs shouldn't crash the app
-            logging.error(f"Error while closing LogsQueue: {e}")
+            stream_logger.error(f"Error while closing the Soda Cloud log stream: {e}")
+        if self._dropped_batch_count:
+            stream_logger.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} {self._dropped_record_count} log record(s) in "
+                f"{self._dropped_batch_count} batch(es) could not be streamed to Soda Cloud and are missing "
+                f"from this scan's logs. Last failure: {self._last_drop_reason}"
+            )
 
     def emit(self, log_record: LogRecord):
         with self.condition:
@@ -188,14 +223,21 @@ class LogsQueue(LogsBase):
             with self.condition:
                 self.condition.wait(timeout=flush_interval)
 
-            flush_interval = self._flush_logs(flush_interval)
+            try:
+                flush_interval = self._flush_logs(flush_interval)
+            except Exception as e:
+                # Last line of defence: if this thread dies the stream stops with no accounting,
+                # which is indistinguishable from a quiet run. Keep looping on the default cadence.
+                stream_logger.warning(f"Log flush failed unexpectedly: {type(e).__name__}: {e}")
+                stream_logger.debug(exceptions.get_exception_stacktrace(e))
+                flush_interval = self.flush_interval
 
     def _validate_prerequisites(self):
         # Wait until soda cloud is correctly configured and scan starts, throw only on shutdown.
         while not self.soda_cloud:
             if not self.shutdown_flag.is_set():
-                logging.debug("Soda Cloud has not been configured properly yet.")
-                time.sleep(DEFAULT_FLUSH_INTERVAL)
+                stream_logger.debug("Soda Cloud has not been configured properly yet.")
+                self.shutdown_flag.wait(DEFAULT_FLUSH_INTERVAL)
             else:
                 raise AssertionError("You have not configured Soda Library to work with Soda Cloud Async Mode.")
 
@@ -208,48 +250,71 @@ class LogsQueue(LogsBase):
             while not self.log_queue.empty():
                 batch.append(self.log_queue.get())
 
-            if batch and self.soda_cloud is not None:
-                for attempt in range(MAX_RETRIES):
-                    try:
-                        if self.verbose:
-                            print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
+            if not batch or self.soda_cloud is None:
+                return current_flush_interval
 
-                        if self.scan_id:
-                            response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
-                        else:
-                            response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
+            try:
+                body: str = _to_jsonl(batch)
+            except Exception as e:
+                # Not retryable: the same records would fail to serialise the same way.
+                stream_logger.debug(exceptions.get_exception_stacktrace(e))
+                return self._drop_batch(batch, f"could not be serialised: {type(e).__name__}: {e}", attempts=1)
 
-                        if self.verbose:
-                            print(
-                                f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
-                            )
-
-                        # Only a 2xx confirms the batch reached the stream; the isinstance guard keeps non-Response
-                        # test doubles (and any response without a real status) counting as unconfirmed. Only
-                        # error-record ids are tracked — see the _flushed_records comment in __init__.
-                        status_code = getattr(response, "status_code", None)
-                        if isinstance(status_code, int) and 200 <= status_code < 300:
-                            self._flushed_records.update(id(record) for record in batch if record.levelno >= logging.ERROR)
-
+            for attempt in range(MAX_RETRIES):
+                last_attempt: bool = attempt == MAX_RETRIES - 1
+                try:
+                    stream_logger.debug(f"Sending {len(batch)} log record(s) to Soda Cloud")
+                    response = (
+                        self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=body)
+                        if self.scan_id
+                        else self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=body)
+                    )
+                    if 200 <= response.status_code < 300:
+                        # The trace id is the only handle Cloud-side support has on a specific batch.
+                        stream_logger.debug(
+                            f"Sent {len(batch)} log record(s) to Soda Cloud, code={response.status_code}, "
+                            f"trace={response.headers.get('X-Soda-Trace-Id')}"
+                        )
+                        # Only a 2xx confirms the batch reached the stream. Only error-record ids are
+                        # tracked — see the _flushed_records comment in __init__.
+                        self._flushed_records.update(id(r) for r in batch if r.levelno >= logging.ERROR)
                         return (
                             self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))
                             or self.flush_interval
                         )
-                    except Exception as e:
-                        if self.verbose:
-                            print(f"Attempt {attempt + 1}/{MAX_RETRIES} failed to send logs: {e}")
+                    reason: str = f"HTTP {response.status_code}"
+                    retryable: bool = _is_retryable(response.status_code)
+                except Exception as e:
+                    reason, retryable = f"{type(e).__name__}: {e}", True
+                    if last_attempt:
+                        stream_logger.debug(exceptions.get_exception_stacktrace(e))
 
-                        if attempt == MAX_RETRIES - 1:
-                            if self.verbose:
-                                print("Max retries reached. Logs not sent. Returning to default flush interval.")
-                                print(exceptions.get_exception_stacktrace(e))
-                            return self.flush_interval
+                if not retryable or last_attempt:
+                    return self._drop_batch(batch, reason, attempts=attempt + 1)
+                stream_logger.warning(
+                    f"Could not send a log batch to Soda Cloud ({reason}); "
+                    f"retrying {attempt + 2}/{MAX_RETRIES} in {RETRY_DELAY_SECONDS}s"
+                )
+                # Not time.sleep: close() sets the shutdown flag before its final flush, and a scan must
+                # not wait out the backoff to exit — the remaining attempts still run, back to back.
+                self.shutdown_flag.wait(RETRY_DELAY_SECONDS)
 
-                        if self.verbose:
-                            print(f"Retrying in {DEFAULT_FLUSH_INTERVAL} seconds...")
-                        time.sleep(DEFAULT_FLUSH_INTERVAL)
+    def _drop_batch(self, batch: list[LogRecord], reason: str, attempts: int) -> int:
+        """Give up on a batch: count it, say so, and return the default cadence.
 
-            return current_flush_interval
+        The records are already off the queue, so this is real loss. It is reported per drop here and
+        summarised in close(), because a silently truncated log stream looks exactly like a quiet run.
+        """
+        self._dropped_batch_count += 1
+        self._dropped_record_count += len(batch)
+        self._last_drop_reason = reason
+        # The real attempt count, not MAX_RETRIES: a non-retryable 4xx drops after ONE post, and telling an
+        # operator it was tried three times sends them down the rate-limit path for a permanent rejection.
+        stream_logger.warning(
+            f"Dropping {len(batch)} log record(s) after {attempts} attempt(s): {reason}. "
+            f"These records will not appear in Soda Cloud."
+        )
+        return self.flush_interval
 
     def get_next_batch_timeout(self, next_batch_time: Optional[str]) -> int:
         if next_batch_time is None:
@@ -262,6 +327,5 @@ class LogsQueue(LogsBase):
 
             return max(0, timeout)
         except Exception:
-            if self.verbose:
-                print(f"X-Soda-Next-Batch-Time invalid date format: {next_batch_time}")
+            stream_logger.debug(f"X-Soda-Next-Batch-Time invalid date format: {next_batch_time}")
             return 0

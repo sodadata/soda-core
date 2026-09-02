@@ -9,6 +9,11 @@ from logging import LogRecord
 # (``logs._RootCapturer``) and the reader (``logs_queue.LogsQueue.emit``) cannot drift.
 THREAD_LABEL_ATTR = "soda_thread_label"
 
+# Logger name for a log stream's own diagnostics (batch sent / retried / dropped). Console-only by
+# construction: ``logs._RootCapturer`` refuses to capture it, so a failing stream can never feed
+# reports about itself into the queue it is reporting on.
+STREAM_DIAGNOSTICS_LOGGER = "soda.logs_stream"
+
 
 class LogsBase(ABC):
     def __init__(self):

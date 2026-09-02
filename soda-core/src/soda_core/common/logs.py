@@ -21,7 +21,11 @@ from contextlib import contextmanager
 from logging import Handler, LogRecord
 from typing import Optional
 
-from soda_core.common.logs_base import THREAD_LABEL_ATTR, LogsBase
+from soda_core.common.logs_base import (
+    STREAM_DIAGNOSTICS_LOGGER,
+    THREAD_LABEL_ATTR,
+    LogsBase,
+)
 from soda_core.common.logs_collector import LogsCollector
 
 
@@ -57,6 +61,10 @@ class _RootCapturer(Handler):
     def emit(self, record: LogRecord) -> None:
         active: Optional[Logs] = _active_logs.get()
         if active is None:
+            return
+        if record.name == STREAM_DIAGNOSTICS_LOGGER:
+            # A log stream's own diagnostics stay on the console: capturing them would feed reports
+            # about a failing stream back into the queue that is failing.
             return
         if active.label is not None:
             record.thread = active.label
