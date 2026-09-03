@@ -448,8 +448,12 @@ class ContractVerificationSessionImpl:
                         contract_verification_result.log_records or []
                     )
                 contract_verification_results.append(contract_verification_result)
-            except:
+            except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                # Same per-item isolation as the local path: keep an ERROR placeholder for the
+                # item. Dropping it left the session without a result, and an empty session
+                # reads as a pass.
+                contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
         return contract_verification_results
 
     @classmethod
