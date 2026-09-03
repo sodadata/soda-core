@@ -14,12 +14,14 @@ name: Claude DE Review
 #     IDs. Keep those rules when editing it.
 #
 #  2. Roughly half of the pull requests here come from forks, and GitHub does not
-#     expose secrets to `pull_request` runs from a fork — so the `agent-review`
-#     label silently does nothing on those. The `@claude-de` comment trigger is the
-#     path that works for fork PRs, because `issue_comment` runs in the base repo
-#     with secrets available. That comment is a deliberate maintainer action on
-#     untrusted code: this job only reads the diff and never executes repository
-#     code, and it must stay that way — do not add a build, install or test step.
+#     expose secrets to `pull_request` runs from a fork, so the label path is
+#     skipped for fork PRs (it would only fail red on the auth step). The
+#     `@claude-de` comment trigger is the path that works for fork PRs, because
+#     `issue_comment` runs in the base repo with secrets available. That comment
+#     is a deliberate maintainer action on untrusted code: this job only reads
+#     the diff and never executes repository code, and it must stay that way.
+#     Do not add a build, install or test step, and keep the tool allow-list
+#     below free of git, package, or test commands.
 
 on:
   pull_request:
@@ -33,7 +35,8 @@ jobs:
     # Comment "@claude-de" on the PR to run it. Restricted to org members so an
     # outside contributor cannot trigger a secret-bearing run on their own code.
     if: |
-      (github.event_name == 'pull_request' && github.event.label.name == 'agent-review') ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'agent-review' &&
+       github.event.pull_request.head.repo.fork == false) ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
        contains(github.event.comment.body, '@claude-de') &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
@@ -63,18 +66,55 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
             Review this pull request following the de-review skill
-            (.claude/skills/de-review/SKILL.md). Read that file first, then apply it.
+            (.claude/skills/de-review/SKILL.md). Read that file first, then apply
+            it: its lenses and passes, its invariants, its finding format, and its
+            output format.
 
             This repository is PUBLIC and your review is world-visible. Obey the
-            "This repository is public" section of the skill without exception: no
+            "Public repositories" section of the skill without exception: no
             private repository or package names, no customers, no internal ticket
             IDs, and no findings that depend on code outside this repository.
 
-            Use `gh pr diff` and `gh pr view` for the diff and the PR description.
-            Open changed files at the changed line — the diff alone cannot tell you
-            which class a hunk lands in.
+            CI constraints:
+            - You can read the checkout and the PR; you cannot build, install, or
+              run anything. Every changed path you could not exercise is a gap:
+              list it under "what I did not check".
+            - A human decides the verdict. Phrase yours as a suggested verdict and
+              submit the review with event COMMENT, never APPROVE or
+              REQUEST_CHANGES.
 
-            Submit the result as a pull-request review with inline comments anchored
-            to lines in this PR's diff. Findings must be about the diff, not about
-            pre-existing code. If you have no blocking findings, approve and put the
-            notes in the review body.
+            Submit findings the way a human reviewer does: ONE pull-request review
+            with inline comments, never an issue comment.
+            1. Read earlier reviews first:
+               `gh api repos/${{ github.repository }}/pulls/<PR>/reviews` and
+               `gh api repos/${{ github.repository }}/pulls/<PR>/comments`. Do not
+               re-raise a finding that already has a thread, resolved or not; say
+               in the review body which earlier findings now look resolved.
+            2. `gh pr diff <PR>` and `gh pr view <PR>` for the diff and the
+               description. Open changed files at the changed line; the diff alone
+               cannot tell you which class a hunk lands in. Findings are about the
+               diff, not about pre-existing code.
+            3. Anchor each finding as an inline comment on the changed line it is
+               about (`path` + `line` from the diff, `side` "RIGHT"). Findings that
+               do not anchor to a diff line go in the review body.
+            4. The review body follows the skill's output format: it starts with
+               `## DE review`, then the suggested verdict, the earlier findings
+               that now look resolved, the blocking findings that could not be
+               anchored, and "what I did not check". Findings only; do not list
+               what the PR does well.
+            5. Write the payload to a JSON file and submit everything as one
+               review:
+               `gh api repos/${{ github.repository }}/pulls/<PR>/reviews --input review.json`
+               with shape
+               `{"event": "COMMENT", "body": "...", "comments": [{"path": "...", "line": N, "side": "RIGHT", "body": "..."}]}`.
+               If the API rejects the payload because a comment fails to anchor
+               (HTTP 422), move that finding into the body and submit again.
+            If the diff is clean, submit the review with a one-line body and no
+            inline comments.
+
+          # Bash is off by default in this action and it cannot submit reviews on
+          # its own, so the prompt's steps need these: Read/Glob/Grep read the
+          # checkout (SKILL.md is not in `gh pr diff` on PRs that don't touch it),
+          # Write composes the review JSON payload, `gh api` submits it. Nothing
+          # here executes repository code.
+          claude_args: '--allowed-tools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"'

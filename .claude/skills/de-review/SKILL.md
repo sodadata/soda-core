@@ -26,12 +26,16 @@ Do not summarise the code. Prove things about it.
 1. Get the diff and the PR description (`gh pr diff`, `gh pr view`). Review the claim, not
    only the code — an unexplained hunk is itself a finding, and a PR body that promises
    something the diff does not do is a finding too.
-2. Classify twice: by **nature** of the change and by **area** it touches. Run only the
+2. Read the existing review threads before forming findings. A finding that already has a
+   thread, resolved or not, is not raised again; report which earlier findings now look
+   resolved instead.
+3. Classify twice: by **nature** of the change and by **area** it touches. Run only the
    lenses and passes that apply — a typo fix does not get an architectural review.
-3. Open changed files at the changed line. **The diff cannot tell you which class a hunk
+4. Open changed files at the changed line. **The diff cannot tell you which class a hunk
    lands in** — `*_data_source.py` holds both the `DataSourceImpl` and the `SqlDialect`,
    and the hunk header shows the enclosing function, never the class.
-4. Deliver: verdict, findings, and an explicit list of what you did not check.
+5. Deliver in the output format below: suggested verdict, findings, and an explicit list
+   of what you did not check.
 
 ## Lens by nature
 
@@ -86,6 +90,16 @@ Do not summarise the code. Prove things about it.
 - The test is collected by a lane, and it fails when the code under test is deleted.
 - The change makes a gap red, rather than only documenting it.
 
+### Security surface
+*New inputs, credentials, anything that reaches a warehouse or a log.*
+
+- Values from a contract, a data source's own metadata, or user configuration reach SQL
+  as dialect-rendered literals and quoted identifiers, never through string formatting.
+- Credentials stay out of logs, error messages, and diagnostics. A connection failure
+  names the host and the user, never the secret.
+- Data leaving the engine (failed rows, samples, profiled values) is bounded and opt-in.
+  A new path that ships user data outward is a configuration surface that reaches users.
+
 ### Outside contribution
 *Author is not a member.*
 
@@ -130,6 +144,11 @@ correctness defect, a configuration surface that reaches users, a change that br
 downstream consumers. Everything else — altitude, naming, structure, test shape — is a
 note that ships with an approval.
 
+Ask it as a rollback question. Once merged and released, can the change be reverted
+without leaving something behind: re-keyed check identities with orphaned history, a
+payload shape a downstream consumer already stored, snapshots re-recorded against it?
+What a revert cannot undo is what blocks.
+
 Approve-with-notes is the norm and it is the right default.
 
 ## Finding format
@@ -151,3 +170,23 @@ an honest gap is worth more than a confident guess. Treat an untested changed pa
 risk, not an aside.
 
 Do not relay a tool's finding without triaging it yourself.
+
+## Output format
+
+One review per run, findings only. A finding that anchors to a changed line goes inline on
+that line; the rest go in the body. The body:
+
+```
+## DE review
+Suggested verdict: <approve with notes | block>, <one line naming what decides it>
+Earlier findings now resolved: <list, or none>
+
+### Blocking, not anchorable
+- <claim; evidence path:line and mechanism; assumptions>
+
+### What I did not check
+- <tests not run, warehouses without access, changed paths not exercised>
+```
+
+In CI the review is submitted with event COMMENT and a human sets the verdict. Locally the
+same body is the report.
