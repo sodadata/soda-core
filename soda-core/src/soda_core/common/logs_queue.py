@@ -20,7 +20,7 @@ from soda_core.common.logs_base import (
     THREAD_LABEL_ATTR,
     LogsBase,
 )
-from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
+from soda_core.common.soda_cloud import SodaCloud, is_retryable_status, to_jsonnable
 
 DEFAULT_FLUSH_INTERVAL = 5
 MAX_LOG_LINES = int(os.environ.get("SODA_LOGS_BATCH_LIMIT_COUNT", "1000"))
@@ -34,14 +34,6 @@ RETRY_DELAY_SECONDS = DEFAULT_FLUSH_INTERVAL
 # ``logs._RootCapturer`` refuses to capture this logger, so these records can never be fed into the
 # queue they report on, no matter which thread the flush runs on.
 stream_logger = logging.getLogger(STREAM_DIAGNOSTICS_LOGGER)
-
-# A plain 4xx means the upload will never be accepted (unknown scan, wrong scan state, malformed
-# batch); retrying only delays the run. 5xx — and the two 4xx that mean "later" — get another attempt.
-_RETRYABLE_4XX = {408, 429}
-
-
-def _is_retryable(status_code: int) -> bool:
-    return status_code in _RETRYABLE_4XX or not 400 <= status_code < 500
 
 
 def _to_jsonl(batch: list[LogRecord]) -> str:
@@ -307,7 +299,7 @@ class LogsQueue(LogsBase):
                             or self.flush_interval
                         )
                     reason: str = f"HTTP {response.status_code}"
-                    retryable: bool = _is_retryable(response.status_code)
+                    retryable: bool = is_retryable_status(response.status_code)
                 except Exception as e:
                     reason, retryable = f"{type(e).__name__}: {e}", True
                     if last_attempt:

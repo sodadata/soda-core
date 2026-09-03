@@ -56,9 +56,10 @@ def run_batched_scan(
       never ends the scan either.
     - A rejected ``scan_end_async`` is fatal: batch uploads only reach object storage — nothing ingests them
       until the end command triggers reassembly, and no backend sweeper does it later. A lost end therefore
-      loses the whole run's results, so it is retried and then mapped to ``RESULTS_NOT_SENT_TO_CLOUD``
-      (never a raw exception: an uncaught raise would exit 1, which the launcher reads as "checks failed"
-      rather than "results never ingested").
+      loses the whole run's results, so it is mapped to ``RESULTS_NOT_SENT_TO_CLOUD`` — after retries for
+      failures that can heal (5xx, timeouts, exceptions), immediately for a permanent rejection (plain 4xx),
+      and never as a raw exception: an uncaught raise would exit 1, which the launcher reads as "checks
+      failed" rather than "results never ingested".
     """
     from soda_core.cli.handlers.dependencies import run_with_failure_reporting
 
@@ -93,18 +94,29 @@ def run_batched_scan(
 
 
 def _end_scan(soda_cloud: SodaCloud, scan_reference: str) -> bool:
+    # Deferred for the same reason the context defers its logs_queue import: this module is
+    # imported early by cli.py, before the soda_cloud<->contracts cycle is safe to enter.
+    from soda_core.common.soda_cloud import is_retryable_status
+
+    attempts = 0
     for attempt in range(SCAN_END_ATTEMPTS):
+        attempts = attempt + 1
         try:
-            if soda_cloud.scan_end_async(scan_reference):
+            response = soda_cloud.scan_end_async(scan_reference)
+            if response is not None and response.ok:
                 return True
-            reason = "not accepted"
+            reason = "not sent" if response is None else f"rejected (HTTP {response.status_code})"
+            retryable = response is None or is_retryable_status(response.status_code)
         except Exception as exc:
-            reason = f"{type(exc).__name__}: {exc}"
+            reason, retryable = f"{type(exc).__name__}: {exc}", True
+        if not retryable:
+            # A plain 4xx never becomes acceptable; retrying it only delays the exit.
+            break
         if attempt < SCAN_END_ATTEMPTS - 1:
             soda_logger.warning(f"sodaCoreScanEndAsync was {reason}; retrying {attempt + 2}/{SCAN_END_ATTEMPTS}")
     soda_logger.error(
         f"{Emoticons.POLICE_CAR_LIGHT} sodaCoreScanEndAsync for scanReference '{scan_reference}' failed "
-        f"({reason}) after {SCAN_END_ATTEMPTS} attempts. The uploaded batches are not ingested without it, "
+        f"({reason}) after {attempts} attempt(s). The uploaded batches are not ingested without it, "
         f"so the run's results did not reach Soda Cloud."
     )
     return False

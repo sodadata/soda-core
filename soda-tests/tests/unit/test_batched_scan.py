@@ -460,6 +460,23 @@ def test_run_batched_scan_failure_report_supersedes_the_stream(monkeypatch, capl
     assert "could not be delivered" not in caplog.text
 
 
+def test_run_batched_scan_permanently_rejected_end_is_not_retried(monkeypatch):
+    # A plain 4xx never becomes acceptable (unlike a 5xx/timeout): one attempt, then exit 4 —
+    # retrying only delays the exit and sends the operator down the transient-failure path.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _BatchedScanSodaCloud(end_status=400)
+
+    def command(context: BatchedScanContext) -> ExitCode:
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        assert context.insert_results(_payload()) is True
+        return ExitCode.OK
+
+    exit_code = run_batched_scan(mock_cloud, command=command)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == 1
+
+
 def test_run_batched_scan_rejected_end_is_retried_then_fatal(monkeypatch):
     # Batch uploads sit inert in object storage until the end command triggers reassembly, and no
     # backend sweeper does it later: a lost end loses the whole run's results, so it cannot be a
