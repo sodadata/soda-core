@@ -21,11 +21,7 @@ from contextlib import contextmanager
 from logging import Handler, LogRecord
 from typing import Optional
 
-from soda_core.common.logs_base import (
-    STREAM_DIAGNOSTICS_LOGGER,
-    THREAD_LABEL_ATTR,
-    LogsBase,
-)
+from soda_core.common.logs_base import STREAM_DIAGNOSTICS_LOGGER, THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.logs_collector import LogsCollector
 
 

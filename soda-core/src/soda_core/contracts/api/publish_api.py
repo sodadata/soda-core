@@ -1,7 +1,4 @@
-from soda_core.contracts.contract_publication import (
-    ContractPublication,
-    ContractPublicationResultList,
-)
+from soda_core.contracts.contract_publication import ContractPublication, ContractPublicationResultList
 
 
 def publish_contract(contract_file_path: str, soda_cloud_file_path: str) -> ContractPublicationResultList:

@@ -6,11 +6,7 @@ and handles derived metric computation.
 """
 
 from soda_core.contracts.contract_verification import Measurement
-from soda_core.contracts.impl.contract_verification_impl import (
-    DerivedMetricImpl,
-    MeasurementValues,
-    MetricImpl,
-)
+from soda_core.contracts.impl.contract_verification_impl import DerivedMetricImpl, MeasurementValues, MetricImpl
 
 
 class SimpleMockMetric(MetricImpl):

@@ -14,19 +14,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import pytest
-from soda_core.check_collections.base import (
-    CheckCollectionImpl,
-    CheckCollectionResult,
-    CheckCollectionYaml,
-)
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import CheckCollectionYamlSource
-from soda_core.contracts.contract_verification import (
-    CheckCollectionStatus,
-    Contract,
-    YamlFileContentInfo,
-)
+from soda_core.contracts.contract_verification import CheckCollectionStatus, Contract, YamlFileContentInfo
 
 
 class _FakeYaml(CheckCollectionYaml):

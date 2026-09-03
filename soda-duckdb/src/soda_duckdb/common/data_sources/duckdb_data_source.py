@@ -3,21 +3,14 @@ from datetime import timezone, tzinfo
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection
-from soda_core.common.data_source_connection import (
-    DataSourceConnection,
-    parse_session_timezone,
-)
+from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
-from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
-    DuckDBConnectionProperties,
-)
-from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
-    DuckDBDataSource as DuckDBDataSourceModel,
-)
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import DuckDBConnectionProperties
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import DuckDBDataSource as DuckDBDataSourceModel
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBExistingConnectionProperties,
     DuckDBStandardConnectionProperties,
@@ -119,9 +112,8 @@ class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
     def supports_data_type_datetime_precision(self) -> bool:
         return False
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_MATCHES({expression}, '{matches.regex_pattern}')"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        return f"REGEXP_MATCHES({expression}, {pattern})"
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         schema_name: str = prefixes[0]

@@ -15,11 +15,7 @@ from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import _mask_record
 from soda_core.common.logging_constants import Emoticons
-from soda_core.common.logs_base import (
-    STREAM_DIAGNOSTICS_LOGGER,
-    THREAD_LABEL_ATTR,
-    LogsBase,
-)
+from soda_core.common.logs_base import STREAM_DIAGNOSTICS_LOGGER, THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.soda_cloud import SodaCloud, is_retryable_status, to_jsonnable
 
 DEFAULT_FLUSH_INTERVAL = 5

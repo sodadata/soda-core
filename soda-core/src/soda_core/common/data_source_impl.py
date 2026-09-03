@@ -15,13 +15,8 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
-from soda_core.common.statements.metadata_tables_query import (
-    FullyQualifiedTableName,
-    MetadataTablesQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
@@ -215,10 +210,26 @@ class DataSourceImpl(ABC):
         return self._can_create_materialized_view
 
     # The capability hooks below are all default-off / behavior-preserving. They are consumed by
-    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
-    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
-    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
-    # returns a ValueComparatorProtocol; the others are booleans.)
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff), and let a
+    # source whose ordering or comparison differs from plain codepoint SQL opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. Overridden by
+    # soda-salesforce (SOQL-first, case-insensitive) and soda-mysql (accent-insensitive ordering).
+    # (get_value_comparator returns a ValueComparatorProtocol; the others are booleans.)
+    @property
+    def normalizes_own_text_ordering(self) -> bool:
+        """Whether reconciliation should fold THIS source's text keys rather than the peer's.
+
+        Cross-source reconciliation merge-joins two streams, so both sides must arrive in the same
+        order. Default False: the peer is folded to match this source, using ``LOWER()``.
+
+        Return True when ``LOWER()`` cannot reproduce this source's order. It only removes case, so
+        a source that also ignores accents orders ``café`` before ``cafz`` while a lowered peer
+        orders it after — and the join reports differences that do not exist. Folding this source
+        instead, through its own ``order_by_key_expression``, gives both sides the peer's plain
+        codepoint order.
+        """
+        return False
+
     @property
     def orders_text_case_insensitively(self) -> bool:
         """Whether this data source's SQL orders text columns case-insensitively.
@@ -229,6 +240,26 @@ class DataSourceImpl(ABC):
         case-fold so both sides agree on one order.
         """
         return False
+
+    @property
+    def supported_check_types(self) -> Optional[frozenset[str]]:
+        """Check types this data source can evaluate, or None for no restriction.
+
+        Default None, so every existing data source keeps running every registered check type. This is
+        for a source that can only answer part of the contract language: a check outside the declared
+        set reports NOT_EVALUATED naming the data source, instead of failing further in with an error
+        that reads like a defect — a raw MALFORMED_QUERY from the source, say.
+
+        Declare the whole supported set rather than the gaps, so a check type added to soda-core is
+        unsupported on such a source until someone has verified it.
+
+        Enforced in the shared ``CheckImpl.parse_check``: every check type in the
+        ``CheckImpl.check_parsers`` registry, for every ``CheckCollectionImpl`` subtype — contracts,
+        data standards, metric monitoring. Reconciliation parses its own checks and escapes it, so a
+        recon diff type listed in the set states what the source can answer rather than something this
+        gate enforces.
+        """
+        return None
 
     @property
     def supports_row_hashing(self) -> bool:
@@ -330,6 +361,11 @@ class DataSourceImpl(ABC):
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+
+    def get_schema_check_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        """Columns metadata for the schema check. A source whose accessor absorbs its own failures for
+        bulk callers overrides this so the schema check still sees them raise."""
+        return self.get_columns_metadata(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         """Builds the table namespace for column metadata queries. Override for custom namespace logic."""

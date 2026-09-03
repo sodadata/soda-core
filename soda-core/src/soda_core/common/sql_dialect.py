@@ -7,14 +7,11 @@ from abc import abstractmethod
 from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
-from typing import Any, ClassVar, Optional, Tuple
+from typing import Any, ClassVar, Optional, Tuple, final
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -105,7 +102,9 @@ from soda_core.common.sql_ast import (
     WHERE,
     WINDOW_FUNCTION,
     WITH,
+    ComparisonMode,
     Operator,
+    SqlColumnTerm,
     SqlExpression,
     SqlExpressionStr,
 )
@@ -124,6 +123,9 @@ class SqlDialect:
     """
 
     DEFAULT_QUOTE_CHAR = '"'
+    # Alias of the CTE a paginated `SELECT DISTINCT` is de-duplicated in when its ORDER BY can't
+    # be rendered on the distinct select itself. See `_paginated_select_statements`.
+    DISTINCT_PAGE_CTE_NAME: str = "_soda_distinct_page"
     USES_SEMICOLONS_BY_DEFAULT: bool = True
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
@@ -133,6 +135,7 @@ class SqlDialect:
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
+        self._warned_table_types: set[str] = set()
 
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
@@ -416,9 +419,6 @@ class SqlDialect:
         string_literal: str = value.replace("'", "''")
         return string_literal
 
-    def escape_regex(self, value: str):
-        return value
-
     def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:
         return add_semicolon if add_semicolon is not None else self.USES_SEMICOLONS_BY_DEFAULT
 
@@ -436,30 +436,176 @@ class SqlDialect:
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,
-        columns: list[str],
+        columns: list[SqlColumnTerm],
         filter: Optional[str],
-        order_by: list[str],
+        order_by: list[SqlColumnTerm],
         limit: int,
         offset: int,
         normalize_key_columns: frozenset[str] = frozenset(),
+        distinct: bool = False,
     ) -> str:
-        where_clauses = []
+        """Render one page of a SELECT over a dataset.
 
-        if filter:
-            where_clauses.append(SqlExpressionStr(filter))
+        ``columns`` and ``order_by`` each take a ``SqlColumnTerm``: a plain column NAME, or an
+        expression the caller built itself. soda-reconciliation uses the latter for per-column
+        expressions — it projects ``(<expr>) AS "<column>"`` and orders by ``(<expr>)`` — so the
+        dialect renders terms it cannot introspect. That is why the code below tests
+        ``isinstance(..., str)`` before treating a term as a name: only a name can be matched
+        against the projection or looked up in ``normalize_key_columns``.
 
+        ``distinct=True`` renders ``SELECT DISTINCT``, de-duplicating on the projected
+        columns. Callers must render distinct through this parameter rather than by
+        rewriting the returned SQL: dialects are free to emit shapes (CTEs, ROW_NUMBER
+        pagination) in which the leading ``SELECT`` token is not the one to modify.
+
+        ``normalize_key_columns`` case-folds the ORDER BY for the listed key columns (see
+        ``_order_by_key``). For how it composes with ``distinct``, see
+        ``_paginated_select_statements``.
+        """
         statements = [
-            SELECT(columns or [STAR()]),
-            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
-            WHERE.optional(AND.optional(where_clauses)),
-            *[term for c in order_by for term in self._order_by_key(c, normalize_key_columns)],
+            *self._paginated_select_statements(
+                dataset_identifier=dataset_identifier,
+                columns=columns,
+                filter=filter,
+                order_by=order_by,
+                normalize_key_columns=normalize_key_columns,
+                distinct=distinct,
+            ),
             LIMIT(limit),
             OFFSET(offset),
         ]
 
         return self.build_select_sql(statements)
 
-    def _order_by_key(self, column: str, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
+    def _paginated_select_statements(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[SqlColumnTerm],
+        filter: Optional[str],
+        order_by: list[SqlColumnTerm],
+        normalize_key_columns: frozenset[str],
+        distinct: bool,
+    ) -> list:
+        """The elements of a paginated select except LIMIT/OFFSET, which each dialect appends in
+        the order its grammar wants (base: LIMIT then OFFSET; T-SQL: OFFSET then FETCH NEXT).
+
+        This is where `distinct` and `normalize_key_columns` compose, so the rule lives in one
+        place for every AST-based paginator:
+
+        - Neither, or only one of them, renders the flat select both features rendered before —
+          byte-for-byte unchanged.
+        - Both is not expressible flat. SQL requires every ORDER BY term of a `SELECT DISTINCT`
+          to appear in its select list, and `_order_by_key`'s case-fold (`LOWER(<key>)`) is
+          deliberately NOT projected: callers read the page's rows positionally, so the
+          projection has to stay exactly `columns`. So instead of widening the projection, we
+          de-duplicate in a CTE and order/paginate that CTE — the same "de-duplicate in an inner
+          scope" shape the Synapse paginator already uses for its ROW_NUMBER fold.
+
+        Semantics are unchanged by the wrapper: `LOWER(<key>)` is a function of the projected
+        key, so de-duplicating before ordering cannot reorder anything, and DISTINCT still
+        applies before LIMIT/OFFSET, so pages neither overlap nor carry duplicates.
+
+        Why not use the CTE for every distinct page and drop the flat shape? Because the CTE is
+        not a superset. Its outer select reads from the CTE, so it can only render terms that
+        resolve against the CTE's OUTPUT columns; the flat select renders against the BASE
+        table. A caller-built expression term (`("a" || "b")`, projected as `... AS "k2"`) is
+        only in scope in the flat shape — inside the CTE shape it fails to bind. So the flat
+        shape is not a convenience, it is the only one that serves expression callers, and
+        `_validate_distinct_page_cte` rejects the combination neither shape can serve.
+        """
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        order_by_terms = [term for c in order_by for term in self._order_by_key(c, normalize_key_columns)]
+
+        if distinct:
+            self._validate_distinct_pagination(columns=columns, order_by=order_by)
+            if any(isinstance(column, str) and column in normalize_key_columns for column in order_by):
+                self._validate_distinct_page_cte(columns=columns, order_by=order_by)
+                return [
+                    WITH(
+                        [
+                            CTE(self.DISTINCT_PAGE_CTE_NAME).AS(
+                                [
+                                    SELECT(columns or [STAR()], distinct=True),
+                                    FROM(
+                                        table_name=dataset_identifier.dataset_name,
+                                        table_prefix=dataset_identifier.prefixes,
+                                    ),
+                                    WHERE.optional(AND.optional(where_clauses)),
+                                ]
+                            )
+                        ]
+                    ),
+                    SELECT(columns or [STAR()]),
+                    FROM(table_name=self.DISTINCT_PAGE_CTE_NAME),
+                    *order_by_terms,
+                ]
+
+        return [
+            SELECT(columns or [STAR()], distinct=distinct),
+            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
+            WHERE.optional(AND.optional(where_clauses)),
+            *order_by_terms,
+        ]
+
+    def _validate_distinct_pagination(self, columns: list[SqlColumnTerm], order_by: list[SqlColumnTerm]) -> None:
+        """A DISTINCT page can only be ordered by columns it projects.
+
+        Postgres ("for SELECT DISTINCT, ORDER BY expressions must appear in select list"), T-SQL
+        ("ORDER BY items must appear in the select list if SELECT DISTINCT is specified") and
+        BigQuery all reject an ORDER BY term that isn't derivable from the projection — and the
+        Synapse paginator additionally reads its order-by columns out of a de-duplicated CTE that
+        projects only `columns`. Fail here, naming the offending column, instead of shipping SQL
+        the warehouse will reject (or, on a lenient dialect, silently ordering a page differently
+        than its strict siblings would).
+        """
+        if not columns:
+            # No explicit projection -> `SELECT DISTINCT *` projects every column.
+            return
+        # Only plain column NAMES can be matched against the projection by name. A caller may
+        # also pass built expression terms (soda-reconciliation orders a side by a per-column
+        # SQL expression, projected as `(<expr>) AS "<col>"`); those are the caller's own
+        # terms, matched to its own projection, so this validation has nothing to say about
+        # them. Skipping them is what keeps the check a real check for the string case
+        # instead of a false alarm for every expression caller.
+        missing_order_by_columns = [column for column in order_by if isinstance(column, str) and column not in columns]
+        if missing_order_by_columns:
+            raise ValueError(
+                f"select_all_paginated_sql(distinct=True) can only order by projected columns, but "
+                f"order_by {missing_order_by_columns} is not in columns {columns}"
+            )
+
+    def _validate_distinct_page_cte(self, columns: list[SqlColumnTerm], order_by: list[SqlColumnTerm]) -> None:
+        """The de-duplicating CTE shape only works when every term is a plain column NAME.
+
+        The flat shape renders against the BASE table, so a caller-built expression term is
+        in scope there. The CTE shape does not: its outer select reads from the CTE, whose
+        output columns are the projection's ALIASES. Re-rendering `("a" || "b")` outside that
+        scope resolves to something else, or — on Postgres, DuckDB and BigQuery — fails with
+        `column "a" does not exist`. The two shapes are therefore not interchangeable, and
+        their union is not expressible: a case-folded plain key NEEDS the CTE, an expression
+        term needs the flat select.
+
+        No caller hits this today (reference_diff is the only `distinct=True` caller and it
+        does not normalize keys), so this is a tripwire, not a live path. Raise a named error
+        naming the offending terms rather than let the next caller debug a warehouse binder
+        error. The way out is for the caller to fold the term itself and leave that column out
+        of `normalize_key_columns` — the same thing it already does for a column that has an
+        expression.
+        """
+        expression_terms = [term for term in (*columns, *order_by) if not isinstance(term, str)]
+        if expression_terms:
+            raise ValueError(
+                f"select_all_paginated_sql(distinct=True) cannot combine normalize_key_columns with "
+                f"caller-built expression terms {expression_terms}: the case-fold needs a "
+                f"de-duplicating CTE, and an expression term cannot be rendered outside it. Fold the "
+                f"term in the caller and omit that column from normalize_key_columns."
+            )
+
+    def _order_by_key(self, column: SqlColumnTerm, normalize_key_columns: frozenset[str]) -> list[ORDER_BY_ASC]:
         """ORDER BY element(s) for one key column.
 
         Default-off: only columns the caller explicitly asked to normalize get case-folded (for
@@ -470,8 +616,14 @@ class SqlDialect:
         LOWER() is not a total order — 'ABC' and 'abc' tie — and reconciliation re-executes this
         query once per LIMIT/OFFSET page, so without a stable secondary sort the tied rows could
         reorder across page boundaries and be silently skipped or duplicated in the stream.
+
+        ``column`` may also be a built ``SqlExpression`` rather than a column name — callers
+        order by a per-column SQL expression (soda-reconciliation's per-side column
+        expressions). Only a NAME can be looked up in ``normalize_key_columns``, and an
+        expression term is already the exact thing to order by, so it is emitted as-is; a
+        caller that needs such a term folded builds the fold itself.
         """
-        if column in normalize_key_columns:
+        if isinstance(column, str) and column in normalize_key_columns:
             return [ORDER_BY_ASC(self.order_by_key_expression(column)), ORDER_BY_ASC(column)]
         return [ORDER_BY_ASC(column)]
 
@@ -807,8 +959,11 @@ class SqlDialect:
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
+        is_distinct: bool = False
         for select_element in select_elements:
             if isinstance(select_element, SELECT):
+                if select_element.distinct:
+                    is_distinct = True
                 if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
                 for select_field in select_element.fields:
@@ -823,10 +978,11 @@ class SqlDialect:
         # return "SELECT " + (", ".join(select_fields_sql))
         # For now, we opt for SELECT statement readability...
 
+        select_keyword: str = "SELECT DISTINCT" if is_distinct else "SELECT"
         select_sql_lines: list[str] = []
         for i in range(0, len(select_field_sqls)):
             if i == 0:
-                sql_line = f"SELECT {select_field_sqls[0]}"
+                sql_line = f"{select_keyword} {select_field_sqls[0]}"
             else:
                 sql_line = f"       {select_field_sqls[i]}"
             # Append comma all lines except the last one
@@ -1248,9 +1404,46 @@ class SqlDialect:
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
+    @final
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
+        """Renders REGEX_LIKE. Final on purpose -- override the two seams below.
+
+        REGEX_LIKE.regex_pattern is a bare str rather than an expression node, so
+        unlike LIKE -- whose pattern is a LITERAL and is escaped by the expression
+        renderer in every dialect for free -- nothing escapes it unless this method
+        does. Six dialects each hand-quoted it and five got it wrong (SCS-1413).
+
+        Escaping therefore happens here, once, and cannot be skipped: a dialect that
+        needs different syntax overrides _regex_like_sql, and one that needs the
+        pattern text itself rewritten overrides _rewrite_regex_pattern, which runs
+        before the escaping rather than instead of it.
+        """
         expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_LIKE({expression}, '{matches.regex_pattern}')"
+        pattern: str = self.literal_string(self._rewrite_regex_pattern(matches.regex_pattern))
+        return self._regex_like_sql(expression, pattern)
+
+    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
+        """Adapt the pattern text to what this engine's matcher understands.
+
+        Runs on the raw pattern, before it is escaped as a literal. Return it
+        unchanged unless the engine needs a different dialect of regex -- sqlserver
+        expands `a-z` / `A-Z` and wraps the pattern for PATINDEX here.
+        """
+        return regex_pattern
+
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        """Per-dialect regex syntax. `pattern` arrives already escaped as a string
+        literal, quotes and all -- do not re-quote it.
+
+        Override for a different function name or operator. Three shapes are in use:
+        a function call (base, duckdb's REGEXP_MATCHES, bigquery's REGEXP_CONTAINS),
+        an infix operator (postgres and redshift's `~`), and a whole-predicate
+        rewrite (sqlserver's PATINDEX(...) > 0, and soda-extensions' db2z, which
+        binds the pattern into an XQuery fn:matches). A dialect needing a
+        non-standard literal form does not belong here -- that is what its own
+        literal_string() override is for, as bigquery's triple-quoted form shows.
+        """
+        return f"REGEXP_LIKE({expression}, {pattern})"
 
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"
@@ -1383,17 +1576,27 @@ class SqlDialect:
 
     def _build_combined_hash_sql(self, combined_hash: COMBINED_HASH) -> str:
         """Convert a set of columns into a unique hashed string which can be used as a key."""
+        operands: list[SqlExpression] = [
+            self._build_hash_operand(expression, combined_hash.comparison_mode)
+            for expression in combined_hash.expressions
+        ]
+        joined: SqlExpression = operands[0] if len(operands) == 1 else CONCAT_WS(separator="'||'", expressions=operands)
+        return self.build_expression_sql(STRING_HASH(joined))
 
-        def format_expr(e: SqlExpression) -> SqlExpression:
-            """Convert expression to a string, and replace nulls with a predefined string."""
-            return COALESCE([CAST(e, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())])
+    def _build_hash_operand(self, expression: SqlExpression | str, comparison_mode: ComparisonMode) -> SqlExpression:
+        """One operand of a combined hash: its value as text, or the NULL sentinel.
 
-        formatted_expressions: list[SqlExpression] = [format_expr(e) for e in combined_hash.expressions]
-        if len(formatted_expressions) == 1:
-            string_to_hash = formatted_expressions[0]
-        else:
-            string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
-        return self.build_expression_sql(STRING_HASH(string_to_hash))
+        ``"database-equality"`` asks for values the data source's own equality considers equal to
+        hash alike, so that a duplicate check's failed-row groups match the verdict it reported.
+        Ignored here: the base rendering is byte-exact, which is what ``__soda_row_id`` needs and
+        what a case-sensitive source answers anyway. A dialect whose source folds case or accents
+        overrides this to honour it. Note the SQL Server family folds by default and does not
+        override, so its multi-column duplicate checks group byte-exactly while their single-column
+        counterparts follow the collation.
+        """
+        return COALESCE(
+            [CAST(expression, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())]
+        )
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
@@ -1494,7 +1697,9 @@ class SqlDialect:
         return self.default_casify("table_type")
 
     def convert_table_type_to_enum(self, table_type: str) -> TableType:
-        if table_type == "BASE TABLE":
+        # "TABLE" is what Dremio (and other FlightSQL sources) report for a physical dataset,
+        # where the SQL standard information_schema says "BASE TABLE".
+        if table_type in ("BASE TABLE", "TABLE"):
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
@@ -1502,8 +1707,20 @@ class SqlDialect:
             return TableType.MATERIALIZED_VIEW
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
-            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
+
+    def _warn_unmapped_table_type_once(self, table_type: str) -> None:
+        """
+        Warn at most once per distinct unmapped type.
+
+        convert_table_type_to_enum runs once per metadata row, so warning per call turns an
+        unmapped type on a large data source into one log line per table.
+        """
+        if table_type in self._warned_table_types:
+            return
+        self._warned_table_types.add(table_type)
+        logger.warning(f"Unmapped table type: {table_type}, defaulting to TABLE")
 
     def column_column_name(self) -> str:
         """
@@ -1692,6 +1909,12 @@ class SqlDialect:
         sampler_limit: Number,
         sampler_type: SamplerType,
     ) -> str:
+        """Bound `sql` to a sample of the rows.
+
+        A dialect that cannot express a sample as a TABLESAMPLE clause, but can another way,
+        overrides this entirely — soda-mysql wraps each source in a row-limited derived table.
+        One that cannot sample at all runs unsampled, with a warning from apply_sampling_to_sql.
+        """
         return apply_sampling_to_sql(
             sql=sql,
             sampler_limit=sampler_limit,

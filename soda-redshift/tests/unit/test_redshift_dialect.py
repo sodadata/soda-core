@@ -1,5 +1,5 @@
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
+from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
 
@@ -90,9 +90,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
     information_schema constraint views only list tables the current user owns, so a
     read-only monitoring user silently gets zero primary keys through them (same reason
     the schemas/tables/columns queries read SVV/pg_catalog views)."""
-    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-        RedshiftMetadataPrimaryKeysQuery,
-    )
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
 
     dialect = RedshiftSqlDialect()
     query = RedshiftMetadataPrimaryKeysQuery(sql_dialect=dialect, data_source_connection=None)
@@ -111,9 +109,7 @@ def test_primary_keys_query_reads_pg_catalog_not_information_schema():
 
 def test_primary_keys_constraint_definition_parsing_preserves_order():
     from soda_core.common.data_source_results import QueryResult
-    from soda_redshift.statements.redshift_metadata_primary_keys_query import (
-        RedshiftMetadataPrimaryKeysQuery,
-    )
+    from soda_redshift.statements.redshift_metadata_primary_keys_query import RedshiftMetadataPrimaryKeysQuery
 
     parse = RedshiftMetadataPrimaryKeysQuery._parse_primary_key_columns
     assert parse("PRIMARY KEY (id)") == ["id"]
@@ -134,3 +130,16 @@ def test_primary_keys_constraint_definition_parsing_preserves_order():
         "orders": ["tenant_id", "id"],
         "customers": ["id"],
     }
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """RedshiftSqlDialect overrides _build_regex_like_sql (it renders `~`, not
+    REGEXP_LIKE), so the base-class escaping does not reach it. Redshift's parser
+    consumes backslashes in string literals, so a pattern needs the doubled form its
+    own escape_string produces -- AWS documents `\\\\.` as the way to match a literal
+    metacharacter. Without it `^1\\.5$` arrives as `^1.5$` and matches anything.
+    See SCS-1413.
+    """
+    sql_dialect = RedshiftSqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "\"c\" ~ '^1\\\\.5$'"
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "\"c\" ~ '^it''s$'"

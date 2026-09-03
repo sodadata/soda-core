@@ -3,10 +3,7 @@ from unittest import mock
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.soda_cloud_dto import (
-    ComputeWarehouseOverrideDTO,
-    DatasetConfigurationDTO,
-)
+from soda_core.common.soda_cloud_dto import ComputeWarehouseOverrideDTO, DatasetConfigurationDTO
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from sqlglot import logger
 

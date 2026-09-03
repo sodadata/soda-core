@@ -40,6 +40,12 @@ reference_table_specification = (
 
 
 def test_column_level_column_expression_metric_checks_fail(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     reference_table = data_source_test_helper.ensure_test_table(reference_table_specification)
 
@@ -55,15 +61,15 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
             contract_yaml_str=f"""
                 variables:
                   id_col_expr:
-                    default: '"id"::varchar'
+                    default: '{EXPR_ID_VARCHAR}'
                   age_str_col_expr:
-                    default: '"age_str"::integer'
+                    default: '{EXPR_AGE_STR_INTEGER}'
                   json_col_expr:
-                    default: "json_col::json->>'unique_id'"
+                    default: "{EXPR_JSON_UNIQUE_ID}"
                   country_col_expr:
-                    default: "country::json->>'country_code'"
+                    default: "{EXPR_COUNTRY_CODE}"
                   metadata_col_expr:
-                    default: "metadata::json->>'created'"
+                    default: "{EXPR_METADATA_CREATED}"
                 columns:
                   - name: id
                     column_expression: '${{var.id_col_expr}}'
@@ -176,6 +182,12 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
 
 
 def test_check_level_column_expression_metric_checks_fail(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     # Test only a couple of check types, the override mechanism is universal.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -190,9 +202,9 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
         contract_yaml_str=f"""
             variables:
               id_col_expr:
-                default: '"id"::varchar'
+                default: '{EXPR_ID_VARCHAR}'
               age_str_col_expr:
-                default: '"age_str"::integer'
+                default: '{EXPR_AGE_STR_INTEGER}'
             columns:
               - name: id
                 column_expression: "CRASH_IF_USED"
@@ -238,6 +250,12 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
 
 
 def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTestHelper):
+    expressions = data_source_test_helper.column_expressions
+    EXPR_ID_VARCHAR = expressions["id_varchar"]
+    EXPR_AGE_STR_INTEGER = expressions["age_str_integer"]
+    EXPR_JSON_UNIQUE_ID = expressions["json_unique_id"]
+    EXPR_COUNTRY_CODE = expressions["country_code"]
+    EXPR_METADATA_CREATED = expressions["metadata_created"]
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
@@ -251,7 +269,7 @@ def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTe
         contract_yaml_str=f"""
             variables:
               id_col_expr:
-                default: '"id"::varchar'
+                default: '{EXPR_ID_VARCHAR}'
             columns:
               - name: id
                 checks:

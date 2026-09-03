@@ -5,10 +5,7 @@ Tests that MetricsResolver correctly deduplicates metrics based on identity
 and returns the same metric instance for equivalent metric configurations.
 """
 
-from soda_core.contracts.impl.contract_verification_impl import (
-    MetricImpl,
-    MetricsResolver,
-)
+from soda_core.contracts.impl.contract_verification_impl import MetricImpl, MetricsResolver
 
 
 class MockMetricImpl(MetricImpl):

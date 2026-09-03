@@ -2,22 +2,8 @@ from __future__ import annotations
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import DataSourceNamespace
-from soda_core.common.sql_ast import (
-    AND,
-    COLUMN,
-    EQ,
-    FROM,
-    IN,
-    JOIN,
-    LITERAL,
-    LOWER,
-    RAW_SQL,
-    SELECT,
-    WHERE,
-)
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.sql_ast import AND, COLUMN, EQ, FROM, IN, JOIN, LITERAL, LOWER, RAW_SQL, SELECT, WHERE
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 
 
 class RedshiftMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):

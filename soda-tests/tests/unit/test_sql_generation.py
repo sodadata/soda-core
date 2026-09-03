@@ -465,3 +465,153 @@ def test_empty_invalid_values_renders_portable_always_false_predicate():
     sql_dialect: SqlDialect = SqlDialect()
     expr = _missing_and_validity(invalid_values=[]).is_invalid_expr(COLUMN("c"))
     assert sql_dialect.build_expression_sql(expr) == "1 = 0"
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — statement-level DISTINCT.
+# `distinct` is a parameter on the dialect method (rather than a string rewrite of
+# the rendered SQL by the caller) because dialects are free to emit shapes in which
+# the leading SELECT token is not the one to modify — Synapse paginates with a
+# ROW_NUMBER CTE, so a `"SELECT" -> "SELECT DISTINCT"` replace would silently
+# de-duplicate the wrong (inner) select.
+# ---------------------------------------------------------------------------
+
+
+def _paginated_dataset_identifier() -> DatasetIdentifier:
+    return DatasetIdentifier(data_source_name="ds", prefixes=["soda_db", "public"], dataset_name="CUSTOMERS")
+
+
+def test_select_all_paginated_sql_is_not_distinct_by_default():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=10,
+        offset=20,
+    ) == (
+        'SELECT "id",\n'
+        '       "name"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        'ORDER BY "id" ASC\n'
+        "LIMIT 10\n"
+        "OFFSET 20;"
+    )
+
+
+def test_select_all_paginated_sql_distinct():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=10,
+        offset=20,
+        distinct=True,
+    ) == (
+        'SELECT DISTINCT "id",\n'
+        '       "name"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        'ORDER BY "id" ASC\n'
+        "LIMIT 10\n"
+        "OFFSET 20;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_with_filter():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=["id"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=100,
+        offset=0,
+        distinct=True,
+    ) == (
+        'SELECT DISTINCT "id"\n'
+        'FROM "soda_db"."public"."CUSTOMERS"\n'
+        "WHERE (country = 'BE')\n"
+        'ORDER BY "id" ASC\n'
+        "LIMIT 100\n"
+        "OFFSET 0;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_without_columns_or_order_by():
+    """No explicit columns -> `SELECT DISTINCT *`; empty order_by adds no ORDER BY clause."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.select_all_paginated_sql(
+        dataset_identifier=_paginated_dataset_identifier(),
+        columns=[],
+        filter=None,
+        order_by=[],
+        limit=5,
+        offset=0,
+        distinct=True,
+    ) == ("SELECT DISTINCT *\n" 'FROM "soda_db"."public"."CUSTOMERS"\n' "LIMIT 5\n" "OFFSET 0;")
+
+
+def test_sql_ast_select_distinct_flag():
+    """The SELECT node carries statement-level DISTINCT; the DISTINCT *expression* node
+    (`COUNT(DISTINCT(col))`) stays the argument-level form and is unaffected."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_select_sql([SELECT(["a", "b"], distinct=True), FROM("customers")]) == (
+        'SELECT DISTINCT "a",\n' '       "b"\n' 'FROM "customers";'
+    )
+    assert sql_dialect.build_select_sql([SELECT(["a", "b"]), FROM("customers")]) == (
+        'SELECT "a",\n' '       "b"\n' 'FROM "customers";'
+    )
+
+
+def test_regex_like_pattern_goes_through_literal_string():
+    """The regex pattern is a string literal and must be escaped like one.
+
+    Hand-wrapping it in quotes leaves an apostrophe in a user pattern to break the
+    query outright, and on data sources whose parser consumes backslashes it silently
+    strips the escape so the pattern matches nothing. Every dialect that overrides
+    _build_regex_like_sql has its own copy of this test. See SCS-1413.
+    """
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == """REGEXP_LIKE("c", '^it''s$')"""
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^\d$")) == """REGEXP_LIKE("c", '^\\d$')"""
+
+
+def test_regex_like_seam_escapes_for_dialects_that_only_change_syntax():
+    """A dialect that overrides only the syntax seam still gets escaping.
+
+    This is the property the seam exists for: _regex_like_sql receives the pattern
+    already quoted, so a dialect cannot render a regex without it. Before SCS-1413
+    each dialect overrode the whole builder and had to remember to escape; five
+    didn't.
+    """
+
+    class TildeDialect(SqlDialect, sqlglot_dialect="test"):
+        def _regex_like_sql(self, expression: str, pattern: str) -> str:
+            return f"{expression} ~ {pattern}"
+
+    sql_dialect = TildeDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == """"c" ~ '^it''s$'"""
+
+
+def test_regex_like_seam_escapes_for_dialects_that_rewrite_the_pattern():
+    """The other seam: rewriting the pattern text cannot skip the escaping either.
+
+    _rewrite_regex_pattern runs before literal_string, so a dialect that adapts the
+    pattern for its matcher (sqlserver) still gets the quote escaped. Together with
+    the syntax seam this is why _build_regex_like_sql is @final. See SCS-1413.
+    """
+
+    class WrappingDialect(SqlDialect, sqlglot_dialect="test"):
+        def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
+            return f"%{regex_pattern}%"
+
+    sql_dialect = WrappingDialect()
+    assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == ("""REGEXP_LIKE("c", '%^it''s$%')""")

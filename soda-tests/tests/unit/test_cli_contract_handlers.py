@@ -2,15 +2,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import (
-    handle_publish_contract,
-    handle_test_contract,
-    handle_verify_contract,
-)
-from soda_core.cli.handlers.dependencies import (
-    resolve_soda_cloud_for_failure_report,
-    run_with_failure_reporting,
-)
+from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
+from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report, run_with_failure_reporting
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,

@@ -15,10 +15,7 @@ from __future__ import annotations
 from typing import Optional
 
 from soda_core.common.logs import Location
-from soda_core.common.soda_cloud import (
-    _build_check_result_cloud_dict,
-    _build_check_results_cloud_json_dicts,
-)
+from soda_core.common.soda_cloud import _build_check_result_cloud_dict, _build_check_results_cloud_json_dicts
 from soda_core.contracts.contract_verification import (
     Check,
     CheckCollectionStatus,

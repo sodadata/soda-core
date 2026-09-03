@@ -1,10 +1,7 @@
 from unittest.mock import MagicMock, mock_open, patch
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.soda_cloud import (
-    handle_create_soda_cloud,
-    handle_test_soda_cloud,
-)
+from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
 
 
 @patch("soda_core.cli.handlers.soda_cloud.exists", return_value=True)

@@ -1,3 +1,5 @@
+import pytest
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import COUNT, CREATE_TABLE, CREATE_TABLE_COLUMN, STAR
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
@@ -79,14 +81,103 @@ def test_literal_timestamp_typed_inherits_datetime2_cast():
 
 
 # ---------------------------------------------------------------------------
-# select_all_paginated_sql — Synapse has no OFFSET/FETCH, so it hand-rolls a
-# ROW_NUMBER() window fold. This whole branch was previously unexercised; pin
-# the rn window, the LOWER() key-normalization seam (default-off), and the
-# empty-order_by fallback.
+# Paginated select — statement-level DISTINCT.
+# Synapse dedicated SQL pools have no OFFSET/FETCH, so pagination goes through a
+# ROW_NUMBER CTE. DISTINCT therefore cannot be a rewrite of the leading SELECT
+# token (that is the inner, pre-ROW_NUMBER select) nor of the outer one (T-SQL
+# rejects `SELECT DISTINCT ... ORDER BY <rn>` and rn must stay projected out) —
+# it de-duplicates in an extra leading CTE that the paginating CTE then reads.
 # ---------------------------------------------------------------------------
 
 
-def _paginated(order_by, normalize_key_columns=frozenset()):
+def _customers() -> DatasetIdentifier:
+    return DatasetIdentifier(data_source_name="ds", prefixes=["soda_db", "dbo"], dataset_name="CUSTOMERS")
+
+
+def test_select_all_paginated_sql_is_not_distinct_by_default():
+    assert SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=_customers(),
+        columns=["id", "name"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=10,
+        offset=20,
+    ) == (
+        "WITH paginated AS (\n"
+        "    SELECT [id], [name], ROW_NUMBER() OVER (ORDER BY [id] ASC) AS __soda_rn\n"
+        "    FROM [soda_db].[dbo].[CUSTOMERS]\n"
+        "    WHERE country = 'BE'\n"
+        ")\n"
+        "SELECT [id], [name]\n"
+        "FROM paginated\n"
+        "WHERE __soda_rn > 20 AND __soda_rn <= 30\n"
+        "ORDER BY __soda_rn;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_deduplicates_before_row_number():
+    assert SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=_customers(),
+        columns=["id", "name"],
+        filter="country = 'BE'",
+        order_by=["id"],
+        limit=10,
+        offset=20,
+        distinct=True,
+    ) == (
+        "WITH deduplicated AS (\n"
+        "    SELECT DISTINCT [id], [name]\n"
+        "    FROM [soda_db].[dbo].[CUSTOMERS]\n"
+        "    WHERE country = 'BE'\n"
+        "),\n"
+        "paginated AS (\n"
+        "    SELECT [id], [name], ROW_NUMBER() OVER (ORDER BY [id] ASC) AS __soda_rn\n"
+        "    FROM deduplicated\n"
+        "    \n"
+        ")\n"
+        "SELECT [id], [name]\n"
+        "FROM paginated\n"
+        "WHERE __soda_rn > 20 AND __soda_rn <= 30\n"
+        "ORDER BY __soda_rn;"
+    )
+
+
+def test_select_all_paginated_sql_distinct_without_filter_or_order_by():
+    assert SynapseSqlDialect().select_all_paginated_sql(
+        dataset_identifier=_customers(),
+        columns=["id"],
+        filter=None,
+        order_by=[],
+        limit=5,
+        offset=0,
+        distinct=True,
+    ) == (
+        "WITH deduplicated AS (\n"
+        "    SELECT DISTINCT [id]\n"
+        "    FROM [soda_db].[dbo].[CUSTOMERS]\n"
+        "    \n"
+        "),\n"
+        "paginated AS (\n"
+        "    SELECT [id], ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS __soda_rn\n"
+        "    FROM deduplicated\n"
+        "    \n"
+        ")\n"
+        "SELECT [id]\n"
+        "FROM paginated\n"
+        "WHERE __soda_rn > 0 AND __soda_rn <= 5\n"
+        "ORDER BY __soda_rn;"
+    )
+
+
+# ---------------------------------------------------------------------------
+# select_all_paginated_sql — Synapse has no OFFSET/FETCH, so it hand-rolls a
+# ROW_NUMBER() window fold. This whole branch was previously unexercised; pin
+# the rn window, the LOWER() key-normalization seam (default-off), the
+# empty-order_by fallback, and the fold combined with DISTINCT.
+# ---------------------------------------------------------------------------
+
+
+def _paginated(order_by, normalize_key_columns=frozenset(), distinct=False):
     from soda_core.common.dataset_identifier import DatasetIdentifier
 
     return SynapseSqlDialect().select_all_paginated_sql(
@@ -97,6 +188,7 @@ def _paginated(order_by, normalize_key_columns=frozenset()):
         limit=10,
         offset=20,
         normalize_key_columns=normalize_key_columns,
+        distinct=distinct,
     )
 
 
@@ -136,3 +228,39 @@ def test_paginated_normalized_fold_escapes_bracket_in_identifier():
 
 def test_paginated_empty_order_by_falls_back_to_select_null():
     assert "ORDER BY (SELECT NULL)" in _paginated(order_by=[])
+
+
+def test_paginated_distinct_with_normalized_key_folds_inside_the_row_number_window():
+    """DISTINCT and the case-fold compose without an extra shape here: the de-duplication already
+    happens in its own CTE, and the ROW_NUMBER select over it is not DISTINCT, so T-SQL accepts
+    LOWER([code]) in the window's ORDER BY."""
+    sql = _paginated(order_by=["code"], normalize_key_columns=frozenset({"code"}), distinct=True)
+    assert sql == (
+        "WITH deduplicated AS (\n"
+        "    SELECT DISTINCT [code], [label]\n"
+        "    FROM [s].[t]\n"
+        "    \n"
+        "),\n"
+        "paginated AS (\n"
+        "    SELECT [code], [label], ROW_NUMBER() OVER (ORDER BY LOWER([code]) ASC, [code] ASC) AS __soda_rn\n"
+        "    FROM deduplicated\n"
+        "    \n"
+        ")\n"
+        "SELECT [code], [label]\n"
+        "FROM paginated\n"
+        "WHERE __soda_rn > 20 AND __soda_rn <= 30\n"
+        "ORDER BY __soda_rn;"
+    )
+
+
+def test_paginated_distinct_rejects_an_unprojected_order_by_column():
+    """The `deduplicated` CTE projects only `columns`, so ordering by anything else can't resolve.
+    Refuse it here — like the rest of this dialect refuses what it cannot express — rather than
+    emit SQL Synapse rejects with "Invalid column name"."""
+    with pytest.raises(ValueError, match=r"can only order by projected columns"):
+        _paginated(order_by=["other"], distinct=True)
+
+
+def test_paginated_distinct_rejects_an_unprojected_normalized_key():
+    with pytest.raises(ValueError, match=r"can only order by projected columns"):
+        _paginated(order_by=["other"], normalize_key_columns=frozenset({"other"}), distinct=True)

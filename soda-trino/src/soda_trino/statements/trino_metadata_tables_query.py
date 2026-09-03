@@ -2,18 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from soda_core.common.sql_ast import (
-    COLUMN,
-    EQ,
-    FROM,
-    LIKE,
-    LITERAL,
-    LOWER,
-    NOT_LIKE,
-    OR,
-    SELECT,
-    WHERE,
-)
+from soda_core.common.sql_ast import COLUMN, EQ, FROM, LIKE, LITERAL, LOWER, NOT_LIKE, OR, SELECT, WHERE
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.statements.table_types import (
     FullyQualifiedMaterializedViewName,

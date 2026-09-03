@@ -15,13 +15,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from soda_core.common.data_source_connection import (
-    DataSourceConnection,
-    memory_optimized_driver_settings,
-)
-from soda_postgres.common.data_sources.postgres_data_source_connection import (
-    PostgresDataSourceConnection,
-)
+from soda_core.common.data_source_connection import DataSourceConnection, memory_optimized_driver_settings
+from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
 
 
 @pytest.fixture(autouse=True)
@@ -209,9 +204,7 @@ def _stream_rows(rows, row_limit=None):
 
 class TestByteBudgetedFetchBatching:
     def test_thin_rows_ramp_up_to_row_cap(self):
-        from soda_postgres.common.data_sources.postgres_data_source_connection import (
-            STREAM_FETCH_MAX_BATCH_ROWS,
-        )
+        from soda_postgres.common.data_sources.postgres_data_source_connection import STREAM_FETCH_MAX_BATCH_ROWS
 
         rows = [("x",)] * 2500
         fetch_sizes, seen = _stream_rows(rows)
@@ -241,9 +234,7 @@ class TestByteBudgetedFetchBatching:
         assert len(seen) == 4
 
     def test_late_fat_row_shrinks_batch_permanently(self):
-        from soda_postgres.common.data_sources.postgres_data_source_connection import (
-            STREAM_FETCH_MAX_BATCH_ROWS,
-        )
+        from soda_postgres.common.data_sources.postgres_data_source_connection import STREAM_FETCH_MAX_BATCH_ROWS
 
         # 1500 thin rows, then a fat one, then more thin rows. The widest
         # row seen is monotonic, so once the fat row lands the batch size

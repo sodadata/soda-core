@@ -2,9 +2,7 @@ from abc import ABC
 from typing import Annotated, Any, ClassVar, Dict, Literal, Optional, Union
 
 from pydantic import Discriminator, Field, SecretStr, Tag
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
+from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 # Explicit auth_type discriminator values (Trino/Snowflake/BigQuery style). These literals
 # are the cross-repo contract: they match soda-library#759 and the Cloud connection form.

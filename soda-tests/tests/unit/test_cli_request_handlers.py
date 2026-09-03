@@ -1,11 +1,7 @@
 from unittest.mock import ANY, MagicMock, mock_open, patch
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.request import (
-    handle_fetch_proposal,
-    handle_push_proposal,
-    handle_transition_request,
-)
+from soda_core.cli.handlers.request import handle_fetch_proposal, handle_push_proposal, handle_transition_request
 from soda_core.contracts.contract_request import RequestStatus
 
 

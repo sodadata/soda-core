@@ -5,10 +5,7 @@ from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
@@ -21,12 +18,8 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_trino.common.data_sources.trino_data_source_connection import (
-    TrinoDataSource as TrinoDataSourceModel,
-)
-from soda_trino.common.data_sources.trino_data_source_connection import (
-    TrinoDataSourceConnection,
-)
+from soda_trino.common.data_sources.trino_data_source_connection import TrinoDataSource as TrinoDataSourceModel
+from soda_trino.common.data_sources.trino_data_source_connection import TrinoDataSourceConnection
 from soda_trino.statements.trino_metadata_tables_query import TrinoMetadataTablesQuery
 
 logger: logging.Logger = soda_logger

@@ -10,11 +10,7 @@ from __future__ import annotations
 
 import json
 
-from helpers.memory_container_plugin import (
-    BASELINES_FILENAME,
-    _lookup_peak_baseline,
-    _peak_gate_failure,
-)
+from helpers.memory_container_plugin import BASELINES_FILENAME, _lookup_peak_baseline, _peak_gate_failure
 
 
 class _FakeMarker:

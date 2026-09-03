@@ -4,7 +4,7 @@ import logging
 import weakref
 from dataclasses import dataclass, field
 from numbers import Number
-from typing import Any, Optional
+from typing import Any, Literal, Optional, Union
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName, SqlDataType
@@ -77,6 +77,10 @@ class BaseSqlExpression:
 @dataclass
 class SELECT(BaseSqlExpression):
     fields: SqlExpression | str | list[SqlExpression | str]
+    # Statement-level DISTINCT: renders `SELECT DISTINCT <fields>` (de-duplicates the whole
+    # projected row). Not to be confused with the `DISTINCT` expression node below, which is
+    # the argument-level form used inside aggregates such as `COUNT(DISTINCT(col))`.
+    distinct: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -209,6 +213,15 @@ class SqlExpression(BaseSqlExpression):
         return ALIAS(self, alias)
 
 
+# What a caller may hand the dialect for a projected column or an ORDER BY term: either a plain
+# column NAME, or an expression the caller assembled itself. The latter is how a consumer applies
+# a per-column transformation the dialect knows nothing about — soda-reconciliation projects
+# `(<user expression>) AS "<column>"` and orders by `(<user expression>)`. Only a NAME can be
+# matched against a projection or looked up in a set of column names; an expression term is
+# already the exact thing to render, so the dialect emits it as-is.
+SqlColumnTerm = Union[str, SqlExpression]
+
+
 @dataclass
 class STAR(SqlExpression):
     alias: Optional[str] = None
@@ -292,9 +305,25 @@ class TUPLE(SqlExpression):
         self.handle_parent_node_update(self.expressions)
 
 
+# Whose equality a hash agrees with. "exact" hashes the bytes; "database-equality" hashes so that
+# two values the data source itself calls equal hash alike — on a case- or accent-insensitive
+# collation those are different answers. Named for the equality, not for a transformation: nothing
+# is normalised, the dialect hashes the collation's own sort key.
+ComparisonMode = Literal["exact", "database-equality"]
+
+
 @dataclass
 class COMBINED_HASH(SqlExpression):
     expressions: list[SqlExpression | str]
+    # Whose definition of "equal" the hash agrees with. Defaults to "exact", so every existing
+    # caller is unchanged.
+    #
+    # Per-node rather than per-dialect because the two callers need opposite answers:
+    #   - a duplicate check must group the way the data source does, or the failed-rows query
+    #     cannot return the rows the check's own verdict counted;
+    #   - row identity (`__soda_row_id`) and the diagnostics-warehouse keys must stay byte-exact,
+    #     or two different rows are given the same id.
+    comparison_mode: ComparisonMode = "exact"
 
     def __post_init__(self):
         super().__post_init__()

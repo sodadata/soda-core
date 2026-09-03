@@ -181,10 +181,7 @@ def handle_discover_data_source(
     the ``logs`` yield no records, so the payload's ``logs`` field is empty and the stream stays the single log
     channel.
     """
-    from soda_core.discovery.discovery_payload import (
-        build_discovery_payload,
-        resolve_data_timestamp,
-    )
+    from soda_core.discovery.discovery_payload import build_discovery_payload, resolve_data_timestamp
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 

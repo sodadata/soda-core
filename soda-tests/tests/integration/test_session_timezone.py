@@ -50,6 +50,11 @@ EXPECTED_SESSION_TIMEZONES: dict[str, _TzExpected] = {
     "dremio": timezone.utc,  # Dremio is UTC-only
     "db2": timezone.utc,  # Test instance is UTC; DB2 modules not always installed locally
     "db2z": timezone.utc,
+    # The compose instances pin default_time_zone to +00:00. The container clock is set away
+    # from UTC on purpose, so a regression that let MySQL's literal SYSTEM reach the shared
+    # parser — which resolves it to the *engine host's* zone — would show up here as a
+    # non-UTC value rather than passing silently.
+    "mysql": timezone.utc,
 }
 
 # For these adapters the session TZ follows the host running the test (no client-side override).

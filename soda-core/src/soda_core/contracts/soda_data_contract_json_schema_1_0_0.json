@@ -1179,25 +1179,356 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "metric": true
                 },
-                "required": [
-                    "metric"
-                ]
+                "level": {
+                    "description": "Threshold severity when breached; fail is the default.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "additional": {
+                    "description": "One more threshold on the same metric, with its own level. It holds exactly one comparison and an optional level, and its level must differ from the level of the threshold it is nested in.",
+                    "$ref": "#/$defs/threshold_additional"
+                }
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "$ref": "#/$defs/threshold_rules"
+                }
+            ]
+        },
+        "threshold_rules": {
+            "description": "Constraints shared by threshold and thresholdFreshness. (1) A threshold with an 'additional' threshold must specify exactly one comparison itself; without an 'additional' threshold the comparisons are not constrained here, mirroring the engine, which silently builds no threshold from a flat multi-comparison threshold. (2) The level of the threshold and the level of its 'additional' threshold must differ, where an absent level means 'fail'.",
+            "allOf": [
+                {
+                    "description": "A threshold with an 'additional' threshold must specify exactly one comparison itself. Without an 'additional' threshold, the number of comparisons is not constrained here.",
+                    "not": {
+                        "allOf": [
+                            {
+                                "required": [
+                                    "additional"
+                                ]
+                            },
+                            {
+                                "not": {
+                                    "oneOf": [
+                                        {
+                                            "required": [
+                                                "must_be"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_not_be"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_greater_than"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_greater_than_or_equal"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_less_than"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_less_than_or_equal"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_between"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "must_be_not_between"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "description": "A threshold and its 'additional' threshold cannot both be fail-level (the level of a threshold without a 'level') or both be warn-level.",
+                    "not": {
+                        "allOf": [
+                            {
+                                "required": [
+                                    "additional"
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "allOf": [
+                                            {
+                                                "$ref": "#/$defs/threshold_level_is_fail"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "additional": {
+                                                        "$ref": "#/$defs/threshold_level_is_fail"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "allOf": [
+                                            {
+                                                "$ref": "#/$defs/threshold_level_is_warn"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "additional": {
+                                                        "$ref": "#/$defs/threshold_level_is_warn"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "threshold_level_is_fail": {
+            "description": "The threshold has no 'level' ('fail' is the level of a threshold without one) or has 'level: fail'.",
+            "anyOf": [
+                {
+                    "not": {
+                        "required": [
+                            "level"
+                        ]
+                    }
+                },
+                {
+                    "required": [
+                        "level"
+                    ],
+                    "properties": {
+                        "level": {
+                            "const": "fail"
+                        }
+                    }
+                }
+            ]
+        },
+        "threshold_level_is_warn": {
+            "description": "The threshold has 'level: warn'.",
+            "required": [
+                "level"
+            ],
+            "properties": {
+                "level": {
+                    "const": "warn"
+                }
+            }
+        },
+        "threshold_additional": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "One more threshold on the same metric, with its own level. It holds exactly one comparison and an optional level, and its level must differ from the level of the threshold it is nested in.",
+            "properties": {
+                "must_be": {
+                    "description": "Check passes if the metric equals this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_not_be": {
+                    "description": "Check passes if the metric does not equal this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than": {
+                    "description": "Check passes if the metric is greater than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Check passes if the metric is greater than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than": {
+                    "description": "Check passes if the metric is less than this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Check passes if the metric is less than or equal to this value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_between": {
+                    "description": "Check passes if the metric is between the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Check passes if the metric is outside the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "level": {
+                    "description": "Threshold severity when breached; fail is the default.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                }
+            },
+            "oneOf": [
+                {
+                    "required": [
+                        "must_be"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_not_be"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_greater_than"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_greater_than_or_equal"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_less_than"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_less_than_or_equal"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_between"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_not_between"
+                    ]
+                }
+            ]
+        },
+        "threshold_freshness_additional": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "One more threshold on the same metric, with its own level. It holds exactly one comparison and an optional level, and its level must differ from the level of the threshold it is nested in.",
+            "properties": {
+                "must_be": {
+                    "description": "Check passes if the metric equals this value.",
+                    "type": "number"
+                },
+                "must_not_be": {
+                    "description": "Check passes if the metric does not equal this value.",
+                    "type": "number"
+                },
+                "must_be_greater_than": {
+                    "description": "Check passes if the metric is greater than this value.",
+                    "type": "number"
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Check passes if the metric is greater than or equal to this value.",
+                    "type": "number"
+                },
+                "must_be_less_than": {
+                    "description": "Check passes if the metric is less than this value.",
+                    "type": "number"
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Check passes if the metric is less than or equal to this value.",
+                    "type": "number"
+                },
+                "must_be_between": {
+                    "description": "Check passes if the metric is between the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Check passes if the metric is outside the specified values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "level": {
+                    "description": "Threshold severity when breached; fail is the default.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                }
+            },
+            "oneOf": [
+                {
+                    "required": [
+                        "must_be"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_not_be"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_greater_than"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_greater_than_or_equal"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_less_than"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_less_than_or_equal"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_between"
+                    ]
+                },
+                {
+                    "required": [
+                        "must_be_not_between"
+                    ]
                 }
             ]
         },
@@ -1337,25 +1668,22 @@
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
                     "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "unit": true
                 },
-                "required": [
-                    "unit"
-                ]
+                "level": {
+                    "description": "Threshold severity when breached; fail is the default.",
+                    "enum": [
+                        "warn",
+                        "fail"
+                    ]
+                },
+                "additional": {
+                    "description": "One more threshold on the same metric, with its own level. It holds exactly one comparison and an optional level, and its level must differ from the level of the threshold it is nested in.",
+                    "$ref": "#/$defs/threshold_freshness_additional"
+                }
             },
             "allOf": [
                 {
-                    "type": "object",
-                    "maxProperties": 2
+                    "$ref": "#/$defs/threshold_rules"
                 }
             ]
         }

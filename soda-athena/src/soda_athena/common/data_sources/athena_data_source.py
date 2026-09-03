@@ -5,12 +5,8 @@ from datetime import datetime
 from typing import Any, Optional, Tuple
 
 import boto3
-from soda_athena.common.data_sources.athena_data_source_connection import (
-    AthenaDataSource as AthenaDataSourceModel,
-)
-from soda_athena.common.data_sources.athena_data_source_connection import (
-    AthenaDataSourceConnection,
-)
+from soda_athena.common.data_sources.athena_data_source_connection import AthenaDataSource as AthenaDataSourceModel
+from soda_athena.common.data_sources.athena_data_source_connection import AthenaDataSourceConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl, FullyQualifiedTableName
 from soda_core.common.logging_constants import soda_logger

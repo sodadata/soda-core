@@ -5,9 +5,7 @@ from typing import Optional
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSource as BigQueryDataSourceModel,
 )
-from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
-    BigQueryDataSourceConnection,
-)
+from soda_bigquery.common.data_sources.bigquery_data_source_connection import BigQueryDataSourceConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
@@ -23,7 +21,6 @@ from soda_core.common.sql_ast import (
     LITERAL,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
-    REGEX_LIKE,
     STRING_HASH,
     TIME_DELTA,
     TUPLE,
@@ -33,9 +30,7 @@ from soda_core.common.sql_ast import (
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 logger: logging.Logger = soda_logger
@@ -262,9 +257,10 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"TO_JSON_STRING(STRUCT({super()._build_tuple_sql(tuple)}))"
 
-    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
-        expression: str = self.build_expression_sql(matches.expression)
-        return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        # `pattern` arrives quoted by this dialect's own literal_string(), the
+        # triple-quoted form that escapes the backslash as \\ and an apostrophe as \'.
+        return f"REGEXP_CONTAINS({expression}, {pattern})"
 
     def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
         """BigQuery has no ordered-set aggregates; render as

@@ -26,7 +26,7 @@ from helpers.test_table import TestTableSpecification
 # diffs between record/replay, so always run against a real DB.
 pytestmark = pytest.mark.no_snapshot
 
-_SUPPORTED_DATASOURCES = {"postgres", "sqlserver"}
+_SUPPORTED_DATASOURCES = {"postgres", "sqlserver", "mysql"}
 _IS_SQLSERVER_FAMILY = test_datasource in {"sqlserver", "fabric", "synapse"}
 
 if test_datasource not in _SUPPORTED_DATASOURCES:

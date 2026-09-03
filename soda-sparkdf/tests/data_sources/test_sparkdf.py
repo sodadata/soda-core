@@ -9,9 +9,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api.verify_api import verify_contract_locally
 from soda_core.contracts.contract_verification import ContractVerificationSession
-from soda_sparkdf.common.data_sources.sparkdf_data_source import (
-    SparkDataFrameDataSource,
-)
+from soda_sparkdf.common.data_sources.sparkdf_data_source import SparkDataFrameDataSource
 
 logger: Logger = soda_logger
 

@@ -1,21 +1,11 @@
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_tables_query import (
-    FullyQualifiedViewName,
-    TableType,
-)
-from soda_core.common.statements.table_types import (
-    FullyQualifiedMaterializedViewName,
-    FullyQualifiedTableName,
-)
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedViewName, TableType
+from soda_core.common.statements.table_types import FullyQualifiedMaterializedViewName, FullyQualifiedTableName
 
 test_table_specification = (
     TestTableSpecification.builder()
