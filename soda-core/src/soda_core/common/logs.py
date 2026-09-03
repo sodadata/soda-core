@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from logging import Handler, LogRecord
 from typing import Optional
 
-from soda_core.common.logs_base import LogsBase
+from soda_core.common.logs_base import STREAM_DIAGNOSTICS_LOGGER, THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.logs_collector import LogsCollector
 
 
@@ -58,8 +58,15 @@ class _RootCapturer(Handler):
         active: Optional[Logs] = _active_logs.get()
         if active is None:
             return
+        if record.name == STREAM_DIAGNOSTICS_LOGGER:
+            # A log stream's own diagnostics stay on the console: capturing them would feed reports
+            # about a failing stream back into the queue that is failing.
+            return
         if active.label is not None:
             record.thread = active.label
+            # Marked so a streaming gatherer can tell this caller-set grouping label from the OS
+            # thread ident every LogRecord carries by default.
+            setattr(record, THREAD_LABEL_ATTR, True)
         try:
             active.gatherer.emit(record)
         except Exception:
@@ -121,6 +128,23 @@ class Logs:
 
     def get_log_records(self) -> list[LogRecord]:
         return self.gatherer.get_all_logs()
+
+    def records_for_failure_report(self) -> list[LogRecord]:
+        # The gatherer decides what a failure report attaches: everything for the in-memory collector, unsent
+        # error records for a streaming queue.
+        return self.gatherer.records_for_failure_report()
+
+    def switch_gatherer(self, gatherer: LogsBase) -> None:
+        """Swap the capture backend mid-run, keeping this ``Logs`` the active target. The records the old
+        gatherer collected are re-emitted into the new one first, so a run that upgrades from the in-memory
+        collector to a streaming queue delivers its full history to the stream. The old gatherer is closed
+        after the swap.
+        """
+        old_gatherer: LogsBase = self.gatherer
+        for record in old_gatherer.get_all_logs():
+            gatherer.emit(record)
+        self.gatherer = gatherer
+        old_gatherer.close()
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.gatherer.get_all_logs()]

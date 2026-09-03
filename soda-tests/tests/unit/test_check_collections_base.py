@@ -81,6 +81,9 @@ class _FakeImpl(CheckCollectionImpl):
     yaml_class = _FakeYaml
     result_class = _FakeResult
 
+    # Instances the executor constructed, for tests asserting construction kwargs.
+    constructed_instances: list = []
+
     def __init__(
         self,
         yaml,
@@ -102,6 +105,8 @@ class _FakeImpl(CheckCollectionImpl):
         # ``None`` — no instance attribute needed.
         self.yaml = yaml
         self.logs = Logs()
+        self.batched_scan_context = kwargs.get("batched_scan_context")
+        _FakeImpl.constructed_instances.append(self)
         # ``raise_on_verify`` lives on the yaml_source for per-instance control;
         # the FakeYaml wrapper carries the source reference through.
         source = getattr(yaml, "yaml_source", None)
@@ -184,6 +189,20 @@ def test_execute_check_collections_runs_each_item_in_order():
     labels = [r.check_collection.dataset_name for r in session_result.results]
     assert labels == ["a", "b", "c"]
     assert all(r.status is CheckCollectionStatus.PASSED for r in session_result.results)
+
+
+def test_execute_check_collections_threads_batched_scan_context_into_impls():
+    _FakeImpl.constructed_instances.clear()
+    context_sentinel = object()
+
+    execute_check_collections(
+        yaml_sources=[_LabelledSource("a")],
+        data_source_impl=None,
+        batched_scan_context=context_sentinel,
+    )
+
+    assert len(_FakeImpl.constructed_instances) == 1
+    assert _FakeImpl.constructed_instances[0].batched_scan_context is context_sentinel
 
 
 def test_execute_check_collections_isolates_per_item_errors_by_default():

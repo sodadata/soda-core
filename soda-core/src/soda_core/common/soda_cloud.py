@@ -57,6 +57,15 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
+# A plain 4xx means the request will never be accepted as sent (unknown scan, wrong scan state,
+# malformed body); retrying only delays the run. 5xx — and the two 4xx that mean "later" — are worth
+# another attempt. Shared by the retrying Cloud uploads (the log stream, the scan-end command).
+_RETRYABLE_4XX = {408, 429}
+
+
+def is_retryable_status(status_code: int) -> bool:
+    return status_code in _RETRYABLE_4XX or not 400 <= status_code < 500
+
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -379,11 +388,87 @@ class SodaCloud:
         )
         return response is not None and response.ok
 
+    def scan_start(
+        self,
+        scan_id: str,
+        definition_name: str,
+        default_data_source: str,
+        data_timestamp: Optional[datetime] = None,
+    ) -> Optional[str]:
+        """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the
+        ``scanReference`` that keys the async ingestion pipeline
+        (``insert_scan_data_batch`` / ``scan_end_async``), or None when the
+        command was rejected or the response carried no reference — callers
+        degrade to the sync ``insert_scan_results`` path.
+
+        ``definitionName``, ``defaultDataSource`` and ``dataTimestamp`` are
+        backend-mandatory (the executor dispatches on the definition's type and
+        upserts the scan's data containers from them); ``data_timestamp``
+        defaults to now. The ``version`` is the payload model version: this
+        codebase is v4-only, and the backend's v4 handling (e.g. hierarchical
+        discovery results) keys on it. A successful start also moves the scan
+        into its log-accepting state: the scan-id-keyed ``batchV4`` log stream
+        only accepts uploads after this command.
+        """
+        command: dict = {
+            "type": "sodaCoreScanStart",
+            "scanId": scan_id,
+            "version": "4",
+            "definitionName": definition_name,
+            "defaultDataSource": default_data_source,
+            "dataTimestamp": convert_datetime_to_str(
+                data_timestamp if data_timestamp is not None else datetime.now(timezone.utc)
+            ),
+        }
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="scan_start",
+        )
+        if response is None or not response.ok:
+            return None
+        try:
+            scan_reference: Optional[str] = response.json().get("scanReference")
+        except Exception:
+            scan_reference = None
+        if not scan_reference:
+            logger.warning(f"sodaCoreScanStart response for scan '{scan_id}' carried no scanReference")
+            return None
+        return scan_reference
+
+    def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> bool:
+        """Send one results payload through the async ingestion pipeline
+        (``sodaCoreInsertScanDataBatch``, keyed by the ``scan_start``
+        scanReference). Takes the same payload dict the sync flows build; the
+        batch type and scanReference are stamped on a copy so the caller's DTO
+        is untouched. Returns True when Soda Cloud accepted it (same contract
+        as ``insert_scan_results``).
+        """
+        command: dict = {**payload, "type": "sodaCoreInsertScanDataBatch", "scanReference": scan_reference}
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="insert_scan_data_batch",
+        )
+        return response is not None and response.ok
+
+    def scan_end_async(self, scan_reference: str) -> Optional[Response]:
+        """Send ``sodaCoreScanEndAsync`` closing the async ingestion bracket
+        opened by ``scan_start``. Returns the backend response (None when the
+        command could not be sent) rather than the family's usual bool: unlike
+        its siblings there is retry policy above this call, and the caller
+        needs the status to tell a retryable failure from a permanent
+        rejection (``is_retryable_status``).
+        """
+        return self._execute_command(
+            command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
+            request_log_name="scan_end_async",
+        )
+
     def send_check_collection_results(
         self,
         results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
+        model_version: Optional[str] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
 
@@ -406,6 +491,8 @@ class SodaCloud:
         @param scan_definition_suffix: Optional suffix appended to the
             head result's qualified name to derive the Soda Cloud
             scan-definition name. ``None`` uses the bare qualified name.
+        @param model_version: Optional payload model version (the backend's
+            dataset-registry routing key); ``None`` omits the field.
         """
         if not results:
             return None
@@ -413,6 +500,7 @@ class SodaCloud:
             results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
+            model_version=model_version,
         )
         payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -1731,10 +1819,15 @@ def _build_check_results_cloud_json_dicts(
     return check_dicts
 
 
-def _build_scan_definition_name(
-    contract_verification_result: ContractVerificationResult,
+def build_scan_definition_name(
+    soda_qualified_dataset_name: Optional[str],
     scan_definition_suffix: Optional[str] = None,
 ) -> str:
+    """The scan-definition name a check-collection run registers under:
+    SODA_SCAN_DEFINITION when set, otherwise derived from the dataset's
+    qualified name. Public because batched-ingestion flows need the name
+    before any result exists (``sodaCoreScanStart`` requires it).
+    """
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
@@ -1744,10 +1837,9 @@ def _build_scan_definition_name(
     # non-empty ``scan_definition_suffix`` on their impl; the engine
     # threads it through here. Keeps subtype literals out of soda-core
     # common.
-    qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
     if scan_definition_suffix:
-        return f"{qualified_name}_{scan_definition_suffix}"
-    return qualified_name
+        return f"{soda_qualified_dataset_name}_{scan_definition_suffix}"
+    return soda_qualified_dataset_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1782,8 +1874,13 @@ def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
+    model_version: Optional[str] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
+
+    ``model_version`` stamps the payload's ``version`` field — the backend's dataset-registry
+    routing key. Subtypes that build the payload themselves (metric monitoring's batched path)
+    pass their wire model version; None omits the field, matching the legacy builder output.
 
     Session-level fields (scanId, definitionName, data source, dataTimestamp)
     come from the first result; per-batch fields aggregate:
@@ -1850,7 +1947,9 @@ def _build_check_collection_results_json_dict(
 
     payload: dict = {
         "scanId": os.environ.get("SODA_SCAN_ID", None),
-        "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+        "definitionName": build_scan_definition_name(
+            head.check_collection.soda_qualified_dataset_name, scan_definition_suffix=scan_definition_suffix
+        ),
         "defaultDataSource": head.data_source.name if head.data_source else None,
         "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
         "dataTimestamp": head.data_timestamp,
@@ -1875,6 +1974,8 @@ def _build_check_collection_results_json_dict(
         "resultsIngestionMode": ingestion_mode.value,
         "tokenUsage": token_usage,
     }
+    if model_version is not None:
+        payload["version"] = model_version
     # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
     # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
     # the ``metrics`` subscript-assign below is on a known-subscriptable type.

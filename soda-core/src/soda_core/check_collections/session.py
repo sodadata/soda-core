@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
+from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -46,6 +47,7 @@ def execute_check_collections(
     dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
+    batched_scan_context: Optional[BatchedScanContext] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
@@ -188,6 +190,10 @@ def execute_check_collections(
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
+                # Only when set: impl subclasses with explicit __init__
+                # signatures (e.g. ContractImpl) predate the kwarg, and the
+                # flows constructing them never run batched.
+                **({"batched_scan_context": batched_scan_context} if batched_scan_context is not None else {}),
             )
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:

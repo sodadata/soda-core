@@ -9,6 +9,7 @@ from typing import Dict, List, NoReturn, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.batched_scan import run_batched_scan
 from soda_core.cli.handlers.contract import (
     handle_fetch_contract,
     handle_publish_contract,
@@ -546,18 +547,19 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # SODA_SCAN_DEFINITION) resolve inside the wrapped command: their
             # failures take the standard mark-with-logs mapping.
             # Discovery constructs no inner Logs (discover_dataset_dqns emits via soda_logger,
-            # which already lands in the active wrapper collector); the wrapper's
-            # ``logs`` is threaded through so the success payload carries the
-            # run's logs to Soda Cloud.
-            exit_code = run_with_failure_reporting(
+            # which already lands in the active capture target); the bracket's
+            # ``logs`` is threaded through so a sync run's payload carries the
+            # run's logs (a managed run streams them instead).
+            exit_code = run_batched_scan(
                 soda_cloud,
-                lambda logs: handle_discover_data_source(
+                command=lambda context: handle_discover_data_source(
                     resolve_data_source(args.data_source),
                     soda_cloud,
                     scan_definition_name=resolve_scan_definition_name(args.scan_definition_name),
                     include=args.include,
                     exclude=args.exclude,
-                    logs=logs,
+                    logs=context.logs,
+                    batched_scan_context=context,
                 ),
             )
             exit_with_code(exit_code)

@@ -135,6 +135,7 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
 def run_with_failure_reporting(
     soda_cloud: Optional[SodaCloud],
     command: Callable[[Logs], ExitCode],
+    logs: Optional[Logs] = None,
 ) -> ExitCode:
     """Run a command with every failure mapped to an exit code and reported to
     Soda Cloud in one place.
@@ -159,19 +160,24 @@ def run_with_failure_reporting(
       user-facing message is logged clean, without a traceback.
     - Any other exception: unexpected — logged with the traceback.
 
-    Both then report via ``report_scan_execution_failure`` with the captured
-    log records (the failure line is logged before the records are captured,
-    so it is part of the report). Otherwise the command's own exit code is
-    returned unchanged.
+    Both then report via ``report_scan_execution_failure`` with the records
+    the gatherer selects (the failure line is logged before the records are
+    captured, so it is part of the report). Otherwise the command's own exit
+    code is returned unchanged.
+
+    A pre-built ``logs`` (e.g. the batched-scan bracket's, which may upgrade to a streaming gatherer mid-run)
+    may be handed in; the gatherer then decides what the failure report attaches — the full record list for the
+    in-memory collector, only unsent error records for a streaming queue. No mode branch here. The lifecycle is
+    owned here either way: the ``finally`` close is the stream's final flush.
     """
-    logs: Logs = Logs()
+    logs = logs if logs is not None else Logs()
     try:
         return command(logs)
     except ScanExecutionFailedException as exc:
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
-        return report_scan_execution_failure(soda_cloud, logs.get_log_records())
+        return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
     except Exception as exc:
         soda_logger.exception(f"Scan execution failed: {exc}")
-        return report_scan_execution_failure(soda_cloud, logs.get_log_records())
+        return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
     finally:
         logs.close()

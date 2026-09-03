@@ -237,6 +237,31 @@ def test_run_with_command_raising_unexpected_exception_marks_scan_failed(monkeyp
     assert failure_records[0].exc_info is not None
 
 
+def test_run_with_prebuilt_logs_hands_them_to_the_command_and_reports_gatherer_selection(monkeypatch):
+    # A pre-built (e.g. streaming-backed) Logs may be handed in; the failure
+    # report then attaches whatever its gatherer selects — no mode branch here.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    soda_cloud = MagicMock()
+    soda_cloud.mark_scan_as_failed.return_value = True
+
+    selected_records = [MagicMock()]
+    gatherer = MagicMock()
+    gatherer.records_for_failure_report.return_value = selected_records
+    logs = Logs(gatherer=gatherer)
+    seen = {}
+
+    def command(inner_logs):
+        seen["logs"] = inner_logs
+        raise RuntimeError("boom")
+
+    exit_code = run_with_failure_reporting(soda_cloud, command, logs=logs)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert seen["logs"] is logs
+    assert soda_cloud.mark_scan_as_failed.call_args.kwargs["logs"] is selected_records
+    gatherer.close.assert_called_once()
+
+
 def test_run_with_rejected_mark_scan_as_failed_exits_results_not_sent(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
