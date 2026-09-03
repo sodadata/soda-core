@@ -24,7 +24,6 @@ class LogsCollector(LogsBase):
     def reset(self):
         self.logs: list[LogRecord] = []
         self.logs_buffer: list[LogRecord] = []
-        self.verbose: bool = False
         self.has_error_logs = False
         self.has_warning_logs = False
         return self

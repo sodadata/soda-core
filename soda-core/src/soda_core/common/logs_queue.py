@@ -165,7 +165,6 @@ class LogsQueue(LogsBase):
         self.thread = str(uuid.uuid4())
         self.logs: list[LogRecord] = []
         self.logs_buffer: list[LogRecord] = []
-        self.verbose: bool = False
         self.has_error_logs = False
         self.has_warning_logs = False
         self._flushed_records = set()
@@ -248,19 +247,7 @@ class LogsQueue(LogsBase):
                 stream_logger.debug(exceptions.get_exception_stacktrace(e))
                 flush_interval = self.flush_interval
 
-    def _validate_prerequisites(self):
-        # Wait until soda cloud is correctly configured and scan starts, throw only on shutdown.
-        while not self.soda_cloud:
-            if not self.shutdown_flag.is_set():
-                stream_logger.debug("Soda Cloud has not been configured properly yet.")
-                self.shutdown_flag.wait(DEFAULT_FLUSH_INTERVAL)
-            else:
-                raise AssertionError("You have not configured Soda Library to work with Soda Cloud Async Mode.")
-
     def _flush_logs(self, current_flush_interval):
-        # Soda Cloud need to be configured before first flush
-        self._validate_prerequisites()
-
         with self._flush_lock:
             batch = []
             while not self.log_queue.empty():

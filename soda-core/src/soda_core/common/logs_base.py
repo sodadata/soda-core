@@ -22,7 +22,6 @@ class LogsBase(ABC):
         self.logs_buffer: list[LogRecord] = []
         self.has_error_logs = False
         self.has_warning_logs = False
-        self.verbose: bool = False
 
     @abstractmethod
     def get_error_logs(self) -> list[LogRecord]:
