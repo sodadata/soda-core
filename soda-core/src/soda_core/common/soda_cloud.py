@@ -679,6 +679,45 @@ class SodaCloud:
             status=CheckCollectionStatus.UNKNOWN,
         )
 
+        # Capture from the first Cloud call, not from the poll onwards: the errors logged on
+        # the failure paths (permissions, upload, command, poll) have to land in
+        # ``log_records`` for ``get_errors()`` to report them.
+        logs: Logs = Logs()
+        try:
+            verification_result.status = self._verify_contract_on_runner(
+                verification_result=verification_result,
+                contract_yaml_str_original=contract_yaml_str_original,
+                contract_local_file_path=contract_local_file_path,
+                dataset_identifier=dataset_identifier,
+                variables=variables,
+                blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+                publish_results=publish_results,
+                verbose=verbose,
+            )
+        finally:
+            logs.close()
+            verification_result.log_records = logs.get_log_records()
+
+        return verification_result
+
+    def _verify_contract_on_runner(
+        self,
+        verification_result: ContractVerificationResult,
+        contract_yaml_str_original: str,
+        contract_local_file_path: Optional[str],
+        dataset_identifier: DatasetIdentifier,
+        variables: dict[str, str],
+        blocking_timeout_in_minutes: int,
+        publish_results: bool,
+        verbose: bool,
+    ) -> CheckCollectionStatus:
+        """Drive one remote verification and return its status.
+
+        Every path that ends without an outcome from Cloud returns ERROR: the result starts
+        out UNKNOWN, and UNKNOWN reads as a pass to ``has_errors``, ``is_failed`` and the CLI
+        exit code. ``sending_results_to_soda_cloud_failed`` is set on top of that only where
+        Cloud could not be reached or refused the request, which turns exit code 3 into 4.
+        """
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             dataset_identifier.data_source_name, dataset_identifier.prefixes, dataset_identifier.dataset_name
         )
@@ -688,12 +727,13 @@ class SodaCloud:
                 verification_result.sending_results_to_soda_cloud_failed = True
             else:
                 logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
-            return verification_result
+            return CheckCollectionStatus.ERROR
 
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
-            logger.critical("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
-            return []
+            logger.error("Contract wasn't uploaded, skipping remote contract verification")
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return CheckCollectionStatus.ERROR
 
         verify_contract_command: dict = {
             "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",
@@ -709,36 +749,51 @@ class SodaCloud:
             "verbose": verbose,
             "variables": variables,
         }
-        response: Response = self._execute_command(
+        response: Optional[Response] = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
         )
-        response_json: dict = response.json()
-        scan_id: str = response_json.get("scanId")
-
-        if response.status_code != 200:
+        if response is None or response.status_code != 200:
             logger.error("Remote contract verification failed.")
             verification_result.sending_results_to_soda_cloud_failed = True
-            return verification_result
+            return CheckCollectionStatus.ERROR
 
+        response_json: Optional[dict] = _parse_json_dict(response)
+        scan_id: Optional[str] = response_json.get("scanId") if response_json else None
         if not scan_id:
-            logger.warning("Did not receive a Scan ID from Soda Cloud")
-            return verification_result
+            logger.error("Did not receive a Scan ID from Soda Cloud")
+            return CheckCollectionStatus.ERROR
+        verification_result.scan_id = scan_id
 
         scan_is_finished, contract_dataset_cloud_url, scan_status = self._poll_remote_scan_finished(
             scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
 
-        verification_result.status = _map_remote_scan_status_to_contract_verification_status(scan_status)
+        self._replay_remote_scan_logs(scan_id)
 
+        if contract_dataset_cloud_url:
+            logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
+
+        if not scan_is_finished:
+            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return CheckCollectionStatus.ERROR
+
+        status: CheckCollectionStatus = _map_remote_scan_status_to_contract_verification_status(scan_status)
+        if status is CheckCollectionStatus.ERROR and scan_status is not RemoteScanStatus.COMPLETED_WITH_ERRORS:
+            # canceled, timedOut, failed: the scan ended without evaluating the checks, and the
+            # scan logs Cloud has for it are usually empty, so say what happened here.
+            logger.error(f"Remote contract verification ended in state '{scan_status.value_}' without check results")
+        return status
+
+    def _replay_remote_scan_logs(self, scan_id: str) -> None:
+        """Fetch the scan's logs from Soda Cloud and re-emit them locally, so they reach the
+        console and the active ``Logs`` capture (the verification result's ``log_records``)."""
         logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
         logger.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
 
-        # Start capturing logs here
-        logs: Logs = Logs()
-
-        response_json: dict = logs_response.json()
-        soda_cloud_log_dicts: list[dict] = response_json.get("content")
+        response_json: Optional[dict] = _parse_json_dict(logs_response)
+        soda_cloud_log_dicts: Optional[list[dict]] = response_json.get("content") if response_json else None
         # TODO implement extra page loading if there are more pages of scan logs....
         # response body: {
         #   "content": [...],
@@ -798,18 +853,6 @@ class SodaCloud:
             logger.debug(f"No logs in Soda Cloud response")
         else:
             logger.debug(f"Expected dict for logs, but was {type(soda_cloud_log_dicts).__name__}")
-
-        if not scan_is_finished:
-            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
-            verification_result.sending_results_to_soda_cloud_failed = True
-
-        if contract_dataset_cloud_url:
-            logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
-
-        logs.close()
-        verification_result.log_records = logs.get_log_records()
-
-        return verification_result
 
     def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetch the contract contents for the given dataset identifier.
@@ -2154,18 +2197,29 @@ def _build_threshold_conditions(threshold: Threshold, check_result: CheckResult)
 
 
 def _map_remote_scan_status_to_contract_verification_status(
-    scan_status: RemoteScanStatus,
+    scan_status: Optional[RemoteScanStatus],
 ) -> CheckCollectionStatus:
     if scan_status == RemoteScanStatus.COMPLETED:
         return CheckCollectionStatus.PASSED
     elif scan_status == RemoteScanStatus.COMPLETED_WITH_WARNINGS:
         return CheckCollectionStatus.WARNED
-    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
+    elif scan_status == RemoteScanStatus.COMPLETED_WITH_FAILURES:
         return CheckCollectionStatus.FAILED
-    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):
-        return CheckCollectionStatus.ERROR
-    else:
-        return CheckCollectionStatus.UNKNOWN
+    # completedWithErrors: the engine errored. failed: the scan itself failed, which is also
+    # how a runner reports an engine that errored before producing results. canceled and
+    # timedOut: Cloud ended the scan without an outcome. None of these evaluated the checks,
+    # so none may read as a pass, nor ``failed`` as check failures.
+    return CheckCollectionStatus.ERROR
+
+
+def _parse_json_dict(response: Response) -> Optional[dict]:
+    """The response body as a dict, or None when it is not JSON or not an object."""
+    try:
+        body = response.json()
+    except ValueError:
+        logger.debug(f"Soda Cloud response is not JSON: {response.text[:200]}")
+        return None
+    return body if isinstance(body, dict) else None
 
 
 # def _build_diagnostics_column_data_type_mismatches(
