@@ -112,6 +112,11 @@ class LogsQueue(LogsBase):
         self._dropped_record_count: int = 0
         self._dropped_batch_count: int = 0
         self._last_drop_reason: Optional[str] = None
+        # Set by records_for_failure_report(): the caller is about to send sodaCoreMarkScanFailed,
+        # after which the backend rejects every further batchV4 upload for this scan — so a retired
+        # queue stops uploading (later records stay console-only and are not counted as stream
+        # losses) while still preserving error records for status determination and any later report.
+        self._retired: bool = False
         self.log_queue = queue.Queue()
         # Serialises _flush_logs between the worker thread and a caller-thread flush()
         # (records_for_failure_report, close): unserialised, the two would each take a disjoint
@@ -151,7 +156,16 @@ class LogsQueue(LogsBase):
         genuinely could not deliver are attached — the one case where attaching them is right, because they
         reached Cloud through no other channel. The rule lives here, in the gatherer, so every
         ``mark_scan_as_failed`` call site gets it without knowing it exists.
+
+        This call is also the hand-over: it RETIRES the stream. Once the report lands, the backend
+        rejects every further ``batchV4`` upload for the scan, so anything logged afterwards (the
+        report's own confirmation line, post-processing on a run that continues) can only be
+        console-visible — attempting to upload it would end the run with a false "records could not
+        be delivered" alarm right after the failure was reported successfully. Retired BEFORE the
+        flush: the flush's own HTTP call can emit records on this very thread (transport-level DEBUG
+        logging), and those must not land in a queue nothing will drain for delivery again.
         """
+        self._retired = True
         self.flush()
         return [record for record in self.logs if id(record) not in self._flushed_records]
 
@@ -166,6 +180,7 @@ class LogsQueue(LogsBase):
         self._dropped_record_count = 0
         self._dropped_batch_count = 0
         self._last_drop_reason = None
+        self._retired = False
         return self
 
     # To make sure all logs have been sent trigger close method
@@ -183,14 +198,23 @@ class LogsQueue(LogsBase):
             # failure to close logs shouldn't crash the app
             stream_logger.error(f"Error while closing the Soda Cloud log stream: {e}")
         if self._dropped_batch_count:
+            # "could not be delivered over the stream", not "missing from the scan's logs": error
+            # records among the drops still ride the failure report when the run sends one.
             stream_logger.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} {self._dropped_record_count} log record(s) in "
-                f"{self._dropped_batch_count} batch(es) could not be streamed to Soda Cloud and are missing "
-                f"from this scan's logs. Last failure: {self._last_drop_reason}"
+                f"{self._dropped_batch_count} batch(es) could not be delivered to Soda Cloud over the "
+                f"scan's log stream. Last failure: {self._last_drop_reason}"
             )
 
     def emit(self, log_record: LogRecord):
         with self.condition:
+            if self._retired:
+                # The scan reached a terminal state on Soda Cloud: nothing further can be delivered.
+                # Keep error records for status determination and a possible later failure report;
+                # the console still shows everything through the regular handler.
+                _mask_record(log_record)
+                self._preserve_if_error_log(log_record)
+                return
             log_record.__setattr__("stage", self.stage)
             log_record.__setattr__("index", self.index)
             # Every LogRecord already carries `thread` (the OS thread ident), so attribute existence cannot
@@ -312,7 +336,7 @@ class LogsQueue(LogsBase):
         # operator it was tried three times sends them down the rate-limit path for a permanent rejection.
         stream_logger.warning(
             f"Dropping {len(batch)} log record(s) after {attempts} attempt(s): {reason}. "
-            f"These records will not appear in Soda Cloud."
+            f"The scan's log stream will not carry these records."
         )
         return self.flush_interval
 

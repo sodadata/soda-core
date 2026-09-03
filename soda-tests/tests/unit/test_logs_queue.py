@@ -151,6 +151,42 @@ def test_failure_report_attaches_only_what_the_stream_could_not_deliver(mock_to_
 
 
 @patch("soda_core.common.logs_queue._to_jsonl", return_value="")
+def test_failure_report_retires_the_stream(mock_to_jsonl, caplog):
+    # records_for_failure_report is the hand-over: the caller's next act is sodaCoreMarkScanFailed,
+    # after which the backend rejects every further batchV4 upload for the scan. A retired queue
+    # therefore stops uploading — later records stay console-only and are NOT counted as stream
+    # losses (the false "could not be delivered" alarm right after a successful failure report).
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.emit(_record(logging.ERROR, "boom"))
+
+    assert logs_queue.records_for_failure_report() == []
+    logs_queue.emit(_record(logging.INFO, "reported the failure to Soda Cloud"))
+    logs_queue.flush()
+
+    # Only the pre-report flush went out; the post-report record was never queued for upload.
+    logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
+    assert logs_queue._dropped_batch_count == 0
+    with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
+        logs_queue.close()
+    assert "could not be delivered" not in caplog.text
+
+
+@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
+def test_retired_stream_still_serves_status_and_a_later_failure_report(mock_to_jsonl):
+    # A run can continue after a mid-run failure report (metric monitoring's errored_without_results
+    # branch): error records emitted after retirement must keep driving has_errors and be available
+    # to a later report, even though they can no longer be streamed.
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.records_for_failure_report()
+
+    logs_queue.emit(_record(logging.ERROR, "post-report error"))
+
+    assert [record.getMessage() for record in logs_queue.get_error_logs()] == ["post-report error"]
+    assert [record.getMessage() for record in logs_queue.records_for_failure_report()] == ["post-report error"]
+    logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
+
+
+@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
 def test_failure_report_only_carries_error_records(mock_to_jsonl):
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
@@ -321,7 +357,9 @@ def test_close_summarises_the_dropped_records(mock_to_jsonl, caplog):
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
 
-    assert "2 log record(s) in 1 batch(es) could not be streamed to Soda Cloud" in caplog.text
+    assert "2 log record(s) in 1 batch(es) could not be delivered to Soda Cloud over the scan's log stream" in (
+        caplog.text
+    )
     assert "HTTP 400" in caplog.text
 
 
@@ -333,7 +371,7 @@ def test_close_stays_silent_when_nothing_was_dropped(mock_to_jsonl, caplog):
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
 
-    assert "could not be streamed" not in caplog.text
+    assert "could not be delivered" not in caplog.text
 
 
 def test_worker_survives_an_unexpected_flush_failure():

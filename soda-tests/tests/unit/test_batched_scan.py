@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -25,6 +26,14 @@ DATA_TIMESTAMP = datetime(2026, 7, 13, 8, 30, tzinfo=timezone.utc)
 @pytest.fixture(autouse=True)
 def _no_retry_backoff(monkeypatch):
     monkeypatch.setattr(logs_queue_module, "RETRY_DELAY_SECONDS", 0)
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_flush_cadence(monkeypatch):
+    # The worker's cadence flush must never interleave with the exact-sequence assertions below:
+    # batches ship only on the explicit flushes and the close. (The queue reads the module constant
+    # at construction, which happens inside start_scan during each test.)
+    monkeypatch.setattr(logs_queue_module, "DEFAULT_FLUSH_INTERVAL", 3600)
 
 
 def _payload() -> dict:
@@ -417,6 +426,38 @@ def test_run_batched_scan_partly_rejected_session_leaves_the_scan_unended(monkey
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
+
+
+def test_run_batched_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
+    # Once sodaCoreMarkScanFailed lands, the backend rejects every further batchV4 upload for the
+    # scan. The report's own confirmation line (and anything logged after it) must therefore stay
+    # console-only — streaming it would end the run with a false "records could not be delivered"
+    # alarm immediately after the failure was reported successfully.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _BatchedScanSodaCloud()
+    original_handle = mock_cloud._http_handle
+
+    def terminal_aware(method, url, headers, json, data):
+        response = original_handle(method, url, headers, json, data)
+        if isinstance(json, dict) and json.get("type") == "sodaCoreMarkScanFailed":
+            # The real backend: the mark moves the scan out of its log-accepting state.
+            mock_cloud.log_upload_status = 400
+        return response
+
+    mock_cloud._http_handle = terminal_aware
+
+    def command(context: BatchedScanContext) -> ExitCode:
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        raise ValueError("boom")
+
+    with caplog.at_level(logging.INFO):
+        exit_code = run_batched_scan(mock_cloud, command=command)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    kinds = _request_kinds(mock_cloud)
+    # Nothing is uploaded after the terminal command — the report retired the stream.
+    assert "logsBatchV4" not in kinds[kinds.index("sodaCoreMarkScanFailed") + 1 :]
+    assert "could not be delivered" not in caplog.text
 
 
 def test_run_batched_scan_rejected_end_is_retried_then_fatal(monkeypatch):
