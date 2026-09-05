@@ -195,8 +195,36 @@ def test_get_large_numeric_cast_type_name_is_numeric():
     assert BigQuerySqlDialect().get_large_numeric_cast_type_name() == "NUMERIC"
 
 
-def test_sql_expr_timestamp_coerce_wraps_in_timestamp():
-    assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "timestamp(`dt`)"
+def test_sql_expr_timestamp_coerce_wraps_in_pruning_safe_datetime_cast():
+    # timestamp(expr) is not accepted for partition elimination (tables with
+    # require_partition_filter reject the query); CAST(... AS DATETIME) is, and it
+    # compiles for DATE, DATETIME and TIMESTAMP expressions alike.
+    assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "CAST(`dt` AS DATETIME)"
+
+
+def test_literal_datetime_aware_normalizes_to_utc_and_drops_offset():
+    # An offset-carrying ISO string cannot coerce to a DATETIME column, and the
+    # coerce hook makes the compared expression DATETIME-typed.
+    from datetime import datetime, timedelta, timezone
+
+    aware = datetime(2026, 8, 18, 2, 5, tzinfo=timezone(timedelta(hours=2)))
+    assert BigQuerySqlDialect().literal_datetime(aware) == "'2026-08-18T00:05:00'"
+
+
+def test_literal_datetime_naive_renders_unchanged():
+    from datetime import datetime
+
+    assert BigQuerySqlDialect().literal_datetime(datetime(2020, 6, 20)) == "'2020-06-20T00:00:00'"
+
+
+def test_literal_timestamp_typed_renders_untyped_string():
+    # Untyped on BigQuery: string literals coerce inside DATETIME_DIFF/DATETIME_ADD (the anchor
+    # positions) AND against raw TIMESTAMP/DATETIME columns in user-authored custom metric SQL,
+    # where a typed DATETIME literal breaks the 'col BETWEEN ${soda.PARTITION_START_TIME} ...'
+    # pattern on TIMESTAMP columns.
+    from datetime import datetime
+
+    assert BigQuerySqlDialect().literal_timestamp_typed(datetime(2020, 6, 20)) == "'2020-06-20 00:00:00'"
 
 
 # ---------------------------------------------------------------------------
@@ -227,13 +255,16 @@ def test_percentile_within_group_renders_approx_quantiles_q3():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes:
-# TIMESTAMP_DIFF with singular unit names + CAST(FLOOR(../count) AS INT) when
-# count != 1; TIMESTAMP_ADD with an INTERVAL taking the count expression.
+# TIME_DELTA / ADD_INTERVAL — metric-monitoring time-bucket nodes.
+# DATETIME (not TIMESTAMP) arithmetic so the operands match the coerce hook's
+# CAST(... AS DATETIME). The delta measures elapsed MICROSECONDs floor-divided
+# by the unit size: DATETIME_DIFF at DAY/HOUR counts calendar-boundary
+# crossings (a 2h span across midnight is 1 DAY), which would mis-bucket grids
+# anchored off midnight.
 # ---------------------------------------------------------------------------
 
 
-def test_time_delta_renders_timestamp_diff_singular_unit():
+def test_time_delta_measures_elapsed_microseconds_per_day():
     from datetime import datetime
 
     from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
@@ -241,10 +272,10 @@ def test_time_delta_renders_timestamp_diff_singular_unit():
     sql = BigQuerySqlDialect().build_expression_sql(
         TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "days", 1)
     )
-    assert sql == "TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', DAY)"
+    assert sql == "CAST(FLOOR(DATETIME_DIFF((`ts`), '2020-06-20T00:00:00', MICROSECOND) / 86400000000) AS INT)"
 
 
-def test_time_delta_timestamp_diff_count_2_wraps_cast_floor():
+def test_time_delta_count_2_hours_divides_by_double_unit_size():
     from datetime import datetime
 
     from soda_core.common.sql_ast import LITERAL, TIME_DELTA, SqlExpressionStr
@@ -252,10 +283,10 @@ def test_time_delta_timestamp_diff_count_2_wraps_cast_floor():
     sql = BigQuerySqlDialect().build_expression_sql(
         TIME_DELTA(LITERAL(datetime(2020, 6, 20)), SqlExpressionStr("`ts`"), "hours", 2)
     )
-    assert sql == "CAST(FLOOR(TIMESTAMP_DIFF((`ts`), '2020-06-20T00:00:00', HOUR) / 2) AS INT)"
+    assert sql == "CAST(FLOOR(DATETIME_DIFF((`ts`), '2020-06-20T00:00:00', MICROSECOND) / 7200000000) AS INT)"
 
 
-def test_add_interval_renders_timestamp_add():
+def test_add_interval_renders_datetime_add():
     from datetime import datetime
 
     from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
@@ -263,13 +294,13 @@ def test_add_interval_renders_timestamp_add():
     sql = BigQuerySqlDialect().build_expression_sql(
         ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "days", SqlExpressionStr("(soda_partition__ + 1) * 1"))
     )
-    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) DAY)"
+    assert sql == "DATETIME_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) DAY)"
 
 
 def test_add_interval_weeks_renders_as_days_times_seven():
-    # BigQuery TIMESTAMP functions accept only MICROSECOND..DAY parts (WEEK is a
-    # DATE_DIFF/DATETIME_DIFF-only part), so weekly intervals must be expressed
-    # as INTERVAL <count> * 7 DAY.
+    # Weekly arithmetic stays day-denominated (INTERVAL <count> * 7 DAY) even though
+    # DATETIME functions accept WEEK: the day form keeps the pinned cross-dialect
+    # bucket indexes identical.
     from datetime import datetime
 
     from soda_core.common.sql_ast import ADD_INTERVAL, LITERAL, SqlExpressionStr
@@ -277,7 +308,7 @@ def test_add_interval_weeks_renders_as_days_times_seven():
     sql = BigQuerySqlDialect().build_expression_sql(
         ADD_INTERVAL(LITERAL(datetime(2020, 6, 20)), "weeks", SqlExpressionStr("(soda_partition__ + 1) * 1"))
     )
-    assert sql == "TIMESTAMP_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) * 7 DAY)"
+    assert sql == "DATETIME_ADD('2020-06-20T00:00:00', INTERVAL ((soda_partition__ + 1) * 1) * 7 DAY)"
 
 
 # ---------------------------------------------------------------------------
@@ -367,9 +398,9 @@ def test_literal_string_none_returns_none():
 
 
 # ---------------------------------------------------------------------------
-# TIME_DELTA / ADD_INTERVAL — weekly arithmetic renders day-denominated:
-# BigQuery TIMESTAMP functions only accept MICROSECOND..DAY parts (WEEK is a
-# DATE_DIFF/DATETIME_DIFF-only part).
+# TIME_DELTA / ADD_INTERVAL — weekly arithmetic renders day-denominated
+# (INTERVAL <count> * 7 DAY / floor over 7·count days of microseconds),
+# keeping cross-dialect bucket indexes identical.
 # ---------------------------------------------------------------------------
 
 
@@ -382,7 +413,7 @@ def test_time_delta_weekly_buckets_render_day_denominated():
         TIME_DELTA(LITERAL(datetime(2020, 6, 1)), SqlExpressionStr("`ts`"), "weeks", 2)
     )
     assert "WEEK" not in sql
-    assert sql.endswith("DAY) / 14) AS INT)")
+    assert sql.endswith("MICROSECOND) / 1209600000000) AS INT)")
 
 
 def test_time_delta_single_week_still_floors_by_seven_days():
@@ -394,7 +425,7 @@ def test_time_delta_single_week_still_floors_by_seven_days():
         TIME_DELTA(LITERAL(datetime(2020, 6, 1)), SqlExpressionStr("`ts`"), "weeks", 1)
     )
     assert "WEEK" not in sql
-    assert sql.endswith("DAY) / 7) AS INT)")
+    assert sql.endswith("MICROSECOND) / 604800000000) AS INT)")
 
 
 def test_regex_like_pattern_goes_through_literal_string():
