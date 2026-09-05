@@ -1195,7 +1195,7 @@ class DataSourceTestHelper:
 
         These queries bypass snapshot recording/replay entirely and return the
         provided mock result directly. Override in subclasses for data-source-specific
-        session-level queries that run lazily during tests (e.g. BigQuery's SELECT @@location).
+        session-level queries that run lazily during tests.
         """
         return {}
 
