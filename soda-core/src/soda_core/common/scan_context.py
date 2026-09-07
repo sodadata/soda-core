@@ -158,11 +158,10 @@ class BatchedScanContext(ScanContext):
                 f"Soda Cloud did not accept sodaCoreScanStart for scan '{self.scan_id}'."
             )
         self.scan_reference = scan_reference
-        gatherer = build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id)
-        if gatherer is not None and self.logs is not None:
+        if self.logs is not None:
             # Adopted by the run's existing Logs, which stays the active capture target; the
             # bracket owns its lifecycle.
-            self.logs.switch_gatherer(gatherer)
+            self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
 
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         # No atomic fallback: a batched run without a scan_reference is a flow bug (inserting

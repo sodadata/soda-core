@@ -74,18 +74,8 @@ def test_flush_uses_batch_v3_when_only_scan_reference_set(mock_to_jsonl):
     logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
 
 
-# build_streaming_gatherer: the construction site for scan-id-keyed streaming.
-
-
-@patch("soda_core.common.logs_queue.EnvConfigHelper")
-def test_build_streaming_gatherer_returns_none_without_scan_id(mock_env_config_helper_cls):
-    mock_env_config_helper_cls.return_value.soda_scan_id = None
-
-    assert build_streaming_gatherer(MagicMock()) is None
-
-
-def test_build_streaming_gatherer_returns_none_without_soda_cloud():
-    assert build_streaming_gatherer(None, scan_id="scan-id-123") is None
+# build_streaming_gatherer: the construction site for scan-id-keyed streaming. Callers resolve
+# the scan id themselves (EnvConfigHelper is the one place that reads SODA_SCAN_ID).
 
 
 def test_build_streaming_gatherer_builds_a_main_stage_scan_id_keyed_queue():
@@ -97,17 +87,6 @@ def test_build_streaming_gatherer_builds_a_main_stage_scan_id_keyed_queue():
         assert gatherer.scan_id == "scan-id-123"
         assert gatherer.scan_reference is None
         assert gatherer.stage == "main"
-    finally:
-        gatherer.close()
-
-
-@patch("soda_core.common.logs_queue.EnvConfigHelper")
-def test_build_streaming_gatherer_reads_scan_id_from_env_when_not_passed(mock_env_config_helper_cls):
-    mock_env_config_helper_cls.return_value.soda_scan_id = "scan-id-env"
-
-    gatherer = build_streaming_gatherer(MagicMock())
-    try:
-        assert gatherer.scan_id == "scan-id-env"
     finally:
         gatherer.close()
 
