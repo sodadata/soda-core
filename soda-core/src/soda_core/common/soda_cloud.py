@@ -83,6 +83,10 @@ class RemoteScanStatus(Enum):
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
 
 
+# Seconds between two status polls when Soda Cloud does not suggest a next poll time.
+_DEFAULT_POLL_INTERVAL_SECONDS: float = 5
+
+
 class MigrationStatus(Enum):
     CREATED = "created"
     GENERATING_CONTRACTS = "generatingContracts"
@@ -623,7 +627,7 @@ class SodaCloud:
         response: Response = self._execute_query(
             query_json_dict=dataset_responsibilities_query, request_log_name="can_manage_contracts"
         )
-        if not response.status_code == 200:  # TODO: should this also not be a critical issue causing the scan to fail?
+        if response is None or response.status_code != 200:
             return False, None
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
@@ -694,6 +698,12 @@ class SodaCloud:
                 publish_results=publish_results,
                 verbose=verbose,
             )
+        except Exception as e:
+            # Caught inside the capture window: the traceback joins the records logged
+            # before it, and the result keeps its dataset identity instead of being
+            # replaced by a bare placeholder further up.
+            logger.error(f"Remote contract verification failed: {e}", exc_info=True)
+            verification_result.status = CheckCollectionStatus.ERROR
         finally:
             logs.close()
             verification_result.log_records = logs.get_log_records()
@@ -768,21 +778,26 @@ class SodaCloud:
             scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
 
-        self._replay_remote_scan_logs(scan_id)
+        try:
+            self._replay_remote_scan_logs(scan_id)
+        except Exception as e:
+            # The replay is informational. A hiccup fetching the logs must not turn the
+            # outcome Cloud already reported into an error.
+            logger.warning(f"Could not fetch the logs of scan {scan_id} from Soda Cloud: {e}")
 
         if contract_dataset_cloud_url:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
         if not scan_is_finished:
-            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
+            logger.error("Max retries exceeded. Contract verification did not finish yet.")
             verification_result.sending_results_to_soda_cloud_failed = True
             return CheckCollectionStatus.ERROR
 
         status: CheckCollectionStatus = _map_remote_scan_status_to_contract_verification_status(scan_status)
-        if status is CheckCollectionStatus.ERROR and scan_status is not RemoteScanStatus.COMPLETED_WITH_ERRORS:
-            # canceled, timedOut, failed: the scan ended without evaluating the checks, and the
-            # scan logs Cloud has for it are usually empty, so say what happened here.
-            logger.error(f"Remote contract verification ended in state '{scan_status.value_}' without check results")
+        if status is CheckCollectionStatus.ERROR:
+            # Say what happened here as well: for canceled, timedOut and failed the scan logs
+            # Cloud has are usually empty, and get_errors() must never be empty on ERROR.
+            logger.error(f"Remote contract verification ended in state '{scan_status.value_}'")
         return status
 
     def _replay_remote_scan_logs(self, scan_id: str) -> None:
@@ -1247,27 +1262,41 @@ class SodaCloud:
             logger.debug(
                 f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}. Max wait: {max_wait}"
             )
-            response = self._get_scan_status(scan_id)
-            logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+            try:
+                response = self._get_scan_status(scan_id)
+                logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+            except Exception as e:
+                logger.warning(f"Failed to poll the status of scan {scan_id}, retrying: {e}")
+                sleep(_DEFAULT_POLL_INTERVAL_SECONDS)
+                continue
             if not response:
-                logger.error(f"Failed to poll remote scan status. " f"Response: {response}")
+                logger.warning(f"Failed to poll the status of scan {scan_id}, retrying. Response: {response}")
+                sleep(_DEFAULT_POLL_INTERVAL_SECONDS)
                 continue
 
-            response_body_dict: Optional[dict] = response.json() if response else None
+            response_body_dict: Optional[dict] = _parse_json_dict(response)
             contract_dataset_cloud_url: Optional[str] = (
                 response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
             )
 
-            if "state" not in response_body_dict:
-                continue
-            scan_state = RemoteScanStatus.from_value(response_body_dict["state"])
+            state_value: Optional[str] = response_body_dict.get("state") if response_body_dict else None
+            scan_state: Optional[RemoteScanStatus] = None
+            if state_value is None:
+                logger.warning(f"Status response for scan {scan_id} carries no state, retrying")
+            else:
+                try:
+                    scan_state = RemoteScanStatus.from_value(state_value)
+                except ValueError:
+                    # A state this client does not know is treated as not final: keep polling
+                    # until Cloud reports one it does know, or the deadline passes.
+                    logger.warning(f"Scan {scan_id} has unknown state '{state_value}', treating it as not final")
 
-            logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+            if scan_state is not None:
+                logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+                if scan_state.is_final_state:
+                    return True, contract_dataset_cloud_url, scan_state
 
-            if scan_state.is_final_state:
-                return True, contract_dataset_cloud_url, scan_state
-
-            time_to_wait_in_seconds: float = 5
+            time_to_wait_in_seconds: float = _DEFAULT_POLL_INTERVAL_SECONDS
             next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
             if next_poll_time_str:
                 logger.debug(
