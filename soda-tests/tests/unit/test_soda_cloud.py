@@ -9,6 +9,8 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict, matcher_string_contains
 from helpers.mock_soda_cloud import MockHttpMethod, MockRequest, MockResponse, MockSodaCloud
 from helpers.test_table import TestTableSpecification
+from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import interpret_contract_verification_result
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str
@@ -32,6 +34,8 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     ContractVerificationResult,
+    ContractVerificationSessionResult,
+    ContractVerificationStatus,
     PostProcessingStage,
     PostProcessingStageState,
     ScanTokenUsage,
@@ -40,6 +44,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     ContractVerificationHandler,
     ContractVerificationHandlerRegistry,
+    ContractVerificationSessionImpl,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
@@ -642,7 +647,9 @@ def test_verify_contract_on_runner_permission_check():
     assert res.check_collection.dataset_prefix == ["some", "schema"]
     assert res.check_results == []
     assert res.measurements == []
-    assert res.log_records is None
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.has_errors
+    assert any("insufficient permissions" in error for error in res.get_errors())
 
 
 def test_verify_contract_on_agent_permission_check_deprecated():
@@ -682,7 +689,9 @@ def test_verify_contract_on_agent_permission_check_deprecated():
     assert res.contract.dataset_prefix == ["some", "schema"]
     assert res.check_results == []
     assert res.measurements == []
-    assert res.log_records is None
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.has_errors
+    assert any("insufficient permissions" in error for error in res.get_errors())
 
 
 @mock.patch("requests.post")
@@ -1118,3 +1127,286 @@ def test_execute_dataset_query_non_json_error_body_raises_soda_cloud_exception_n
 def test_execute_dataset_query_non_json_200_body_returns_empty_dict():
     soda_cloud = _soda_cloud_with_query_response(_query_response(200, json_raises=True))
     assert soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something") == {}
+
+
+# ---- verify_contract_on_runner: every path without an outcome from Cloud must be ERROR ----
+
+_RUNNER_CONTRACT_YAML = """
+dataset: test/some/schema/CUSTOMERS
+columns:
+- name: id
+"""
+
+
+def _runner_allowed() -> MockResponse:
+    return MockResponse(status_code=200, json_object={"allowed": True})
+
+
+def _runner_uploaded() -> MockResponse:
+    return MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fffileid"})
+
+
+def _runner_scan_created() -> MockResponse:
+    return MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"scanId": "ssscanid"})
+
+
+def _runner_scan_state(state: str) -> MockResponse:
+    return MockResponse(
+        method=MockHttpMethod.GET,
+        status_code=200,
+        json_object={
+            "scanId": "ssscanid",
+            "state": state,
+            "contractDatasetCloudUrl": "https://the-contract-dataset-url",
+        },
+    )
+
+
+def _runner_scan_logs() -> MockResponse:
+    return MockResponse(
+        method=MockHttpMethod.GET,
+        status_code=200,
+        json_object={
+            "content": [],
+            "totalElements": 0,
+            "totalPages": 1,
+            "number": 0,
+            "size": 0,
+            "last": True,
+            "first": True,
+        },
+    )
+
+
+def _verify_on_runner_with(cloud: MockSodaCloud, blocking_timeout_in_minutes: int = 60) -> ContractVerificationResult:
+    return cloud.verify_contract_on_runner(
+        ContractYaml.parse(ContractYamlSource.from_str(_RUNNER_CONTRACT_YAML)),
+        variables={},
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        publish_results=False,
+        verbose=False,
+    )
+
+
+def _verify_on_runner(
+    responses: list[MockResponse], blocking_timeout_in_minutes: int = 60
+) -> ContractVerificationResult:
+    return _verify_on_runner_with(MockSodaCloud(responses), blocking_timeout_in_minutes)
+
+
+def _exit_code(result: ContractVerificationResult) -> ExitCode:
+    return interpret_contract_verification_result(ContractVerificationSessionResult([result]))
+
+
+def test_verify_contract_on_runner_permission_query_failed():
+    res = _verify_on_runner([MockResponse(status_code=500, json_object={})])
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.has_errors
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert _exit_code(res) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_verify_contract_on_runner_upload_failed_returns_error_result():
+    res = _verify_on_runner(
+        [_runner_allowed(), MockResponse(method=MockHttpMethod.POST, status_code=500, json_object={})]
+    )
+
+    assert isinstance(res, ContractVerificationResult)
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert _exit_code(res) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_verify_contract_on_runner_verify_command_failed():
+    res = _verify_on_runner(
+        [
+            _runner_allowed(),
+            _runner_uploaded(),
+            MockResponse(method=MockHttpMethod.POST, status_code=500, json_object={}),
+        ]
+    )
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert _exit_code(res) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_verify_contract_on_runner_without_scan_id():
+    res = _verify_on_runner(
+        [
+            _runner_allowed(),
+            _runner_uploaded(),
+            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={}),
+        ]
+    )
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.has_errors
+    assert res.sending_results_to_soda_cloud_failed is False
+    assert any("Scan ID" in error for error in res.get_errors())
+    assert _exit_code(res) == ExitCode.LOG_ERRORS
+
+
+def test_verify_contract_on_runner_poll_timeout():
+    res = _verify_on_runner(
+        [_runner_allowed(), _runner_uploaded(), _runner_scan_created(), _runner_scan_logs()],
+        blocking_timeout_in_minutes=0,
+    )
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert any("did not finish" in error for error in res.get_errors())
+    assert _exit_code(res) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@pytest.mark.parametrize(
+    "state, expected_status, expected_exit_code",
+    [
+        ("completed", ContractVerificationStatus.PASSED, ExitCode.OK),
+        ("completedWithWarnings", ContractVerificationStatus.WARNED, ExitCode.CHECK_WARNINGS),
+        ("completedWithFailures", ContractVerificationStatus.FAILED, ExitCode.CHECK_FAILURES),
+        ("completedWithErrors", ContractVerificationStatus.ERROR, ExitCode.LOG_ERRORS),
+        ("failed", ContractVerificationStatus.ERROR, ExitCode.LOG_ERRORS),
+        ("canceled", ContractVerificationStatus.ERROR, ExitCode.LOG_ERRORS),
+        ("timedOut", ContractVerificationStatus.ERROR, ExitCode.LOG_ERRORS),
+    ],
+)
+def test_verify_contract_on_runner_final_state(state, expected_status, expected_exit_code):
+    res = _verify_on_runner(
+        [
+            _runner_allowed(),
+            _runner_uploaded(),
+            _runner_scan_created(),
+            _runner_scan_state(state),
+            _runner_scan_logs(),
+        ]
+    )
+
+    assert res.status is expected_status
+    assert res.scan_id == "ssscanid"
+    assert res.sending_results_to_soda_cloud_failed is False
+    assert _exit_code(res) == expected_exit_code
+    if expected_status is ContractVerificationStatus.ERROR:
+        assert any(f"'{state}'" in error for error in res.get_errors())
+
+
+def test_execute_on_runner_isolates_exceptions_as_error_results(monkeypatch):
+    mock_cloud = MockSodaCloud([])
+
+    def raise_boom(**kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(mock_cloud, "verify_contract_on_runner", raise_boom)
+
+    results = ContractVerificationSessionImpl._execute_on_runner(
+        contract_yaml_sources=[ContractYamlSource.from_str(_RUNNER_CONTRACT_YAML)],
+        variables={},
+        soda_cloud_impl=mock_cloud,
+        soda_cloud_use_runner_blocking_timeout_in_minutes=60,
+        soda_cloud_publish_results=False,
+        soda_cloud_verbose=False,
+    )
+
+    assert len(results) == 1
+    assert results[0].status is ContractVerificationStatus.ERROR
+    assert isinstance(results[0].error, RuntimeError)
+    assert any("boom" in error for error in results[0].get_errors())
+    assert _exit_code(results[0]) == ExitCode.LOG_ERRORS
+
+
+def test_verify_contract_on_runner_permission_query_unreachable(monkeypatch):
+    mock_cloud = MockSodaCloud([])
+
+    def raise_connection_error(*args, **kwargs):
+        raise ConnectionError("cloud down")
+
+    monkeypatch.setattr(mock_cloud, "_http_post", raise_connection_error)
+
+    res = _verify_on_runner_with(mock_cloud)
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert _exit_code(res) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_verify_contract_on_runner_keeps_result_when_the_path_raises(monkeypatch):
+    mock_cloud = MockSodaCloud([_runner_allowed(), _runner_uploaded(), _runner_scan_created()])
+
+    def raise_boom(**kwargs):
+        raise RuntimeError("boom while polling")
+
+    monkeypatch.setattr(mock_cloud, "_poll_remote_scan_finished", raise_boom)
+
+    res = _verify_on_runner_with(mock_cloud)
+
+    assert res.status is ContractVerificationStatus.ERROR
+    assert res.check_collection.dataset_name == "CUSTOMERS"
+    assert res.scan_id == "ssscanid"
+    assert any("boom while polling" in error for error in res.get_errors())
+    assert _exit_code(res) == ExitCode.LOG_ERRORS
+
+
+def test_verify_contract_on_runner_survives_log_fetch_failure(monkeypatch):
+    mock_cloud = MockSodaCloud(
+        [_runner_allowed(), _runner_uploaded(), _runner_scan_created(), _runner_scan_state("completed")]
+    )
+
+    def raise_connection_error(**kwargs):
+        raise ConnectionError("logs endpoint down")
+
+    monkeypatch.setattr(mock_cloud, "_get_scan_logs", raise_connection_error)
+
+    res = _verify_on_runner_with(mock_cloud)
+
+    assert res.status is ContractVerificationStatus.PASSED
+    assert not res.has_errors
+    assert any("logs endpoint down" in warning for warning in res.get_warnings())
+    assert _exit_code(res) == ExitCode.OK
+
+
+def test_verify_contract_on_runner_keeps_polling_through_unknown_state(monkeypatch):
+    monkeypatch.setattr("soda_core.common.soda_cloud.sleep", lambda seconds: None)
+
+    res = _verify_on_runner(
+        [
+            _runner_allowed(),
+            _runner_uploaded(),
+            _runner_scan_created(),
+            _runner_scan_state("started"),
+            _runner_scan_state("completed"),
+            _runner_scan_logs(),
+        ]
+    )
+
+    assert res.status is ContractVerificationStatus.PASSED
+    assert any("unknown state 'started'" in warning for warning in res.get_warnings())
+
+
+def test_verify_contract_on_runner_keeps_polling_through_status_request_failure(monkeypatch):
+    monkeypatch.setattr("soda_core.common.soda_cloud.sleep", lambda seconds: None)
+    mock_cloud = MockSodaCloud(
+        [
+            _runner_allowed(),
+            _runner_uploaded(),
+            _runner_scan_created(),
+            _runner_scan_state("completed"),
+            _runner_scan_logs(),
+        ]
+    )
+    original_get_scan_status = mock_cloud._get_scan_status
+    calls = {"count": 0}
+
+    def flaky_get_scan_status(scan_id):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ConnectionError("connection reset by peer")
+        return original_get_scan_status(scan_id)
+
+    monkeypatch.setattr(mock_cloud, "_get_scan_status", flaky_get_scan_status)
+
+    res = _verify_on_runner_with(mock_cloud)
+
+    assert res.status is ContractVerificationStatus.PASSED
+    assert calls["count"] == 2
+    assert any("retrying" in warning for warning in res.get_warnings())
