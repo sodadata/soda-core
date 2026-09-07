@@ -8,6 +8,7 @@ import soda_core.common.logs_queue as logs_queue_module
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.scan import run_scan
+from soda_core.common.exceptions import ScanExecutionFailedException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.logs_collector import LogsCollector
@@ -170,18 +171,17 @@ def test_batched_context_insert_results_batches_when_scan_reference_set():
     soda_cloud.insert_scan_results.assert_not_called()
 
 
-def test_batched_context_without_scan_reference_falls_back_to_the_sync_send():
+def test_batched_context_insert_before_start_fails_loudly():
+    # No atomic fallback: a batched run without a scan_reference is a flow bug (inserting before
+    # start_scan) — a failed start already failed the run inside start_scan.
     soda_cloud = MagicMock()
     context = BatchedScanContext(soda_cloud, scan_id="scan-123")
-    payload = {"definitionName": "my_scan"}
 
-    context.insert_results(payload)
+    with pytest.raises(AssertionError, match="start_scan"):
+        context.insert_results(_payload())
 
-    soda_cloud.insert_scan_results.assert_called_once_with(
-        {"definitionName": "my_scan", "type": "sodaCoreInsertScanResults"}
-    )
+    soda_cloud.insert_scan_results.assert_not_called()
     soda_cloud.insert_scan_data_batch.assert_not_called()
-    assert "type" not in payload
 
 
 def test_batched_context_records_delivered_and_rejected_uploads():
@@ -237,22 +237,35 @@ def test_start_scan_is_idempotent():
         context.logs.close()
 
 
-def test_start_scan_rejected_stays_on_the_sync_path_with_in_memory_logs():
+def test_start_scan_rejected_fails_the_run():
     mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=400)
     logs = Logs()
     context = BatchedScanContext(mock_cloud, scan_id="scan-123")
     context.logs = logs
     try:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
-        context.insert_results(_payload())
+        with pytest.raises(ScanExecutionFailedException, match="did not accept sodaCoreScanStart"):
+            context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
 
         assert context.scan_reference is None
-        # In-memory logs survive a rejected start: the payload keeps carrying them (the backend
-        # would refuse batchV4 uploads for a never-started scan, so streaming would lose them).
+        # Nothing streamed: the failure report attaches the full in-memory record list.
         assert isinstance(logs.gatherer, LogsCollector)
-        assert _request_kinds(mock_cloud) == ["sodaCoreScanStart", "sodaCoreInsertScanResults"]
+        assert _request_kinds(mock_cloud) == ["sodaCoreScanStart"]
     finally:
         logs.close()
+
+
+def test_start_scan_raising_client_call_fails_the_run_the_same_way():
+    # A raising scan_start (e.g. an authentication failure escaping the client) is the same
+    # fail-the-scan path as a rejection — same clean-message exception, cause preserved.
+    soda_cloud = MagicMock()
+    original = ConnectionError("network down")
+    soda_cloud.scan_start.side_effect = original
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+
+    with pytest.raises(ScanExecutionFailedException, match="network down") as excinfo:
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+
+    assert excinfo.value.__cause__ is original
 
 
 # ---------------------------------------------------------------------------
@@ -341,20 +354,25 @@ def test_run_scan_managed_command_that_never_starts_a_scan_ends_nothing(monkeypa
     assert _request_kinds(mock_cloud) == []
 
 
-def test_run_scan_degrades_to_sync_when_scan_start_fails(monkeypatch):
+def test_run_scan_failed_start_marks_the_scan_failed(monkeypatch):
+    # A failed start takes the standard failure mapping: no results insert, no scan end — the
+    # failure report (with the full in-memory record list) owns the scan's terminal state.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=400)
 
     def command(logs: Logs) -> ExitCode:
+        soda_logger.info("resolution before the start")
         context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
-        context.insert_results(_payload())
-        return ExitCode.OK
+        raise AssertionError("unreachable: start_scan must raise")
 
     exit_code = run_scan(mock_cloud, command)
 
-    assert exit_code == ExitCode.OK
-    assert _request_kinds(mock_cloud) == ["sodaCoreScanStart", "sodaCoreInsertScanResults"]
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert _request_kinds(mock_cloud) == ["sodaCoreScanStart", "sodaCoreMarkScanFailed"]
+    reported = _command_json(mock_cloud, "sodaCoreMarkScanFailed")["logs"]
+    assert any("resolution before the start" in entry["message"] for entry in reported)
+    assert any("did not accept sodaCoreScanStart" in entry["message"] for entry in reported)
 
 
 def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):

@@ -11,9 +11,9 @@ data source name and data timestamp, which each flow only knows once its depende
 the wrapped command — and the backend only accepts ``batchV4`` log uploads after a successful start.
 The flow therefore calls ``get_scan_context().start_scan(...)`` as soon as it has resolved those
 values (before its engine work, so the expensive phase streams); the context then upgrades the run's
-``Logs`` from the in-memory collector to a streaming queue, replaying what was already captured. A run
-that never starts (ad-hoc, or a rejected start) stays fully in-memory, so its results payload carries
-the logs exactly as today and nothing is ever lost to a stream the backend would reject.
+``Logs`` from the in-memory collector to a streaming queue, replaying what was already captured. An
+ad-hoc run stays fully in-memory, so its results payload carries the logs exactly as today; a managed
+run whose start fails is failed by ``start_scan`` itself and takes the standard failure mapping below.
 """
 
 from __future__ import annotations

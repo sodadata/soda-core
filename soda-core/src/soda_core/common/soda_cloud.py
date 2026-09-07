@@ -398,8 +398,8 @@ class SodaCloud:
         """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the
         ``scanReference`` that keys the async ingestion pipeline
         (``insert_scan_data_batch`` / ``scan_end_async``), or None when the
-        command was rejected or the response carried no reference — callers
-        degrade to the sync ``insert_scan_results`` path.
+        command was rejected or the response carried no reference —
+        ``BatchedScanContext.start_scan`` fails the run on it.
 
         ``definitionName``, ``defaultDataSource`` and ``dataTimestamp`` are
         backend-mandatory (the executor dispatches on the definition's type and

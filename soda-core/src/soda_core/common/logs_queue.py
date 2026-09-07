@@ -145,11 +145,13 @@ class LogsQueue(LogsBase):
         reached Cloud through no other channel. The rule lives here, in the gatherer, so every
         ``mark_scan_as_failed`` call site gets it without knowing it exists.
 
-        This call is also the hand-over: it RETIRES the stream. Once the report lands, the backend
-        rejects every further ``batchV4`` upload for the scan, so anything logged afterwards (the
-        report's own confirmation line, post-processing on a run that continues) can only be
-        console-visible — attempting to upload it would end the run with a false "records could not
-        be delivered" alarm right after the failure was reported successfully. Retired BEFORE the
+        This call is also the hand-over: it RETIRES the stream. A report that attaches records
+        moves the scan off the ongoing-log store, after which the backend rejects every further
+        ``batchV4`` upload (an empty report leaves the store open, but the scan is terminal either
+        way), so anything logged afterwards (the report's own confirmation line, post-processing on
+        a run that continues) stays console-only — attempting to upload it could end the run with a
+        false "records could not be delivered" alarm right after the failure was reported
+        successfully. Retired BEFORE the
         flush: the flush's own HTTP call can emit records on this very thread (transport-level DEBUG
         logging), and those must not land in a queue nothing will drain for delivery again.
         """
