@@ -148,6 +148,7 @@ def test_handle_discover_data_source_opens_connection_and_posts_payload(
             scan_definition_name="discovery_scan_definition",
             include=[test_table.unique_name],
         ),
+        batched=True,
     )
 
     assert exit_code == ExitCode.OK

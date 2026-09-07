@@ -558,6 +558,7 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
                     exclude=args.exclude,
                     logs=logs,
                 ),
+                batched=True,
             )
             exit_with_code(exit_code)
 

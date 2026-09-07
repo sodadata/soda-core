@@ -20,7 +20,7 @@ The module lives in ``common`` because the engine (``check_collections`` subtype
 a coordinator over ``Logs`` + ``SodaCloud`` belongs below the CLI layer. Only the bracket that selects,
 installs, and closes a context lives in ``cli.handlers.scan``.
 
-Sourcing mirrors ``logs._active_logs``: a ContextVar, set/reset by ``install_scan_context``. The only
+Sourcing mirrors ``logs._active_logs``: a ContextVar, set/reset by ``using_scan_context``. The only
 worker thread in a run is the log stream's flusher, which never reads the context, so consumers always
 see the bracket's installation.
 """
@@ -100,7 +100,7 @@ class AtomicScanContext(ScanContext):
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         assert self.soda_cloud is not None, (
             "insert_results needs a Soda Cloud client: run the flow under cli.handlers.scan.run_scan "
-            "(or install_scan_context a context that has one)."
+            "(or inside using_scan_context with a context that has one)."
         )
         return self.soda_cloud.insert_scan_results({**payload, "type": "sodaCoreInsertScanResults"})
 
@@ -214,7 +214,7 @@ def get_scan_context() -> ScanContext:
 
 
 @contextmanager
-def install_scan_context(scan_context: ScanContext) -> Iterator[ScanContext]:
+def using_scan_context(scan_context: ScanContext) -> Iterator[ScanContext]:
     """Make ``scan_context`` the run's context for the block — the bracket around every CLI
     results-publishing command; tests use it to run flows against a chosen variant."""
     token = _scan_context.set(scan_context)

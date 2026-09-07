@@ -25,7 +25,7 @@ from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedExceptio
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, ScanContext, install_scan_context
+from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, ScanContext, using_scan_context
 
 if TYPE_CHECKING:
     from soda_core.common.soda_cloud import SodaCloud
@@ -34,9 +34,17 @@ if TYPE_CHECKING:
 def run_scan(
     soda_cloud: Optional[SodaCloud],
     command: Callable[[Logs], ExitCode],
+    batched: bool = False,
 ) -> ExitCode:
     """Run a results-publishing command under an installed ``ScanContext``, with every failure
     mapped to an exit code and reported to Soda Cloud in one place.
+
+    ``batched`` is the wiring's declaration that its flow participates in batched ingestion
+    (calls ``start_scan``/``insert_results`` on the context); the environment (``SODA_SCAN_ID``)
+    only decides whether that participation activates. A flow that ingests atomically regardless
+    of being managed — contract verification — keeps the default, so its context never claims
+    ``is_batched`` (an engine consumer sourcing the context mid-session must see the run's real
+    ingestion mode, not the environment's potential).
 
     This is the single Cloud-marking site for exceptions escaping a command: the engine layers
     underneath re-raise without touching Cloud, so exactly one ``sodaCoreMarkScanFailed`` reaches
@@ -72,11 +80,11 @@ def run_scan(
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     context: ScanContext = (
-        BatchedScanContext(soda_cloud, scan_id) if scan_id and soda_cloud else AtomicScanContext(soda_cloud)
+        BatchedScanContext(soda_cloud, scan_id) if batched and scan_id and soda_cloud else AtomicScanContext(soda_cloud)
     )
     logs: Logs = Logs()
     context.logs = logs
-    with install_scan_context(context):
+    with using_scan_context(context):
         try:
             exit_code: ExitCode = command(logs)
         except ScanExecutionFailedException as exc:

@@ -13,7 +13,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.logs_collector import LogsCollector
 from soda_core.common.logs_queue import LogsQueue
-from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, get_scan_context, install_scan_context
+from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, get_scan_context, using_scan_context
 
 # run_scan: the bracket every CLI results-publishing command runs under. The flow sources the
 # installed ScanContext with get_scan_context() and opens the scan itself via start_scan once its
@@ -120,12 +120,12 @@ def test_get_scan_context_outside_any_bracket_is_an_inert_atomic_context():
         context.insert_results(_payload())
 
 
-def test_install_scan_context_restores_the_previous_context():
+def test_using_scan_context_restores_the_previous_context():
     outer = AtomicScanContext(soda_cloud=MagicMock())
     inner = AtomicScanContext(soda_cloud=MagicMock())
 
-    with install_scan_context(outer):
-        with install_scan_context(inner):
+    with using_scan_context(outer):
+        with using_scan_context(inner):
             assert get_scan_context() is inner
         assert get_scan_context() is outer
 
@@ -275,6 +275,7 @@ def test_start_scan_raising_client_call_fails_the_run_the_same_way():
 
 
 def test_run_scan_without_scan_id_installs_an_atomic_context(monkeypatch):
+    # Even for a wiring that opted into batched ingestion: no SODA_SCAN_ID, no batched run.
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     mock_cloud = _ScanLifecycleSodaCloud()
     seen = {}
@@ -286,7 +287,7 @@ def test_run_scan_without_scan_id_installs_an_atomic_context(monkeypatch):
         context.insert_results(_payload())
         return ExitCode.OK
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.OK
     # The ad-hoc regression: today's single sync command, nothing of the async pipeline.
@@ -304,7 +305,7 @@ def test_run_scan_managed_installs_a_batched_context(monkeypatch):
         seen["context"] = get_scan_context()
         return ExitCode.OK
 
-    exit_code = run_scan(_ScanLifecycleSodaCloud(), command)
+    exit_code = run_scan(_ScanLifecycleSodaCloud(), command, batched=True)
 
     assert exit_code == ExitCode.OK
     assert isinstance(seen["context"], BatchedScanContext)
@@ -324,7 +325,7 @@ def test_run_scan_happy_path_command_order(monkeypatch):
         soda_logger.info("after the results were sent")
         return ExitCode.OK
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.OK
     # The whole contract in one sequence: start gates the stream, batches ride between, the final
@@ -342,15 +343,23 @@ def test_run_scan_happy_path_command_order(monkeypatch):
     assert "after the results were sent" in _streamed_messages(mock_cloud)
 
 
-def test_run_scan_managed_command_that_never_starts_a_scan_ends_nothing(monkeypatch):
-    # The contract-verify shape: a managed run whose flow does not (yet) participate in batched
-    # ingestion gets a batched context it never touches — the bracket must not end its scan.
+def test_run_scan_without_batched_opt_in_stays_atomic_even_when_managed(monkeypatch):
+    # The contract-verify shape: the wiring declares whether the flow participates in batched
+    # ingestion; SODA_SCAN_ID alone must not flip a sync-ingesting flow's context to batched
+    # (an engine consumer sourcing the context mid-session would see the wrong ingestion mode).
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     mock_cloud = _ScanLifecycleSodaCloud()
+    seen = {}
 
-    exit_code = run_scan(mock_cloud, lambda logs: ExitCode.OK)
+    def command(logs: Logs) -> ExitCode:
+        seen["context"] = get_scan_context()
+        return ExitCode.OK
+
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.OK
+    assert isinstance(seen["context"], AtomicScanContext)
+    assert not seen["context"].is_batched
     assert _request_kinds(mock_cloud) == []
 
 
@@ -366,7 +375,7 @@ def test_run_scan_failed_start_marks_the_scan_failed(monkeypatch):
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         raise AssertionError("unreachable: start_scan must raise")
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     assert _request_kinds(mock_cloud) == ["sodaCoreScanStart", "sodaCoreMarkScanFailed"]
@@ -387,7 +396,7 @@ def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):
         soda_logger.info("progress before the crash")
         raise ValueError("boom")
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -408,7 +417,7 @@ def test_run_scan_failure_with_a_broken_stream_attaches_the_unsent_errors(monkey
         get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         raise ValueError("boom")
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     # The stream could deliver nothing, so the error records ride the report — the one case where
@@ -427,7 +436,7 @@ def test_run_scan_failure_before_start_reports_the_full_record_list(monkeypatch)
         soda_logger.info("resolution progress")
         raise ValueError("resolution failed")
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     # Nothing was streamed: today's behavior — the full record list rides the report.
@@ -448,7 +457,7 @@ def test_run_scan_failure_after_a_delivered_insert_does_not_also_end_the_scan(mo
         assert context.insert_results(_payload()) is True
         raise ValueError("post-processing exploded")
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -472,7 +481,7 @@ def test_run_scan_cancellation_neither_ends_nor_marks_the_scan(monkeypatch):
         raise KeyboardInterrupt
 
     with pytest.raises(KeyboardInterrupt):
-        run_scan(mock_cloud, command)
+        run_scan(mock_cloud, command, batched=True)
 
     kinds = _request_kinds(mock_cloud)
     assert "sodaCoreScanEndAsync" not in kinds
@@ -491,7 +500,7 @@ def test_run_scan_rejected_results_leave_the_scan_unended(monkeypatch):
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         return ExitCode.OK if context.insert_results(_payload()) else ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     # Undelivered results: ending the scan would close it "cleanly" with nothing in it — the
@@ -513,7 +522,7 @@ def test_run_scan_partly_rejected_session_leaves_the_scan_unended(monkeypatch):
         assert context.insert_results(_payload()) is False
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
@@ -542,7 +551,7 @@ def test_run_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
         raise ValueError("boom")
 
     with caplog.at_level(logging.INFO):
-        exit_code = run_scan(mock_cloud, command)
+        exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -565,7 +574,7 @@ def test_run_scan_rejected_end_is_fatal_and_not_retried(monkeypatch):
         assert context.insert_results(_payload()) is True
         return ExitCode.OK
 
-    exit_code = run_scan(mock_cloud, command)
+    exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == 1
@@ -586,7 +595,7 @@ def test_run_scan_raising_end_never_escapes(monkeypatch):
         assert context.insert_results(_payload()) is True
         return ExitCode.OK
 
-    exit_code = run_scan(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command, batched=True)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert soda_cloud.scan_end_async.call_count == 1
