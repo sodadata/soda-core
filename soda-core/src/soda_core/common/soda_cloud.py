@@ -59,7 +59,7 @@ logger: logging.Logger = soda_logger
 
 # A plain 4xx means the request will never be accepted as sent (unknown scan, wrong scan state,
 # malformed body); retrying only delays the run. 5xx — and the two 4xx that mean "later" — are worth
-# another attempt. Shared by the retrying Cloud uploads (the log stream, the scan-end command).
+# another attempt. Used by the log stream's upload retries.
 _RETRYABLE_4XX = {408, 429}
 
 
@@ -450,18 +450,16 @@ class SodaCloud:
         )
         return response is not None and response.ok
 
-    def scan_end_async(self, scan_reference: str) -> Optional[Response]:
+    def scan_end_async(self, scan_reference: str) -> bool:
         """Send ``sodaCoreScanEndAsync`` closing the async ingestion bracket
-        opened by ``scan_start``. Returns the backend response (None when the
-        command could not be sent) rather than the family's usual bool: unlike
-        its siblings there is retry policy above this call, and the caller
-        needs the status to tell a retryable failure from a permanent
-        rejection (``is_retryable_status``).
+        opened by ``scan_start``. Returns True when Soda Cloud accepted it
+        (same contract as its siblings).
         """
-        return self._execute_command(
+        response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
             request_log_name="scan_end_async",
         )
+        return response is not None and response.ok
 
     def send_check_collection_results(
         self,

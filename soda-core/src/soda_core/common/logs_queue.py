@@ -24,7 +24,7 @@ MAX_RETRIES = 3
 # Separate from the flush cadence so a retry storm is not tied to how often batches ship (and so tests
 # can drive the retry path without sleeping). Waited on the shutdown event rather than slept, so a
 # closing queue never holds a scan's teardown open for the full backoff.
-RETRY_DELAY_SECONDS = DEFAULT_FLUSH_INTERVAL
+RETRY_DELAY_SECONDS = 5
 
 # The stream's own diagnostics: batch sent, retry, batch dropped. Console-only by construction —
 # ``logs._RootCapturer`` refuses to capture this logger, so these records can never be fed into the

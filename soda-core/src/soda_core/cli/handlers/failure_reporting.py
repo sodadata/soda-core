@@ -22,7 +22,7 @@ class ScanExecutionFailedException(SodaCoreException):
     """Raise with a user-facing message for expected/validation failures.
 
     The exception carries the message; nothing is logged at the raise site.
-    The CLI wiring (``dependencies.run_with_failure_reporting``) is the single
+    The CLI wiring (``scan.run_scan``) is the single
     logging site: it logs this message clean (no traceback) and reports via
     ``report_scan_execution_failure``. Unexpected failures should propagate
     raw instead — the wiring logs those with the traceback."""

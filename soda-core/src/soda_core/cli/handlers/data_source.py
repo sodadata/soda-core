@@ -7,11 +7,11 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Optional
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.logs_queue import build_streaming_gatherer
+from soda_core.common.scan_context import ScanContext, get_scan_context
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
@@ -101,7 +101,7 @@ def build_test_connection_log_uploader(
     from the ``-sc`` YAML, streams via ``build_streaming_gatherer``. Returns None when there is no scan id /
     cloud config so callers fall back to an in-memory ``Logs``. Must be closed to flush the final batch.
     (Connection-test scans accept log uploads without a ``sodaCoreScanStart`` — results-publishing flows
-    open that bracket via ``BatchedScanContext.start_scan`` instead.)
+    open that bracket via ``ScanContext.start_scan`` instead.)
 
     Public because connection-test commands outside soda-core (e.g. the soda-extensions
     ``diagnostics-warehouse test`` command) reuse it to stream their logs to the same scan-id-keyed endpoint.
@@ -126,8 +126,7 @@ def build_test_connection_log_uploader(
         soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
-    gatherer = build_streaming_gatherer(soda_cloud, scan_id=scan_id)
-    return Logs(gatherer=gatherer) if gatherer is not None else None
+    return Logs(gatherer=build_streaming_gatherer(soda_cloud, scan_id=scan_id))
 
 
 def _discover_dqns(
@@ -157,43 +156,41 @@ def _discover_dqns(
 
 def handle_discover_data_source(
     data_source_impl: DataSourceImpl,
-    soda_cloud: SodaCloud,
     scan_definition_name: str,
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
     logs: Optional[Logs] = None,
-    batched_scan_context: Optional[BatchedScanContext] = None,
 ) -> ExitCode:
     """Discover datasets and send the results to Soda Cloud.
 
     Receives fully resolved dependencies — including the mandatory scan
     definition name (``resolve_scan_definition_name``). Engine failures
-    propagate raw: the CLI wiring (``run_batched_scan`` /
-    ``dependencies.run_with_failure_reporting``) is the single logging site and
-    maps them to failure reporting. A rejected results upload is not an engine
-    failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure
-    report is sent.
+    propagate raw: the CLI wiring (``scan.run_scan``) is the single logging
+    site and maps them to failure reporting. A rejected results upload is not
+    an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so
+    no failure report is sent.
 
-    With a ``batched_scan_context`` the run opens the async ingestion bracket here — the handler is the first
-    point where the scan coordinates (definition name, data source name, data timestamp) are all resolved — so
-    the discovery queries stream their logs, and the upload routes through ``context.insert_results`` (async
-    batch pipeline on managed runs, sync fallback otherwise). The payload build is unchanged: once streaming,
-    the ``logs`` yield no records, so the payload's ``logs`` field is empty and the stream stays the single log
-    channel.
+    The run's ingestion goes through the installed ``ScanContext`` (the bracket around this handler
+    also carries the Cloud client): the scan opens here — the handler is the first point where the
+    scan coordinates (definition name, data source name, data timestamp) are all resolved — so on a
+    managed run the discovery queries stream their logs and the upload rides the async batch
+    pipeline; an ad-hoc run's context makes both the sync sends they always were. The payload build
+    is unchanged: once streaming, the ``logs`` yield no records, so the payload's ``logs`` field is
+    empty and the stream stays the single log channel.
     """
     from soda_core.discovery.discovery_payload import build_discovery_payload, resolve_data_timestamp
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 
+    scan_context: ScanContext = get_scan_context()
     # One dataTimestamp for the whole scan: sodaCoreScanStart and the results payload must carry the same value
     # (SODA_SCAN_DATA_TIMESTAMP from the launcher, now otherwise).
     data_timestamp: datetime = resolve_data_timestamp(datetime.now(timezone.utc))
-    if batched_scan_context is not None:
-        batched_scan_context.start_scan(
-            definition_name=scan_definition_name,
-            default_data_source=data_source_impl.name,
-            data_timestamp=data_timestamp,
-        )
+    scan_context.start_scan(
+        definition_name=scan_definition_name,
+        default_data_source=data_source_impl.name,
+        data_timestamp=data_timestamp,
+    )
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
     dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
@@ -208,12 +205,7 @@ def handle_discover_data_source(
         scan_end_timestamp=scan_end_timestamp,
         log_records=logs.get_log_records() if logs else None,
     )
-    accepted: bool = (
-        batched_scan_context.insert_results(payload)
-        if batched_scan_context is not None
-        else soda_cloud.insert_scan_results(payload)
-    )
-    if not accepted:
+    if not scan_context.insert_results(payload):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 

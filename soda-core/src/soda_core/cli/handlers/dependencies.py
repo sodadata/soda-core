@@ -1,30 +1,27 @@
-"""Shared dependency resolution and failure-mapped execution for CLI flows
-that publish results to Soda Cloud.
+"""Shared dependency resolution for CLI flows that publish results to Soda Cloud.
 
 Handlers receive fully constructed dependencies (``DataSourceImpl``,
 ``SodaCloud``) instead of file paths. Resolvers raise
 ``ScanExecutionFailedException`` for expected/unusable-configuration shapes;
-``run_with_failure_reporting`` owns the failure-to-exit-code mapping for a
-command and knows nothing about construction — the wiring layer decides which
-resolutions run inside it. Like ``failure_reporting``, this module is a stable
-import point: soda-extensions CLIs reuse these utilities for their own
+``scan.run_scan`` owns the failure-to-exit-code mapping for a command and
+knows nothing about construction — the wiring layer decides which resolutions
+run inside it. Like ``failure_reporting``, this module is a stable import
+point: soda-extensions CLIs reuse these utilities for their own
 result-publishing commands.
 """
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
 
-from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException, report_scan_execution_failure
+from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.common.exceptions import (
     InvalidDataSourceConfigurationException,
     InvalidSodaCloudConfigurationException,
     YamlParserException,
 )
-from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.logs import Logs
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
@@ -60,7 +57,7 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
 def resolve_soda_cloud_for_failure_report(
     soda_cloud_file_path: Optional[str], variables: Optional[dict[str, str]] = None
 ) -> Optional[SodaCloud]:
-    """Soda Cloud channel for ``run_with_failure_reporting``, or None when Cloud isn't
+    """Soda Cloud channel for ``scan.run_scan``, or None when Cloud isn't
     configured or can't be built (``report_scan_execution_failure`` then returns 3 for an
     ad-hoc run, 4 for a managed one).
 
@@ -119,9 +116,9 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
     register a new scan definition on Soda Cloud when the configuration is
     missing. When neither source is set this raises
     ``ScanExecutionFailedException`` carrying the user-facing message — call it
-    inside the command wrapped by ``run_with_failure_reporting``, which logs
-    the message and applies the standard failure mapping (managed scans get
-    marked failed).
+    inside the command wrapped by ``scan.run_scan``, which logs the message
+    and applies the standard failure mapping (managed scans get marked
+    failed).
     """
     resolved_scan_definition_name: Optional[str] = scan_definition_name or os.environ.get("SODA_SCAN_DEFINITION")
     if not resolved_scan_definition_name:
@@ -130,54 +127,3 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
             "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
         )
     return resolved_scan_definition_name
-
-
-def run_with_failure_reporting(
-    soda_cloud: Optional[SodaCloud],
-    command: Callable[[Logs], ExitCode],
-    logs: Optional[Logs] = None,
-) -> ExitCode:
-    """Run a command with every failure mapped to an exit code and reported to
-    Soda Cloud in one place.
-
-    This is the single Cloud-marking site for exceptions escaping a command:
-    the engine layers underneath re-raise without touching Cloud, so exactly
-    one ``sodaCoreMarkScanFailed`` reaches the backend per failed run.
-
-    Receives the already-constructed reporting channel (``soda_cloud``;
-    ``None`` when the command can run without Cloud — an escaped failure then
-    exits 4 for a managed run, 3 ad-hoc); dependency construction lives at the
-    wiring layer, which decides what resolves inside the command. Owns the
-    ``Logs`` lifecycle — the collector starts before the command, so
-    in-command resolution failures are captured too. The wrapper's own ``logs`` collector is handed to the command so a
-    command that runs a check-collection session can thread it through (each
-    impl built with ``logs=logs``); without this a command constructing its own
-    inner ``Logs`` would displace the wrapper's collector and its downstream
-    records would never reach this failure report. This is the single logging
-    site for command failures; the two except arms only pick the log form:
-
-    - ``ScanExecutionFailedException``: an expected/validation failure — its
-      user-facing message is logged clean, without a traceback.
-    - Any other exception: unexpected — logged with the traceback.
-
-    Both then report via ``report_scan_execution_failure`` with the records
-    the gatherer selects (the failure line is logged before the records are
-    captured, so it is part of the report). Otherwise the command's own exit
-    code is returned unchanged.
-
-    A pre-built ``logs`` (e.g. the batched-scan bracket's, which may upgrade to a streaming gatherer mid-run)
-    may be handed in; the gatherer then decides what the failure report attaches — the full record list for the
-    in-memory collector, only unsent error records for a streaming queue. No mode branch here. The lifecycle is
-    owned here either way: the ``finally`` close is the stream's final flush.
-    """
-    logs = logs if logs is not None else Logs()
-    try:
-        return command(logs)
-    except ScanExecutionFailedException as exc:
-        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
-        return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
-    except Exception as exc:
-        soda_logger.exception(f"Scan execution failed: {exc}")
-        return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
-    finally:
-        logs.close()

@@ -4,9 +4,8 @@ from unittest.mock import MagicMock, patch
 from soda_core.common.soda_cloud import SodaCloud
 
 # SodaCloud.scan_start / insert_scan_data_batch / scan_end_async: the async
-# batched-ingestion bracket. scan_start/insert follow the family's bool/None-on-failure
-# contracts (no exceptions on non-200); scan_end_async returns the response so its
-# caller can classify retryability.
+# batched-ingestion bracket. All three follow the family's bool/None-on-failure
+# contracts (no exceptions on non-200).
 
 
 def _soda_cloud() -> SodaCloud:
@@ -119,31 +118,24 @@ def test_insert_scan_data_batch_returns_false_without_response(mock_execute_comm
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_end_async_sends_scan_reference_and_returns_the_response(mock_execute_command):
-    # Returns the response rather than the family's usual bool: the caller retries the end and
-    # needs the status to tell a retryable failure from a permanent rejection.
+def test_scan_end_async_sends_scan_reference(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True, status_code=200)
 
-    response = _soda_cloud().scan_end_async("org/ref-1")
-
-    assert response is mock_execute_command.return_value
+    assert _soda_cloud().scan_end_async("org/ref-1") is True
     command = mock_execute_command.call_args.kwargs["command_json_dict"]
     assert command == {"type": "sodaCoreScanEndAsync", "scanReference": "org/ref-1"}
     assert mock_execute_command.call_args.kwargs["request_log_name"] == "scan_end_async"
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_end_async_returns_the_rejecting_response(mock_execute_command):
+def test_scan_end_async_rejected_returns_false(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False, status_code=400)
 
-    response = _soda_cloud().scan_end_async("org/ref-1")
-
-    assert response is mock_execute_command.return_value
-    assert response.ok is False
+    assert _soda_cloud().scan_end_async("org/ref-1") is False
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_end_async_returns_none_without_response(mock_execute_command):
+def test_scan_end_async_without_response_returns_false(mock_execute_command):
     mock_execute_command.return_value = None
 
-    assert _soda_cloud().scan_end_async("org/ref-1") is None
+    assert _soda_cloud().scan_end_async("org/ref-1") is False

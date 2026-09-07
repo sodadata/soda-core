@@ -7,18 +7,19 @@ import pytest
 import soda_core.common.logs_queue as logs_queue_module
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.batched_scan import SCAN_END_ATTEMPTS, run_batched_scan
-from soda_core.common.batched_scan import BatchedScanContext
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.logs_collector import LogsCollector
 from soda_core.common.logs_queue import LogsQueue
+from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, get_scan_context, install_scan_context
 
-# run_batched_scan: the opt-in bracket for Cloud-launched results-publishing commands. The flow
-# opens the bracket itself via context.start_scan once its dependencies resolve. These tests drive
-# the REAL two-channel pipeline — a real LogsQueue streaming into a Cloud double that records the
-# full request sequence — because the interesting properties are cross-channel: what the failure
-# report carries relative to what the stream already took, and in what order the commands land.
+# run_scan: the bracket every CLI results-publishing command runs under. The flow sources the
+# installed ScanContext with get_scan_context() and opens the scan itself via start_scan once its
+# dependencies resolve. These tests drive the REAL two-channel pipeline — a real LogsQueue streaming
+# into a Cloud double that records the full request sequence — because the interesting properties
+# are cross-channel: what the failure report carries relative to what the stream already took, and
+# in what order the commands land.
 
 DATA_TIMESTAMP = datetime(2026, 7, 13, 8, 30, tzinfo=timezone.utc)
 
@@ -40,7 +41,7 @@ def _payload() -> dict:
     return {"type": "sodaCoreInsertScanResults", "definitionName": "my_scan"}
 
 
-class _BatchedScanSodaCloud(MockSodaCloud):
+class _ScanLifecycleSodaCloud(MockSodaCloud):
     """MockSodaCloud answering by request kind instead of positionally, so interleaved log uploads
     never consume a response meant for a scan-lifecycle command."""
 
@@ -105,24 +106,32 @@ def _streamed_messages(mock_cloud: MockSodaCloud) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# BatchedScanContext: routing and the start_scan policies.
+# The context variants: routing, the start_scan policies, sourcing.
 # ---------------------------------------------------------------------------
 
 
-def test_context_insert_results_batches_when_scan_reference_set():
+def test_get_scan_context_outside_any_bracket_is_an_inert_atomic_context():
+    context = get_scan_context()
+
+    assert isinstance(context, AtomicScanContext)
+    assert not context.is_batched
+    with pytest.raises(AssertionError, match="run_scan"):
+        context.insert_results(_payload())
+
+
+def test_install_scan_context_restores_the_previous_context():
+    outer = AtomicScanContext(soda_cloud=MagicMock())
+    inner = AtomicScanContext(soda_cloud=MagicMock())
+
+    with install_scan_context(outer):
+        with install_scan_context(inner):
+            assert get_scan_context() is inner
+        assert get_scan_context() is outer
+
+
+def test_atomic_context_inserts_sync_and_stamps_the_command_type():
     soda_cloud = MagicMock()
-    context = BatchedScanContext(logs=Logs(), soda_cloud=soda_cloud, scan_id="scan-123", scan_reference="org/ref-1")
-
-    context.insert_results(_payload())
-
-    soda_cloud.insert_scan_data_batch.assert_called_once_with(_payload(), "org/ref-1")
-    soda_cloud.insert_scan_results.assert_not_called()
-    context.logs.close()
-
-
-def test_context_insert_results_falls_back_to_sync_and_stamps_the_command_type():
-    soda_cloud = MagicMock()
-    context = BatchedScanContext(logs=Logs(), soda_cloud=soda_cloud, scan_id=None)
+    context = AtomicScanContext(soda_cloud)
     payload = {"definitionName": "my_scan"}
 
     context.insert_results(payload)
@@ -132,14 +141,53 @@ def test_context_insert_results_falls_back_to_sync_and_stamps_the_command_type()
     soda_cloud.insert_scan_results.assert_called_once_with(
         {"definitionName": "my_scan", "type": "sodaCoreInsertScanResults"}
     )
+    assert "type" not in payload
+
+
+def test_atomic_context_start_and_end_are_no_ops():
+    soda_cloud = MagicMock()
+    context = AtomicScanContext(soda_cloud)
+    context.logs = Logs()
+    try:
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+
+        soda_cloud.scan_start.assert_not_called()
+        assert isinstance(context.logs.gatherer, LogsCollector)
+        assert context.end_scan() is True
+        soda_cloud.scan_end_async.assert_not_called()
+    finally:
+        context.logs.close()
+
+
+def test_batched_context_insert_results_batches_when_scan_reference_set():
+    soda_cloud = MagicMock()
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    context.scan_reference = "org/ref-1"
+
+    context.insert_results(_payload())
+
+    soda_cloud.insert_scan_data_batch.assert_called_once_with(_payload(), "org/ref-1")
+    soda_cloud.insert_scan_results.assert_not_called()
+
+
+def test_batched_context_without_scan_reference_falls_back_to_the_sync_send():
+    soda_cloud = MagicMock()
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    payload = {"definitionName": "my_scan"}
+
+    context.insert_results(payload)
+
+    soda_cloud.insert_scan_results.assert_called_once_with(
+        {"definitionName": "my_scan", "type": "sodaCoreInsertScanResults"}
+    )
     soda_cloud.insert_scan_data_batch.assert_not_called()
     assert "type" not in payload
-    context.logs.close()
 
 
-def test_context_records_delivered_and_rejected_uploads():
+def test_batched_context_records_delivered_and_rejected_uploads():
     soda_cloud = MagicMock()
-    context = BatchedScanContext(logs=Logs(), soda_cloud=soda_cloud, scan_id="scan-123", scan_reference="org/ref-1")
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    context.scan_reference = "org/ref-1"
     soda_cloud.insert_scan_data_batch.side_effect = [True, False]
 
     assert context.insert_results(_payload()) is True
@@ -147,27 +195,15 @@ def test_context_records_delivered_and_rejected_uploads():
 
     assert context.insert_results(_payload()) is False
     assert context.results_delivered and context.results_rejected
-    context.logs.close()
-
-
-def test_start_scan_is_a_no_op_without_scan_id():
-    soda_cloud = MagicMock()
-    context = BatchedScanContext(logs=Logs(), soda_cloud=soda_cloud, scan_id=None)
-
-    context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
-
-    soda_cloud.scan_start.assert_not_called()
-    assert context.scan_reference is None
-    assert isinstance(context.logs.gatherer, LogsCollector)
-    context.logs.close()
 
 
 def test_start_scan_switches_to_streaming_and_replays_captured_records():
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
     logs = Logs()
     try:
         soda_logger.info("captured before the scan started")
-        context = BatchedScanContext(logs=logs, soda_cloud=mock_cloud, scan_id="scan-123")
+        context = BatchedScanContext(mock_cloud, scan_id="scan-123")
+        context.logs = logs
 
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
 
@@ -189,8 +225,9 @@ def test_start_scan_switches_to_streaming_and_replays_captured_records():
 
 
 def test_start_scan_is_idempotent():
-    mock_cloud = _BatchedScanSodaCloud()
-    context = BatchedScanContext(logs=Logs(), soda_cloud=mock_cloud, scan_id="scan-123")
+    mock_cloud = _ScanLifecycleSodaCloud()
+    context = BatchedScanContext(mock_cloud, scan_id="scan-123")
+    context.logs = Logs()
     try:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
@@ -201,9 +238,10 @@ def test_start_scan_is_idempotent():
 
 
 def test_start_scan_rejected_stays_on_the_sync_path_with_in_memory_logs():
-    mock_cloud = _BatchedScanSodaCloud(scan_start_status=400)
+    mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=400)
     logs = Logs()
-    context = BatchedScanContext(logs=logs, soda_cloud=mock_cloud, scan_id="scan-123")
+    context = BatchedScanContext(mock_cloud, scan_id="scan-123")
+    context.logs = logs
     try:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         context.insert_results(_payload())
@@ -218,44 +256,62 @@ def test_start_scan_rejected_stays_on_the_sync_path_with_in_memory_logs():
 
 
 # ---------------------------------------------------------------------------
-# run_batched_scan: the two channels driven together — a real LogsQueue against the recording
-# Cloud double — plus the terminal-state discipline.
+# run_scan: the two channels driven together — a real LogsQueue against the recording Cloud
+# double — plus the terminal-state discipline.
 # ---------------------------------------------------------------------------
 
 
-def test_run_batched_scan_without_scan_id_is_fully_sync(monkeypatch):
+def test_run_scan_without_scan_id_installs_an_atomic_context(monkeypatch):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
     seen = {}
 
-    def command(context: BatchedScanContext) -> ExitCode:
-        seen["context"] = context
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
+        seen["context"], seen["logs"] = context, logs
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         context.insert_results(_payload())
         return ExitCode.OK
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.OK
     # The ad-hoc regression: today's single sync command, nothing of the async pipeline.
     assert _request_kinds(mock_cloud) == ["sodaCoreInsertScanResults"]
-    assert seen["context"].scan_id is None
-    assert isinstance(seen["context"].logs.gatherer, LogsCollector)
+    assert isinstance(seen["context"], AtomicScanContext)
+    assert seen["context"].logs is seen["logs"]
+    assert isinstance(seen["logs"].gatherer, LogsCollector)
 
 
-def test_run_batched_scan_happy_path_command_order(monkeypatch):
+def test_run_scan_managed_installs_a_batched_context(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    seen = {}
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        seen["context"] = get_scan_context()
+        return ExitCode.OK
+
+    exit_code = run_scan(_ScanLifecycleSodaCloud(), command)
+
+    assert exit_code == ExitCode.OK
+    assert isinstance(seen["context"], BatchedScanContext)
+    assert seen["context"].scan_id == "scan-123"
+
+
+def test_run_scan_happy_path_command_order(monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _ScanLifecycleSodaCloud()
+
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         soda_logger.info("engine work under way")
-        context.logs.gatherer.flush()  # a mid-run cadence flush, forced for determinism
+        logs.gatherer.flush()  # a mid-run cadence flush, forced for determinism
         assert context.insert_results(_payload()) is True
         soda_logger.info("after the results were sent")
         return ExitCode.OK
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.OK
     # The whole contract in one sequence: start gates the stream, batches ride between, the final
@@ -273,34 +329,47 @@ def test_run_batched_scan_happy_path_command_order(monkeypatch):
     assert "after the results were sent" in _streamed_messages(mock_cloud)
 
 
-def test_run_batched_scan_degrades_to_sync_when_scan_start_fails(monkeypatch):
+def test_run_scan_managed_command_that_never_starts_a_scan_ends_nothing(monkeypatch):
+    # The contract-verify shape: a managed run whose flow does not (yet) participate in batched
+    # ingestion gets a batched context it never touches — the bracket must not end its scan.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud(scan_start_status=400)
+    mock_cloud = _ScanLifecycleSodaCloud()
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    exit_code = run_scan(mock_cloud, lambda logs: ExitCode.OK)
+
+    assert exit_code == ExitCode.OK
+    assert _request_kinds(mock_cloud) == []
+
+
+def test_run_scan_degrades_to_sync_when_scan_start_fails(monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=400)
+
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         context.insert_results(_payload())
         return ExitCode.OK
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.OK
     assert _request_kinds(mock_cloud) == ["sodaCoreScanStart", "sodaCoreInsertScanResults"]
 
 
-def test_run_batched_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):
+def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):
     # THE failure-path property: sodaCoreMarkScanFailed REPLACES a scan's stored logs, so on a
     # healthy stream the report must go out empty — flush first, attach nothing — leaving the
     # streamed history authoritative in Soda Cloud.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
 
-    def command(context: BatchedScanContext) -> ExitCode:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+    def command(logs: Logs) -> ExitCode:
+        get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         soda_logger.info("progress before the crash")
         raise ValueError("boom")
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -313,15 +382,15 @@ def test_run_batched_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypa
     assert "sodaCoreScanEndAsync" not in kinds
 
 
-def test_run_batched_scan_failure_with_a_broken_stream_attaches_the_unsent_errors(monkeypatch):
+def test_run_scan_failure_with_a_broken_stream_attaches_the_unsent_errors(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud(log_upload_status=400)
+    mock_cloud = _ScanLifecycleSodaCloud(log_upload_status=400)
 
-    def command(context: BatchedScanContext) -> ExitCode:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+    def command(logs: Logs) -> ExitCode:
+        get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         raise ValueError("boom")
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     # The stream could deliver nothing, so the error records ride the report — the one case where
@@ -332,15 +401,15 @@ def test_run_batched_scan_failure_with_a_broken_stream_attaches_the_unsent_error
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
 
 
-def test_run_batched_scan_failure_before_start_reports_the_full_record_list(monkeypatch):
+def test_run_scan_failure_before_start_reports_the_full_record_list(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
         soda_logger.info("resolution progress")
         raise ValueError("resolution failed")
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     # Nothing was streamed: today's behavior — the full record list rides the report.
@@ -349,18 +418,19 @@ def test_run_batched_scan_failure_before_start_reports_the_full_record_list(monk
     assert _request_kinds(mock_cloud) == ["sodaCoreMarkScanFailed"]
 
 
-def test_run_batched_scan_failure_after_a_delivered_insert_does_not_also_end_the_scan(monkeypatch):
+def test_run_scan_failure_after_a_delivered_insert_does_not_also_end_the_scan(monkeypatch):
     # One run, one terminal transition: the failure report already marked the scan FAILED, and
     # sodaCoreScanEndAsync on top of it would ingest the batch into a failed scan.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         assert context.insert_results(_payload()) is True
         raise ValueError("post-processing exploded")
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -368,40 +438,42 @@ def test_run_batched_scan_failure_after_a_delivered_insert_does_not_also_end_the
     assert "sodaCoreScanEndAsync" not in kinds
 
 
-def test_run_batched_scan_cancellation_neither_ends_nor_marks_the_scan(monkeypatch):
+def test_run_scan_cancellation_neither_ends_nor_marks_the_scan(monkeypatch):
     # SIGTERM / pod eviction: the run's terminal state belongs to the launcher fallback. The logs
     # are still flushed on the way out.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
     seen = {}
 
-    def command(context: BatchedScanContext) -> ExitCode:
-        seen["context"] = context
+    def command(logs: Logs) -> ExitCode:
+        seen["logs"] = logs
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         assert context.insert_results(_payload()) is True
         soda_logger.info("interrupted mid-run")
         raise KeyboardInterrupt
 
     with pytest.raises(KeyboardInterrupt):
-        run_batched_scan(mock_cloud, command=command)
+        run_scan(mock_cloud, command)
 
     kinds = _request_kinds(mock_cloud)
     assert "sodaCoreScanEndAsync" not in kinds
     assert "sodaCoreMarkScanFailed" not in kinds
     assert "interrupted mid-run" in _streamed_messages(mock_cloud)
     # The finally-close released the stream: no leaked worker thread.
-    assert not seen["context"].logs.gatherer.worker_thread.is_alive()
+    assert not seen["logs"].gatherer.worker_thread.is_alive()
 
 
-def test_run_batched_scan_rejected_results_leave_the_scan_unended(monkeypatch):
+def test_run_scan_rejected_results_leave_the_scan_unended(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud(insert_status=400)
+    mock_cloud = _ScanLifecycleSodaCloud(insert_status=400)
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         return ExitCode.OK if context.insert_results(_payload()) else ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     # Undelivered results: ending the scan would close it "cleanly" with nothing in it — the
@@ -409,32 +481,33 @@ def test_run_batched_scan_rejected_results_leave_the_scan_unended(monkeypatch):
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
 
 
-def test_run_batched_scan_partly_rejected_session_leaves_the_scan_unended(monkeypatch):
+def test_run_scan_partly_rejected_session_leaves_the_scan_unended(monkeypatch):
     # results_delivered latches on the first accepted upload; the rejected flag must still veto the
     # end, or a multi-collection session would close "cleanly" with a collection missing.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         assert context.insert_results(_payload()) is True
         mock_cloud.insert_status = 400
         assert context.insert_results(_payload()) is False
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
 
 
-def test_run_batched_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
+def test_run_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
     # Once sodaCoreMarkScanFailed lands, the backend rejects every further batchV4 upload for the
     # scan. The report's own confirmation line (and anything logged after it) must therefore stay
     # console-only — streaming it would end the run with a false "records could not be delivered"
     # alarm immediately after the failure was reported successfully.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
+    mock_cloud = _ScanLifecycleSodaCloud()
     original_handle = mock_cloud._http_handle
 
     def terminal_aware(method, url, headers, json, data):
@@ -446,12 +519,12 @@ def test_run_batched_scan_failure_report_supersedes_the_stream(monkeypatch, capl
 
     mock_cloud._http_handle = terminal_aware
 
-    def command(context: BatchedScanContext) -> ExitCode:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+    def command(logs: Logs) -> ExitCode:
+        get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         raise ValueError("boom")
 
     with caplog.at_level(logging.INFO):
-        exit_code = run_batched_scan(mock_cloud, command=command)
+        exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     kinds = _request_kinds(mock_cloud)
@@ -460,66 +533,27 @@ def test_run_batched_scan_failure_report_supersedes_the_stream(monkeypatch, capl
     assert "could not be delivered" not in caplog.text
 
 
-def test_run_batched_scan_permanently_rejected_end_is_not_retried(monkeypatch):
-    # A plain 4xx never becomes acceptable (unlike a 5xx/timeout): one attempt, then exit 4 —
-    # retrying only delays the exit and sends the operator down the transient-failure path.
+def test_run_scan_rejected_end_is_fatal_and_not_retried(monkeypatch):
+    # Batch uploads sit inert in object storage until the end command triggers reassembly, and no
+    # backend sweeper does it later: a lost end loses the whole run's results, so it cannot be a
+    # warning-and-exit-0. Exactly one attempt: Cloud-command retries are a global concern tracked
+    # separately, not a per-command loop here.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud(end_status=400)
+    mock_cloud = _ScanLifecycleSodaCloud(end_status=500)
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         assert context.insert_results(_payload()) is True
         return ExitCode.OK
 
-    exit_code = run_batched_scan(mock_cloud, command=command)
+    exit_code = run_scan(mock_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == 1
 
 
-def test_run_batched_scan_rejected_end_is_retried_then_fatal(monkeypatch):
-    # Batch uploads sit inert in object storage until the end command triggers reassembly, and no
-    # backend sweeper does it later: a lost end loses the whole run's results, so it cannot be a
-    # warning-and-exit-0.
-    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud(end_status=500)
-
-    def command(context: BatchedScanContext) -> ExitCode:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
-        assert context.insert_results(_payload()) is True
-        return ExitCode.OK
-
-    exit_code = run_batched_scan(mock_cloud, command=command)
-
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == SCAN_END_ATTEMPTS
-
-
-def test_run_batched_scan_end_recovers_on_a_retry(monkeypatch):
-    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    mock_cloud = _BatchedScanSodaCloud()
-    end_statuses = iter([500, 200])
-    original_handle = mock_cloud._http_handle
-
-    def flaky_end(method, url, headers, json, data):
-        if isinstance(json, dict) and json.get("type") == "sodaCoreScanEndAsync":
-            mock_cloud.end_status = next(end_statuses)
-        return original_handle(method, url, headers, json, data)
-
-    mock_cloud._http_handle = flaky_end
-
-    def command(context: BatchedScanContext) -> ExitCode:
-        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
-        assert context.insert_results(_payload()) is True
-        return ExitCode.OK
-
-    exit_code = run_batched_scan(mock_cloud, command=command)
-
-    assert exit_code == ExitCode.OK
-    assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == 2
-
-
-def test_run_batched_scan_raising_end_never_escapes(monkeypatch):
+def test_run_scan_raising_end_never_escapes(monkeypatch):
     # This runs after the CLI's failure boundary has closed: an escaping raise would exit 1, which
     # the launcher reads as "checks failed" rather than "results never ingested".
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
@@ -528,12 +562,13 @@ def test_run_batched_scan_raising_end_never_escapes(monkeypatch):
     soda_cloud.insert_scan_data_batch.return_value = True
     soda_cloud.scan_end_async.side_effect = ConnectionError("network down")
 
-    def command(context: BatchedScanContext) -> ExitCode:
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         assert context.insert_results(_payload()) is True
         return ExitCode.OK
 
-    exit_code = run_batched_scan(soda_cloud, command=command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    assert soda_cloud.scan_end_async.call_count == SCAN_END_ATTEMPTS
+    assert soda_cloud.scan_end_async.call_count == 1

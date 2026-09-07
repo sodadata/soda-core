@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import Optional, Union
 
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
-from soda_core.common.batched_scan import BatchedScanContext
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -47,7 +46,6 @@ def execute_check_collections(
     dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
-    batched_scan_context: Optional[BatchedScanContext] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
@@ -190,16 +188,12 @@ def execute_check_collections(
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
-                # Only when set: impl subclasses with explicit __init__
-                # signatures (e.g. ContractImpl) predate the kwarg, and the
-                # flows constructing them never run batched.
-                **({"batched_scan_context": batched_scan_context} if batched_scan_context is not None else {}),
             )
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
                 # Re-raise verbatim, without touching Cloud: the CLI failure boundary
-                # (``run_with_failure_reporting``) owns the single mark-scan-failed —
+                # (``scan.run_scan``) owns the single mark-scan-failed —
                 # a session-level mark here would duplicate it.
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
@@ -316,6 +310,11 @@ def execute_check_collections(
             # and pass it explicitly. Forward any stored exception too: executor placeholders
             # (build_error_result) carry result.error but log_records=None, so without this the
             # scan would be marked FAILED in Cloud with an empty, undiagnosable log payload.
+            # NOTE: log_records comes from Logs.get_log_records(), which is [] on a run whose
+            # logs stream to Soda Cloud (LogsQueue) — and this mark REPLACES the scan's stored
+            # logs. Before any combine-uploads flow opts into batched ingestion, this must move
+            # to Logs.records_for_failure_report() (flushes the stream, attaches only what it
+            # could not deliver).
             errored_without_results_result.scan_id = soda_scan_id
             marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,

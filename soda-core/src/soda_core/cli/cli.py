@@ -9,7 +9,6 @@ from typing import Dict, List, NoReturn, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.batched_scan import run_batched_scan
 from soda_core.cli.handlers.contract import (
     handle_fetch_contract,
     handle_publish_contract,
@@ -27,10 +26,10 @@ from soda_core.cli.handlers.dependencies import (
     resolve_scan_definition_name,
     resolve_soda_cloud,
     resolve_soda_cloud_for_failure_report,
-    run_with_failure_reporting,
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.cli.handlers.request import handle_fetch_proposal, handle_push_proposal, handle_transition_request
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import configure_logging
@@ -274,7 +273,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         # (verify_contract builds its own client) and the boundary reports it through
         # the None channel.
         soda_cloud = resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
-        exit_code = run_with_failure_reporting(
+        exit_code = run_scan(
             soda_cloud,
             lambda logs: handle_verify_contract(
                 contract_file_path,
@@ -550,16 +549,14 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # which already lands in the active capture target); the bracket's
             # ``logs`` is threaded through so a sync run's payload carries the
             # run's logs (a managed run streams them instead).
-            exit_code = run_batched_scan(
+            exit_code = run_scan(
                 soda_cloud,
-                command=lambda context: handle_discover_data_source(
+                lambda logs: handle_discover_data_source(
                     resolve_data_source(args.data_source),
-                    soda_cloud,
                     scan_definition_name=resolve_scan_definition_name(args.scan_definition_name),
                     include=args.include,
                     exclude=args.exclude,
-                    logs=context.logs,
-                    batched_scan_context=context,
+                    logs=logs,
                 ),
             )
             exit_with_code(exit_code)
