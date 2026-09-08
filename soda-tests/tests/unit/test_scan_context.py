@@ -99,7 +99,6 @@ def test_get_scan_context_outside_any_bracket_is_an_inert_atomic_context():
     context = get_scan_context()
 
     assert isinstance(context, AtomicScanContext)
-    assert not context.is_batched
     payload = _payload()
     with pytest.raises(AssertionError, match="run_scan"):
         context.insert_results(payload)
@@ -288,7 +287,6 @@ def test_run_scan_without_batched_opt_in_stays_atomic_even_when_managed(monkeypa
 
     assert exit_code == ExitCode.OK
     assert isinstance(seen["context"], AtomicScanContext)
-    assert not seen["context"].is_batched
     assert _request_kinds(mock_cloud) == []
 
 

@@ -37,10 +37,15 @@ class ScanContext(ABC):
     to the streaming gatherer. ``end_scan`` only closes a scan whose every upload was acknowledged.
     """
 
-    is_batched: bool = False
+    # Whether the results insert hands back the Cloud-minted ids (scan, dataset, check) that
+    # post-processing needs. False for a batch upload: it lands in object storage.
+    provides_result_handles: bool = True
 
     def __init__(self, soda_cloud: Optional[SodaCloud]):
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
+        # The launcher-created scan this run reports into; None on an ad-hoc run. The run's
+        # identity, so flows read it here instead of the environment.
+        self.scan_id: Optional[str] = None
         self.logs: Optional[Logs] = None
         self.results_delivered: bool = False
         self.results_rejected: bool = False
@@ -88,11 +93,11 @@ class AtomicScanContext(ScanContext):
 class BatchedScanContext(ScanContext):
     """The async ingestion pipeline of a managed scan (``SODA_SCAN_ID`` set by the launcher)."""
 
-    is_batched = True
+    provides_result_handles = False
 
     def __init__(self, soda_cloud: SodaCloud, scan_id: str):
         super().__init__(soda_cloud)
-        self.scan_id: str = scan_id
+        self.scan_id = scan_id
         self.scan_reference: Optional[str] = None
         self._start_attempted: bool = False
 

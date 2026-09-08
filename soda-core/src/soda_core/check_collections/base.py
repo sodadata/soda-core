@@ -805,10 +805,10 @@ class CheckCollectionImpl:
 
     def verify(self) -> CheckCollectionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationHandlerRegistry,
             DerivedMetricImpl,
             MeasurementValues,
             _get_contract_verification_status,
+            collect_post_processing_stages,
         )
 
         if not self.wire_source:
@@ -953,9 +953,7 @@ class CheckCollectionImpl:
                 yaml_source_str_original, file_label=self.display_name
             )
 
-        post_processing_stages: list[PostProcessingStage] = []
-        for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
-            post_processing_stages += handler.provides_post_processing_stages()
+        post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
         verification_result: CheckCollectionResult = self.result_class(
             check_collection=Contract(
