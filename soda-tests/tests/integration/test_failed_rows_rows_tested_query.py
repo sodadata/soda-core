@@ -281,6 +281,62 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
     assert "checkRowsTested" not in v4
 
 
+def test_failed_rows_rows_tested_query_returning_non_numeric_is_rejected(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    """A rows_tested_query that returns rows instead of a count must not poison the upload.
+
+    SCS-1439: the first cell went onto the wire verbatim as checkRowsTested, which Soda
+    Cloud types as an integer, so a text value failed the JSON parse of the whole
+    sodaCoreInsertScanResults body. The scan lost every check result and every log line,
+    and the launcher exited 4. The value must be dropped here instead, with an error
+    naming the fix, and the rest of the payload must survive.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - failed_rows:
+                  query: |
+                    SELECT *
+                    FROM {test_table.qualified_name}
+                    WHERE ({end_quoted} - {start_quoted}) > 5
+                  rows_tested_query: |
+                    {data_source_test_helper.select_literal_query("'YARDI_EMEA_SCHRODERS'")}
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+
+    # The text value is dropped, and the check still evaluates on failed_rows_count.
+    # failedRowsPercent is 0 because rows-tested is unknown, same as the NULL path above.
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "failed_rows",
+        "failedRowsCount": 2,
+        "failedRowsPercent": 0,
+        "datasetRowsTested": 3,
+    }
+    assert check_json["outcome"] == "fail"
+
+    error_messages = [
+        log["message"] for log in soda_core_insert_scan_results_command["logs"] if log["level"] == "error"
+    ]
+    assert any("Could not read a row count from the rows tested query" in m for m in error_messages)
+    assert any("SELECT COUNT(*)" in m for m in error_messages)
+
+
 def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
     data_source_test_helper: DataSourceTestHelper,
 ):

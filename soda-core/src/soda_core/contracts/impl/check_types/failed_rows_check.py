@@ -391,6 +391,33 @@ class RowsTestedQuery(Query):
         if not query_result.rows:
             metric_value = None
         else:
-            metric_value = query_result.rows[0][0]
+            metric_value = self._to_row_count(query_result.rows[0][0])
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
+
+    def _to_row_count(self, value: any) -> Optional[int]:
+        """Coerce the first cell of the rows_tested_query result to an int row count.
+
+        This value reaches Soda Cloud as ``checkRowsTested``, which the API types as an
+        integer. A non-numeric value is rejected at JSON-parse time, which fails the whole
+        ``sodaCoreInsertScanResults`` body: every check result and every log line of that
+        scan is lost, not just this check's. Writing a rows_tested_query that selects rows
+        instead of a count is an easy mistake to make (SCS-1439), so reject the value here
+        and carry on with check_rows_tested unmeasured, exactly as for a query returning
+        NULL. The check itself still evaluates on failed_rows_count.
+
+        Note the metric never passes through ``convert_db_value``: RowsTestedQuery builds
+        its Measurement directly rather than going through the aggregation-metric path.
+        """
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            logger.error(
+                f"Could not read a row count from the rows tested query: expected a number, got "
+                f"{type(value).__name__} {value!r}. Use a query that returns a single count, for "
+                f"example 'SELECT COUNT(*) FROM (<your query>)'. Continuing without "
+                f"check_rows_tested.\n{self.sql}"
+            )
+            return None
