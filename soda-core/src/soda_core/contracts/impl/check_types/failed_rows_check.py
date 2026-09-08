@@ -418,6 +418,6 @@ class RowsTestedQuery(Query):
                 f"Could not read a row count from the rows tested query: expected a number, got "
                 f"{type(value).__name__} {value!r}. Use a query that returns a single count, for "
                 f"example 'SELECT COUNT(*) FROM (<your query>)'. Continuing without "
-                f"check_rows_tested.\n{self.sql}"
+                f"check_rows_tested.\nExecuted SQL:\n{self.sql}"
             )
             return None
