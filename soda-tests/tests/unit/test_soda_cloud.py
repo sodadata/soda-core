@@ -102,6 +102,28 @@ def test_soda_cloud_from_yaml_source_with_token_auth():
         pytest.fail("An unexpected exception occurred: {exc}")
 
 
+def test_send_failed_rows_diagnostics_logs_warning_without_stdout(capsys):
+    soda_cloud = SodaCloud(
+        host="dev.sodadata.io",
+        api_key_id="some_key_id",
+        api_key_secret="some_key_secret",
+        token=None,
+        port=None,
+        scheme=None,
+    )
+
+    with mock.patch("soda_core.common.soda_cloud.logger.warning") as warning_mock:
+        soda_cloud.send_failed_rows_diagnostics("scan-123", [])
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    warning_mock.assert_called_once_with(
+        "Skipping failed rows diagnostics upload for scan '%s': feature not implemented yet (%d diagnostic entries).",
+        "scan-123",
+        0,
+    )
+
+
 def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
