@@ -46,10 +46,6 @@ def _sent_messages(mock_post: MagicMock) -> list[list[str]]:
     ]
 
 
-# Endpoint keying: scan-id-keyed streams post to batchV4, scan-reference-keyed ones to the
-# batchV3 endpoint existing library consumers rely on.
-
-
 def test_flush_uses_batch_v4_when_scan_id_set():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.INFO, "queued line"))
@@ -70,10 +66,6 @@ def test_flush_uses_batch_v3_when_only_scan_reference_set():
     logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
 
 
-# build_streaming_gatherer: the construction site for scan-id-keyed streaming. Callers resolve
-# the scan id themselves (EnvConfigHelper is the one place that reads SODA_SCAN_ID).
-
-
 def test_build_streaming_gatherer_builds_a_main_stage_scan_id_keyed_queue():
     soda_cloud = MagicMock()
 
@@ -87,11 +79,6 @@ def test_build_streaming_gatherer_builds_a_main_stage_scan_id_keyed_queue():
         gatherer.close()
 
 
-# The delivery invariant: _pending holds exactly the unacknowledged records. A 2xx removes the
-# sent head; any failure leaves the records queued, and the next flush — the worker's cadence in
-# production — re-sends them. There is no retry logic to test: the cadence IS the retry.
-
-
 def test_acknowledged_records_leave_the_queue():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.INFO, "line one"))
@@ -100,7 +87,7 @@ def test_acknowledged_records_leave_the_queue():
     logs_queue.flush()
     logs_queue.flush()
 
-    # The second flush had nothing to send: the ack removed both records.
+    # The second flush had nothing to send: the acknowledgment removed both records.
     assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["line one", "line two"]]
 
 
@@ -113,7 +100,7 @@ def test_unacknowledged_records_stay_queued_and_ride_the_next_flush(failure):
     logs_queue.flush()
     logs_queue.flush()
 
-    # One attempt per flush cycle, the same record both times: nothing was dropped in between.
+    # One attempt per flush, the same record both times: nothing was dropped in between.
     assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["survives the outage"]] * 2
 
 
@@ -130,9 +117,6 @@ def test_records_emitted_during_an_outage_ride_along_afterwards():
 
 
 def test_permanent_rejection_ends_the_stream(caplog):
-    # A non-transient 4xx is the backend saying this scan permanently refuses uploads (deleted, or
-    # off its log-accepting state — a transition that never reverses). Posting stops; the records'
-    # only remaining route to Soda Cloud is a failure report, and close() accounts for them.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
     logs_queue.emit(_record(logging.INFO, "refused line"))
@@ -171,14 +155,8 @@ def test_transient_4xx_does_not_end_the_stream(status_code):
     assert logs_queue.soda_cloud.logs_batch_v4.call_count == 2
 
 
-# Serialization: per record, evicting the incurables. Pending records only leave the queue on
-# delivery, so an unserializable record (e.g. an exotic object in a serialized attribute like
-# ``doc`` — to_jsonnable raises on unknown types) would otherwise re-fail every future flush and
-# block everything behind it. (A %-format mismatch cannot reach the queue: _mask_record formats the
-# message at capture time and _RootCapturer swallows that raise.)
-
-
 def _unserializable_record(msg: str) -> logging.LogRecord:
+    # An exotic object in a serialized attribute; to_jsonnable raises on unknown types.
     record = _record(logging.INFO, msg)
     record.doc = object()
     return record
@@ -195,8 +173,8 @@ def test_unserializable_record_is_evicted_and_its_neighbours_still_deliver(caplo
 
     assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["healthy before", "healthy after"]]
     assert "Evicting an unserializable record" in caplog.text
-    # Gone for good: the next flush does not resend it, and no failure report carries it (the
-    # report payload would hit the same serialization failure).
+    # Gone for good: not resent, and kept out of failure reports (whose payload would hit the
+    # same serialization failure).
     logs_queue.flush()
     assert logs_queue.soda_cloud.logs_batch_v4.call_count == 1
     assert logs_queue.records_for_failure_report() == []
@@ -212,23 +190,17 @@ def test_fully_unserializable_batch_posts_nothing_and_clears():
     assert logs_queue.records_for_failure_report() == []
 
 
-# Failure reports: sodaCoreMarkScanFailed REPLACES a scan's stored logs, so the report must be
-# empty whenever the stream could deliver — records_for_failure_report flushes to make that so —
-# and otherwise attach exactly the undelivered records, which it takes off the queue (hand-over).
-
-
 def test_failure_report_is_empty_when_the_stream_is_healthy():
+    # sodaCoreMarkScanFailed replaces a scan's stored logs, so a deliverable record must be
+    # flushed to the stream rather than attached to the report.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.ERROR, "boom"))
 
     assert logs_queue.records_for_failure_report() == []
-    # The flush is how the answer is computed: the error was shipped, not forgotten.
     logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
 
 
 def test_failure_report_attaches_every_undelivered_record():
-    # All levels, not just errors: whatever the stream could not deliver reached Cloud through no
-    # other channel, and the report is its delivery.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(200), _response(503)]
     logs_queue.emit(_record(logging.ERROR, "delivered error"))
@@ -242,9 +214,7 @@ def test_failure_report_attaches_every_undelivered_record():
 
 
 def test_failure_report_retires_the_stream(caplog):
-    # The hand-over: the caller's next act is sodaCoreMarkScanFailed, after which the backend
-    # refuses further uploads for the scan. Later records stay console-only and are NOT counted as
-    # undelivered at close (the false alarm right after a successful failure report).
+    # Records logged after the report stay console-only and must not alarm at close.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.ERROR, "boom"))
 
@@ -252,7 +222,6 @@ def test_failure_report_retires_the_stream(caplog):
     logs_queue.emit(_record(logging.INFO, "reported the failure to Soda Cloud"))
     logs_queue.flush()
 
-    # Only the pre-report flush went out; the post-report record was never queued for upload.
     logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
@@ -260,9 +229,7 @@ def test_failure_report_retires_the_stream(caplog):
 
 
 def test_retired_stream_still_serves_status_determination():
-    # A run can continue after a mid-run failure report (metric monitoring's errored_without_results
-    # branch): error records emitted after retirement must keep driving has_errors, even though
-    # they can no longer reach Soda Cloud.
+    # A run can continue after a mid-run failure report; later errors must keep driving has_errors.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.records_for_failure_report()
 
@@ -313,11 +280,6 @@ def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
         logs.close()
 
 
-# Streaming-mode accessors: get_all_logs is empty (streamed records are not re-gatherable — this
-# is what keeps a streaming run's results payload `logs` field empty); the status-determination
-# surface works exactly like the in-memory collector's.
-
-
 def test_get_all_logs_returns_empty_list_for_streaming_gatherer():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.INFO, "streamed away"))
@@ -339,10 +301,6 @@ def test_streaming_gatherer_serves_error_status_determination():
         assert logs.get_errors() == ["error line"]
     finally:
         logs.close()
-
-
-# close(): deliver what remains, then account for anything that could not be delivered — a
-# silently truncated log stream looks exactly like a quiet run.
 
 
 def test_close_delivers_the_remaining_records_silently(caplog):
@@ -383,8 +341,7 @@ def test_worker_survives_an_unexpected_flush_failure(monkeypatch):
 
         logs_queue._flush_logs = boom
         assert flushed.wait(timeout=5)
-        # A second cycle still reaches the flush: the worker did not die on the first raise —
-        # a dead worker is a silent stream stop, indistinguishable from a quiet run.
+        # A second cycle proves the worker did not die on the first raise.
         flushed.clear()
         assert flushed.wait(timeout=5)
     finally:
@@ -392,12 +349,9 @@ def test_worker_survives_an_unexpected_flush_failure(monkeypatch):
         logs_queue.close()
 
 
-# The `thread` value on the wire: Soda Cloud groups log lines by it. A caller-set grouping label
-# (marked by the active Logs) survives; anything else gets the queue's own uuid — never the OS
-# thread ident every LogRecord carries by default.
-
-
 def test_thread_label_wire_value_for_labelled_and_unlabelled_records():
+    # Soda Cloud groups log lines by `thread`: a caller-set label survives, anything else gets
+    # the queue's uuid.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs = Logs(gatherer=logs_queue)
     try:
@@ -430,8 +384,6 @@ def test_emit_stamps_the_queue_uuid_over_the_os_thread_ident():
 
 
 def test_stream_diagnostics_are_never_captured_by_an_active_logs():
-    # The stream's own diagnostics must not feed back into the queue they report on (or into any
-    # run's captured logs): _RootCapturer refuses the stream-diagnostics logger.
     logs = Logs()
     try:
         logs_queue_module.stream_logger.warning("dropping a batch")

@@ -17,9 +17,8 @@ from soda_core.common.exceptions import ScanExecutionFailedException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 
-# ScanExecutionFailedException is defined in soda_core.common.exceptions (raise sites exist below
-# the CLI layer, e.g. BatchedScanContext.start_scan) and re-exported here: this module is the
-# stable import point CLI wirings and soda-extensions use for the failure-reporting contract.
+# ScanExecutionFailedException lives in common.exceptions (it is raised below the CLI layer) and
+# is re-exported here, the import point CLI wirings and soda-extensions use.
 __all__ = ["ScanExecutionFailedException", "report_scan_execution_failure"]
 
 

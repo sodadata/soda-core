@@ -310,11 +310,9 @@ def execute_check_collections(
             # and pass it explicitly. Forward any stored exception too: executor placeholders
             # (build_error_result) carry result.error but log_records=None, so without this the
             # scan would be marked FAILED in Cloud with an empty, undiagnosable log payload.
-            # NOTE: log_records comes from Logs.get_log_records(), which is [] on a run whose
-            # logs stream to Soda Cloud (LogsQueue) — and this mark REPLACES the scan's stored
-            # logs. Before any combine-uploads flow opts into batched ingestion, this must move
-            # to Logs.records_for_failure_report() (flushes the stream, attaches only what it
-            # could not deliver).
+            # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
+            # REPLACES the scan's stored logs. Move to Logs.records_for_failure_report() before
+            # any combine-uploads flow opts into batched ingestion.
             errored_without_results_result.scan_id = soda_scan_id
             marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,

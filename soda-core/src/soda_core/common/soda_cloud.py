@@ -386,20 +386,14 @@ class SodaCloud:
         default_data_source: str,
         data_timestamp: Optional[datetime] = None,
     ) -> Optional[str]:
-        """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the
-        ``scanReference`` that keys the async ingestion pipeline
-        (``insert_scan_data_batch`` / ``scan_end_async``), or None when the
-        command was rejected or the response carried no reference —
-        ``BatchedScanContext.start_scan`` fails the run on it.
+        """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the ``scanReference``
+        that keys the async ingestion pipeline, or None when the command was rejected or the
+        response carried no reference.
 
-        ``definitionName``, ``defaultDataSource`` and ``dataTimestamp`` are
-        backend-mandatory (the executor dispatches on the definition's type and
-        upserts the scan's data containers from them); ``data_timestamp``
-        defaults to now. The ``version`` is the payload model version: this
-        codebase is v4-only, and the backend's v4 handling (e.g. hierarchical
-        discovery results) keys on it. A successful start also moves the scan
-        into its log-accepting state: the scan-id-keyed ``batchV4`` log stream
-        only accepts uploads after this command.
+        The name, data source and timestamp fields are backend-mandatory; ``data_timestamp``
+        defaults to now. ``version`` is the payload model version (this codebase is v4-only).
+        A successful start also moves the scan into its log-accepting state: the scan-id-keyed
+        ``batchV4`` log stream only accepts uploads after this command.
         """
         command: dict = {
             "type": "sodaCoreScanStart",
@@ -427,12 +421,9 @@ class SodaCloud:
         return scan_reference
 
     def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> bool:
-        """Send one results payload through the async ingestion pipeline
-        (``sodaCoreInsertScanDataBatch``, keyed by the ``scan_start``
-        scanReference). Takes the same payload dict the sync flows build; the
-        batch type and scanReference are stamped on a copy so the caller's DTO
-        is untouched. Returns True when Soda Cloud accepted it (same contract
-        as ``insert_scan_results``).
+        """Send one results payload as a ``sodaCoreInsertScanDataBatch``, keyed by the
+        ``scan_start`` scanReference. Takes the same payload dict the sync flows build; the batch
+        type and scanReference are stamped on a copy. Returns True when Soda Cloud accepted it.
         """
         command: dict = {**payload, "type": "sodaCoreInsertScanDataBatch", "scanReference": scan_reference}
         response: Optional[Response] = self._execute_command(
@@ -442,10 +433,8 @@ class SodaCloud:
         return response is not None and response.ok
 
     def scan_end_async(self, scan_reference: str) -> bool:
-        """Send ``sodaCoreScanEndAsync`` closing the async ingestion bracket
-        opened by ``scan_start``. Returns True when Soda Cloud accepted it
-        (same contract as its siblings).
-        """
+        """Send ``sodaCoreScanEndAsync``, closing the async ingestion opened by ``scan_start``.
+        Returns True when Soda Cloud accepted it."""
         response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
             request_log_name="scan_end_async",
@@ -1721,10 +1710,9 @@ class SodaCloud:
         )
 
     def _post_log_batch(self, url: str, body: str, request_log_name: str) -> Response:
-        """POST one jsonl log batch, re-authenticating once on a 401: the token can expire mid-run
-        on a long scan, and unlike the command path (``_execute_cqrs_request``) these REST uploads
-        would otherwise have no way back — every subsequent batch would fail the same way.
-        """
+        """POST one jsonl log batch, re-authenticating once on a 401: the token can expire
+        mid-run on a long scan, and unlike the command path these REST uploads have no other
+        recovery."""
         response = self._http_post(
             url=url,
             headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},

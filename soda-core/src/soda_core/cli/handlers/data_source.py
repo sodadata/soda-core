@@ -97,14 +97,10 @@ def handle_test_data_source(
 def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
-    """A ``Logs`` streaming to the scan's Cloud log stream for connection tests: resolves the Cloud client
-    from the ``-sc`` YAML, streams via ``build_streaming_gatherer``. Returns None when there is no scan id /
-    cloud config so callers fall back to an in-memory ``Logs``. Must be closed to flush the final batch.
-    (Connection-test scans accept log uploads without a ``sodaCoreScanStart`` — results-publishing flows
-    open that bracket via ``ScanContext.start_scan`` instead.)
-
-    Public because connection-test commands outside soda-core (e.g. the soda-extensions
-    ``diagnostics-warehouse test`` command) reuse it to stream their logs to the same scan-id-keyed endpoint.
+    """A ``Logs`` streaming a connection test's records to the scan's Cloud log stream, or None
+    when there is no scan id / cloud config. Must be closed to flush the final batch. Connection
+    tests need no ``sodaCoreScanStart``: the backend pre-creates their scan in its log-accepting
+    state. Public because connection-test commands in soda-extensions reuse it.
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     if not scan_id or not soda_cloud_file_path:
@@ -170,13 +166,10 @@ def handle_discover_data_source(
     an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so
     no failure report is sent.
 
-    The run's ingestion goes through the installed ``ScanContext`` (the bracket around this handler
-    also carries the Cloud client): the scan opens here — the handler is the first point where the
-    scan coordinates (definition name, data source name, data timestamp) are all resolved — so on a
-    managed run the discovery queries stream their logs and the upload rides the async batch
-    pipeline; an ad-hoc run's context makes both the sync sends they always were. The payload build
-    is unchanged: once streaming, the ``logs`` yield no records, so the payload's ``logs`` field is
-    empty and the stream stays the single log channel.
+    Ingestion goes through the installed ``ScanContext``. The scan opens here, the first point
+    where its coordinates (definition name, data source name, data timestamp) are all resolved, so
+    on a batched run the discovery queries stream their logs and the upload rides the batch
+    pipeline. On a streaming run ``logs`` yields no records, keeping the payload's ``logs`` empty.
     """
     from soda_core.discovery.discovery_payload import build_discovery_payload, resolve_data_timestamp
 

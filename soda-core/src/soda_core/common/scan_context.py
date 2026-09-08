@@ -1,28 +1,16 @@
-"""The scan context a results-publishing flow runs under — always present, sourced from a ContextVar.
+"""The scan context a results-publishing flow runs under.
 
-Every CLI results-publishing run has a ``ScanContext``: the CLI bracket (``cli.handlers.scan.run_scan``)
-selects a variant and installs it for the duration of the run, and flows source it with
-``get_scan_context()`` wherever they need it — no parameter threading. Outside any bracket (library use,
-direct handler invocation) the variable falls back to an inert atomic context, so the notion never
-degenerates to ``None`` checks:
+The CLI bracket (``cli.handlers.scan.run_scan``) picks a variant and installs it for the run;
+flows read it with ``get_scan_context()`` instead of receiving it as a parameter. Outside any
+bracket the accessor returns an inert atomic default, so callers never check for None.
 
-- ``AtomicScanContext`` — one indivisible end-of-run upload: ``start_scan`` is a no-op, results go out
-  as a single synchronous ``sodaCoreInsertScanResults``, and there is nothing to close.
-- ``BatchedScanContext`` — a managed scan (``SODA_SCAN_ID`` set by the Runner/launcher) sends results
-  through the async ingestion pipeline (``sodaCoreScanStart`` → ``sodaCoreInsertScanDataBatch`` →
-  ``sodaCoreScanEndAsync``) and streams its logs mid-run over the scan-id-keyed ``batchV4`` endpoint.
+- ``AtomicScanContext``: one synchronous end-of-run ``sodaCoreInsertScanResults`` upload.
+- ``BatchedScanContext``: the async ingestion pipeline of a managed scan (``sodaCoreScanStart`` →
+  ``sodaCoreInsertScanDataBatch`` → ``sodaCoreScanEndAsync``), with logs streaming mid-run over
+  the scan-id-keyed ``batchV4`` endpoint.
 
-The variant choice is the single place the managed/ad-hoc discrimination happens; consumers program
-against the shared interface and only consult ``is_batched`` where behavior genuinely diverges beyond
-it (e.g. metric monitoring's payload-route choice).
-
-The module lives in ``common`` because the engine (``check_collections`` subtypes) sources the context —
-a coordinator over ``Logs`` + ``SodaCloud`` belongs below the CLI layer. Only the bracket that selects,
-installs, and closes a context lives in ``cli.handlers.scan``.
-
-Sourcing mirrors ``logs._active_logs``: a ContextVar, set/reset by ``using_scan_context``. The only
-worker thread in a run is the log stream's flusher, which never reads the context, so consumers always
-see the bracket's installation.
+Lives in ``common`` because engine code (``check_collections`` subtypes) reads the context.
+Sourcing mirrors ``logs._active_logs``: a ContextVar, set and reset by ``using_scan_context``.
 """
 
 from __future__ import annotations
@@ -45,11 +33,8 @@ if TYPE_CHECKING:
 class ScanContext(ABC):
     """What a results-publishing flow needs from the run around it.
 
-    ``results_delivered`` / ``results_rejected`` record upload outcomes so ``end_scan`` only closes a
-    scan whose every upload was acknowledged — a run that could not deliver leaves the scan's terminal
-    state to the failure report / launcher fallback instead of ending it "cleanly" with results missing.
-    ``logs`` is the run-level ``Logs``; the bracket sets it so a mid-run ``start_scan`` upgrades the
-    right capture target (the engine may have per-collection targets active at that moment).
+    ``logs`` is the run-level ``Logs``, set by the bracket; a mid-run ``start_scan`` upgrades it
+    to the streaming gatherer. ``end_scan`` only closes a scan whose every upload was acknowledged.
     """
 
     is_batched: bool = False
@@ -66,13 +51,12 @@ class ScanContext(ABC):
         default_data_source: str,
         data_timestamp: Optional[datetime] = None,
     ) -> None:
-        """Open the run's ingestion once the flow has resolved the backend-mandatory scan
-        coordinates. A no-op except on a batched context, where it must be called before the engine
-        work so the expensive phase streams its logs."""
+        """Open the run's ingestion once the scan coordinates are resolved. A no-op except on a
+        batched context, where it must run before the engine work so that phase streams its logs."""
 
     def insert_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
-        """Send one results payload the way this context ingests. The context owns the command type
-        stamp (on a copy), so flows build one payload and never branch on the mode."""
+        """Send one results payload. The command type is stamped on a copy, so flows build one
+        payload regardless of the ingestion mode."""
         accepted: bool = self._send_results(payload)
         if accepted:
             self.results_delivered = True
@@ -85,17 +69,13 @@ class ScanContext(ABC):
         pass
 
     def end_scan(self) -> bool:
-        """Close the run's ingestion after a clean, unreported run; False means the run's results did
-        not reach Soda Cloud (the bracket maps it to ``RESULTS_NOT_SENT_TO_CLOUD``)."""
+        """Close the run's ingestion after a clean, unreported run. False means the results did not
+        reach Soda Cloud; the bracket maps it to ``RESULTS_NOT_SENT_TO_CLOUD``."""
         return True
 
 
 class AtomicScanContext(ScanContext):
-    """One indivisible end-of-run upload — today's ad-hoc behavior.
-
-    The module default is an inert instance without a Cloud client: flows running outside any bracket
-    can source and query it, but inserting results requires a bracket-installed context.
-    """
+    """One synchronous end-of-run upload — the ad-hoc behavior."""
 
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         assert self.soda_cloud is not None, (
@@ -106,12 +86,7 @@ class AtomicScanContext(ScanContext):
 
 
 class BatchedScanContext(ScanContext):
-    """The async ingestion pipeline of a managed scan (``SODA_SCAN_ID`` set by the Runner/launcher).
-
-    ``scan_reference`` is set by a successful ``start_scan`` and keys every send. A failed start
-    fails the run (``start_scan`` raises): the batched pipeline is not optional for a managed run,
-    and silently degrading to the atomic send would hide the misconfiguration the rejection signals.
-    """
+    """The async ingestion pipeline of a managed scan (``SODA_SCAN_ID`` set by the launcher)."""
 
     is_batched = True
 
@@ -127,19 +102,14 @@ class BatchedScanContext(ScanContext):
         default_data_source: str,
         data_timestamp: Optional[datetime] = None,
     ) -> None:
-        """Send ``sodaCoreScanStart``. On success the run's logs switch to the scan's Cloud log
-        stream (with the records captured so far replayed into it), so the phases after it are
-        visible mid-run — the backend refuses ``batchV4`` uploads for a never-started scan (a
-        managed results scan reaches its log-accepting state only through this command). No-op on
-        repeat calls. A failed start — rejected or raised — fails the run with
-        ``ScanExecutionFailedException``: it signals a real problem (the backend refuses these
-        deliberately), and continuing on another ingestion path would bury it. Nothing has streamed
-        at that point, so the failure report carries the full in-memory record list. Transient
-        failures are accepted casualties until retries land at the Soda Cloud client level.
+        """Send ``sodaCoreScanStart`` and switch the run's logs to the Cloud log stream, replaying
+        what was already captured — the backend accepts ``batchV4`` uploads only after this command.
+        No-op on repeat calls. A failed start (rejected or raised) fails the run with
+        ``ScanExecutionFailedException`` rather than continuing on another ingestion path; nothing
+        has streamed yet, so the failure report carries the full record list.
         """
-        # Deferred: logs_queue imports soda_cloud, and pulling that chain in at module-import time
-        # (the CLI wiring imports this module early) trips the pre-existing soda_cloud<->contracts
-        # import cycle.
+        # Imported here: logs_queue pulls in soda_cloud, which at module-import time trips the
+        # soda_cloud<->contracts import cycle.
         from soda_core.common.logs_queue import build_streaming_gatherer
 
         if self._start_attempted:
@@ -159,33 +129,23 @@ class BatchedScanContext(ScanContext):
             )
         self.scan_reference = scan_reference
         if self.logs is not None:
-            # Adopted by the run's existing Logs, which stays the active capture target; the
-            # bracket owns its lifecycle.
             self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
 
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
-        # No atomic fallback: a batched run without a scan_reference is a flow bug (inserting
-        # before start_scan) — a failed start already failed the run inside start_scan.
+        # Inserting before start_scan is a flow bug; a failed start already failed the run.
         assert self.scan_reference, "insert_results on a batched scan requires a successful start_scan first."
         return self.soda_cloud.insert_scan_data_batch(payload, self.scan_reference)
 
     def end_scan(self) -> bool:
-        """Send ``sodaCoreScanEndAsync`` — only for a run whose scan started and whose every upload
-        was acknowledged; otherwise the terminal state is left to the failure report / launcher
-        fallback (ending anyway would close the scan "cleanly" with results missing, or send a
-        second terminal transition after a ``sodaCoreMarkScanFailed``).
-
-        A rejected end is fatal: batch uploads only reach object storage — nothing ingests them
-        until the end command triggers reassembly, and no backend sweeper does it later, so a lost
-        end loses the whole run's results. No retries here (deliberate, for now): Cloud-command
-        retries are a global concern tracked separately, not per-command loops.
+        """Send ``sodaCoreScanEndAsync`` when the scan started and every upload was acknowledged;
+        otherwise leave the terminal state to the failure report / launcher fallback. A rejected
+        end is fatal: nothing ingests the uploaded batches without it.
         """
         if self.scan_reference is None or not self.results_delivered or self.results_rejected:
             return True
         try:
-            # This runs after the bracket's failure boundary has closed: a raise escaping here
-            # would exit 1, which the launcher reads as "checks failed" rather than "results
-            # never ingested" — so every failure shape becomes the False return.
+            # Runs after the failure boundary has closed: a raise here would exit 1, which the
+            # launcher reads as "checks failed" instead of "results never ingested".
             if self.soda_cloud.scan_end_async(self.scan_reference):
                 return True
             reason = "was not accepted"
@@ -201,8 +161,6 @@ class BatchedScanContext(ScanContext):
 
 _scan_context: contextvars.ContextVar[Optional[ScanContext]] = contextvars.ContextVar("soda_scan_context", default=None)
 
-# What get_scan_context falls back to outside any bracket. Shared and stateless-by-convention:
-# nothing should insert results through it (its assert says how to get a real one).
 _default_scan_context = AtomicScanContext(soda_cloud=None)
 
 
@@ -214,8 +172,7 @@ def get_scan_context() -> ScanContext:
 
 @contextmanager
 def using_scan_context(scan_context: ScanContext) -> Iterator[ScanContext]:
-    """Make ``scan_context`` the run's context for the block — the bracket around every CLI
-    results-publishing command; tests use it to run flows against a chosen variant."""
+    """Make ``scan_context`` the run's context for the block."""
     token = _scan_context.set(scan_context)
     try:
         yield scan_context
