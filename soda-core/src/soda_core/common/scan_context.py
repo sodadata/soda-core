@@ -55,8 +55,7 @@ class ScanContext(ABC):
         batched context, where it must run before the engine work so that phase streams its logs."""
 
     def insert_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
-        """Send one results payload. The command type is stamped on a copy, so flows build one
-        payload regardless of the ingestion mode."""
+        """Send one results payload; returns True when Soda Cloud accepted it."""
         accepted: bool = self._send_results(payload)
         if accepted:
             self.results_delivered = True
@@ -82,6 +81,7 @@ class AtomicScanContext(ScanContext):
             "insert_results needs a Soda Cloud client: run the flow under cli.handlers.scan.run_scan "
             "(or inside using_scan_context with a context that has one)."
         )
+        # The command type is stamped on a copy: flows build one payload regardless of the mode.
         return self.soda_cloud.insert_scan_results({**payload, "type": "sodaCoreInsertScanResults"})
 
 
@@ -103,10 +103,8 @@ class BatchedScanContext(ScanContext):
         data_timestamp: Optional[datetime] = None,
     ) -> None:
         """Send ``sodaCoreScanStart`` and switch the run's logs to the Cloud log stream, replaying
-        what was already captured — the backend accepts ``batchV4`` uploads only after this command.
-        No-op on repeat calls. A failed start (rejected or raised) fails the run with
-        ``ScanExecutionFailedException`` rather than continuing on another ingestion path; nothing
-        has streamed yet, so the failure report carries the full record list.
+        what was already captured. Only the first call starts; repeat calls are no-ops. Raises
+        ``ScanExecutionFailedException`` when the start is rejected or the client call fails.
         """
         # Imported here: logs_queue pulls in soda_cloud, which at module-import time trips the
         # soda_cloud<->contracts import cycle.
@@ -115,6 +113,9 @@ class BatchedScanContext(ScanContext):
         if self._start_attempted:
             return
         self._start_attempted = True
+        # A failed start fails the run rather than falling back to the sync upload: the backend
+        # refuses these deliberately, and continuing would hide the problem. Nothing has streamed
+        # yet, so the failure report carries the full record list.
         try:
             scan_reference: Optional[str] = self.soda_cloud.scan_start(
                 self.scan_id, definition_name, default_data_source, data_timestamp
@@ -129,6 +130,7 @@ class BatchedScanContext(ScanContext):
             )
         self.scan_reference = scan_reference
         if self.logs is not None:
+            # The backend accepts batchV4 uploads only after the start, so the stream begins here.
             self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
 
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
@@ -137,10 +139,10 @@ class BatchedScanContext(ScanContext):
         return self.soda_cloud.insert_scan_data_batch(payload, self.scan_reference)
 
     def end_scan(self) -> bool:
-        """Send ``sodaCoreScanEndAsync`` when the scan started and every upload was acknowledged;
-        otherwise leave the terminal state to the failure report / launcher fallback. A rejected
-        end is fatal: nothing ingests the uploaded batches without it.
-        """
+        """Send ``sodaCoreScanEndAsync``; False means the run's results did not reach Soda Cloud
+        (nothing ingests the uploaded batches without the end command)."""
+        # End only a scan whose every upload was acknowledged; otherwise the terminal state
+        # belongs to the failure report / launcher fallback.
         if self.scan_reference is None or not self.results_delivered or self.results_rejected:
             return True
         try:

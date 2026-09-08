@@ -53,11 +53,6 @@ class LogsQueue(LogsBase):
     records queued for the worker's next cadence tick — that cadence is the only retry mechanism.
     Delivery is at-least-once: an upload whose response was lost is re-sent, and the backend does
     not dedupe.
-
-    ``_terminal_reason`` is set when the backend permanently refuses uploads: posting stops, but
-    records keep queueing so a later failure report can still carry them. ``_retired`` is set when
-    a failure report takes the pending records: nothing further is enqueued, so the report's own
-    aftermath cannot raise a false undelivered alarm at close.
     """
 
     def __init__(
@@ -92,7 +87,11 @@ class LogsQueue(LogsBase):
         # Serializes the worker's flushes against caller-thread flushes (close, failure report):
         # concurrent flushes would send the same head twice.
         self._flush_lock = threading.Lock()
+        # Set when the backend permanently refuses uploads: posting stops, but records keep
+        # queueing so a later failure report can still carry them.
         self._terminal_reason: Optional[str] = None
+        # Set when a failure report has taken the pending records: nothing further is enqueued,
+        # so the report's aftermath cannot raise a false undelivered alarm at close.
         self._retired: bool = False
         self.shutdown_flag = threading.Event()
         self._create_worker_thread()
@@ -118,12 +117,13 @@ class LogsQueue(LogsBase):
     def records_for_failure_report(self) -> list[LogRecord]:
         """Hand the undelivered records over to a ``sodaCoreMarkScanFailed`` report.
 
-        Soda Cloud replaces the scan's stored logs with the report's attached list, so: flush first
-        (a healthy stream then has nothing pending and the report goes out empty, keeping the
-        streamed history), and attach only what is still pending. The returned records leave the
-        queue — the report is their delivery. Retired before the flush: the flush's own HTTP call
-        can emit records on this thread, and those must not land in a queue nothing drains again.
+        Soda Cloud replaces the scan's stored logs with the report's attached list, so: flush
+        first (a healthy stream then has nothing pending and the report goes out empty, keeping
+        the streamed history), and attach only what is still pending. The returned records leave
+        the queue — the report is their delivery.
         """
+        # Retired before the flush: the flush's own HTTP call can emit records on this thread,
+        # and those must not land in a queue nothing drains again.
         self._retired = True
         self.flush()
         with self._pending_lock:

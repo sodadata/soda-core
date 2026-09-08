@@ -166,19 +166,18 @@ def handle_discover_data_source(
     an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so
     no failure report is sent.
 
-    Ingestion goes through the installed ``ScanContext``. The scan opens here, the first point
-    where its coordinates (definition name, data source name, data timestamp) are all resolved, so
-    on a batched run the discovery queries stream their logs and the upload rides the batch
-    pipeline. On a streaming run ``logs`` yields no records, keeping the payload's ``logs`` empty.
+    Ingestion goes through the installed ``ScanContext``.
     """
     from soda_core.discovery.discovery_payload import build_discovery_payload, resolve_data_timestamp
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 
     scan_context: ScanContext = get_scan_context()
-    # One dataTimestamp for the whole scan: sodaCoreScanStart and the results payload must carry the same value
-    # (SODA_SCAN_DATA_TIMESTAMP from the launcher, now otherwise).
+    # One dataTimestamp for the whole scan: the start command and the results payload must carry
+    # the same value (SODA_SCAN_DATA_TIMESTAMP from the launcher, now otherwise).
     data_timestamp: datetime = resolve_data_timestamp(datetime.now(timezone.utc))
+    # Started here, the first point where the scan coordinates are all resolved, so the discovery
+    # queries stream their logs on a batched run.
     scan_context.start_scan(
         definition_name=scan_definition_name,
         default_data_source=data_source_impl.name,
@@ -196,7 +195,7 @@ def handle_discover_data_source(
         data_timestamp=data_timestamp,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
-        log_records=logs.get_log_records() if logs else None,
+        log_records=logs.get_log_records() if logs else None,  # [] once streaming
     )
     if not scan_context.insert_results(payload):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")

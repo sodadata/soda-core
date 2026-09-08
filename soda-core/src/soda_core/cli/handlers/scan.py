@@ -30,24 +30,22 @@ def run_scan(
     command: Callable[[Logs], ExitCode],
     batched: bool = False,
 ) -> ExitCode:
-    """Run a results-publishing command under an installed ``ScanContext``, with every failure
-    mapped to an exit code and reported to Soda Cloud in one place.
+    """Run a results-publishing CLI command and return its exit code.
 
-    ``batched`` declares that the flow participates in batched ingestion; ``SODA_SCAN_ID`` decides
-    whether that activates. Contract verification keeps the default: it ingests synchronously even
-    when managed, so its context must not claim ``is_batched``.
+    Owns everything around the command: installs the ScanContext (readable inside via
+    ``get_scan_context()``), creates and closes the run's ``Logs``, reports an escaped
+    failure to Soda Cloud exactly once, and ends the scan's ingestion after a clean run.
 
-    This is the single Cloud-marking site for exceptions escaping a command, so exactly one
-    ``sodaCoreMarkScanFailed`` reaches the backend per failed run. ``soda_cloud`` is the reporting
-    channel (``None`` when the command can run without Cloud: an escaped failure then exits 4 for a
-    managed run, 3 ad-hoc). A ``ScanExecutionFailedException`` is logged clean; any other exception
-    with its traceback. Both report with the records the gatherer selects for a failure report.
-    Otherwise the command's exit code is returned unchanged.
+    Returns the command's own exit code on a clean run; ``LOG_ERRORS`` when a failure was
+    reported to Soda Cloud; ``RESULTS_NOT_SENT_TO_CLOUD`` when it could not be — the
+    launcher then marks the scan failed itself.
 
-    Ordering: results insert (inside the command), final log flush (the ``finally`` close), then
-    ``end_scan``. The end is only reached on a clean return, so a failed or cancelled run never
-    sends a second terminal transition after ``sodaCoreMarkScanFailed``. A rejected end exits
-    ``RESULTS_NOT_SENT_TO_CLOUD`` rather than raising: exit 1 would read as "checks failed".
+    @param soda_cloud: The failure-reporting channel; None when the command can run
+        without Cloud.
+    @param command: The flow to run; receives the run's ``Logs``.
+    @param batched: Whether this flow participates in batched ingestion. Only takes effect
+        on a managed run (SODA_SCAN_ID set). Flows that ingest synchronously even when
+        managed, like contract verification, keep the default.
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     context: ScanContext = (
@@ -59,13 +57,17 @@ def run_scan(
         try:
             exit_code: ExitCode = command(logs)
         except ScanExecutionFailedException as exc:
+            # Expected failure: the message is logged without a traceback.
             soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")
             return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
         except Exception as exc:
             soda_logger.exception(f"Scan execution failed: {exc}")
             return report_scan_execution_failure(soda_cloud, logs.records_for_failure_report())
         finally:
-            logs.close()
+            logs.close()  # the stream's final flush, before end_scan
+    # Only reached when no failure was reported: a scan must never receive both
+    # sodaCoreMarkScanFailed and sodaCoreScanEndAsync. A rejected end returns an exit code
+    # instead of raising — exit 1 would read as "checks failed" to the launcher.
     if not context.end_scan():
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     return exit_code
