@@ -1,7 +1,8 @@
 from datetime import date
 
 import pytest
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.sql_ast import CREATE_TABLE_AS_SELECT, CREATE_TABLE_COLUMN, CREATE_TABLE_IF_NOT_EXISTS
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
 from soda_databricks.common.data_sources.databricks_data_source import DatabricksSqlDialect
 
@@ -196,3 +197,44 @@ def test_supports_percentile_within_group_is_true():
 
 def test_sql_expr_is_not_nan_renders_not_isnan():
     assert DatabricksSqlDialect().sql_expr_is_not_nan("`c`") == "NOT ISNAN(`c`)"
+
+
+def test_create_table_enables_delta_column_mapping():
+    """Delta rejects a column named "First Name" unless the table has column mapping enabled,
+    which is what broke the failed-rows stage for source datasets with spaces in column names."""
+    sql_dialect: DatabricksSqlDialect = DatabricksSqlDialect()
+
+    sql: str = sql_dialect.build_create_table_sql(
+        CREATE_TABLE_IF_NOT_EXISTS(
+            fully_qualified_table_name="`cat`.`sch`.`fr_x`",
+            columns=[CREATE_TABLE_COLUMN(name="First Name", type=SqlDataType(name="string"))],
+        )
+    )
+
+    assert sql == (
+        "CREATE TABLE IF NOT EXISTS `cat`.`sch`.`fr_x` (\n"
+        "\t`First Name` string\n"
+        ") TBLPROPERTIES ('delta.columnMapping.mode' = 'name', "
+        "'delta.minReaderVersion' = '2', 'delta.minWriterVersion' = '5');"
+    )
+
+
+def test_create_table_as_select_enables_delta_column_mapping():
+    """TBLPROPERTIES has to land before AS, or Databricks fails to parse the statement."""
+    sql_dialect: DatabricksSqlDialect = DatabricksSqlDialect()
+
+    sql: str = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name="`cat`.`sch`.`fr_x`",
+            select_elements=[SELECT(STAR()), FROM("customers")],
+        )
+    )
+
+    assert sql == (
+        "CREATE TABLE `cat`.`sch`.`fr_x` TBLPROPERTIES ("
+        "'delta.columnMapping.mode' = 'name', "
+        "'delta.minReaderVersion' = '2', "
+        "'delta.minWriterVersion' = '5') AS (\n"
+        "SELECT *\n"
+        "FROM `customers`);"
+    )
