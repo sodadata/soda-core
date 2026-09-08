@@ -26,11 +26,6 @@ DATA_TIMESTAMP = datetime(2026, 7, 13, 8, 30, tzinfo=timezone.utc)
 
 
 @pytest.fixture(autouse=True)
-def _no_retry_backoff(monkeypatch):
-    monkeypatch.setattr(logs_queue_module, "RETRY_DELAY_SECONDS", 0)
-
-
-@pytest.fixture(autouse=True)
 def _deterministic_flush_cadence(monkeypatch):
     # The worker's cadence flush must never interleave with the exact-sequence assertions below:
     # batches ship only on the explicit flushes and the close. (The queue reads the module constant
@@ -409,22 +404,23 @@ def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):
     assert "sodaCoreScanEndAsync" not in kinds
 
 
-def test_run_scan_failure_with_a_broken_stream_attaches_the_unsent_errors(monkeypatch):
+def test_run_scan_failure_with_a_broken_stream_attaches_the_undelivered_records(monkeypatch):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     mock_cloud = _ScanLifecycleSodaCloud(log_upload_status=400)
 
     def command(logs: Logs) -> ExitCode:
         get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        soda_logger.info("progress the stream refused")
         raise ValueError("boom")
 
     exit_code = run_scan(mock_cloud, command, batched=True)
 
     assert exit_code == ExitCode.LOG_ERRORS
-    # The stream could deliver nothing, so the error records ride the report — the one case where
-    # attaching them is right, because they reached Cloud through no other channel.
-    reported = _command_json(mock_cloud, "sodaCoreMarkScanFailed")["logs"]
-    assert reported and all(entry["level"] == "error" for entry in reported)
-    assert any("boom" in entry["message"] for entry in reported)
+    # The stream could deliver nothing, so every undelivered record rides the report — the one case
+    # where attaching them is right, because they reached Cloud through no other channel.
+    reported_messages = [entry["message"] for entry in _command_json(mock_cloud, "sodaCoreMarkScanFailed")["logs"]]
+    assert any("progress the stream refused" in message for message in reported_messages)
+    assert any("boom" in message for message in reported_messages)
     assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
 
 
@@ -531,7 +527,7 @@ def test_run_scan_partly_rejected_session_leaves_the_scan_unended(monkeypatch):
 def test_run_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
     # Once sodaCoreMarkScanFailed lands, the backend rejects every further batchV4 upload for the
     # scan. The report's own confirmation line (and anything logged after it) must therefore stay
-    # console-only — streaming it would end the run with a false "records could not be delivered"
+    # console-only — streaming it would end the run with a false "records were not delivered"
     # alarm immediately after the failure was reported successfully.
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     mock_cloud = _ScanLifecycleSodaCloud()
@@ -557,7 +553,7 @@ def test_run_scan_failure_report_supersedes_the_stream(monkeypatch, caplog):
     kinds = _request_kinds(mock_cloud)
     # Nothing is uploaded after the terminal command — the report retired the stream.
     assert "logsBatchV4" not in kinds[kinds.index("sodaCoreMarkScanFailed") + 1 :]
-    assert "could not be delivered" not in caplog.text
+    assert "were not delivered" not in caplog.text
 
 
 def test_run_scan_rejected_end_is_fatal_and_not_retried(monkeypatch):

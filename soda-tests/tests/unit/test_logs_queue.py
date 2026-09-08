@@ -1,7 +1,7 @@
 import json
 import logging
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import soda_core.common.logs_queue as logs_queue_module
@@ -12,20 +12,13 @@ from soda_core.common.logs_collector import LogsCollector
 from soda_core.common.logs_queue import LogsQueue, build_streaming_gatherer
 
 
-@pytest.fixture(autouse=True)
-def _no_retry_backoff(monkeypatch):
-    # The retry path waits on the shutdown event between attempts; zero the delay so tests that
-    # drive retries (on a live or stopped queue) never sleep.
-    monkeypatch.setattr(logs_queue_module, "RETRY_DELAY_SECONDS", 0)
-
-
 def test_logs_queue_requires_an_identifier():
     with pytest.raises(ValueError):
         LogsQueue(soda_cloud=MagicMock(), stage="main")
 
 
 def _response(status_code: int) -> MagicMock:
-    # A real int status code: the flush classifies retryability on it.
+    # A real int status code: the flush classifies the response on it.
     response = MagicMock(status_code=status_code)
     response.headers.get.return_value = None
     return response
@@ -36,10 +29,8 @@ def _stopped_queue(**kwargs) -> LogsQueue:
     soda_cloud.logs_batch_v4.return_value = _response(200)
     soda_cloud.logs_batch.return_value = _response(200)
     logs_queue = LogsQueue(soda_cloud=soda_cloud, stage="main", **kwargs)
-    # Stop the background worker so it does not race with the manual _flush_logs call.
+    # Stop the background worker so it does not race with the manual flush calls.
     logs_queue.shutdown_flag.set()
-    with logs_queue.condition:
-        logs_queue.condition.notify()
     logs_queue.worker_thread.join()
     return logs_queue
 
@@ -48,29 +39,34 @@ def _record(level: int, msg: str) -> logging.LogRecord:
     return logging.LogRecord(name="soda", level=level, pathname=__file__, lineno=1, msg=msg, args=(), exc_info=None)
 
 
+def _sent_messages(mock_post: MagicMock) -> list[list[str]]:
+    """Per upload, the messages in its jsonl body."""
+    return [
+        [json.loads(line)["message"] for line in call.kwargs["body"].splitlines()] for call in mock_post.call_args_list
+    ]
+
+
 # Endpoint keying: scan-id-keyed streams post to batchV4, scan-reference-keyed ones to the
 # batchV3 endpoint existing library consumers rely on.
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_flush_uses_batch_v4_when_scan_id_set(mock_to_jsonl):
+def test_flush_uses_batch_v4_when_scan_id_set():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.log_queue.put(_record(logging.INFO, "queued line"))
+    logs_queue.emit(_record(logging.INFO, "queued line"))
 
-    logs_queue._flush_logs(logs_queue.flush_interval)
+    logs_queue.flush()
 
-    logs_queue.soda_cloud.logs_batch_v4.assert_called_once_with(scan_id="scan-id-123", body="")
+    assert logs_queue.soda_cloud.logs_batch_v4.call_args.kwargs["scan_id"] == "scan-id-123"
     logs_queue.soda_cloud.logs_batch.assert_not_called()
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_flush_uses_batch_v3_when_only_scan_reference_set(mock_to_jsonl):
+def test_flush_uses_batch_v3_when_only_scan_reference_set():
     logs_queue = _stopped_queue(scan_reference="scan-ref-abc")
-    logs_queue.log_queue.put(_record(logging.INFO, "queued line"))
+    logs_queue.emit(_record(logging.INFO, "queued line"))
 
-    logs_queue._flush_logs(logs_queue.flush_interval)
+    logs_queue.flush()
 
-    logs_queue.soda_cloud.logs_batch.assert_called_once_with(scan_reference="scan-ref-abc", body="")
+    assert logs_queue.soda_cloud.logs_batch.call_args.kwargs["scan_reference"] == "scan-ref-abc"
     logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
 
 
@@ -91,23 +87,137 @@ def test_build_streaming_gatherer_builds_a_main_stage_scan_id_keyed_queue():
         gatherer.close()
 
 
-# Streaming-mode accessors: get_all_logs is empty (streamed records are not re-gatherable — this
-# is what keeps a streaming run's results payload `logs` field empty), and failure reports flush
-# first, then attach only what the stream could not deliver.
+# The delivery invariant: _pending holds exactly the unacknowledged records. A 2xx removes the
+# sent head; any failure leaves the records queued, and the next flush — the worker's cadence in
+# production — re-sends them. There is no retry logic to test: the cadence IS the retry.
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_get_all_logs_returns_empty_list_for_streaming_gatherer(mock_to_jsonl):
+def test_acknowledged_records_leave_the_queue():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.emit(_record(logging.INFO, "streamed away"))
+    logs_queue.emit(_record(logging.INFO, "line one"))
+    logs_queue.emit(_record(logging.INFO, "line two"))
 
-    assert logs_queue.get_all_logs() == []
+    logs_queue.flush()
+    logs_queue.flush()
+
+    # The second flush had nothing to send: the ack removed both records.
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["line one", "line two"]]
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_failure_report_is_empty_when_the_stream_is_healthy(mock_to_jsonl):
-    # The choke point: sodaCoreMarkScanFailed REPLACES a scan's stored logs, so the report must be
-    # empty whenever the stream can deliver — records_for_failure_report flushes to make that so.
+@pytest.mark.parametrize("failure", [_response(503), _response(408), _response(429), ConnectionError("network down")])
+def test_unacknowledged_records_stay_queued_and_ride_the_next_flush(failure):
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.side_effect = [failure, _response(200)]
+    logs_queue.emit(_record(logging.INFO, "survives the outage"))
+
+    logs_queue.flush()
+    logs_queue.flush()
+
+    # One attempt per flush cycle, the same record both times: nothing was dropped in between.
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["survives the outage"]] * 2
+
+
+def test_records_emitted_during_an_outage_ride_along_afterwards():
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(503), _response(200)]
+    logs_queue.emit(_record(logging.INFO, "before the outage"))
+    logs_queue.flush()
+    logs_queue.emit(_record(logging.INFO, "during the outage"))
+
+    logs_queue.flush()
+
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4)[-1] == ["before the outage", "during the outage"]
+
+
+def test_permanent_rejection_ends_the_stream(caplog):
+    # A non-transient 4xx is the backend saying this scan permanently refuses uploads (deleted, or
+    # off its log-accepting state — a transition that never reverses). Posting stops; the records'
+    # only remaining route to Soda Cloud is a failure report, and close() accounts for them.
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
+    logs_queue.emit(_record(logging.INFO, "refused line"))
+
+    logs_queue.flush()
+    logs_queue.emit(_record(logging.ERROR, "error after the refusal"))
+    logs_queue.flush()
+
+    logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
+    with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
+        logs_queue.close()
+    assert "2 log record(s) were not delivered" in caplog.text
+    assert "HTTP 400" in caplog.text
+
+
+def test_records_pending_after_a_permanent_rejection_ride_a_failure_report():
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(404)
+    logs_queue.emit(_record(logging.INFO, "refused line"))
+    logs_queue.flush()
+
+    reported = logs_queue.records_for_failure_report()
+
+    assert [record.getMessage() for record in reported] == ["refused line"]
+
+
+@pytest.mark.parametrize("status_code", [408, 429])
+def test_transient_4xx_does_not_end_the_stream(status_code):
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(status_code), _response(200)]
+    logs_queue.emit(_record(logging.INFO, "delayed line"))
+
+    logs_queue.flush()
+    logs_queue.flush()
+
+    assert logs_queue.soda_cloud.logs_batch_v4.call_count == 2
+
+
+# Serialization: per record, evicting the incurables. Pending records only leave the queue on
+# delivery, so an unserializable record (e.g. an exotic object in a serialized attribute like
+# ``doc`` — to_jsonnable raises on unknown types) would otherwise re-fail every future flush and
+# block everything behind it. (A %-format mismatch cannot reach the queue: _mask_record formats the
+# message at capture time and _RootCapturer swallows that raise.)
+
+
+def _unserializable_record(msg: str) -> logging.LogRecord:
+    record = _record(logging.INFO, msg)
+    record.doc = object()
+    return record
+
+
+def test_unserializable_record_is_evicted_and_its_neighbours_still_deliver(caplog):
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.emit(_record(logging.INFO, "healthy before"))
+    logs_queue.emit(_unserializable_record("bad record"))
+    logs_queue.emit(_record(logging.INFO, "healthy after"))
+
+    with caplog.at_level(logging.WARNING, logger="soda.logs_stream"):
+        logs_queue.flush()
+
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["healthy before", "healthy after"]]
+    assert "Evicting an unserializable record" in caplog.text
+    # Gone for good: the next flush does not resend it, and no failure report carries it (the
+    # report payload would hit the same serialization failure).
+    logs_queue.flush()
+    assert logs_queue.soda_cloud.logs_batch_v4.call_count == 1
+    assert logs_queue.records_for_failure_report() == []
+
+
+def test_fully_unserializable_batch_posts_nothing_and_clears():
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.emit(_unserializable_record("bad record"))
+
+    logs_queue.flush()
+
+    logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
+    assert logs_queue.records_for_failure_report() == []
+
+
+# Failure reports: sodaCoreMarkScanFailed REPLACES a scan's stored logs, so the report must be
+# empty whenever the stream could deliver — records_for_failure_report flushes to make that so —
+# and otherwise attach exactly the undelivered records, which it takes off the queue (hand-over).
+
+
+def test_failure_report_is_empty_when_the_stream_is_healthy():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.ERROR, "boom"))
 
@@ -116,25 +226,25 @@ def test_failure_report_is_empty_when_the_stream_is_healthy(mock_to_jsonl):
     logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_failure_report_attaches_only_what_the_stream_could_not_deliver(mock_to_jsonl):
+def test_failure_report_attaches_every_undelivered_record():
+    # All levels, not just errors: whatever the stream could not deliver reached Cloud through no
+    # other channel, and the report is its delivery.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(200), _response(400)]
+    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(200), _response(503)]
     logs_queue.emit(_record(logging.ERROR, "delivered error"))
     logs_queue.flush()
+    logs_queue.emit(_record(logging.INFO, "undelivered progress"))
     logs_queue.emit(_record(logging.ERROR, "undelivered error"))
 
     reported = logs_queue.records_for_failure_report()
 
-    assert [record.getMessage() for record in reported] == ["undelivered error"]
+    assert [record.getMessage() for record in reported] == ["undelivered progress", "undelivered error"]
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_failure_report_retires_the_stream(mock_to_jsonl, caplog):
-    # records_for_failure_report is the hand-over: the caller's next act is sodaCoreMarkScanFailed,
-    # after which the backend rejects every further batchV4 upload for the scan. A retired queue
-    # therefore stops uploading — later records stay console-only and are NOT counted as stream
-    # losses (the false "could not be delivered" alarm right after a successful failure report).
+def test_failure_report_retires_the_stream(caplog):
+    # The hand-over: the caller's next act is sodaCoreMarkScanFailed, after which the backend
+    # refuses further uploads for the scan. Later records stay console-only and are NOT counted as
+    # undelivered at close (the false alarm right after a successful failure report).
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.ERROR, "boom"))
 
@@ -144,35 +254,22 @@ def test_failure_report_retires_the_stream(mock_to_jsonl, caplog):
 
     # Only the pre-report flush went out; the post-report record was never queued for upload.
     logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
-    assert logs_queue._dropped_batch_count == 0
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
-    assert "could not be delivered" not in caplog.text
+    assert "were not delivered" not in caplog.text
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_retired_stream_still_serves_status_and_a_later_failure_report(mock_to_jsonl):
+def test_retired_stream_still_serves_status_determination():
     # A run can continue after a mid-run failure report (metric monitoring's errored_without_results
-    # branch): error records emitted after retirement must keep driving has_errors and be available
-    # to a later report, even though they can no longer be streamed.
+    # branch): error records emitted after retirement must keep driving has_errors, even though
+    # they can no longer reach Soda Cloud.
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.records_for_failure_report()
 
     logs_queue.emit(_record(logging.ERROR, "post-report error"))
 
     assert [record.getMessage() for record in logs_queue.get_error_logs()] == ["post-report error"]
-    assert [record.getMessage() for record in logs_queue.records_for_failure_report()] == ["post-report error"]
     logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
-
-
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_failure_report_only_carries_error_records(mock_to_jsonl):
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
-    logs_queue.emit(_record(logging.INFO, "progress line"))
-    logs_queue.emit(_record(logging.ERROR, "error line"))
-
-    assert [record.getMessage() for record in logs_queue.records_for_failure_report()] == ["error line"]
 
 
 def test_logs_collector_failure_report_returns_all_records():
@@ -216,10 +313,19 @@ def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
         logs.close()
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_streaming_gatherer_serves_error_status_determination(mock_to_jsonl):
-    # The status-determination surface (has_errors/get_errors) must work on a real LogsQueue: a streaming
-    # run's error records are preserved and reported exactly like the in-memory collector's.
+# Streaming-mode accessors: get_all_logs is empty (streamed records are not re-gatherable — this
+# is what keeps a streaming run's results payload `logs` field empty); the status-determination
+# surface works exactly like the in-memory collector's.
+
+
+def test_get_all_logs_returns_empty_list_for_streaming_gatherer():
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.emit(_record(logging.INFO, "streamed away"))
+
+    assert logs_queue.get_all_logs() == []
+
+
+def test_streaming_gatherer_serves_error_status_determination():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs = Logs(gatherer=logs_queue)
     try:
@@ -235,132 +341,40 @@ def test_streaming_gatherer_serves_error_status_determination(mock_to_jsonl):
         logs.close()
 
 
-# The retry/drop matrix. The stream is the run's only log channel once live, so a failed upload is
-# retried when retrying can help (5xx, 408, 429, exceptions) and every dropped batch is counted and
-# reported — a silently truncated log stream looks exactly like a quiet run.
+# close(): deliver what remains, then account for anything that could not be delivered — a
+# silently truncated log stream looks exactly like a quiet run.
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_retryable_failure_is_retried_and_recovers(mock_to_jsonl):
+def test_close_delivers_the_remaining_records_silently(caplog):
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(503), _response(200)]
-    logs_queue.emit(_record(logging.ERROR, "eventually delivered"))
+    logs_queue.emit(_record(logging.INFO, "delivered at close"))
 
-    logs_queue.flush()
+    with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
+        logs_queue.close()
 
-    assert logs_queue.soda_cloud.logs_batch_v4.call_count == 2
-    assert logs_queue._dropped_batch_count == 0
-    # Confirmed on the retry: the error no longer belongs in a failure report.
-    assert [r.getMessage() for r in logs_queue.logs if id(r) in logs_queue._flushed_records] == ["eventually delivered"]
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["delivered at close"]]
+    assert "were not delivered" not in caplog.text
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_persistent_retryable_failure_drops_the_batch_after_max_retries(mock_to_jsonl, caplog):
+def test_close_reports_records_the_final_flush_could_not_deliver(caplog):
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.soda_cloud.logs_batch_v4.return_value = _response(503)
-    logs_queue.emit(_record(logging.INFO, "lost line"))
-
-    with caplog.at_level(logging.WARNING, logger="soda.logs_stream"):
-        logs_queue.flush()
-
-    assert logs_queue.soda_cloud.logs_batch_v4.call_count == logs_queue_module.MAX_RETRIES
-    assert logs_queue._dropped_batch_count == 1
-    assert logs_queue._dropped_record_count == 1
-    assert "Dropping 1 log record(s) after 3 attempt(s): HTTP 503" in caplog.text
-
-
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_plain_4xx_drops_immediately_without_retrying(mock_to_jsonl, caplog):
-    # A rejected upload never becomes acceptable; retrying only delays the run. The reported
-    # attempt count is the real one, not MAX_RETRIES.
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
-    logs_queue.emit(_record(logging.INFO, "rejected line"))
-
-    with caplog.at_level(logging.WARNING, logger="soda.logs_stream"):
-        logs_queue.flush()
-
-    logs_queue.soda_cloud.logs_batch_v4.assert_called_once()
-    assert logs_queue._dropped_batch_count == 1
-    assert "after 1 attempt(s): HTTP 400" in caplog.text
-
-
-@pytest.mark.parametrize("status_code", [408, 429])
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_retry_later_4xx_is_retried(mock_to_jsonl, status_code):
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(status_code), _response(200)]
-    logs_queue.emit(_record(logging.INFO, "delayed line"))
-
-    logs_queue.flush()
-
-    assert logs_queue.soda_cloud.logs_batch_v4.call_count == 2
-    assert logs_queue._dropped_batch_count == 0
-
-
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_transport_exception_is_retried_then_dropped(mock_to_jsonl):
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.side_effect = ConnectionError("network down")
-    logs_queue.emit(_record(logging.INFO, "lost line"))
-
-    logs_queue.flush()
-
-    assert logs_queue.soda_cloud.logs_batch_v4.call_count == logs_queue_module.MAX_RETRIES
-    assert logs_queue._dropped_batch_count == 1
-    assert "network down" in logs_queue._last_drop_reason
-
-
-@patch("soda_core.common.logs_queue._to_jsonl", side_effect=TypeError("not serialisable"))
-def test_serialisation_failure_drops_the_batch_without_posting(mock_to_jsonl):
-    # Not retryable — the same records would fail to serialise the same way — and still accounted
-    # for: an escaping serialisation error would otherwise kill the worker with zero drops counted.
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.emit(_record(logging.INFO, "unserialisable line"))
-
-    logs_queue.flush()
-
-    logs_queue.soda_cloud.logs_batch_v4.assert_not_called()
-    assert logs_queue._dropped_batch_count == 1
-    assert "could not be serialised" in logs_queue._last_drop_reason
-
-
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_close_summarises_the_dropped_records(mock_to_jsonl, caplog):
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
     logs_queue.emit(_record(logging.INFO, "lost line one"))
     logs_queue.emit(_record(logging.INFO, "lost line two"))
-    logs_queue.flush()
 
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
 
-    assert "2 log record(s) in 1 batch(es) could not be delivered to Soda Cloud over the scan's log stream" in (
-        caplog.text
-    )
-    assert "HTTP 400" in caplog.text
+    assert "2 log record(s) were not delivered" in caplog.text
+    assert "final flush" in caplog.text
 
 
-@patch("soda_core.common.logs_queue._to_jsonl", return_value="")
-def test_close_stays_silent_when_nothing_was_dropped(mock_to_jsonl, caplog):
-    logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.emit(_record(logging.INFO, "delivered line"))
-
-    with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
-        logs_queue.close()
-
-    assert "could not be delivered" not in caplog.text
-
-
-def test_worker_survives_an_unexpected_flush_failure():
+def test_worker_survives_an_unexpected_flush_failure(monkeypatch):
+    monkeypatch.setattr(logs_queue_module, "DEFAULT_FLUSH_INTERVAL", 0.05)
     soda_cloud = MagicMock()
     soda_cloud.logs_batch_v4.return_value = _response(200)
     logs_queue = LogsQueue(soda_cloud=soda_cloud, stage="main", scan_id="scan-id-123")
     try:
-        # After a failed flush the worker re-arms on self.flush_interval; keep that short so the
-        # second cycle fires without depending on a notify racing the worker's wait.
-        logs_queue.flush_interval = 0.05
         flushed = threading.Event()
 
         def boom(interval):
@@ -368,8 +382,6 @@ def test_worker_survives_an_unexpected_flush_failure():
             raise RuntimeError("boom")
 
         logs_queue._flush_logs = boom
-        with logs_queue.condition:
-            logs_queue.condition.notify()
         assert flushed.wait(timeout=5)
         # A second cycle still reaches the flush: the worker did not die on the first raise —
         # a dead worker is a silent stream stop, indistinguishable from a quiet run.

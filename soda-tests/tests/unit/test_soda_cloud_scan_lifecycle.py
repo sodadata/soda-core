@@ -139,3 +139,41 @@ def test_scan_end_async_without_response_returns_false(mock_execute_command):
     mock_execute_command.return_value = None
 
     assert _soda_cloud().scan_end_async("org/ref-1") is False
+
+
+# The log-batch uploads (batchV3/batchV4): plain REST posts outside the command path, so they carry
+# their own once-only 401 re-authentication — a token can expire mid-run on a long scan, and
+# without the refresh every subsequent batch would fail the same way.
+
+
+@patch.object(SodaCloud, "_get_token", side_effect=["expired-token", "fresh-token"])
+@patch.object(SodaCloud, "_http_post")
+def test_logs_batch_v4_reauthenticates_once_on_a_401(mock_http_post, mock_get_token):
+    mock_http_post.side_effect = [MagicMock(status_code=401), MagicMock(status_code=200)]
+    soda_cloud = _soda_cloud()
+
+    response = soda_cloud.logs_batch_v4(scan_id="scan-123", body="{}")
+
+    assert response.status_code == 200
+    assert mock_http_post.call_count == 2
+    # The cached token was cleared before the second attempt, forcing a fresh login.
+    assert soda_cloud.token is None
+    assert mock_http_post.call_args.kwargs["headers"]["Authorization"] == "fresh-token"
+
+
+@patch.object(SodaCloud, "_get_token", return_value="expired-token")
+@patch.object(SodaCloud, "_http_post", return_value=MagicMock(status_code=401))
+def test_logs_batch_v4_gives_up_after_one_reauthentication(mock_http_post, mock_get_token):
+    response = _soda_cloud().logs_batch_v4(scan_id="scan-123", body="{}")
+
+    # A 401 that survives a fresh token is a real rejection (revoked key), not an expiry.
+    assert response.status_code == 401
+    assert mock_http_post.call_count == 2
+
+
+@patch.object(SodaCloud, "_get_token", return_value="valid-token")
+@patch.object(SodaCloud, "_http_post", return_value=MagicMock(status_code=200))
+def test_logs_batch_v4_posts_once_when_authenticated(mock_http_post, mock_get_token):
+    assert _soda_cloud().logs_batch_v4(scan_id="scan-123", body="{}").status_code == 200
+    mock_http_post.assert_called_once()
+    assert mock_http_post.call_args.kwargs["url"].endswith("/logs/scan-123/batchV4")

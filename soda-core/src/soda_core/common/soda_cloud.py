@@ -57,15 +57,6 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
-# A plain 4xx means the request will never be accepted as sent (unknown scan, wrong scan state,
-# malformed body); retrying only delays the run. 5xx — and the two 4xx that mean "later" — are worth
-# another attempt. Used by the log stream's upload retries.
-_RETRYABLE_4XX = {408, 429}
-
-
-def is_retryable_status(status_code: int) -> bool:
-    return status_code in _RETRYABLE_4XX or not 400 <= status_code < 500
-
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -1716,31 +1707,42 @@ class SodaCloud:
         logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
     def logs_batch(self, scan_reference: str, body: str):
-        headers = {
-            "Authorization": self._get_token(),
-            "Content-Type": "application/jsonlines",
-        }
-
-        response = self._http_post(
+        return self._post_log_batch(
             url=f"{self.api_url}/logs/{scan_reference}/batchV3",
-            headers=headers,
-            data=body,
+            body=body,
             request_log_name="logs_batch",
         )
-        return response
 
     def logs_batch_v4(self, scan_id: str, body: str):
-        headers = {
-            "Authorization": self._get_token(),
-            "Content-Type": "application/jsonlines",
-        }
-
-        response = self._http_post(
+        return self._post_log_batch(
             url=f"{self.api_url}/logs/{scan_id}/batchV4",
-            headers=headers,
-            data=body,
+            body=body,
             request_log_name="logs_batch_v4",
         )
+
+    def _post_log_batch(self, url: str, body: str, request_log_name: str) -> Response:
+        """POST one jsonl log batch, re-authenticating once on a 401: the token can expire mid-run
+        on a long scan, and unlike the command path (``_execute_cqrs_request``) these REST uploads
+        would otherwise have no way back — every subsequent batch would fail the same way.
+        """
+        response = self._http_post(
+            url=url,
+            headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+            data=body,
+            request_log_name=request_log_name,
+        )
+        if response.status_code == 401:
+            logger.debug(
+                f"Soda Cloud authentication failed for {request_log_name}. "
+                f"Probably token expired. Re-authenticating..."
+            )
+            self.token = None
+            response = self._http_post(
+                url=url,
+                headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+                data=body,
+                request_log_name=request_log_name,
+            )
         return response
 
 
