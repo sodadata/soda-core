@@ -148,9 +148,9 @@ class LogsQueue(LogsBase):
             self.shutdown_flag.set()
             self.worker_thread.join()
             self._flush_logs(DEFAULT_FLUSH_INTERVAL)
-        except Exception as e:
+        except Exception:
             # failure to close logs shouldn't crash the app
-            stream_logger.error(f"Error while closing the Soda Cloud log stream: {e}")
+            stream_logger.exception("Error while closing the Soda Cloud log stream")
         with self._pending_lock:
             undelivered = len(self._pending)
         if undelivered:

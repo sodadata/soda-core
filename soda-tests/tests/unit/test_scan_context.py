@@ -100,8 +100,9 @@ def test_get_scan_context_outside_any_bracket_is_an_inert_atomic_context():
 
     assert isinstance(context, AtomicScanContext)
     assert not context.is_batched
+    payload = _payload()
     with pytest.raises(AssertionError, match="run_scan"):
-        context.insert_results(_payload())
+        context.insert_results(payload)
 
 
 def test_using_scan_context_restores_the_previous_context():
@@ -146,9 +147,10 @@ def test_atomic_context_start_and_end_are_no_ops():
 def test_batched_context_insert_before_start_fails_loudly():
     soda_cloud = MagicMock()
     context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    payload = _payload()
 
     with pytest.raises(AssertionError, match="start_scan"):
-        context.insert_results(_payload())
+        context.insert_results(payload)
 
     soda_cloud.insert_scan_results.assert_not_called()
     soda_cloud.insert_scan_data_batch.assert_not_called()
