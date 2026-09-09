@@ -145,7 +145,7 @@ def test_atomic_context_start_and_end_are_no_ops():
 
 def test_batched_context_insert_before_start_fails_loudly():
     soda_cloud = MagicMock()
-    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123", logs=Logs())
     payload = _payload()
 
     with pytest.raises(AssertionError, match="start_scan"):
@@ -160,8 +160,7 @@ def test_start_scan_switches_to_streaming_and_replays_captured_records():
     logs = Logs()
     try:
         soda_logger.info("captured before the scan started")
-        context = BatchedScanContext(mock_cloud, scan_id="scan-123")
-        context.logs = logs
+        context = BatchedScanContext(mock_cloud, scan_id="scan-123", logs=logs)
 
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
 
@@ -183,8 +182,7 @@ def test_start_scan_switches_to_streaming_and_replays_captured_records():
 
 def test_start_scan_is_idempotent():
     mock_cloud = _ScanLifecycleSodaCloud()
-    context = BatchedScanContext(mock_cloud, scan_id="scan-123")
-    context.logs = Logs()
+    context = BatchedScanContext(mock_cloud, scan_id="scan-123", logs=Logs())
     try:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
@@ -197,8 +195,7 @@ def test_start_scan_is_idempotent():
 def test_start_scan_rejected_fails_the_run():
     mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=400)
     logs = Logs()
-    context = BatchedScanContext(mock_cloud, scan_id="scan-123")
-    context.logs = logs
+    context = BatchedScanContext(mock_cloud, scan_id="scan-123", logs=logs)
     try:
         with pytest.raises(ScanExecutionFailedException, match="did not accept sodaCoreScanStart"):
             context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
@@ -214,7 +211,7 @@ def test_start_scan_raising_client_call_fails_the_run_the_same_way():
     soda_cloud = MagicMock()
     original = ConnectionError("network down")
     soda_cloud.scan_start.side_effect = original
-    context = BatchedScanContext(soda_cloud, scan_id="scan-123")
+    context = BatchedScanContext(soda_cloud, scan_id="scan-123", logs=Logs())
 
     with pytest.raises(ScanExecutionFailedException, match="network down") as excinfo:
         context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
@@ -239,7 +236,6 @@ def test_run_scan_without_scan_id_installs_an_atomic_context(monkeypatch):
     assert exit_code == ExitCode.OK
     assert _request_kinds(mock_cloud) == ["sodaCoreInsertScanResults"]
     assert isinstance(seen["context"], AtomicScanContext)
-    assert seen["context"].logs is seen["logs"]
     assert isinstance(seen["logs"].gatherer, LogsCollector)
 
 

@@ -12,21 +12,19 @@ THREAD_LABEL_ATTR = "soda_thread_label"
 # capture it, so a failing stream cannot feed reports about itself into the queue it reports on.
 STREAM_DIAGNOSTICS_LOGGER = "soda.logs_stream"
 
+# The log stages Soda Cloud knows (its StageType enum). A name outside this set arrives as no
+# stage at all, so those records drop out of the stage filter in the UI.
+LOG_STAGE_MAIN = "main"
+LOG_STAGE_DIAGNOSTIC_WAREHOUSE = "diagnosticWarehouse"
+
 
 class LogsBase(ABC):
     def __init__(self):
         self.thread = None
         self.logs: list[LogRecord] = []
-        self.logs_buffer: list[LogRecord] = []
-        self.has_error_logs = False
-        self.has_warning_logs = False
 
     @abstractmethod
     def get_error_logs(self) -> list[LogRecord]:
-        pass
-
-    @abstractmethod
-    def get_error_or_warning_logs(self) -> list[LogRecord]:
         pass
 
     @abstractmethod
@@ -37,10 +35,6 @@ class LogsBase(ABC):
         # What a failure report (sodaCoreMarkScanFailed) should attach. In-memory gatherers return
         # everything; streaming gatherers override to return only the undelivered records.
         return self.get_all_logs()
-
-    @abstractmethod
-    def reset(self):
-        pass
 
     @abstractmethod
     def emit(self, log_record: LogRecord):

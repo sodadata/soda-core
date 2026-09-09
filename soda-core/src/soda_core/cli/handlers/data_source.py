@@ -168,7 +168,8 @@ def handle_discover_data_source(
 
     Ingestion goes through the installed ``ScanContext``.
     """
-    from soda_core.discovery.discovery_payload import build_discovery_payload, resolve_data_timestamp
+    from soda_core.common.datetime_conversions import resolve_data_timestamp
+    from soda_core.discovery.discovery_payload import build_discovery_payload
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
 

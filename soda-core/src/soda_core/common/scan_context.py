@@ -33,8 +33,7 @@ if TYPE_CHECKING:
 class ScanContext(ABC):
     """What a results-publishing flow needs from the run around it.
 
-    ``logs`` is the run-level ``Logs``, set by the bracket; a mid-run ``start_scan`` upgrades it
-    to the streaming gatherer. ``end_scan`` only closes a scan whose every upload was acknowledged.
+    ``end_scan`` only closes a scan whose every upload was acknowledged.
     """
 
     # Whether the results insert hands back the Cloud-minted ids (scan, dataset, check) that
@@ -46,7 +45,6 @@ class ScanContext(ABC):
         # The launcher-created scan this run reports into; None on an ad-hoc run. The run's
         # identity, so flows read it here instead of the environment.
         self.scan_id: Optional[str] = None
-        self.logs: Optional[Logs] = None
         self.results_delivered: bool = False
         self.results_rejected: bool = False
 
@@ -95,9 +93,11 @@ class BatchedScanContext(ScanContext):
 
     provides_result_handles = False
 
-    def __init__(self, soda_cloud: SodaCloud, scan_id: str):
+    def __init__(self, soda_cloud: SodaCloud, scan_id: str, logs: Logs):
         super().__init__(soda_cloud)
         self.scan_id = scan_id
+        # The run's Logs, whose gatherer start_scan upgrades to the Cloud log stream.
+        self.logs = logs
         self.scan_reference: Optional[str] = None
         self._start_attempted: bool = False
 
@@ -134,9 +134,8 @@ class BatchedScanContext(ScanContext):
                 f"Soda Cloud did not accept sodaCoreScanStart for scan '{self.scan_id}'."
             )
         self.scan_reference = scan_reference
-        if self.logs is not None:
-            # The backend accepts batchV4 uploads only after the start, so the stream begins here.
-            self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
+        # The backend accepts batchV4 uploads only after the start, so the stream begins here.
+        self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
 
     def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         # Inserting before start_scan is a flow bug; a failed start already failed the run.
@@ -168,13 +167,15 @@ class BatchedScanContext(ScanContext):
 
 _scan_context: contextvars.ContextVar[Optional[ScanContext]] = contextvars.ContextVar("soda_scan_context", default=None)
 
-_default_scan_context = AtomicScanContext(soda_cloud=None)
-
 
 def get_scan_context() -> ScanContext:
-    """The installed scan context, or the inert atomic default outside any bracket."""
+    """The installed scan context, or a fresh inert atomic one outside any bracket.
+
+    Fresh rather than shared: a context carries per-run state, so a process-wide instance would
+    carry it between runs.
+    """
     installed: Optional[ScanContext] = _scan_context.get()
-    return installed if installed is not None else _default_scan_context
+    return installed if installed is not None else AtomicScanContext(soda_cloud=None)
 
 
 @contextmanager

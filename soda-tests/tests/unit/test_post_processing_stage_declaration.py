@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from soda_core.common.logs import Logs
 from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, using_scan_context
 from soda_core.contracts.contract_verification import PostProcessingStage, PostProcessingStageState
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -54,7 +55,7 @@ def test_atomic_run_provides_result_handles():
 
 def test_batched_run_does_not_provide_result_handles():
     # A batch upload lands in object storage, so Soda Cloud returns no scan/dataset/check ids.
-    assert BatchedScanContext(MagicMock(), scan_id="scan-123").provides_result_handles is False
+    assert BatchedScanContext(MagicMock(), scan_id="scan-123", logs=Logs()).provides_result_handles is False
 
 
 def test_all_stages_are_declared_on_an_atomic_run(registered_handlers):
@@ -65,5 +66,5 @@ def test_all_stages_are_declared_on_an_atomic_run(registered_handlers):
 def test_stages_needing_handles_are_not_declared_on_a_batched_run(registered_handlers):
     # Declaring a stage the run cannot complete leaves it ONGOING forever on Soda Cloud, which
     # also keeps the scan's logs pending server-side.
-    with using_scan_context(BatchedScanContext(MagicMock(), scan_id="scan-123")):
+    with using_scan_context(BatchedScanContext(MagicMock(), scan_id="scan-123", logs=Logs())):
         assert _stage_names(collect_post_processing_stages()) == ["selfContained"]

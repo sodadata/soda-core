@@ -231,6 +231,12 @@ class TimestampToCreatedLoggingFilter(logging.Filter):
         return True
 
 
+def _command_accepted(response: Optional[Response]) -> bool:
+    """Whether Soda Cloud accepted a command. The shared contract of every ``bool``-returning
+    command method: no response (the client swallowed the error) counts as a rejection."""
+    return response is not None and response.ok
+
+
 class SodaCloud:
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
@@ -362,7 +368,7 @@ class SodaCloud:
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
 
     def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         """Send one ``sodaCoreInsertScanResults`` payload; returns True when
@@ -377,7 +383,7 @@ class SodaCloud:
             command_json_dict=payload,
             request_log_name="insert_scan_results",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
 
     def scan_start(
         self,
@@ -430,7 +436,7 @@ class SodaCloud:
             command_json_dict=command,
             request_log_name="insert_scan_data_batch",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
 
     def scan_end_async(self, scan_reference: str) -> bool:
         """Send ``sodaCoreScanEndAsync``, closing the async ingestion opened by ``scan_start``.
@@ -439,7 +445,7 @@ class SodaCloud:
             command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
             request_log_name="scan_end_async",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
 
     def send_check_collection_results(
         self,

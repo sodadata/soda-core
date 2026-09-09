@@ -48,11 +48,12 @@ def run_scan(
         managed, like contract verification, keep the default.
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
-    context: ScanContext = (
-        BatchedScanContext(soda_cloud, scan_id) if batched and scan_id and soda_cloud else AtomicScanContext(soda_cloud)
-    )
     logs: Logs = Logs()
-    context.logs = logs
+    context: ScanContext = (
+        BatchedScanContext(soda_cloud, scan_id, logs)
+        if batched and scan_id and soda_cloud
+        else AtomicScanContext(soda_cloud)
+    )
     with using_scan_context(context):
         try:
             exit_code: ExitCode = command(logs)

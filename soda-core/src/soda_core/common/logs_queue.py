@@ -13,7 +13,7 @@ from soda_core.common import soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_configuration import _mask_record
 from soda_core.common.logging_constants import Emoticons
-from soda_core.common.logs_base import STREAM_DIAGNOSTICS_LOGGER, THREAD_LABEL_ATTR, LogsBase
+from soda_core.common.logs_base import LOG_STAGE_MAIN, STREAM_DIAGNOSTICS_LOGGER, THREAD_LABEL_ATTR, LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 
 DEFAULT_FLUSH_INTERVAL = 5
@@ -42,7 +42,7 @@ def build_streaming_gatherer(soda_cloud: SodaCloud, scan_id: str) -> LogsQueue:
     reads SODA_SCAN_ID). Scan-REFERENCE-keyed consumers construct their own queue: that posts to a
     different endpoint.
     """
-    return LogsQueue(soda_cloud=soda_cloud, stage="main", scan_id=scan_id, dataset="")
+    return LogsQueue(soda_cloud=soda_cloud, stage=LOG_STAGE_MAIN, scan_id=scan_id)
 
 
 class LogsQueue(LogsBase):
@@ -106,9 +106,6 @@ class LogsQueue(LogsBase):
         # determination must agree with the in-memory behavior.
         return [log for log in self.logs if log.levelno == logging.ERROR]
 
-    def get_error_or_warning_logs(self) -> list[LogRecord]:
-        raise AssertionError("Warning logs unavailable in LogsQueue")
-
     def get_all_logs(self) -> list[LogRecord]:
         # Streamed records are not re-gatherable. The empty list keeps a streaming run's results
         # payload `logs` field empty; failure reports use records_for_failure_report().
@@ -124,30 +121,20 @@ class LogsQueue(LogsBase):
         """
         # Retired before the flush: the flush's own HTTP call can emit records on this thread,
         # and those must not land in a queue nothing drains again.
-        self._retired = True
+        with self._pending_lock:
+            self._retired = True
         self.flush()
         with self._pending_lock:
             handed_over = self._pending
             self._pending = []
         return handed_over
 
-    def reset(self):
-        self.thread = str(uuid.uuid4())
-        self.logs: list[LogRecord] = []
-        self.logs_buffer: list[LogRecord] = []
-        self.has_error_logs = False
-        self.has_warning_logs = False
-        self._pending = []
-        self._terminal_reason = None
-        self._retired = False
-        return self
-
     def close(self):
         """Flush the remaining records, stop the worker, and account for anything undelivered."""
         try:
             self.shutdown_flag.set()
             self.worker_thread.join()
-            self._flush_logs(DEFAULT_FLUSH_INTERVAL)
+            self._flush_logs(self.flush_interval)
         except Exception:
             # failure to close logs shouldn't crash the app
             stream_logger.exception("Error while closing the Soda Cloud log stream")
@@ -276,7 +263,7 @@ class LogsQueue(LogsBase):
                 )
                 return current_flush_interval
 
-    def get_next_batch_timeout(self, next_batch_time: Optional[str]) -> int:
+    def get_next_batch_timeout(self, next_batch_time: Optional[str]) -> float:
         if next_batch_time is None:
             return 0
 

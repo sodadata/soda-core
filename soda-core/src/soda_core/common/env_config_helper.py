@@ -62,6 +62,13 @@ class EnvConfigHelper:
         return os.getenv("SODA_SCAN_ID")
 
     @property
+    def soda_scan_data_timestamp(self) -> str | None:
+        # Set by the Soda Runner/agent for managed scans: the scan's data time, which the results
+        # payload and sodaCoreScanStart must both carry. Parsed by
+        # ``datetime_conversions.resolve_data_timestamp``.
+        return os.getenv("SODA_SCAN_DATA_TIMESTAMP")
+
+    @property
     def is_running_on_runner(self) -> bool:
         # SODA_INSTRUCTION_ID is only set when running in Soda Runner (formerly Soda Agent).
         # The env var name itself remains SODA_INSTRUCTION_ID for backwards compatibility with
