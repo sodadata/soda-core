@@ -68,6 +68,10 @@ class PostProcessingSessionItem:
 
 
 class ContractVerificationHandler(ABC):
+    # Set by handlers that can only run when the results insert returns the Cloud-minted ids
+    # (scan, dataset, check). Such a handler declares no stage on a run that will not get them.
+    requires_result_handles: bool = False
+
     @abstractmethod
     def handle(
         self,
@@ -156,6 +160,23 @@ class ContractVerificationHandlerRegistry(ABC):
             if stage_name in cls.post_processing_stages:
                 logger.warning(f"Overriding existing verification handler for post-processing stage {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
+
+
+def collect_post_processing_stages() -> list[PostProcessingStage]:
+    """The post-processing stages a run declares in its results payload.
+
+    A stage nobody can complete stays ONGOING on Soda Cloud and keeps the scan's logs pending
+    server-side, so handlers that need result handles contribute nothing to a run without them.
+    """
+    from soda_core.common.scan_context import get_scan_context
+
+    provides_handles: bool = get_scan_context().provides_result_handles
+    stages: list[PostProcessingStage] = []
+    for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+        if handler.requires_result_handles and not provides_handles:
+            continue
+        stages += handler.provides_post_processing_stages()
+    return stages
 
 
 class ContractVerificationSessionImpl:

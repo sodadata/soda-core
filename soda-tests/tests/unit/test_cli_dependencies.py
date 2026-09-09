@@ -2,13 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.dependencies import (
-    resolve_data_source,
-    resolve_scan_definition_name,
-    resolve_soda_cloud,
-    run_with_failure_reporting,
-)
+from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_scan_definition_name, resolve_soda_cloud
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.exceptions import InvalidSodaCloudConfigurationException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
@@ -192,9 +188,10 @@ def test_scan_definition_name_missing_raises_scan_execution_failed(monkeypatch, 
     assert not any("scan definition name is required" in record.getMessage() for record in caplog.records)
 
 
-# run_with_failure_reporting: receives the already-constructed reporting
-# channel and a command that takes the wrapper's own ``Logs`` collector; the ONE
-# place where command failures map to exit codes and Soda Cloud failure reporting.
+# run_scan failure mapping: receives the already-constructed reporting channel
+# and a command that takes the bracket's own ``Logs`` collector; the ONE place
+# where command failures map to exit codes and Soda Cloud failure reporting.
+# (The scan-context/ingestion side of run_scan is covered in test_scan_context.)
 
 
 def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(monkeypatch):
@@ -207,7 +204,7 @@ def test_run_with_command_raising_scan_execution_failed_marks_scan_failed(monkey
         # message and logs nothing — the wrapper is the single logging site.
         raise ScanExecutionFailedException("Discovery query failed: connection dropped")
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     soda_cloud.mark_scan_as_failed.assert_called_once()
@@ -225,7 +222,7 @@ def test_run_with_command_raising_unexpected_exception_marks_scan_failed(monkeyp
     soda_cloud.mark_scan_as_failed.return_value = True
     command = MagicMock(side_effect=RuntimeError("payload build failed"))
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.LOG_ERRORS
     soda_cloud.mark_scan_as_failed.assert_called_once()
@@ -243,7 +240,7 @@ def test_run_with_rejected_mark_scan_as_failed_exits_results_not_sent(monkeypatc
     soda_cloud.mark_scan_as_failed.return_value = False
     command = MagicMock(side_effect=RuntimeError("boom"))
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
@@ -253,7 +250,7 @@ def test_run_with_failing_command_without_scan_id_exits_log_errors(monkeypatch):
     soda_cloud = MagicMock()
     command = MagicMock(side_effect=ScanExecutionFailedException("no scan definition name"))
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     # Ad-hoc run: no Cloud scan to update, errors stay on the console.
     assert exit_code == ExitCode.LOG_ERRORS
@@ -264,7 +261,7 @@ def test_run_returns_command_exit_code():
     soda_cloud = MagicMock()
     command = MagicMock(return_value=ExitCode.OK)
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.OK
     command.assert_called_once()
@@ -276,7 +273,7 @@ def test_run_passes_through_command_failure_exit_code_without_reporting(monkeypa
     # E.g. a rejected results upload: the command decides the exit code itself.
     command = MagicMock(return_value=ExitCode.RESULTS_NOT_SENT_TO_CLOUD)
 
-    exit_code = run_with_failure_reporting(soda_cloud, command)
+    exit_code = run_scan(soda_cloud, command)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     soda_cloud.mark_scan_as_failed.assert_not_called()
@@ -293,7 +290,7 @@ def test_run_passes_its_own_logs_instance_to_command():
         received["logs"] = logs
         return ExitCode.OK
 
-    run_with_failure_reporting(soda_cloud, command)
+    run_scan(soda_cloud, command)
 
     assert isinstance(received["logs"], Logs)
 
@@ -313,7 +310,7 @@ def test_records_emitted_via_the_wrappers_logs_reach_the_failure_report(monkeypa
             soda_logger.error("downstream record from within the command")
         raise ScanExecutionFailedException("boom after emitting")
 
-    run_with_failure_reporting(soda_cloud, command)
+    run_scan(soda_cloud, command)
 
     soda_cloud.mark_scan_as_failed.assert_called_once()
     _, kwargs = soda_cloud.mark_scan_as_failed.call_args
