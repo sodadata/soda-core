@@ -146,9 +146,11 @@ def test_m2m_connection_passes_credentials_provider():
         }
     )
     headers = {"Authorization": "Bearer tok"}
-    with patch(
-        "databricks.sdk.credentials_provider.oauth_service_principal", return_value=lambda: headers
-    ) as osp, patch("databricks.sdk.core.Config") as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
+    with (
+        patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value=lambda: headers) as osp,
+        patch("databricks.sdk.core.Config") as cfg,
+        patch.object(conn_mod.sql, "connect") as mock_connect,
+    ):
         _make_connection()._create_connection(props)
 
     called_kwargs = mock_connect.call_args.kwargs
@@ -180,9 +182,11 @@ def test_azure_connection_passes_credentials_provider():
         }
     )
     headers = {"Authorization": "Bearer az"}
-    with patch(
-        "databricks.sdk.credentials_provider.azure_service_principal", return_value=lambda: headers
-    ) as asp, patch("databricks.sdk.core.Config") as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
+    with (
+        patch("databricks.sdk.credentials_provider.azure_service_principal", return_value=lambda: headers) as asp,
+        patch("databricks.sdk.core.Config") as cfg,
+        patch.object(conn_mod.sql, "connect") as mock_connect,
+    ):
         _make_connection()._create_connection(props)
 
     called_kwargs = mock_connect.call_args.kwargs
@@ -206,9 +210,11 @@ def test_m2m_provider_none_raises_clear_error():
             "client_secret": "sec",
         }
     )
-    with patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value=None), patch(
-        "databricks.sdk.core.Config"
-    ), patch.object(conn_mod.sql, "connect") as mock_connect:
+    with (
+        patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value=None),
+        patch("databricks.sdk.core.Config"),
+        patch.object(conn_mod.sql, "connect") as mock_connect,
+    ):
         with pytest.raises(ValueError, match="OAuth .M2M. authentication setup failed"):
             _make_connection()._create_connection(props)
     mock_connect.assert_not_called()
@@ -242,9 +248,11 @@ def test_m2m_connection_strips_host_scheme():
             "client_secret": "sec",
         }
     )
-    with patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value="M2M"), patch(
-        "databricks.sdk.core.Config"
-    ) as cfg, patch.object(conn_mod.sql, "connect") as mock_connect:
+    with (
+        patch("databricks.sdk.credentials_provider.oauth_service_principal", return_value="M2M"),
+        patch("databricks.sdk.core.Config") as cfg,
+        patch.object(conn_mod.sql, "connect") as mock_connect,
+    ):
         _make_connection()._create_connection(props)
 
     assert mock_connect.call_args.kwargs["server_hostname"] == "abc.cloud.databricks.com"

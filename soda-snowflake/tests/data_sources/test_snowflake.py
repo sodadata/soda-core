@@ -92,7 +92,7 @@ test_connections: list[TestConnection] = [
     # TestConnection(  # connect using external browser. commented out by default because CI will hang.  Uncomment to test locally
     #     test_name="external_browser_connection",
     #     connection_yaml_str=f"""
-    #             type: snowflake
+    # type: snowflake
     #             name: SNOWFLAKE_TEST
     #             connection:
     #                 account: '{SNOWFLAKE_ACCOUNT}'

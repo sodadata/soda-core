@@ -12,6 +12,7 @@ These tests use an in-memory DuckDB connection (no credentials required) so the
 end-to-end ``with self.connection.cursor() as cursor:`` flow runs against a real
 connection, catching this class of failure before CI does.
 """
+
 from __future__ import annotations
 
 from datetime import tzinfo
