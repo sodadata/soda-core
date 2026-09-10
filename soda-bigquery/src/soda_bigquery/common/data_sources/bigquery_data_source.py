@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
@@ -269,14 +270,19 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         quantile_number: int = int(percentile_within_group.percentile * 1000)
         return f"APPROX_QUANTILES({expression_sql}, 1000)[{quantile_number}]"
 
-    # Singular unit names for TIMESTAMP_DIFF/TIMESTAMP_ADD. WEEK is deliberately
-    # absent: BigQuery's TIMESTAMP functions only accept MICROSECOND..DAY parts
-    # (WEEK is a DATE_DIFF/DATETIME_DIFF-only part), so weekly arithmetic
-    # renders day-denominated in both builders below.
+    # Singular unit names for DATETIME_ADD. WEEK is deliberately absent: weekly
+    # arithmetic renders day-denominated in both builders below, keeping
+    # cross-dialect bucket indexes identical.
     _TIME_BUCKET_UNIT_NAMES: dict = {
         "days": "DAY",
         "hours": "HOUR",
         "seconds": "SECOND",
+    }
+
+    _TIME_BUCKET_UNIT_MICROSECONDS: dict = {
+        "days": 86_400_000_000,
+        "hours": 3_600_000_000,
+        "seconds": 1_000_000,
     }
 
     def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
@@ -287,20 +293,21 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         unit, count = time_delta.unit, time_delta.count
         if unit == "weeks":
             unit, count = "days", count * 7
-        unit_name: str = self._TIME_BUCKET_UNIT_NAMES[unit]
-        sql: str = f"TIMESTAMP_DIFF({end_sql}, {start_sql}, {unit_name})"
-        if count != 1:
-            sql = f"CAST(FLOOR({sql} / {count}) AS INT)"
-        return sql
+        # Elapsed MICROSECONDs floor-divided by the unit size: DATETIME_DIFF at
+        # DAY/HOUR counts calendar-boundary crossings (a 2h span across midnight
+        # is 1 DAY), which would mis-bucket grids anchored off midnight.
+        unit_microseconds: int = self._TIME_BUCKET_UNIT_MICROSECONDS[unit] * count
+        sql: str = f"DATETIME_DIFF({end_sql}, {start_sql}, MICROSECOND)"
+        return f"CAST(FLOOR({sql} / {unit_microseconds}) AS INT)"
 
     def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
         timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
         count_sql: str = self.build_expression_sql(add_interval.count_expression)
         # Weekly intervals render as INTERVAL <count> * 7 DAY.
         if add_interval.unit == "weeks":
-            return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} * 7 DAY)"
+            return f"DATETIME_ADD({timestamp_sql}, INTERVAL {count_sql} * 7 DAY)"
         unit_name: str = self._TIME_BUCKET_UNIT_NAMES[add_interval.unit]
-        return f"TIMESTAMP_ADD({timestamp_sql}, INTERVAL {count_sql} {unit_name})"
+        return f"DATETIME_ADD({timestamp_sql}, INTERVAL {count_sql} {unit_name})"
 
     def supports_data_type_character_maximum_length(self) -> bool:
         return False
@@ -356,10 +363,28 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return f"timestamp('{datetime_in_iso8601}')"
 
     def sql_expr_timestamp_coerce(self, expr: str) -> str:
-        # BigQuery coerces bare string comparison literals to the column's type, and an
-        # ISO string with a UTC offset cannot cast to DATETIME. Wrapping the column makes
-        # both sides TIMESTAMP-typed.
-        return f"timestamp({expr})"
+        # CAST, not the timestamp() constructor: only CAST on the partitioning column is
+        # accepted for partition elimination (a function wrap full-scans, and tables with
+        # require_partition_filter reject the query outright). DATETIME as the target
+        # because the cast compiles for DATE, DATETIME and TIMESTAMP expressions alike,
+        # converting TIMESTAMP -> DATETIME at UTC; literal_datetime renders the matching
+        # offset-less UTC bounds.
+        return f"CAST({expr} AS DATETIME)"
+
+    def literal_datetime(self, dt: datetime) -> str:
+        # Offset-less UTC: an offset-carrying ISO string cannot coerce to a DATETIME
+        # column, nor to the coerce hook's CAST(... AS DATETIME). Stays untyped so it
+        # still coerces to TIMESTAMP columns (e.g. INFORMATION_SCHEMA.JOBS.end_time).
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return f"'{dt.isoformat()}'"
+
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        # Untyped: BigQuery coerces string literals inside DATETIME_DIFF/DATETIME_ADD
+        # (the anchor positions) AND against raw TIMESTAMP/DATETIME columns in
+        # user-authored custom metric SQL, where a typed DATETIME literal breaks the
+        # 'col BETWEEN ${soda.PARTITION_START_TIME} ...' pattern on TIMESTAMP columns.
+        return f"'{self._typed_timestamp_str(dt)}'"
 
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"date_trunc(timestamp({timestamp_literal}), day)"
