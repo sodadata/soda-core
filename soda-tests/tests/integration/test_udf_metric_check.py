@@ -18,6 +18,19 @@ test_table_specification = (
     .build()
 )
 
+text_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("metric_text")
+    .column_varchar("country", 3)
+    .rows(
+        rows=[
+            ("BE",),
+            ("USA",),
+        ]
+    )
+    .build()
+)
+
 
 # Ensure this test is skipped on other data sources than
 def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
@@ -84,16 +97,16 @@ def test_metric_query_returning_numeric_text_is_read_as_a_number(data_source_tes
             checks:
               - metric:
                   query: |
-                    {data_source_test_helper.select_literal_query("'0'")}
+                    {data_source_test_helper.select_literal_query("'12'")}
                   threshold:
-                    must_be: 0
+                    must_be: 12
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert check_result.threshold_value == 0
+    assert check_result.threshold_value == 12
 
     check_json: dict = data_source_test_helper.soda_cloud.requests[1].json["checks"][0]
-    assert check_json["diagnostics"]["value"] == 0
+    assert check_json["diagnostics"]["value"] == 12
     assert check_json["outcome"] == "pass"
 
 
@@ -134,12 +147,39 @@ def test_metric_query_returning_non_numeric_text_does_not_poison_the_upload(
 
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     metric_check_json, row_count_check_json = soda_core_insert_scan_results_command["checks"]
-    assert metric_check_json["diagnostics"]["value"] == 0
     assert metric_check_json["outcome"] == "unevaluated"
     assert row_count_check_json["outcome"] == "pass"
 
     error_messages = [
         log["message"] for log in soda_core_insert_scan_results_command["logs"] if log["level"] == "error"
     ]
-    assert any("Could not read a metric value from the metric query" in m for m in error_messages)
-    assert any("not_a_number" in m for m in error_messages)
+    assert any("Metric query returned str 'not_a_number', not a number" in m for m in error_messages)
+
+
+def test_metric_expression_returning_text_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
+    """A metric expression returning text is skipped instead of aborting the whole verification.
+
+    The expression's value went through float(), so text raised out of the aggregation query and
+    took down every other check sharing that query.
+    """
+    test_table = data_source_test_helper.ensure_test_table(text_test_table_specification)
+
+    country_quoted = data_source_test_helper.quote_column("country")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  expression: MAX({country_quoted})
+                  threshold:
+                    must_be: 0
+              - row_count:
+        """,
+    ).contract_verification_results[0]
+
+    metric_check_result, row_count_check_result = contract_verification_result.check_results
+    assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert metric_check_result.threshold_value is None
+    assert row_count_check_result.outcome == CheckOutcome.PASSED
+    assert "Metric expression returned str 'USA', not a number" in contract_verification_result.get_errors_str()

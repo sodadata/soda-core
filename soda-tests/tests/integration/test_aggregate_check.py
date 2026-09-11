@@ -3,7 +3,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import CheckResult, ContractVerificationResult
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult, ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -381,3 +381,37 @@ def test_aggregate_function_max_with_filter(data_source_test_helper: DataSourceT
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "max") == 5
+
+
+def test_aggregate_function_on_text_column_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
+    """max on a text column is skipped instead of aborting the whole verification.
+
+    The aggregate value went through float(), so text raised out of the aggregation query and took
+    down every other check sharing that query.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                checks:
+                  - aggregate:
+                      function: max
+                      threshold:
+                        must_be: 1
+              - name: age
+                checks:
+                  - aggregate:
+                      function: avg
+                      threshold:
+                        must_be: 5
+        """,
+    ).contract_verification_results[0]
+
+    max_check_result, avg_check_result = contract_verification_result.check_results
+    assert max_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert max_check_result.threshold_value is None
+    assert avg_check_result.outcome == CheckOutcome.PASSED
+    assert "Aggregate function 'max' returned str 'USA', not a number" in contract_verification_result.get_errors_str()

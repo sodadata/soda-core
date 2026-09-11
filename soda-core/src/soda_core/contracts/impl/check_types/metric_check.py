@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import math
-import reprlib
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -143,8 +141,13 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
     def sql_expression(self) -> SqlExpression:
         return SqlExpressionStr(self.expression)
 
-    def convert_db_value(self, value) -> any:
-        return float(value) if value is not None else None
+    def convert_db_value(self, value) -> Optional[float]:
+        number: Optional[Number] = self._convert_db_value_to_number(
+            value,
+            source="Metric expression",
+            hint=f"Make the expression return a number: {self.expression}",
+        )
+        return float(number) if number is not None else None
 
 
 class MetricQueryMetricImpl(MetricImpl):
@@ -173,31 +176,14 @@ class MetricQueryMetricImpl(MetricImpl):
         return id_properties
 
     def convert_db_value(self, value: any) -> Optional[Number]:
-        """Read the first cell of the metric query result as a number.
-
-        The value reaches Soda Cloud as ``diagnostics.value``, a double in the API. Text there
-        fails the JSON parse of the whole results body, losing every check result of the scan,
-        not just this one. Numeric text, as produced by a ``CAST`` to a string type, is read as a
-        number. Anything else is dropped with an error and the check is not evaluated, the same
-        as for a query returning NULL.
-        """
-        if value is None or isinstance(value, Number):
-            return value
-        if isinstance(value, str):
-            try:
-                number: float = float(value)
-            except ValueError:
-                pass
-            else:
-                if math.isfinite(number):
-                    return number
-        logger.error(
-            f"Could not read a metric value from the metric query: expected a number, got "
-            f"{type(value).__name__} {reprlib.repr(value)}. Make the query return a single numeric "
-            f"value in its first column, for example without a CAST to a string type. The check is "
-            f"not evaluated.\nMetric query:\n{self.query}"
+        return self._convert_db_value_to_number(
+            value,
+            source="Metric query",
+            hint=(
+                "Make the query return a single numeric value in its first column, for example "
+                f"without a CAST to a string type.\nMetric query:\n{self.query}"
+            ),
         )
-        return None
 
 
 class MetricQuery(Query):

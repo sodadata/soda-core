@@ -5,13 +5,11 @@ import json
 import logging
 import os
 import re
-import reprlib
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from numbers import Number
 from time import sleep
 from typing import Any, Dict, Optional, Union
 
@@ -2055,16 +2053,6 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         if isinstance(check_result.threshold_value, bool)
         else (check_result.threshold_value or 0)
     )
-    if not isinstance(raw_value, Number):
-        # ``value`` is a double in the API. A single non-numeric value fails the JSON parse of the
-        # whole results body, which loses every check result and log line of the scan, not just
-        # this check's.
-        logger.warning(
-            f"Check '{check_result.check.name or check_result.check.relative_path}' produced a value that is "
-            f"not a number: {type(raw_value).__name__} {reprlib.repr(raw_value)}. Soda Cloud only accepts "
-            f"numeric check values, so 0 is sent instead."
-        )
-        raw_value = 0
     diagnostics: dict = {
         # ``value`` (and the threshold bounds below) are converted into the measure's
         # wire unit — identity for plain numbers, milliseconds for "time".

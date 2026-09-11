@@ -15,6 +15,7 @@ execute, upload to Soda Cloud, run post-processing handlers) is inherited.
 from __future__ import annotations
 
 import logging
+import reprlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
@@ -47,6 +48,24 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
+
+
+def _skip_non_numeric_threshold_value(check_result: CheckResult, relative_path: str) -> None:
+    """Report a check whose value is not a number as not evaluated, without the value.
+
+    Soda Cloud types the check value as a number, and a single value it cannot parse rejects the
+    results of the whole scan. Logged as an error, like an unsupported check, so the contract lands
+    on ERROR rather than silently under-asserting.
+    """
+    threshold_value = check_result.threshold_value
+    if threshold_value is None or isinstance(threshold_value, Number):
+        return
+    logger.error(
+        f"Not evaluating check at path '{relative_path}': its value is "
+        f"{type(threshold_value).__name__} {reprlib.repr(threshold_value)}, not a number"
+    )
+    check_result.threshold_value = None
+    check_result.outcome = CheckOutcome.NOT_EVALUATED
 
 
 @dataclass
@@ -929,6 +948,7 @@ class CheckCollectionImpl:
                             )
                         else:
                             check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                            _skip_non_numeric_threshold_value(check_result, check_impl.relative_path)
                     check_results.append(check_result)
 
             verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)

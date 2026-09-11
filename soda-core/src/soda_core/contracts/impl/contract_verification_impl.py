@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import reprlib
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
@@ -1608,6 +1610,33 @@ class MetricImpl:
     def sql_condition_expression(self) -> Optional[SqlExpression]:
         pass
 
+    def convert_db_value(self, value: any) -> any:
+        return value
+
+    def _convert_db_value_to_number(self, value: any, source: str, hint: str) -> Optional[Number]:
+        """Read a warehouse value as a number, or skip it.
+
+        Numbers pass through unchanged, and numeric text, as produced by a CAST to a string type,
+        is parsed. Anything else is skipped with an error: the value becomes None, so the check
+        using it is not evaluated. Soda Cloud types check values as numbers, and a single value it
+        cannot parse rejects the results of the whole scan.
+        """
+        if value is None or isinstance(value, Number):
+            return value
+        if isinstance(value, str):
+            try:
+                number: float = float(value)
+            except ValueError:
+                pass
+            else:
+                if math.isfinite(number):
+                    return number
+        logger.error(
+            f"{source} returned {type(value).__name__} {reprlib.repr(value)}, not a number, "
+            f"so the check is not evaluated. {hint}"
+        )
+        return None
+
 
 class AggregationMetricImpl(MetricImpl):
     def __init__(
@@ -1641,9 +1670,6 @@ class AggregationMetricImpl(MetricImpl):
         """
         Used in extensions
         """
-
-    def convert_db_value(self, value: any) -> any:
-        return value
 
     def get_short_description(self) -> str:
         return self.type
