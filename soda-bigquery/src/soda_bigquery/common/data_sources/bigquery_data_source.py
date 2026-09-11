@@ -32,6 +32,7 @@ from soda_core.common.sql_ast import (
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 
 logger: logging.Logger = soda_logger
 
@@ -68,10 +69,51 @@ class BigQueryMetadataPrimaryKeysQuery(MetadataPrimaryKeysQuery):
         return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])
 
 
+class BigQueryMetadataTablesQuery(MetadataTablesQuery):
+    """Tables-metadata query that resolves BigQuery regions at execution time.
+
+    BigQuery's INFORMATION_SCHEMA.TABLES only exists dataset- or region-qualified, and a
+    region view only contains that region's datasets. The regions to query are derived from
+    dataset metadata by the data source impl and the query runs once per region, so the
+    region is never guessed from where a probe query happens to run.
+    """
+
+    def __init__(
+        self,
+        sql_dialect: SqlDialect,
+        data_source_connection: DataSourceConnection,
+        data_source_impl: "BigQueryDataSourceImpl",
+    ):
+        super().__init__(sql_dialect=sql_dialect, data_source_connection=data_source_connection)
+        self.data_source_impl = data_source_impl
+
+    def execute(
+        self,
+        database_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
+        types_to_return: Optional[list[TableType]] = None,
+    ) -> list[FullyQualifiedObjectName]:
+        results: list[FullyQualifiedObjectName] = []
+        for region in self.data_source_impl.regions_in_scope(project_id=database_name, dataset_id=schema_name):
+            self.prefixes = [f"region-{region}"]
+            results.extend(
+                super().execute(
+                    database_name=database_name,
+                    schema_name=schema_name,
+                    include_table_name_like_filters=include_table_name_like_filters,
+                    exclude_table_name_like_filters=exclude_table_name_like_filters,
+                    types_to_return=types_to_return,
+                )
+            )
+        return results
+
+
 class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel):
     def __init__(self, data_source_model: BigQueryDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
-        self.cached_location = None
+        self._dataset_region_cache: dict[tuple[str, str], str] = {}
 
     def _create_sql_dialect(self) -> SqlDialect:
         return BigQuerySqlDialect()
@@ -81,25 +123,50 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def get_location(self) -> str:
-        if self.cached_location is not None:
-            location = self.cached_location
-        elif self.data_source_model.connection_properties.location is not None:
-            location = self.data_source_model.connection_properties.location
-        else:
-            result = self.execute_query("SELECT @@location")
-            location = result.rows[0][0]
-            logger.info(f"Detected BigQuery location: {location}")
-            self.cached_location = location
-        return location
+    def region_for_dataset(self, project_id: Optional[str], dataset_id: str) -> str:
+        """Get the BigQuery location of a dataset from its metadata (a REST call, not a query job)."""
+        configured_location = self.data_source_model.connection_properties.location
+        if configured_location:
+            return configured_location
+        project_id = project_id or self.data_source_connection.project_id
+        cache_key = (project_id, dataset_id)
+        if cache_key not in self._dataset_region_cache:
+            dataset = self.data_source_connection.client.get_dataset(f"{project_id}.{dataset_id}")
+            self._dataset_region_cache[cache_key] = dataset.location
+        return self._dataset_region_cache[cache_key]
+
+    def regions_in_scope(self, project_id: Optional[str] = None, dataset_id: Optional[str] = None) -> list[str]:
+        """The BigQuery regions metadata queries must cover for the given scope.
+
+        A configured location pins the single region. A known dataset resolves to its own
+        region. Otherwise the project's datasets are listed (a project-scoped REST call that
+        spans all regions) and their distinct locations are returned.
+        """
+        configured_location = self.data_source_model.connection_properties.location
+        if configured_location:
+            return [configured_location]
+        if dataset_id:
+            return [self.region_for_dataset(project_id, dataset_id)]
+        project_id = project_id or self.data_source_connection.project_id
+        regions: list[str] = []
+        for dataset_item in self.data_source_connection.client.list_datasets(project=project_id):
+            region = self.region_for_dataset(project_id, dataset_item.dataset_id)
+            if region not in regions:
+                regions.append(region)
+        if not regions:
+            logger.warning(
+                f"No datasets visible in BigQuery project '{project_id}'. Check the connection "
+                "configuration and the permissions of the account used, or set 'location' in the "
+                "connection configuration."
+            )
+        return regions
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        super_metadata_tables_query = MetadataTablesQuery(
+        return BigQueryMetadataTablesQuery(
             sql_dialect=self.sql_dialect,
             data_source_connection=self.data_source_connection,
-            prefixes=[f"region-{self.get_location()}"],
+            data_source_impl=self,
         )
-        return super_metadata_tables_query
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])

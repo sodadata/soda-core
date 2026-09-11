@@ -37,12 +37,19 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
     def _cascade_drop_table(self) -> bool:
         return False
 
-    def _snapshot_passthrough_queries(self) -> dict:
-        from soda_core.common.data_source_results import QueryResult
+    def _snapshot_pin_metadata_lookups(self) -> None:
+        # Region resolution reads dataset metadata over REST (client.get_dataset /
+        # client.list_datasets), which the snapshot wrapper cannot intercept: replay would
+        # open a real connection for it. Pin the answer, the way the SELECT @@location
+        # passthrough did for the probe this replaced. Not through the `location`
+        # connection property — that model is frozen, and it also pins the real client.
+        region = os.getenv("BIGQUERY_LOCATION", "US")
 
-        # BigQuery lazily runs SELECT @@location to detect the dataset location.
-        # This is session-level metadata that shouldn't be part of per-test snapshots.
-        location = os.getenv("BIGQUERY_LOCATION", "US")
-        return {
-            "SELECT @@location": QueryResult(rows=[(location,)], columns=None),
-        }
+        def region_for_dataset(project_id: str | None = None, dataset_id: str | None = None) -> str:
+            return region
+
+        def regions_in_scope(project_id: str | None = None, dataset_id: str | None = None) -> list[str]:
+            return [region]
+
+        self.data_source_impl.region_for_dataset = region_for_dataset
+        self.data_source_impl.regions_in_scope = regions_in_scope
