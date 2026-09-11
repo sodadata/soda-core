@@ -6,6 +6,7 @@ from soda_bigquery.common.data_sources.bigquery_data_source import (
     BigQueryMetadataTablesQuery,
     BigQuerySqlDialect,
 )
+from soda_bigquery.common.data_sources.bigquery_data_source_connection import BigQueryJSONStringAuth
 from soda_core.common.data_source_results import QueryResult
 
 PROJECT = "test-project"
@@ -14,7 +15,9 @@ PROJECT = "test-project"
 def _make_impl(location: str | None = None) -> BigQueryDataSourceImpl:
     impl = BigQueryDataSourceImpl.__new__(BigQueryDataSourceImpl)
     impl.data_source_model = MagicMock()
-    impl.data_source_model.connection_properties.location = location
+    # The real connection properties, not a mock: the model is frozen, so anything
+    # that reaches for `location` as a writable pin has to fail here rather than in CI.
+    impl.data_source_model.connection_properties = BigQueryJSONStringAuth(account_info_json="{}", location=location)
     impl.data_source_connection = MagicMock()
     impl.data_source_connection.project_id = PROJECT
     impl._dataset_region_cache = {}
@@ -127,6 +130,23 @@ class TestCreateMetadataTablesQuery:
 
         assert isinstance(query, BigQueryMetadataTablesQuery)
         impl.data_source_connection.execute_query.assert_not_called()
+
+
+class TestSnapshotRegionPinning:
+    def test_pinned_region_resolution_touches_no_bigquery_client(self, monkeypatch):
+        from soda_bigquery.test_helpers.bigquery_data_source_test_helper import BigQueryDataSourceTestHelper
+
+        monkeypatch.setenv("BIGQUERY_LOCATION", "europe-west1")
+        impl = _make_impl()
+        helper = BigQueryDataSourceTestHelper.__new__(BigQueryDataSourceTestHelper)
+        helper.data_source_impl = impl
+
+        helper._snapshot_pin_metadata_lookups()
+
+        assert impl.regions_in_scope(project_id=PROJECT) == ["europe-west1"]
+        assert impl.region_for_dataset(PROJECT, "dataset_a") == "europe-west1"
+        impl.data_source_connection.client.list_datasets.assert_not_called()
+        impl.data_source_connection.client.get_dataset.assert_not_called()
 
 
 class TestGetLocationRemoved:
