@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import reprlib
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -170,6 +172,33 @@ class MetricQueryMetricImpl(MetricImpl):
         id_properties["query"] = self.query
         return id_properties
 
+    def convert_db_value(self, value: any) -> Optional[Number]:
+        """Read the first cell of the metric query result as a number.
+
+        The value reaches Soda Cloud as ``diagnostics.value``, a double in the API. Text there
+        fails the JSON parse of the whole results body, losing every check result of the scan,
+        not just this one. Numeric text, as produced by a ``CAST`` to a string type, is read as a
+        number. Anything else is dropped with an error and the check is not evaluated, the same
+        as for a query returning NULL.
+        """
+        if value is None or isinstance(value, Number):
+            return value
+        if isinstance(value, str):
+            try:
+                number: float = float(value)
+            except ValueError:
+                pass
+            else:
+                if math.isfinite(number):
+                    return number
+        logger.error(
+            f"Could not read a metric value from the metric query: expected a number, got "
+            f"{type(value).__name__} {reprlib.repr(value)}. Make the query return a single numeric "
+            f"value in its first column, for example without a CAST to a string type. The check is "
+            f"not evaluated.\nMetric query:\n{self.query}"
+        )
+        return None
+
 
 class MetricQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], sql: str):
@@ -185,11 +214,11 @@ class MetricQuery(Query):
             logger.error(msg=f"Could not execute metric query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
+        metric_impl: MetricImpl = self.metrics[0]
         if not query_result.rows:
             logger.warning(f"Metric query returned no rows:\n{self.sql}")
             metric_value = None
         else:
-            metric_value = query_result.rows[0][0]
+            metric_value = metric_impl.convert_db_value(query_result.rows[0][0])
 
-        metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]

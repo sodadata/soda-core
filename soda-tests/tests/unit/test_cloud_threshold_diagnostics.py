@@ -1,3 +1,6 @@
+from datetime import date, datetime, timezone
+
+import pytest
 from soda_core.common.soda_cloud import _build_diagnostics_json_dict
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Threshold
 
@@ -89,3 +92,35 @@ def test_log_table_row_shows_both_thresholds():
 def test_log_table_row_single_threshold_unchanged():
     row = build_check_result(threshold=Threshold(level="fail", must_be_greater_than=10)).log_table_row()
     assert row["Threshold"] == Threshold(level="fail", must_be_greater_than=10)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("not_a_number", id="text"),
+        pytest.param("12", id="numeric_text"),
+        pytest.param(datetime(2026, 8, 17, 5, 9, 32, tzinfo=timezone.utc), id="datetime"),
+        pytest.param(date(2026, 7, 12), id="date"),
+    ],
+)
+def test_non_numeric_value_is_not_sent(value, caplog):
+    """diagnostics.value is a double in the Soda Cloud API.
+
+    One non-numeric value fails the JSON parse of the whole sodaCoreInsertScanResults body,
+    which loses every check result and log line of the scan, not just this check's.
+    """
+    check_result = build_check_result(threshold=Threshold(level="fail", must_be_greater_than=10))
+    check_result.threshold_value = value
+
+    with caplog.at_level("WARNING"):
+        diagnostics = _build_diagnostics_json_dict(check_result)
+
+    assert diagnostics["value"] == 0
+    assert "not a number" in caplog.text
+
+
+def test_numeric_value_is_sent_unchanged():
+    diagnostics = _build_diagnostics_json_dict(
+        build_check_result(threshold=Threshold(level="fail", must_be_greater_than=10))
+    )
+    assert diagnostics["value"] == 50
