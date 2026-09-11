@@ -157,5 +157,10 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
 
         return self.data_source_impl.sql_dialect.get_function_expression(self.function, arg)
 
-    def convert_db_value(self, value) -> any:
-        return float(value) if value is not None else None
+    def convert_db_value(self, value) -> Optional[float]:
+        number: Optional[Number] = self._convert_db_value_to_number(
+            value,
+            source=f"Aggregate function '{self.function}'",
+            hint="Use it on a numeric column or expression.",
+        )
+        return float(number) if number is not None else None
