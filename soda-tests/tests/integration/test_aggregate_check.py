@@ -414,4 +414,7 @@ def test_aggregate_function_on_text_column_is_not_evaluated(data_source_test_hel
     assert max_check_result.outcome == CheckOutcome.NOT_EVALUATED
     assert max_check_result.threshold_value is None
     assert avg_check_result.outcome == CheckOutcome.PASSED
-    assert "Aggregate function 'max' returned str 'USA', not a number" in contract_verification_result.get_errors_str()
+    assert (
+        "Aggregate function 'max' returned str 'USA', not a finite number"
+        in contract_verification_result.get_errors_str()
+    )

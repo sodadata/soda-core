@@ -1,3 +1,4 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
@@ -153,7 +154,7 @@ def test_metric_query_returning_non_numeric_text_does_not_poison_the_upload(
     error_messages = [
         log["message"] for log in soda_core_insert_scan_results_command["logs"] if log["level"] == "error"
     ]
-    assert any("Metric query returned str 'not_a_number', not a number" in m for m in error_messages)
+    assert any("Metric query returned str 'not_a_number', not a finite number" in m for m in error_messages)
 
 
 def test_metric_expression_returning_text_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
@@ -182,4 +183,45 @@ def test_metric_expression_returning_text_is_not_evaluated(data_source_test_help
     assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
     assert metric_check_result.threshold_value is None
     assert row_count_check_result.outcome == CheckOutcome.PASSED
-    assert "Metric expression returned str 'USA', not a number" in contract_verification_result.get_errors_str()
+    assert "Metric expression returned str 'USA', not a finite number" in contract_verification_result.get_errors_str()
+
+
+def test_metric_query_returning_nan_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
+    """NaN is a float, but JSON cannot carry it and requests refuses to serialize it.
+
+    It used to pass as a number, fail the threshold and then lose the whole upload client-side,
+    before any request left.
+    """
+    if data_source_test_helper.data_source_impl.type_name not in ("duckdb", "postgres"):
+        pytest.skip("CAST('NaN' AS FLOAT8) is DuckDB and PostgreSQL syntax")
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    SELECT CAST('NaN' AS FLOAT8)
+                  threshold:
+                    must_be: 0
+              - row_count:
+        """,
+    ).contract_verification_results[0]
+
+    metric_check_result, row_count_check_result = contract_verification_result.check_results
+    assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert metric_check_result.threshold_value is None
+    assert row_count_check_result.outcome == CheckOutcome.PASSED
+
+    metric_check_json, row_count_check_json = data_source_test_helper.soda_cloud.requests[1].json["checks"]
+    assert metric_check_json["outcome"] == "unevaluated"
+    assert row_count_check_json["outcome"] == "pass"
+    assert "Metric query returned float nan, not a finite number" in contract_verification_result.get_errors_str()

@@ -29,6 +29,7 @@ from soda_core.common.exceptions import SodaCoreException, get_exception_stacktr
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import SamplerType
+from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
@@ -51,18 +52,18 @@ logger: logging.Logger = soda_logger
 
 
 def _skip_non_numeric_threshold_value(check_result: CheckResult, relative_path: str) -> None:
-    """Report a check whose value is not a number as not evaluated, without the value.
+    """Report a check whose value is not a finite number as not evaluated, without the value.
 
-    Soda Cloud types the check value as a number, and a single value it cannot parse rejects the
-    results of the whole scan. Logged as an error, like an unsupported check, so the contract lands
-    on ERROR rather than silently under-asserting.
+    Soda Cloud types the check value as a number, and a single value it cannot carry, text or NaN
+    or infinity, loses the results of the whole scan. Logged as an error, like an unsupported
+    check, so the contract lands on ERROR rather than silently under-asserting.
     """
     threshold_value = check_result.threshold_value
-    if threshold_value is None or isinstance(threshold_value, Number):
+    if threshold_value is None or is_finite_number(threshold_value):
         return
     logger.error(
         f"Not evaluating check at path '{relative_path}': its value is "
-        f"{type(threshold_value).__name__} {reprlib.repr(threshold_value)}, not a number"
+        f"{type(threshold_value).__name__} {reprlib.repr(threshold_value)}, not a finite number"
     )
     check_result.threshold_value = None
     check_result.outcome = CheckOutcome.NOT_EVALUATED

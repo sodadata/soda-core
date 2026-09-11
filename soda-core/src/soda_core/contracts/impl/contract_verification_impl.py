@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import reprlib
 from abc import ABC
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
+from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, SodaCloudYamlSource
@@ -1616,12 +1616,12 @@ class MetricImpl:
     def _convert_db_value_to_number(self, value: any, source: str, hint: str) -> Optional[Number]:
         """Read a warehouse value as a number, or skip it.
 
-        Numbers pass through unchanged, and numeric text, as produced by a CAST to a string type,
-        is parsed. Anything else is skipped with an error: the value becomes None, so the check
-        using it is not evaluated. Soda Cloud types check values as numbers, and a single value it
-        cannot parse rejects the results of the whole scan.
+        Finite numbers pass through unchanged, and numeric text, as produced by a CAST to a string
+        type, is parsed. Anything else, NaN and infinity included, is skipped with an error: the
+        value becomes None, so the check using it is not evaluated. Soda Cloud types check values
+        as numbers, and a single value it cannot carry loses the results of the whole scan.
         """
-        if value is None or isinstance(value, Number):
+        if value is None or is_finite_number(value):
             return value
         if isinstance(value, str):
             try:
@@ -1629,10 +1629,10 @@ class MetricImpl:
             except ValueError:
                 pass
             else:
-                if math.isfinite(number):
+                if is_finite_number(number):
                     return number
         logger.error(
-            f"{source} returned {type(value).__name__} {reprlib.repr(value)}, not a number, "
+            f"{source} returned {type(value).__name__} {reprlib.repr(value)}, not a finite number, "
             f"so the check is not evaluated. {hint}"
         )
         return None

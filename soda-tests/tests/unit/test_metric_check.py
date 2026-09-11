@@ -74,6 +74,10 @@ def test_metric_query_execute_returns_value_when_query_returns_rows():
         pytest.param("nan", None, id="nan_text"),
         pytest.param("inf", None, id="inf_text"),
         pytest.param(datetime(2026, 8, 17, 5, 9, 32), None, id="datetime"),
+        pytest.param(float("nan"), None, id="nan"),
+        pytest.param(float("-inf"), None, id="inf"),
+        pytest.param(Decimal("NaN"), None, id="decimal_nan"),
+        pytest.param(Decimal("sNaN"), None, id="decimal_signalling_nan"),
     ],
 )
 def test_metric_query_value_is_read_as_a_number(db_value, expected):
