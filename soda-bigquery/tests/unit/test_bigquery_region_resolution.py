@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from google.api_core.exceptions import NotFound
 from soda_bigquery.common.data_sources.bigquery_data_source import (
     BigQueryDataSourceImpl,
     BigQueryMetadataTablesQuery,
@@ -65,6 +66,13 @@ class TestRegionsInScope:
 
         impl.data_source_connection.client.get_dataset.assert_called_once()
 
+    def test_missing_dataset_has_no_regions_in_scope(self):
+        """A dataset that does not exist holds no tables, so there is nothing to query and nothing to raise."""
+        impl = _make_impl()
+        impl.data_source_connection.client.get_dataset.side_effect = NotFound("no such dataset")
+
+        assert impl.regions_in_scope(project_id=PROJECT, dataset_id="never_created") == []
+
     def test_falls_back_to_connection_project(self):
         impl = _make_impl()
         impl.data_source_connection.client.get_dataset.return_value = SimpleNamespace(location="EU")
@@ -119,6 +127,16 @@ class TestMetadataTablesQuery:
         assert len(executed_sqls) == 1
         assert "region-EU" in executed_sqls[0]
         impl.data_source_connection.client.list_datasets.assert_not_called()
+
+    def test_missing_dataset_returns_no_tables_without_querying(self):
+        impl = _make_impl()
+        impl.data_source_connection.client.get_dataset.side_effect = NotFound("no such dataset")
+
+        query = self._make_query(impl, lambda sql: [])
+        results = query.execute(database_name=PROJECT, schema_name="never_created")
+
+        assert results == []
+        impl.data_source_connection.execute_query.assert_not_called()
 
 
 class TestCreateMetadataTablesQuery:

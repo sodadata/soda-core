@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from google.api_core.exceptions import NotFound
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSource as BigQueryDataSourceModel,
 )
@@ -142,12 +143,21 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         A configured location pins the single region. A known dataset resolves to its own
         region. Otherwise the project's datasets are listed (a project-scoped REST call that
         spans all regions) and their distinct locations are returned.
+
+        A dataset that does not exist has no region and no tables, so it puts nothing in scope.
+        Callers do ask about datasets that are not there yet: the diagnostics warehouse dataset is
+        looked up to see what it already holds before anything has created it. They expect an empty
+        answer, not a 404.
         """
         configured_location = self.data_source_model.connection_properties.location
         if configured_location:
             return [configured_location]
         if dataset_id:
-            return [self.region_for_dataset(project_id, dataset_id)]
+            try:
+                return [self.region_for_dataset(project_id, dataset_id)]
+            except NotFound:
+                logger.debug(f"BigQuery dataset '{dataset_id}' does not exist, so no region is in scope for it.")
+                return []
         project_id = project_id or self.data_source_connection.project_id
         regions: list[str] = []
         for dataset_item in self.data_source_connection.client.list_datasets(project=project_id):
