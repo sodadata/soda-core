@@ -280,8 +280,8 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     }
 
     _TIME_BUCKET_UNIT_MICROSECONDS: dict = {
-        "days": 86_400_000_000,
-        "hours": 3_600_000_000,
+        "days": 24 * 60 * 60 * 1_000_000,
+        "hours": 60 * 60 * 1_000_000,
         "seconds": 1_000_000,
     }
 
