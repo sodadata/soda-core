@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
@@ -1869,6 +1870,7 @@ def _build_check_collection_results_json_dict(
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
     model_version: Optional[str] = None,
+    scan_definition_name: Optional[str] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
 
@@ -1940,8 +1942,12 @@ def _build_check_collection_results_json_dict(
             all_measurement_dicts.extend(r.measurement_dicts)
 
     payload: dict = {
-        "scanId": os.environ.get("SODA_SCAN_ID", None),
-        "definitionName": build_scan_definition_name(
+        "scanId": EnvConfigHelper().soda_scan_id,
+        # A caller that needs the name before any result exists (a batched run, whose
+        # sodaCoreScanStart carries it) resolves it once and passes it here, so the start command
+        # and this payload cannot register under different scan definitions.
+        "definitionName": scan_definition_name
+        or build_scan_definition_name(
             head.check_collection.soda_qualified_dataset_name, scan_definition_suffix=scan_definition_suffix
         ),
         "defaultDataSource": head.data_source.name if head.data_source else None,
