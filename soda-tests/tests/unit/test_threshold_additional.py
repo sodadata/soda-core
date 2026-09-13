@@ -27,14 +27,12 @@ def assert_no_errors(caplog) -> None:
 
 
 def test_additional_threshold_parsed():
-    threshold_yaml = parse_threshold_yaml(
-        """
+    threshold_yaml = parse_threshold_yaml("""
         must_be_less_than: 1
         additional:
           must_be_less_than: 0
           level: warn
-        """
-    )
+        """)
     assert threshold_yaml.must_be_less_than == 1
     assert threshold_yaml.level == "fail"
     assert threshold_yaml.additional.must_be_less_than == 0
@@ -48,21 +46,18 @@ def test_additional_absent_is_none():
 
 
 def test_additional_level_defaults_to_fail():
-    threshold_yaml = parse_threshold_yaml(
-        """
+    threshold_yaml = parse_threshold_yaml("""
         must_be_less_than: 10
         level: warn
         additional:
           must_be_less_than: 1
-        """
-    )
+        """)
     assert threshold_yaml.level == "warn"
     assert threshold_yaml.additional.level == "fail"
 
 
 def test_additional_with_range_parsed():
-    threshold_yaml = parse_threshold_yaml(
-        """
+    threshold_yaml = parse_threshold_yaml("""
         must_be_between:
           greater_than: 0
           less_than: 100
@@ -71,8 +66,7 @@ def test_additional_with_range_parsed():
             greater_than: 10
             less_than: 90
           level: warn
-        """
-    )
+        """)
     assert threshold_yaml.additional.must_be_between.greater_than == 10
     assert threshold_yaml.additional.must_be_between.less_than == 90
 
@@ -83,78 +77,66 @@ def test_additional_with_range_parsed():
 
 
 def test_outer_warn_with_bare_additional_is_valid(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_less_than: 10
         level: warn
         additional:
           must_be_less_than: 1
-        """
-    )
+        """)
     assert_no_errors(caplog)
 
 
 def test_outer_fail_with_warn_additional_is_valid(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_less_than: 1
         additional:
           must_be_less_than: 10
           level: warn
-        """
-    )
+        """)
     assert_no_errors(caplog)
 
 
 def test_same_level_by_default_is_error(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_less_than: 10
         additional:
           must_be_less_than: 1
-        """
-    )
+        """)
     assert "level 'fail'" in caplog.text
     assert "'additional' threshold level 'fail'" in caplog.text
     assert "must be different" in caplog.text
 
 
 def test_explicit_fail_fail_is_error(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_less_than: 10
         level: fail
         additional:
           must_be_less_than: 1
           level: fail
-        """
-    )
+        """)
     assert "must be different" in caplog.text
 
 
 def test_warn_warn_is_error(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_less_than: 10
         level: warn
         additional:
           must_be_less_than: 1
           level: warn
-        """
-    )
+        """)
     assert "level 'warn'" in caplog.text
     assert "'additional' threshold level 'warn'" in caplog.text
     assert "must be different" in caplog.text
 
 
 def test_additional_without_outer_comparison_is_error(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         additional:
           must_be_less_than: 1
           level: warn
-        """
-    )
+        """)
     assert "must specify a comparison" in caplog.text
 
 
@@ -174,16 +156,14 @@ def test_unit_in_additional_is_error(caplog):
 
 
 def test_nested_additional_is_error(caplog):
-    threshold_yaml = parse_threshold_yaml(
-        """
+    threshold_yaml = parse_threshold_yaml("""
         must_be_less_than: 10
         additional:
           must_be_less_than: 5
           level: warn
           additional:
             must_be_less_than: 1
-        """
-    )
+        """)
     assert "not allowed in an 'additional' threshold" in caplog.text
     assert threshold_yaml.additional.additional is None
 
@@ -218,15 +198,13 @@ def test_two_outer_comparisons_with_additional_is_error(caplog):
     errors — the check stays NOT_EVALUATED forever while a warn threshold is still
     uploaded to Cloud.
     """
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_greater_than: 10
         must_be_less_than: 1000
         additional:
           must_be_greater_than: 100
           level: warn
-        """
-    )
+        """)
     assert "must specify exactly one comparison itself" in caplog.text
     assert "must_be_greater_than, must_be_less_than" in caplog.text
 
@@ -240,8 +218,7 @@ def test_two_outer_comparisons_without_additional_is_unchanged(caplog):
 
 
 def test_outer_range_plus_comparison_with_additional_is_error(caplog):
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_greater_than: 10
         must_be_between:
           greater_than: 0
@@ -249,8 +226,7 @@ def test_outer_range_plus_comparison_with_additional_is_error(caplog):
         additional:
           must_be_greater_than: 100
           level: warn
-        """
-    )
+        """)
     assert "must specify exactly one comparison itself" in caplog.text
 
 
@@ -265,29 +241,25 @@ def test_unrecognized_outer_level_with_bare_additional_is_error(caplog):
     Comparing the raw strings ('warning' != 'fail') let this through and inverted the
     slots: the intended warn threshold became the fail one.
     """
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_greater_than: 5
         level: warning
         additional:
           must_be_greater_than: 1
-        """
-    )
+        """)
     assert "must be different" in caplog.text
     assert "(from 'warning')" in caplog.text
 
 
 def test_unrecognized_outer_level_with_warn_additional_is_valid(caplog):
     """'warning' is a fail level, so pairing it with a warn additional is legal."""
-    parse_threshold_yaml(
-        """
+    parse_threshold_yaml("""
         must_be_greater_than: 10
         level: warning
         additional:
           must_be_greater_than: 100
           level: warn
-        """
-    )
+        """)
     assert_no_errors(caplog)
 
 
@@ -338,42 +310,36 @@ def test_flat_warn_level_threshold_unchanged():
 
 
 def test_outer_fail_additional_warn_keeps_outer_as_primary():
-    impl = create_impl(
-        """
+    impl = create_impl("""
         must_be_less_than: 10
         additional:
           must_be_less_than: 1
           level: warn
-        """
-    )
+        """)
     assert impl.level == ThresholdLevel.FAIL
     assert impl.must_be_less_than == 10
 
 
 def test_outer_warn_additional_fail_makes_additional_the_primary():
-    impl = create_impl(
-        """
+    impl = create_impl("""
         must_be_less_than: 10
         level: warn
         additional:
           must_be_less_than: 1
-        """
-    )
+        """)
     assert impl.level == ThresholdLevel.FAIL
     assert impl.must_be_less_than == 1
 
 
 def test_unrecognized_outer_level_keeps_outer_in_the_fail_slot():
     """'warning' is a fail level here too — the slots must not invert."""
-    impl = create_impl(
-        """
+    impl = create_impl("""
         must_be_greater_than: 10
         level: warning
         additional:
           must_be_greater_than: 100
           level: warn
-        """
-    )
+        """)
     assert impl.level == ThresholdLevel.FAIL
     assert impl.must_be_greater_than == 10
 
@@ -383,14 +349,12 @@ def test_additional_ignores_default_threshold():
 
     default = ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0)
     impl = ThresholdImpl.create(
-        threshold_yaml=parse_threshold_yaml(
-            """
+        threshold_yaml=parse_threshold_yaml("""
             must_be_greater_than: 100
             additional:
               must_be_greater_than: 10
               level: warn
-            """
-        ),
+            """),
         default_threshold=default,
     )
     assert impl is not default
@@ -399,14 +363,12 @@ def test_additional_ignores_default_threshold():
 
 
 def test_create_from_comparisons_builds_warn_impl_from_additional():
-    threshold_yaml = parse_threshold_yaml(
-        """
+    threshold_yaml = parse_threshold_yaml("""
         must_be_less_than: 10
         additional:
           must_be_less_than: 5
           level: warn
-        """
-    )
+        """)
     warn_impl = ThresholdImpl.create_from_comparisons(threshold_yaml.additional, ThresholdLevel.WARN)
     assert warn_impl.level == ThresholdLevel.WARN
     assert warn_impl.passes(4) and not warn_impl.passes(5)
@@ -460,8 +422,7 @@ def test_outer_range_warn_can_fire():
 
 def test_dead_warn_logs_lint_warning(caplog):
     with caplog.at_level(logging.WARNING):
-        build_contract_impl(
-            """
+        build_contract_impl("""
             dataset: my_data_source/my_dataset
             columns:
               - name: id
@@ -473,8 +434,7 @@ def test_dead_warn_logs_lint_warning(caplog):
                     additional:
                       must_be_greater_than: 10
                       level: warn
-            """
-        )
+            """)
     assert "can never produce a warn outcome" in caplog.text
 
 
@@ -600,14 +560,12 @@ def test_unknown_outer_threshold_key_warns(caplog):
     threshold into a fail-only one. Warned, not rejected: thresholds never had unknown-key
     validation, so stray keys in published contracts must keep verifying."""
     with caplog.at_level(logging.WARNING):
-        threshold_yaml = parse_threshold_yaml(
-            """
+        threshold_yaml = parse_threshold_yaml("""
             must_be_less_than: 10
             aditional:
               must_be_less_than: 5
               level: warn
-            """
-        )
+            """)
     assert threshold_yaml.additional is None
     assert "'aditional' is not a known threshold key" in caplog.text
     assert_no_errors(caplog)
@@ -615,8 +573,7 @@ def test_unknown_outer_threshold_key_warns(caplog):
 
 def test_metric_unit_level_and_additional_are_known_outer_keys(caplog):
     with caplog.at_level(logging.WARNING):
-        parse_threshold_yaml(
-            """
+        parse_threshold_yaml("""
             metric: percent
             unit: rows
             level: fail
@@ -624,8 +581,7 @@ def test_metric_unit_level_and_additional_are_known_outer_keys(caplog):
             additional:
               must_be_less_than: 5
               level: warn
-            """
-        )
+            """)
     assert "not a known threshold key" not in caplog.text
 
 
@@ -637,13 +593,11 @@ def test_additional_with_default_threshold_names_the_default(caplog):
 
     default = ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0)
     impl = ThresholdImpl.create(
-        threshold_yaml=parse_threshold_yaml(
-            """
+        threshold_yaml=parse_threshold_yaml("""
             additional:
               must_be_less_than: 5
               level: warn
-            """
-        ),
+            """),
         default_threshold=default,
     )
     assert impl is None
@@ -656,8 +610,7 @@ def test_warn_outer_orientation_logs_older_runner_notice(caplog):
     comparison nested there the check degrades to warn-only on that engine. The parse-time
     notice is the only signal that reaches Cloud-authored contracts."""
     with caplog.at_level(logging.WARNING):
-        build_contract_impl(
-            """
+        build_contract_impl("""
             dataset: my_data_source/my_dataset
             columns:
               - name: id
@@ -669,15 +622,13 @@ def test_warn_outer_orientation_logs_older_runner_notice(caplog):
                     must_be_greater_than: 100
                     additional:
                       must_be_greater_than: 10
-            """
-        )
+            """)
     assert "cannot fail there" in caplog.text
 
 
 def test_fail_outer_orientation_logs_no_older_runner_notice(caplog):
     with caplog.at_level(logging.WARNING):
-        build_contract_impl(
-            """
+        build_contract_impl("""
             dataset: my_data_source/my_dataset
             columns:
               - name: id
@@ -689,6 +640,5 @@ def test_fail_outer_orientation_logs_no_older_runner_notice(caplog):
                     additional:
                       must_be_greater_than: 100
                       level: warn
-            """
-        )
+            """)
     assert "cannot fail there" not in caplog.text

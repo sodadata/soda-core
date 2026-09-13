@@ -106,8 +106,7 @@ def test_warn_outer_threshold_attributes_assigned_by_level():
 
 
 def test_warn_only_threshold_keeps_primary_slot_and_no_warn_threshold():
-    _, check = build_row_count_check(
-        """
+    _, check = build_row_count_check("""
         dataset: my_data_source/my_dataset
         columns:
           - name: id
@@ -117,8 +116,7 @@ def test_warn_only_threshold_keeps_primary_slot_and_no_warn_threshold():
               threshold:
                 must_be_greater_than: 10
                 level: warn
-        """
-    )
+        """)
     assert check.threshold.level.value == "warn"
     assert check.threshold.must_be_greater_than == 10
     assert check.warn_threshold is None
@@ -130,8 +128,7 @@ def test_two_outer_comparisons_with_additional_is_rejected(caplog):
     Its impl has no fail threshold (and evaluates NOT_EVALUATED forever) while a warn
     threshold is still uploaded — so the error must be an error, not a warning.
     """
-    contract_impl = build_contract_impl(
-        """
+    contract_impl = build_contract_impl("""
         dataset: my_data_source/my_dataset
         columns:
           - name: id
@@ -144,8 +141,7 @@ def test_two_outer_comparisons_with_additional_is_rejected(caplog):
                 additional:
                   must_be_greater_than: 100
                   level: warn
-        """
-    )
+        """)
     assert "must specify exactly one comparison itself" in caplog.text
     check = contract_impl.all_check_impls[0]
     assert check.threshold is None
@@ -157,16 +153,14 @@ def test_two_outer_comparisons_with_additional_is_rejected(caplog):
 
 
 def test_no_threshold_key_keeps_default_and_no_warn():
-    _, check = build_row_count_check(
-        """
+    _, check = build_row_count_check("""
         dataset: my_data_source/my_dataset
         columns:
           - name: id
             data_type: integer
         checks:
           - row_count:
-        """
-    )
+        """)
     assert check.threshold.must_be_greater_than == 0
     assert check.warn_threshold is None
 
