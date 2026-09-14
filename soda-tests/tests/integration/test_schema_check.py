@@ -433,3 +433,108 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
         prefixes=data_source_test_helper.dataset_prefix[:-1] + ["not_a_schema"]
     )
     assert schema_should_not_exist == False
+
+
+def test_schema_check_sends_the_dataset_columns_as_metadata(data_source_test_helper: DataSourceTestHelper):
+    """The columns the schema check already measured travel to Soda Cloud in the
+    ``metadata`` bucket, which is where Cloud reads a dataset's column list from."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - schema:
+            columns:
+              - name: id
+              - name: size
+              - name: created
+              - name: label
+              - name: score
+              - name: created_at
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    metadata: list[dict] = soda_core_insert_scan_results_command["metadata"]
+    assert len(metadata) == 1
+
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    checks_dataset = "/".join([check_json["dataSource"], *check_json["datasetPrefix"], check_json["table"]])
+    assert metadata[0]["datasetQualifiedName"] == checks_dataset
+
+    source_data_types: dict[str, str] = {
+        column["columnName"]: column["sourceDataType"] for column in metadata[0]["schema"]
+    }
+    assert set(source_data_types.keys()) == {"id", "size", "created", "label", "score", "created_at"}
+    for column_name, source_data_type in source_data_types.items():
+        assert source_data_type, f"Column {column_name} has no source data type"
+        assert source_data_type == source_data_type.lower()
+        assert "(" not in source_data_type
+
+
+def test_contract_without_schema_check_sends_no_metadata(data_source_test_helper: DataSourceTestHelper):
+    """Without a schema check the engine never measured the columns, and it does
+    not run an extra query to find them: the payload carries no ``metadata``."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - row_count:
+                  threshold:
+                    must_be_greater_than_or_equal: 0
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    assert "metadata" not in soda_core_insert_scan_results_command
+
+
+def test_metadata_carries_the_whole_table_not_the_declared_columns(data_source_test_helper: DataSourceTestHelper):
+    """A contract that declares only part of the table still reports every column
+    the dataset has: the metadata is the table's schema, not the contract's."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - schema:
+                  allow_extra_columns: true
+            columns:
+              - name: id
+              - name: size
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    metadata: list[dict] = soda_core_insert_scan_results_command["metadata"]
+    assert len(metadata) == 1
+    assert {column["columnName"] for column in metadata[0]["schema"]} == {
+        "id",
+        "size",
+        "created",
+        "label",
+        "score",
+        "created_at",
+    }
