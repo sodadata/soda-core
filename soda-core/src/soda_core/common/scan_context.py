@@ -40,11 +40,12 @@ class ScanContext(ABC):
     # post-processing needs. False for a batch upload: it lands in object storage.
     provides_result_handles: bool = True
 
-    def __init__(self, soda_cloud: Optional[SodaCloud]):
+    def __init__(self, soda_cloud: Optional[SodaCloud], scan_id: Optional[str] = None):
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
-        # The launcher-created scan this run reports into; None on an ad-hoc run. The run's
-        # identity, so flows read it here instead of the environment.
-        self.scan_id: Optional[str] = None
+        # The launcher-created scan this run reports into (SODA_SCAN_ID), set on both variants;
+        # None on an ad-hoc run. The run's identity, so flows read it here instead of the
+        # environment.
+        self.scan_id: Optional[str] = scan_id
         self.results_delivered: bool = False
         self.results_rejected: bool = False
 
@@ -94,8 +95,7 @@ class BatchedScanContext(ScanContext):
     provides_result_handles = False
 
     def __init__(self, soda_cloud: SodaCloud, scan_id: str, logs: Logs):
-        super().__init__(soda_cloud)
-        self.scan_id = scan_id
+        super().__init__(soda_cloud, scan_id)
         # The run's Logs, whose gatherer start_scan upgrades to the Cloud log stream.
         self.logs = logs
         self.scan_reference: Optional[str] = None

@@ -245,6 +245,7 @@ def test_run_scan_without_scan_id_installs_an_atomic_context(monkeypatch):
     assert exit_code == ExitCode.OK
     assert _request_kinds(mock_cloud) == ["sodaCoreInsertScanResults"]
     assert isinstance(seen["context"], AtomicScanContext)
+    assert seen["context"].scan_id is None
     assert isinstance(seen["logs"].gatherer, LogsCollector)
 
 
@@ -292,6 +293,8 @@ def test_run_scan_without_batched_opt_in_stays_atomic_even_when_managed(monkeypa
 
     assert exit_code == ExitCode.OK
     assert isinstance(seen["context"], AtomicScanContext)
+    # The scan id is the run's identity on either variant; the variant only picks the pipeline.
+    assert seen["context"].scan_id == "scan-123"
     assert _request_kinds(mock_cloud) == []
 
 

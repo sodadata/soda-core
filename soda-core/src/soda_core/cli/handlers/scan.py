@@ -52,7 +52,7 @@ def run_scan(
     context: ScanContext = (
         BatchedScanContext(soda_cloud, scan_id, logs)
         if batched and scan_id and soda_cloud
-        else AtomicScanContext(soda_cloud)
+        else AtomicScanContext(soda_cloud, scan_id)
     )
     with using_scan_context(context):
         try:
