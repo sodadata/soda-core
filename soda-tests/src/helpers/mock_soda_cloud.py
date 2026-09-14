@@ -8,7 +8,7 @@ from io import BytesIO
 from tempfile import TemporaryFile
 from typing import Optional
 
-from requests import Response
+from requests import Request, Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
@@ -100,6 +100,10 @@ class MockSodaCloud(SodaCloud):
     ) -> Response:
         if data is not None and hasattr(data, "read"):
             data = data.read()
+        if json is not None:
+            # Serialize the body as requests does in production, so a payload it refuses to send,
+            # one holding NaN or infinity for example, fails here too instead of being recorded.
+            Request(method=method.value, url=url or "https://mock.soda.io", json=json).prepare()
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
         historic_response = self._try_handle_historic_request(json)
         if historic_response is not None:
