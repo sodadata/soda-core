@@ -1850,6 +1850,42 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
+def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]) -> list[dict]:
+    """The ``metadata`` bucket: the column list of each dataset in this batch.
+
+    Soda Cloud fills a dataset's column list from here, so a dataset whose only activity
+    is contract verification also gets its columns. Only results that already hold the
+    dataset's columns contribute one entry each (see ``CheckCollectionResult.dataset_columns``);
+    the same dataset twice in one batch is sent once. A column without a usable type name
+    is left out: a blank ``sourceDataType`` carries no information, and Cloud's validation
+    of that field may well turn strict.
+    """
+    dataset_metadata: list[dict] = []
+    seen_dataset_qualified_names: set[str] = set()
+    for result in results:
+        if not result.dataset_columns:
+            continue
+        # The same qualified name the checks carry as dataSource + datasetPrefix + table:
+        # Cloud resolves both through one identifier converter, so they must be identical.
+        dataset_qualified_name: str = result.check_collection.soda_qualified_dataset_name
+        if dataset_qualified_name in seen_dataset_qualified_names:
+            continue
+        schema: list[dict] = [
+            # The bare type name, already lowercased by SqlDataType, without the
+            # precision/length parameters: the same columnName / sourceDataType spelling
+            # capture-schema uses. The primary-key flag it also sends is left out here on
+            # purpose — contract verification has no reason to restate it.
+            {"columnName": column.column_name, "sourceDataType": column.sql_data_type.name}
+            for column in result.dataset_columns
+            if column.sql_data_type and column.sql_data_type.name
+        ]
+        if not schema:
+            continue
+        seen_dataset_qualified_names.add(dataset_qualified_name)
+        dataset_metadata.append({"datasetQualifiedName": dataset_qualified_name, "schema": schema})
+    return dataset_metadata
+
+
 def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
@@ -1962,6 +1998,12 @@ def _build_check_collection_results_json_dict(
     # null-stripping the payload dict already gets.
     if all_measurement_dicts:
         payload["metrics"] = to_jsonnable(all_measurement_dicts)
+
+    # Emit ``metadata`` only when a dataset's columns were actually measured: an
+    # empty list or an entry without columns would tell Cloud the dataset has none.
+    dataset_metadata: list[dict] = _build_dataset_metadata_json_dicts(results)
+    if dataset_metadata:
+        payload["metadata"] = dataset_metadata
 
     return payload
 
