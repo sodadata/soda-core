@@ -341,8 +341,8 @@ def execute_check_collections(
     # labelled as — the emitting file at emit time. A session-scoped override's
     # emissions span files and are not attributed to any single one.
     from soda_core.contracts.impl.contract_verification_impl import (
-        ContractVerificationHandlerRegistry,
         PostProcessingSessionItem,
+        post_processing_handlers_for_current_scan,
     )
 
     session_items_by_wire_source: dict[str, list[PostProcessingSessionItem]] = {}
@@ -364,7 +364,7 @@ def execute_check_collections(
 
     for wire_source, session_items in session_items_by_wire_source.items():
         group_response_json = response_json_by_wire_source.get(wire_source)
-        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for handler in post_processing_handlers_for_current_scan():
             try:
                 handler.handle_session(
                     items=session_items,

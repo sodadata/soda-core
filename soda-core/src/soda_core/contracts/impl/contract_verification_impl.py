@@ -162,20 +162,35 @@ class ContractVerificationHandlerRegistry(ABC):
             cls.post_processing_stages[stage_name] = verification_handler
 
 
+def _runs_on_current_scan(handler: ContractVerificationHandler) -> bool:
+    """Whether the current run gives this handler what it needs: a handler keyed by the ids a
+    synchronous insert returns takes no part in a run whose context cannot provide them."""
+    from soda_core.common.scan_context import get_scan_context
+
+    return not handler.requires_result_handles or get_scan_context().provides_result_handles
+
+
+def post_processing_handlers_for_current_scan() -> list[ContractVerificationHandler]:
+    """The registered handlers to dispatch on the current run. Both dispatch sites (the per-file
+    loop inside ``verify()`` and the session executor's phase 3) go through here, so a handler
+    that declares no stage on this run is not run against ``None`` ids either."""
+    return [
+        handler
+        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers
+        if _runs_on_current_scan(handler)
+    ]
+
+
 def collect_post_processing_stages() -> list[PostProcessingStage]:
     """The post-processing stages a run declares in its results payload.
 
     A stage nobody can complete stays ONGOING on Soda Cloud and keeps the scan's logs pending
     server-side, so handlers that need result handles contribute nothing to a run without them.
     """
-    from soda_core.common.scan_context import get_scan_context
-
-    provides_handles: bool = get_scan_context().provides_result_handles
     stages: list[PostProcessingStage] = []
     for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
-        if handler.requires_result_handles and not provides_handles:
-            continue
-        stages += handler.provides_post_processing_stages()
+        if _runs_on_current_scan(handler):
+            stages += handler.provides_post_processing_stages()
     return stages
 
 

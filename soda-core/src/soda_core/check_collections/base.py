@@ -1063,10 +1063,10 @@ class CheckCollectionImpl:
         ``response_json=None`` to match this path's "run handlers regardless
         of upload success" semantics.
         """
-        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
+        from soda_core.contracts.impl.contract_verification_impl import post_processing_handlers_for_current_scan
 
         scan_id = verification_result.scan_id
-        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for handler in post_processing_handlers_for_current_scan():
             try:
                 handler.handle(
                     contract_impl=self,

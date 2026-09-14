@@ -68,3 +68,60 @@ def test_stages_needing_handles_are_not_declared_on_a_batched_run(registered_han
     # also keeps the scan's logs pending server-side.
     with using_scan_context(BatchedScanContext(MagicMock(), scan_id="scan-123", logs=Logs())):
         assert _stage_names(collect_post_processing_stages()) == ["selfContained"]
+
+
+class _RecordingHandlerNeedingHandles(_HandlerNeedingHandles):
+    def __init__(self) -> None:
+        self.handled: int = 0
+
+    def handle(self, *args, **kwargs):
+        self.handled += 1
+
+
+class _RecordingHandlerNotNeedingHandles(_HandlerNotNeedingHandles):
+    def __init__(self) -> None:
+        self.handled: int = 0
+
+    def handle(self, *args, **kwargs):
+        self.handled += 1
+
+
+@pytest.fixture
+def recording_handlers():
+    original_handlers = list(ContractVerificationHandlerRegistry.contract_verification_handlers)
+    original_stages = dict(ContractVerificationHandlerRegistry.post_processing_stages)
+    ContractVerificationHandlerRegistry.contract_verification_handlers = []
+    ContractVerificationHandlerRegistry.post_processing_stages = {}
+    needing, self_contained = _RecordingHandlerNeedingHandles(), _RecordingHandlerNotNeedingHandles()
+    ContractVerificationHandlerRegistry.register(needing)
+    ContractVerificationHandlerRegistry.register(self_contained)
+    yield needing, self_contained
+    ContractVerificationHandlerRegistry.contract_verification_handlers = original_handlers
+    ContractVerificationHandlerRegistry.post_processing_stages = original_stages
+
+
+def _dispatch_per_file_handlers() -> None:
+    """Run the per-file dispatch loop the non-combine flows call at the end of ``verify()``, on a
+    bare stand-in for the check collection: the loop reads only the attributes set here."""
+    from types import SimpleNamespace
+
+    from soda_core.check_collections.base import CheckCollectionImpl
+
+    impl = SimpleNamespace(data_source_impl=None, soda_cloud=None, dwh_files=None, display_name="stand-in")
+    CheckCollectionImpl.run_post_processing_handlers(impl, MagicMock(scan_id="scan-123"), None)
+
+
+def test_all_handlers_are_dispatched_on_an_atomic_run(recording_handlers):
+    needing, self_contained = recording_handlers
+    with using_scan_context(AtomicScanContext(soda_cloud=MagicMock())):
+        _dispatch_per_file_handlers()
+    assert (needing.handled, self_contained.handled) == (1, 1)
+
+
+def test_handlers_needing_handles_are_not_dispatched_on_a_batched_run(recording_handlers):
+    # A batched run declares no stage for such a handler (see above), so running it anyway can
+    # only produce misleading output: it has no ids to work with and no stage to report on.
+    needing, self_contained = recording_handlers
+    with using_scan_context(BatchedScanContext(MagicMock(), scan_id="scan-123", logs=Logs())):
+        _dispatch_per_file_handlers()
+    assert (needing.handled, self_contained.handled) == (0, 1)

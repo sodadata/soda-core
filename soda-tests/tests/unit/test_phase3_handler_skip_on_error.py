@@ -366,3 +366,25 @@ def test_default_handle_session_attributes_handler_emissions_to_the_emitting_fil
         if result.status == CheckCollectionStatus.PASSED:
             threads = {rec.thread for rec in result.log_records if rec.getMessage().startswith("handled-")}
             assert threads == {"stub-handler-wire"}
+
+
+class _SessionHandlerNeedingHandles(_RecordingHandler):
+    """A session-scoped handler keyed by the ids a synchronous insert returns."""
+
+    requires_result_handles = True
+
+
+def test_session_handlers_needing_handles_are_not_dispatched_on_a_batched_run():
+    """Phase 3 applies the same rule as the per-file loop: a handler that needs result handles is
+    left out of a run whose context cannot provide them, instead of running against ``None``."""
+    from unittest.mock import MagicMock
+
+    from soda_core.common.scan_context import BatchedScanContext, using_scan_context
+
+    needing, self_contained = _SessionHandlerNeedingHandles(), _RecordingHandler()
+    sources = [_StubSource("alpha"), _StubSource("gamma")]
+    with _registered(needing, self_contained):
+        with using_scan_context(BatchedScanContext(MagicMock(), scan_id="scan-123", logs=Logs())):
+            execute_check_collections(yaml_sources=sources, data_source_impl=None)
+    assert needing.session_calls == []
+    assert [labels for labels, _ in self_contained.session_calls] == [["alpha", "gamma"]]
