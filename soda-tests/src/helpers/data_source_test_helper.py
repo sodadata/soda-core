@@ -602,6 +602,7 @@ class DataSourceTestHelper:
             allow_fallback=allow_fallback,
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        self._snapshot_pin_metadata_lookups()
         snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
@@ -620,6 +621,7 @@ class DataSourceTestHelper:
             real_schema_name=self._snapshot_schema_name(),
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        self._snapshot_pin_metadata_lookups()
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
         # leaves the global patch state untouched.
@@ -1195,9 +1197,18 @@ class DataSourceTestHelper:
 
         These queries bypass snapshot recording/replay entirely and return the
         provided mock result directly. Override in subclasses for data-source-specific
-        session-level queries that run lazily during tests (e.g. BigQuery's SELECT @@location).
+        session-level queries that run lazily during tests.
         """
         return {}
+
+    def _snapshot_pin_metadata_lookups(self) -> None:
+        """Pin metadata lookups that do not go through execute_query.
+
+        The snapshot wrapper records and replays SQL only. Metadata a data source
+        reads over its client's REST API bypasses it entirely, so in replay mode it
+        would open a real connection and hit the network. Override in subclasses to
+        make those answers deterministic in both snapshot modes.
+        """
 
     def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
