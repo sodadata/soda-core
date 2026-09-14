@@ -9,7 +9,9 @@ from soda_core.cli.handlers.data_source import (
     handle_discover_data_source_locally,
     handle_test_data_source,
 )
-from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_soda_cloud, run_with_failure_reporting
+from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_soda_cloud
+from soda_core.cli.handlers.scan import run_scan
+from soda_core.common.scan_context import AtomicScanContext, using_scan_context
 
 
 @patch("soda_core.cli.handlers.data_source.exists", return_value=True)
@@ -69,7 +71,7 @@ def test_test_data_source_returns_none(mock_from_file):
 
 @patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
 @patch("soda_core.cli.handlers.data_source.Logs")
-@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.build_streaming_gatherer")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
 @patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
@@ -77,7 +79,7 @@ def test_test_data_source_uploads_logs_when_scan_id_provided(
     mock_data_source_impl_cls,
     mock_yaml_source_cls,
     mock_soda_cloud_cls,
-    mock_logs_queue_cls,
+    mock_build_streaming_gatherer,
     mock_logs_cls,
     mock_env_config_helper_cls,
 ):
@@ -88,32 +90,27 @@ def test_test_data_source_uploads_logs_when_scan_id_provided(
     mock_env_config_helper_cls.return_value.soda_scan_id = "scan-id-123"
     mock_soda_cloud = MagicMock()
     mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
-    mock_logs_queue = MagicMock()
-    mock_logs_queue_cls.return_value = mock_logs_queue
+    mock_gatherer = MagicMock()
+    mock_build_streaming_gatherer.return_value = mock_gatherer
     mock_logs = MagicMock()
     mock_logs_cls.return_value = mock_logs
 
     exit_code = handle_test_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
 
     assert exit_code == ExitCode.OK
-    mock_logs_queue_cls.assert_called_once_with(
-        soda_cloud=mock_soda_cloud,
-        stage="test_connection",
-        scan_id="scan-id-123",
-        dataset="",
-    )
-    mock_logs_cls.assert_called_once_with(gatherer=mock_logs_queue)
+    mock_build_streaming_gatherer.assert_called_once_with(mock_soda_cloud, scan_id="scan-id-123")
+    mock_logs_cls.assert_called_once_with(gatherer=mock_gatherer)
     mock_logs.close.assert_called_once()
 
 
 @patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
-@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.build_streaming_gatherer")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
 def test_test_data_source_skips_log_upload_when_scan_id_missing(
     mock_data_source_impl_cls,
     mock_soda_cloud_cls,
-    mock_logs_queue_cls,
+    mock_build_streaming_gatherer,
     mock_env_config_helper_cls,
 ):
     mock_instance = MagicMock()
@@ -126,17 +123,17 @@ def test_test_data_source_skips_log_upload_when_scan_id_missing(
 
     assert exit_code == ExitCode.OK
     mock_soda_cloud_cls.from_yaml_source.assert_not_called()
-    mock_logs_queue_cls.assert_not_called()
+    mock_build_streaming_gatherer.assert_not_called()
 
 
 @patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
-@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.build_streaming_gatherer")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
 def test_test_data_source_skips_log_upload_when_soda_cloud_missing(
     mock_data_source_impl_cls,
     mock_soda_cloud_cls,
-    mock_logs_queue_cls,
+    mock_build_streaming_gatherer,
     mock_env_config_helper_cls,
 ):
     mock_instance = MagicMock()
@@ -149,12 +146,12 @@ def test_test_data_source_skips_log_upload_when_soda_cloud_missing(
 
     assert exit_code == ExitCode.OK
     mock_soda_cloud_cls.from_yaml_source.assert_not_called()
-    mock_logs_queue_cls.assert_not_called()
+    mock_build_streaming_gatherer.assert_not_called()
 
 
 @patch("soda_core.cli.handlers.data_source.EnvConfigHelper")
 @patch("soda_core.cli.handlers.data_source.Logs")
-@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.build_streaming_gatherer")
 @patch("soda_core.cli.handlers.data_source.SodaCloud")
 @patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
 @patch("soda_core.common.data_source_impl.DataSourceImpl")
@@ -162,13 +159,13 @@ def test_test_data_source_uploader_captures_and_flushes_when_parsing_raises(
     mock_data_source_impl_cls,
     mock_yaml_source_cls,
     mock_soda_cloud_cls,
-    mock_logs_queue_cls,
+    mock_build_streaming_gatherer,
     mock_logs_cls,
     mock_env_config_helper_cls,
 ):
     mock_env_config_helper_cls.return_value.soda_scan_id = "scan-id-123"
-    mock_logs_queue = MagicMock()
-    mock_logs_queue_cls.return_value = mock_logs_queue
+    mock_gatherer = MagicMock()
+    mock_build_streaming_gatherer.return_value = mock_gatherer
     mock_logs = MagicMock()
     mock_logs_cls.return_value = mock_logs
     mock_data_source_impl_cls.from_yaml_source.side_effect = RuntimeError("bad data source yaml")
@@ -177,15 +174,16 @@ def test_test_data_source_uploader_captures_and_flushes_when_parsing_raises(
         handle_test_data_source("ds.yaml", soda_cloud_file_path="sc.yaml")
 
     # Uploader is attached before parsing, so an early parse failure is still captured and flushed.
-    mock_logs_cls.assert_called_once_with(gatherer=mock_logs_queue)
+    mock_logs_cls.assert_called_once_with(gatherer=mock_gatherer)
     mock_logs.close.assert_called_once()
 
 
 # Discovery handler tests. The handler receives fully resolved dependencies
-# (resolution + exit-code mapping are covered in test_cli_dependencies.py).
-# Convention: engine failures propagate raw without logging — the CLI wiring
-# is the single logging site; a rejected results upload is not an engine
-# failure and returns RESULTS_NOT_SENT_TO_CLOUD directly.
+# (resolution + exit-code mapping are covered in test_cli_dependencies.py) and
+# sources the run's ScanContext from the installed global — direct invocations
+# install one here. Convention: engine failures propagate raw without logging —
+# the CLI wiring is the single logging site; a rejected results upload is not
+# an engine failure and returns RESULTS_NOT_SENT_TO_CLOUD directly.
 
 
 def _data_source_impl_fake() -> MagicMock:
@@ -201,7 +199,8 @@ def test_discover_success_sends_results_and_exits_ok(mock_discover_dataset_dqns)
     soda_cloud.insert_scan_results.return_value = True
     mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
 
-    exit_code = handle_discover_data_source(data_source_impl, soda_cloud, scan_definition_name="my_scan")
+    with using_scan_context(AtomicScanContext(soda_cloud)):
+        exit_code = handle_discover_data_source(data_source_impl, scan_definition_name="my_scan")
 
     assert exit_code == ExitCode.OK
     # The DTO travels to Soda Cloud through the transport method, in one piece.
@@ -220,8 +219,8 @@ def test_discover_query_failure_propagates_raw(mock_discover_dataset_dqns, caplo
     soda_cloud = MagicMock()
     mock_discover_dataset_dqns.side_effect = Exception("query failed")
 
-    with pytest.raises(Exception, match="query failed"):
-        handle_discover_data_source(data_source_impl, soda_cloud=soda_cloud, scan_definition_name="my_scan")
+    with using_scan_context(AtomicScanContext(soda_cloud)), pytest.raises(Exception, match="query failed"):
+        handle_discover_data_source(data_source_impl, scan_definition_name="my_scan")
 
     # Nothing is logged at the raise site: the CLI wiring logs once, with the traceback.
     assert not any("query failed" in record.getMessage() for record in caplog.records)
@@ -235,12 +234,68 @@ def test_discover_results_send_rejected_exits_results_not_sent(mock_discover_dat
     soda_cloud.insert_scan_results.return_value = False
     mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
 
-    exit_code = handle_discover_data_source(_data_source_impl_fake(), soda_cloud, scan_definition_name="my_scan")
+    with using_scan_context(AtomicScanContext(soda_cloud)):
+        exit_code = handle_discover_data_source(_data_source_impl_fake(), scan_definition_name="my_scan")
 
     # A rejected results upload is not an engine failure: no mark_scan_as_failed,
     # the exit code alone signals the undelivered results.
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_routes_upload_through_the_installed_scan_context(mock_discover_dataset_dqns):
+    scan_context = MagicMock()
+    scan_context.insert_results.return_value = True
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+
+    with using_scan_context(scan_context):
+        exit_code = handle_discover_data_source(_data_source_impl_fake(), scan_definition_name="my_scan")
+
+    assert exit_code == ExitCode.OK
+    # The handler opens the scan with the resolved coordinates before the
+    # discovery queries run, so on a batched run their logs stream mid-run.
+    scan_context.start_scan.assert_called_once()
+    start_kwargs = scan_context.start_scan.call_args.kwargs
+    assert start_kwargs["definition_name"] == "my_scan"
+    assert start_kwargs["default_data_source"] == "test_ds"
+    assert start_kwargs["data_timestamp"] is not None
+    scan_context.insert_results.assert_called_once()
+    (payload,), _ = scan_context.insert_results.call_args
+    assert payload["type"] == "sodaCoreInsertScanResults"
+
+
+@patch("soda_core.discovery.discovery_payload.build_discovery_payload")
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_start_scan_and_payload_share_the_data_timestamp(
+    mock_discover_dataset_dqns, mock_build_discovery_payload
+):
+    # One dataTimestamp for the whole scan: sodaCoreScanStart and the results payload must carry
+    # the same value. Object identity, not (string) equality — two datetime.now() calls in the
+    # same second serialise identically, so an equality assertion cannot see severed wiring.
+    scan_context = MagicMock()
+    scan_context.insert_results.return_value = True
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+    mock_build_discovery_payload.return_value = {"type": "sodaCoreInsertScanResults"}
+
+    with using_scan_context(scan_context):
+        exit_code = handle_discover_data_source(_data_source_impl_fake(), scan_definition_name="my_scan")
+
+    assert exit_code == ExitCode.OK
+    started_with = scan_context.start_scan.call_args.kwargs["data_timestamp"]
+    assert mock_build_discovery_payload.call_args.kwargs["data_timestamp"] is started_with
+
+
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_scan_context_rejected_upload_exits_results_not_sent(mock_discover_dataset_dqns):
+    scan_context = MagicMock()
+    scan_context.insert_results.return_value = False
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+
+    with using_scan_context(scan_context):
+        exit_code = handle_discover_data_source(_data_source_impl_fake(), scan_definition_name="my_scan")
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
 @patch("soda_core.discovery.discovery_payload.build_discovery_payload")
@@ -252,8 +307,8 @@ def test_discover_unexpected_post_query_exception_propagates(mock_discover_datas
     mock_build_discovery_payload.side_effect = RuntimeError("payload build failed")
 
     # Unexpected exceptions propagate; the CLI wiring logs and reports them.
-    with pytest.raises(RuntimeError):
-        handle_discover_data_source(data_source_impl, soda_cloud=soda_cloud, scan_definition_name="my_scan")
+    with using_scan_context(AtomicScanContext(soda_cloud)), pytest.raises(RuntimeError):
+        handle_discover_data_source(data_source_impl, scan_definition_name="my_scan")
 
 
 # Local discovery handler tests. Unlike the Cloud sibling there is no scan
@@ -323,11 +378,10 @@ def test_discover_locally_query_failure_propagates_raw(mock_discover_dataset_dqn
 
 def _run_discover_flow() -> ExitCode:
     soda_cloud = resolve_soda_cloud("sc.yaml")
-    return run_with_failure_reporting(
+    return run_scan(
         soda_cloud,
-        lambda logs: handle_discover_data_source(
-            resolve_data_source("ds.yaml"), soda_cloud, scan_definition_name="my_scan"
-        ),
+        lambda logs: handle_discover_data_source(resolve_data_source("ds.yaml"), scan_definition_name="my_scan"),
+        batched=True,
     )
 
 

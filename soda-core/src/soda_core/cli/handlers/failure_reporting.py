@@ -13,19 +13,13 @@ from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.env_config_helper import EnvConfigHelper
-from soda_core.common.exceptions import SodaCoreException
+from soda_core.common.exceptions import ScanExecutionFailedException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 
-
-class ScanExecutionFailedException(SodaCoreException):
-    """Raise with a user-facing message for expected/validation failures.
-
-    The exception carries the message; nothing is logged at the raise site.
-    The CLI wiring (``dependencies.run_with_failure_reporting``) is the single
-    logging site: it logs this message clean (no traceback) and reports via
-    ``report_scan_execution_failure``. Unexpected failures should propagate
-    raw instead — the wiring logs those with the traceback."""
+# ScanExecutionFailedException lives in common.exceptions (it is raised below the CLI layer) and
+# is re-exported here, the import point CLI wirings and soda-extensions use.
+__all__ = ["ScanExecutionFailedException", "report_scan_execution_failure"]
 
 
 def report_scan_execution_failure(

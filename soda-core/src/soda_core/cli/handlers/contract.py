@@ -35,7 +35,7 @@ def handle_verify_contract(
     """Run a contract verification and map its result to an exit code.
 
     Failures propagate raw without logging or Cloud reporting here: the CLI
-    wiring wraps this command in ``run_with_failure_reporting`` — the single
+    wiring wraps this command in ``scan.run_scan`` — the single
     Cloud-marking site for escaped exceptions (delivery-aware: exit 3 when
     Cloud has the failure or the run is ad-hoc, 4 when a managed run's failure
     couldn't reach Cloud so the launcher's fallback reports).

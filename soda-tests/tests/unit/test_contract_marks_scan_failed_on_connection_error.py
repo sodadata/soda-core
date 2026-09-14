@@ -12,7 +12,7 @@ the send valid.
 Cloud marking has exactly two sites, and they never overlap:
 - the send-results site substitutes a mark for the upload when the run *returned*
   an errored result without check results (the tests above the SAS-13001 section);
-- the CLI failure boundary (``run_with_failure_reporting`` /
+- the CLI failure boundary (``run_scan`` /
   ``report_scan_execution_failure``) marks for exceptions that *escape* the run
   (the SAS-13001 tests below). The engine layers underneath — the session's abort
   re-raise and ``verify_contract`` — must NOT mark: a second
@@ -26,7 +26,8 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_verify_contract
-from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report, run_with_failure_reporting
+from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -289,7 +290,7 @@ def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data
     """Run the real CLI flow end-to-end (real session, real duckdb data source),
     with ``SodaCloud.from_config`` pinned to the given mock. Mirrors the cli.py
     verify wiring: channel resolution first, then the bare command wrapped in
-    ``run_with_failure_reporting`` (the single Cloud-marking site)."""
+    ``run_scan`` (the single Cloud-marking site)."""
     contract_path = tmp_path / "contract.yaml"
     contract_path.write_text(_CONTRACT_YAML)
     data_source_path = tmp_path / "ds.yaml"
@@ -297,7 +298,7 @@ def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data
 
     with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
         soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
-        return run_with_failure_reporting(
+        return run_scan(
             soda_cloud,
             lambda logs: handle_verify_contract(
                 contract_file_path=str(contract_path),
