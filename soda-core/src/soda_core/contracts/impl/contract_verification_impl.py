@@ -188,6 +188,11 @@ def collect_post_processing_stages() -> list[PostProcessingStage]:
 
     A stage nobody can complete stays ONGOING on Soda Cloud and keeps the scan's logs pending
     server-side, so handlers that need result handles contribute nothing to a run without them.
+
+    Only the synchronous insert carries the field to the backend. A batched run's stages ride
+    ``sodaCoreScanEndAsync``, which ``SodaCloud.scan_end_async`` sends without any, so on that
+    path the filter is a second guard: no handler that needs result handles declares a stage
+    there either way.
     """
     stages: list[PostProcessingStage] = []
     for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
