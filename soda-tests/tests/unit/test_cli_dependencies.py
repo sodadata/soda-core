@@ -2,7 +2,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_scan_definition_name, resolve_soda_cloud
+from soda_core.cli.handlers.dependencies import (
+    resolve_data_source,
+    resolve_scan_definition_name,
+    resolve_soda_cloud,
+    run_with_failure_reporting,
+)
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.exceptions import InvalidSodaCloudConfigurationException
@@ -317,3 +322,13 @@ def test_records_emitted_via_the_wrappers_logs_reach_the_failure_report(monkeypa
     assert any(
         "downstream record from within the command" in record.getMessage() for record in kwargs["logs"]
     ), "records emitted via the command's logs must appear in the failure report"
+
+
+def test_run_with_failure_reporting_is_a_deprecated_alias_for_run_scan():
+    command = MagicMock(return_value=ExitCode.OK)
+
+    with pytest.warns(DeprecationWarning, match="run_with_failure_reporting"):
+        exit_code = run_with_failure_reporting(None, command)
+
+    assert exit_code == ExitCode.OK
+    command.assert_called_once()

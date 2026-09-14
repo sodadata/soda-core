@@ -7,7 +7,8 @@ Handlers receive fully constructed dependencies (``DataSourceImpl``,
 knows nothing about construction — the wiring layer decides which resolutions
 run inside it. Like ``failure_reporting``, this module is a stable import
 point: soda-extensions CLIs reuse these utilities for their own
-result-publishing commands.
+result-publishing commands, which is why ``run_with_failure_reporting`` stays
+importable from here as a deprecated alias.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import os
 from typing import TYPE_CHECKING, Optional
 
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
+from soda_core.cli.handlers.scan import run_scan
+from soda_core.common._deprecation import deprecated_alias
 from soda_core.common.exceptions import (
     InvalidDataSourceConfigurationException,
     InvalidSodaCloudConfigurationException,
@@ -127,3 +130,10 @@ def resolve_scan_definition_name(scan_definition_name: Optional[str]) -> str:
             "pass --scan-definition-name or set SODA_SCAN_DEFINITION."
         )
     return resolved_scan_definition_name
+
+
+# Published soda-extensions CLIs (profiling, metric monitoring, capture schema) import this name
+# from here, and their soda-core pins are lower bounds only: an installed extension next to a core
+# without it fails at plugin load, which only warns, so its commands silently disappear. Remove
+# once every extension release calls ``scan.run_scan`` directly.
+run_with_failure_reporting = deprecated_alias(run_scan, "dependencies.run_with_failure_reporting", "scan.run_scan")
