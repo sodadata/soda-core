@@ -98,6 +98,17 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     # Databricks SQL rejects DROP TABLE ... CASCADE with PARSE_SYNTAX_ERROR
     # (CASCADE is valid on DROP SCHEMA only) — same as sparkdf/trino/athena.
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
+    # Delta refuses to create a table whose column names contain one of " ,;{}()\n\t=" unless the
+    # table has column mapping enabled. Soda's diagnostics tables mirror source column names
+    # verbatim, so a dataset with a column like "First Name" made the whole failed-rows stage fail
+    # with DELTA_INVALID_CHARACTERS_IN_COLUMN_NAMES, even though the source table itself is
+    # readable (it has column mapping on). Every table Soda creates here declares it.
+    DELTA_TBLPROPERTIES: str = (
+        "TBLPROPERTIES ("
+        "'delta.columnMapping.mode' = 'name', "
+        "'delta.minReaderVersion' = '2', "
+        "'delta.minWriterVersion' = '5')"
+    )
 
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
@@ -409,6 +420,9 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
     def _build_random_sql(self, random: RANDOM) -> str:
         return "RAND()"
+
+    def _build_create_table_properties_sql(self) -> str:
+        return self.DELTA_TBLPROPERTIES
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect, sqlglot_dialect="databricks"):

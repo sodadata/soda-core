@@ -158,3 +158,23 @@ def test_freshness_unit_day_fails():
     max_ts = _data_timestamp(check) - timedelta(days=10)
     result = _evaluate_freshness(contract_impl, check, max_ts)
     assert result.outcome == CheckOutcome.FAILED
+
+
+def test_freshness_unparseable_string_reports_the_received_value(caplog):
+    """A string the engine cannot parse (e.g. a tz-rendered timestamp handed over raw
+    by the driver) must be reported as itself — not as a received 'None', which reads
+    as if the database returned NULL."""
+    contract_impl, check = _build_freshness_check(_freshness_yaml())
+    result = _evaluate_freshness(contract_impl, check, max_ts="2026-09-01 12:00:00.000 UTC")
+    assert result.outcome == CheckOutcome.FAILED
+    assert "'2026-09-01 12:00:00.000 UTC'" in caplog.text
+    assert "could not be parsed" in caplog.text
+    assert "'None'" not in caplog.text
+
+
+def test_freshness_parseable_string_is_converted():
+    """ISO strings from drivers without native datetime conversion still evaluate."""
+    contract_impl, check = _build_freshness_check(_freshness_yaml(unit="hour", threshold=24))
+    max_ts = (_data_timestamp(check) - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    result = _evaluate_freshness(contract_impl, check, max_ts)
+    assert result.outcome == CheckOutcome.PASSED

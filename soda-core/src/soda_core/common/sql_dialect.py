@@ -658,7 +658,15 @@ class SqlDialect:
             column_clauses.append(primary_key_clause)
 
         create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
+        table_properties_sql: str = self._build_create_table_properties_sql()
+        if table_properties_sql:
+            create_table_sql = f"{create_table_sql} {table_properties_sql}"
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_properties_sql(self) -> str:
+        """Dialect-specific table-level clauses, rendered after the column list in a CREATE TABLE
+        and before AS in a CTAS. Empty for every dialect that needs none."""
+        return ""
 
     def _create_table_with_primary_key_columns_not_null(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS
@@ -761,7 +769,11 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
-        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        table_properties_sql: str = self._build_create_table_properties_sql()
+        table_properties_prefix: str = f"{table_properties_sql} " if table_properties_sql else ""
+        result_sql: str = (
+            f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} {table_properties_prefix}AS "
+        )
         result_sql += (
             f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
