@@ -157,9 +157,8 @@ class TestSnapshotRegionPinning:
         monkeypatch.setenv("BIGQUERY_LOCATION", "europe-west1")
         impl = _make_impl()
         helper = BigQueryDataSourceTestHelper.__new__(BigQueryDataSourceTestHelper)
-        helper.data_source_impl = impl
 
-        helper._snapshot_pin_metadata_lookups()
+        helper._snapshot_pin_metadata_lookups(impl)
 
         assert impl.regions_in_scope(project_id=PROJECT) == ["europe-west1"]
         assert impl.region_for_dataset(PROJECT, "dataset_a") == "europe-west1"

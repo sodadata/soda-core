@@ -602,7 +602,7 @@ class DataSourceTestHelper:
             allow_fallback=allow_fallback,
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-        self._snapshot_pin_metadata_lookups()
+        self._snapshot_pin_metadata_lookups(self.data_source_impl)
         snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
@@ -621,7 +621,7 @@ class DataSourceTestHelper:
             real_schema_name=self._snapshot_schema_name(),
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-        self._snapshot_pin_metadata_lookups()
+        self._snapshot_pin_metadata_lookups(self.data_source_impl)
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
         # leaves the global patch state untouched.
@@ -1201,13 +1201,16 @@ class DataSourceTestHelper:
         """
         return {}
 
-    def _snapshot_pin_metadata_lookups(self) -> None:
-        """Pin metadata lookups that do not go through execute_query.
+    def _snapshot_pin_metadata_lookups(self, data_source_impl: DataSourceImpl) -> None:
+        """Pin metadata lookups on ``data_source_impl`` that do not go through execute_query.
 
-        The snapshot wrapper records and replays SQL only. Metadata a data source
-        reads over its client's REST API bypasses it entirely, so in replay mode it
-        would open a real connection and hit the network. Override in subclasses to
-        make those answers deterministic in both snapshot modes.
+        The snapshot wrapper records and replays SQL only. Metadata a data source reads over its client's
+        REST API bypasses it entirely, so in replay mode it would open a real connection and hit the
+        network. Override in subclasses to make those answers deterministic in both snapshot modes.
+
+        The impl is a parameter because the helper's own impl is not the only one that gets a snapshot
+        connection: other impls get one too, for example one a scan builds from a yaml file, and those
+        need the same pin.
         """
 
     def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
