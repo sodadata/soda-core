@@ -41,6 +41,7 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         insert_status: int = 200,
         end_status: int = 200,
         log_upload_status: int = 200,
+        log_upload_error_code: str = "invalid_scan_state",
         scan_reference: str = "org/ref-1",
     ):
         super().__init__()
@@ -48,6 +49,9 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         self.insert_status = insert_status
         self.end_status = end_status
         self.log_upload_status = log_upload_status
+        # The error body of a refused log upload; the default is the backend's code for a scan
+        # that left its log-accepting state, which ends the stream.
+        self.log_upload_error_code = log_upload_error_code
         self.scan_reference = scan_reference
 
     def _http_handle(self, method, url, headers, json, data):
@@ -57,7 +61,12 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
 
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
         if url and "batchV4" in url:
-            return MockResponse(status_code=self.log_upload_status, json_object={})
+            if 200 <= self.log_upload_status < 300:
+                return MockResponse(status_code=self.log_upload_status, json_object={})
+            return MockResponse(
+                status_code=self.log_upload_status,
+                json_object={"code": self.log_upload_error_code, "message": "refused"},
+            )
         command_type = json.get("type") if isinstance(json, dict) else None
         if command_type == "sodaCoreScanStart":
             return MockResponse(status_code=self.scan_start_status, json_object={"scanReference": self.scan_reference})

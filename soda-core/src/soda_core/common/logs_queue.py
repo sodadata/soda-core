@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from logging import LogRecord
 from typing import Optional
 
+from requests import Response
 from soda_core.common import soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_configuration import _mask_record
@@ -19,16 +20,37 @@ from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 DEFAULT_FLUSH_INTERVAL = 5
 MAX_LOG_LINES = int(os.environ.get("SODA_LOGS_BATCH_LIMIT_COUNT", "1000"))
 
-# 4xx that can heal (timeout, rate limit). Any other 4xx on the log endpoints means the scan
-# permanently refuses uploads: deleted (404), or off its log-accepting state (400) — for good.
+# 4xx that can heal (timeout, rate limit): the batch stays queued for the next flush.
 _TRANSIENT_4XX = {408, 429}
+# The error code Soda Cloud's log endpoints return, with a 400, for a scan that left its
+# log-accepting state. That transition never reverses. Any other 400 is about the batch itself.
+_INVALID_SCAN_STATE_CODE = "invalid_scan_state"
 
 # The stream's own diagnostics. Console-only: logs._RootCapturer refuses this logger, so a failing
 # stream can never feed reports about itself into the queue it reports on.
 stream_logger = logging.getLogger(STREAM_DIAGNOSTICS_LOGGER)
 
 
-def _is_permanent_rejection(status_code: int) -> bool:
+def _error_code(response: Response) -> Optional[str]:
+    """The ``code`` of a Soda Cloud error body, or None when the body is not one (an empty 404,
+    a proxy's 413 page)."""
+    try:
+        return response.json().get("code")
+    except Exception:
+        return None
+
+
+def _is_permanent_rejection(response: Response) -> bool:
+    """Whether the scan itself refuses uploads for good: deleted (404), or off its log-accepting
+    state (400 ``invalid_scan_state``). Posting stops; re-sending could never succeed."""
+    return response.status_code == 404 or (
+        response.status_code == 400 and _error_code(response) == _INVALID_SCAN_STATE_CODE
+    )
+
+
+def _is_batch_rejection(status_code: int) -> bool:
+    """Whether a 4xx is about this batch (too large, malformed): it is dropped and the stream goes
+    on, so one bad batch cannot silence everything after it."""
     return 400 <= status_code < 500 and status_code not in _TRANSIENT_4XX
 
 
@@ -49,10 +71,10 @@ class LogsQueue(LogsBase):
     """Streams captured log records to the scan's Soda Cloud log stream.
 
     ``_pending`` holds exactly the records Soda Cloud has not acknowledged: ``emit`` appends, a
-    flush sends the head in one request and removes it only on a 2xx. A failed send leaves the
-    records queued for the worker's next cadence tick — that cadence is the only retry mechanism.
-    Delivery is at-least-once: an upload whose response was lost is re-sent, and the backend does
-    not dedupe.
+    flush sends the head in one request and removes it on a 2xx, or on a 4xx that rejects this
+    batch in particular (dropped, with a warning). Any other failed send leaves the records queued
+    for the worker's next cadence tick — that cadence is the only retry mechanism. Delivery is
+    at-least-once: an upload whose response was lost is re-sent, and the backend does not dedupe.
     """
 
     def __init__(
@@ -250,12 +272,22 @@ class LogsQueue(LogsBase):
                     )
                     continue
 
-                if _is_permanent_rejection(response.status_code):
+                if _is_permanent_rejection(response):
                     # Stop posting; the pending records' only remaining route to Soda Cloud is a
                     # failure report, and close() accounts for them otherwise.
                     self._terminal_reason = f"Soda Cloud permanently refused the stream (HTTP {response.status_code})"
                     stream_logger.warning(f"{self._terminal_reason}; {len(lines)} record(s) remain undelivered")
                     return current_flush_interval
+
+                if _is_batch_rejection(response.status_code):
+                    stream_logger.warning(
+                        f"Soda Cloud refused a log batch (HTTP {response.status_code}); "
+                        f"{len(lines)} record(s) dropped from the log stream"
+                    )
+                    with self._pending_lock:
+                        # Same head-of-list reasoning as the acknowledged case above.
+                        del self._pending[: len(lines)]
+                    continue
 
                 stream_logger.warning(
                     f"Could not send a log batch to Soda Cloud (HTTP {response.status_code}); "

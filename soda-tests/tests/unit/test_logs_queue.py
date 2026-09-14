@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,10 +18,15 @@ def test_logs_queue_requires_an_identifier():
         LogsQueue(soda_cloud=MagicMock(), stage="main")
 
 
-def _response(status_code: int) -> MagicMock:
-    # A real int status code: the flush classifies the response on it.
+def _response(status_code: int, code: Optional[str] = None) -> MagicMock:
+    # A real int status code: the flush classifies the response on it, and on the error body's
+    # ``code`` for a 400. No ``code`` means no Soda Cloud error body (a 2xx, a proxy's error page).
     response = MagicMock(status_code=status_code)
     response.headers.get.return_value = None
+    if code is None:
+        response.json.side_effect = ValueError("no json body")
+    else:
+        response.json.return_value = {"code": code, "message": "refused"}
     return response
 
 
@@ -116,9 +122,10 @@ def test_records_emitted_during_an_outage_ride_along_afterwards():
     assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4)[-1] == ["before the outage", "during the outage"]
 
 
-def test_permanent_rejection_ends_the_stream(caplog):
+@pytest.mark.parametrize("status_code, code", [(404, "scan_not_found"), (400, "invalid_scan_state")])
+def test_permanent_rejection_ends_the_stream(status_code, code, caplog):
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(400)
+    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(status_code, code)
     logs_queue.emit(_record(logging.INFO, "refused line"))
 
     logs_queue.flush()
@@ -129,12 +136,30 @@ def test_permanent_rejection_ends_the_stream(caplog):
     with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
         logs_queue.close()
     assert "2 log record(s) were not delivered" in caplog.text
-    assert "HTTP 400" in caplog.text
+    assert f"HTTP {status_code}" in caplog.text
+
+
+@pytest.mark.parametrize("status_code, code", [(413, None), (400, "invalid_request_body"), (422, None)])
+def test_batch_rejection_drops_the_batch_and_the_stream_goes_on(status_code, code, caplog):
+    logs_queue = _stopped_queue(scan_id="scan-id-123")
+    logs_queue.soda_cloud.logs_batch_v4.side_effect = [_response(status_code, code), _response(200)]
+    logs_queue.emit(_record(logging.INFO, "refused line"))
+
+    with caplog.at_level(logging.WARNING, logger="soda.logs_stream"):
+        logs_queue.flush()
+    logs_queue.emit(_record(logging.INFO, "later line"))
+    logs_queue.flush()
+
+    assert _sent_messages(logs_queue.soda_cloud.logs_batch_v4) == [["refused line"], ["later line"]]
+    assert "1 record(s) dropped" in caplog.text
+    with caplog.at_level(logging.ERROR, logger="soda.logs_stream"):
+        logs_queue.close()
+    assert "were not delivered" not in caplog.text
 
 
 def test_records_pending_after_a_permanent_rejection_ride_a_failure_report():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
-    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(404)
+    logs_queue.soda_cloud.logs_batch_v4.return_value = _response(404, "scan_not_found")
     logs_queue.emit(_record(logging.INFO, "refused line"))
     logs_queue.flush()
 
