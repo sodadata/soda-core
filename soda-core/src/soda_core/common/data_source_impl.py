@@ -564,13 +564,17 @@ class DataSourceImpl(ABC):
             include_table_name_like_filters=include_table_name_like_filters,
             exclude_table_name_like_filters=exclude_table_name_like_filters,
         )
-        # Omit data source internal/system schemas (e.g. postgres' pg_catalog
-        # and information_schema) from discovery.
+        # Omit data source internal/system objects from discovery: whole system schemas
+        # (e.g. postgres' pg_catalog and information_schema) and internal objects that
+        # live inside regular schemas (e.g. Databricks' metric-view materializations).
         return [
             fully_qualified_object_name
             for fully_qualified_object_name in fully_qualified_object_names
-            if fully_qualified_object_name.schema_name is None
-            or not self.sql_dialect.is_system_schema(fully_qualified_object_name.schema_name)
+            if (
+                fully_qualified_object_name.schema_name is None
+                or not self.sql_dialect.is_system_schema(fully_qualified_object_name.schema_name)
+            )
+            and not self.sql_dialect.is_system_table_name(fully_qualified_object_name.get_object_name())
         ]
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
