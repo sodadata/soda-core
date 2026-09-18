@@ -39,8 +39,8 @@ from soda_core.common.soda_cloud_dto import (
     RequestDatasetsConfigurationDTO,
     SodaCoreInsertScanResultsDTO,
 )
+from soda_core.common.user_agent import user_agent
 from soda_core.common.utils import to_camel_case
-from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -344,9 +344,17 @@ class SodaCloud:
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
         self.token: Optional[str] = token
-        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {"User-Agent": user_agent()}
+
+    def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
+        """The default headers plus the request-specific ones, so every request identifies
+        the client even when it sets its own Authorization or Content-Type."""
+        return {**self.headers, **headers}
 
     def mark_scan_as_failed(
         self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
@@ -1562,10 +1570,12 @@ class SodaCloud:
         credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
         credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
 
-        headers = {
-            "Authorization": f"Basic {credentials_encoded}",
-            "Accept": "application/json",
-        }
+        headers = self.request_headers(
+            {
+                "Authorization": f"Basic {credentials_encoded}",
+                "Accept": "application/json",
+            }
+        )
 
         url: str = f"{self.api_url}/v1/{relative_url_path}"
         logger.debug(f"Sending GET {url} request to Soda Cloud")
@@ -1794,7 +1804,7 @@ class SodaCloud:
         recovery."""
         response = self._http_post(
             url=url,
-            headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+            headers=self.request_headers({"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}),
             data=body,
             request_log_name=request_log_name,
         )
@@ -1806,7 +1816,9 @@ class SodaCloud:
             self.token = None
             response = self._http_post(
                 url=url,
-                headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+                headers=self.request_headers(
+                    {"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}
+                ),
                 data=body,
                 request_log_name=request_log_name,
             )
