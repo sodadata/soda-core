@@ -1822,6 +1822,16 @@ class SqlDialect:
         """
         return schema_name.lower() == "information_schema"
 
+    def is_system_table_name(self, table_name: str) -> bool:
+        """Check if the object name marks a data source internal/system object.
+
+        Complements is_system_schema for internal objects that a data source creates
+        inside regular schemas (e.g. Databricks' ``__materialization_mat_*`` metric-view
+        materializations), where a schema-level rule cannot catch them. Such objects are
+        excluded from discovery, whatever their object type.
+        """
+        return False
+
     def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
         """Convert to a SQL representation of a timestamp with timezone.
 

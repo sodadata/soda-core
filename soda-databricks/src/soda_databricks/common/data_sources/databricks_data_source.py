@@ -415,6 +415,13 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             self._warn_unmapped_table_type_once(table_type)
             return TableType.TABLE
 
+    def is_system_table_name(self, table_name: str) -> bool:
+        # Databricks materializes metric views through a managed Lakeflow pipeline whose
+        # backing objects are named __materialization_mat_<pipeline id>___metric_view_mat_...
+        # and land in the customer's own schemas. They are system-managed and come and go
+        # with the pipeline, so they must not show up as discovered datasets.
+        return table_name.lower().startswith("__materialization_mat_")
+
     def metadata_casify(self, identifier: str) -> str:
         return identifier.lower()
 
