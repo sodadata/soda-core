@@ -16,6 +16,9 @@ logger: logging.Logger = soda_logger
 class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSourceModel):
     def __init__(self, data_source_model: SynapseDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
+        # Column lists resolved for the paginator, keyed by (prefixes, table name), so a paginated scan
+        # asks information_schema.columns once per table rather than once per page.
+        self._column_names_cache: dict[tuple[tuple[str, ...], str], list[str]] = {}
 
     def _create_sql_dialect(self) -> SqlDialect:
         # Inject a column-name resolver so the ROW_NUMBER paginator can fall back to the
@@ -25,10 +28,24 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
         return SynapseSqlDialect(get_column_names=self._get_column_names_for_pagination)
 
     def _get_column_names_for_pagination(self, dataset_prefixes: list[str], dataset_name: str) -> list[str]:
-        return [
-            cm.column_name
-            for cm in self.get_columns_metadata(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
-        ]
+        cache_key = (tuple(dataset_prefixes), dataset_name)
+        column_names = self._column_names_cache.get(cache_key)
+        if column_names is None:
+            column_names = [
+                cm.column_name
+                for cm in self.get_columns_metadata(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
+            ]
+            self._column_names_cache[cache_key] = column_names
+        return column_names
+
+    def clear_column_names_cache(self) -> None:
+        """Forget every resolved column list, so the next paginated query asks the warehouse again.
+
+        A scan builds a fresh impl, so it never needs this. The test helpers do: their impl lives for a
+        whole pytest session, and a column list cached by one test would let the next test skip the
+        metadata query its snapshot recorded.
+        """
+        self._column_names_cache.clear()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SynapseDataSourceConnection(
@@ -44,11 +61,9 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # Mirrors Athena's `get_table_storage_location` injection pattern from PR #2600 — the
         # dialect stays decoupled from `DataSourceImpl` and just has a function it can call.
         # Optional so the dialect can still be constructed in tests / contexts that don't
-        # paginate or always pass explicit columns.
+        # paginate or always pass explicit columns. The resolver owns any caching; the dialect
+        # keeps no state.
         self._get_column_names: Optional[Callable[[list[str], str], list[str]]] = get_column_names
-        # Cache of resolved column lists keyed by (prefixes_tuple, dataset_name) so we don't
-        # issue a metadata round-trip per page during a paginated scan.
-        self._columns_cache: dict[tuple[tuple[str, ...], str], list[str]] = {}
 
     def supports_primary_keys(self) -> bool:
         # Synapse dedicated SQL pools store primary keys as non-enforced NONCLUSTERED
@@ -152,12 +167,7 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
                 "SynapseSqlDialect needs `get_column_names` to be supplied at construction "
                 "(via `SynapseDataSourceImpl._create_sql_dialect`) or an explicit `columns` list."
             )
-            cache_key = (tuple(dataset_identifier.prefixes), dataset_identifier.dataset_name)
-            cached = self._columns_cache.get(cache_key)
-            if cached is None:
-                cached = self._get_column_names(dataset_identifier.prefixes, dataset_identifier.dataset_name)
-                self._columns_cache[cache_key] = cached
-            columns = cached
+            columns = self._get_column_names(dataset_identifier.prefixes, dataset_identifier.dataset_name)
         qualified_table = self.build_fully_qualified_sql_name(dataset_identifier)
         # Use the safe quoter so column / order-by identifiers can't break out of `[...]`.
         quoted_columns = [self._quote_identifier_safe(c) for c in columns]
