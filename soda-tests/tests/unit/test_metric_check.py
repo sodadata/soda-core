@@ -61,6 +61,77 @@ def test_metric_query_execute_returns_value_when_query_returns_rows():
     assert measurements[0].metric_id == "test_metric_id"
 
 
+def test_metric_query_execute_does_not_warn_on_a_scalar_result(caplog):
+    data_source_impl = MagicMock()
+    data_source_impl.execute_query.return_value = QueryResult(rows=[(42.0,)], columns=(("value",),))
+
+    metric_impl = MagicMock()
+    metric_impl.convert_db_value.side_effect = lambda value: value
+
+    metric_query = MetricQuery(
+        data_source_impl=data_source_impl, metrics=[metric_impl], sql="SELECT AVG(value) FROM test_table"
+    )
+
+    with caplog.at_level("WARNING"):
+        metric_query.execute()
+
+    assert "Metric query returned" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "rows, columns, expected_warning",
+    [
+        pytest.param(
+            [(42.0,), (7.0,), (1.0,)],
+            (("value",),),
+            "Metric query returned 3 rows, expected 1. Using the first column of the first row. "
+            "Which row comes first is nondeterministic without an ORDER BY.",
+            id="multi_row",
+        ),
+        pytest.param(
+            [(42.0, 7.0)],
+            (("value",), ("other",)),
+            "Metric query returned 2 columns, expected 1. Using the first column of the first row.\n",
+            id="multi_column",
+        ),
+        pytest.param(
+            [(42.0, 7.0), (1.0, 2.0)],
+            (("value",), ("other",)),
+            "Metric query returned 2 rows, expected 1 and 2 columns, expected 1. "
+            "Using the first column of the first row. "
+            "Which row comes first is nondeterministic without an ORDER BY.",
+            id="multi_row_and_multi_column",
+        ),
+    ],
+)
+def test_metric_query_execute_warns_on_a_non_scalar_result_and_reads_the_first_cell(
+    rows, columns, expected_warning, caplog
+):
+    """A metric query is read as rows[0][0]. Extra rows and columns are dropped, with a warning naming them."""
+    data_source_impl = MagicMock()
+    data_source_impl.execute_query.return_value = QueryResult(rows=rows, columns=columns)
+
+    metric_impl = MagicMock()
+    metric_impl.id = "test_metric_id"
+    metric_impl.type = "metric"
+    metric_impl.convert_db_value.side_effect = lambda value: value
+
+    sql = "SELECT value, other FROM test_table"
+    metric_query = MetricQuery(data_source_impl=data_source_impl, metrics=[metric_impl], sql=sql)
+
+    with caplog.at_level("WARNING"):
+        measurements = metric_query.execute()
+
+    assert len(measurements) == 1
+    assert measurements[0].value == pytest.approx(42.0)
+
+    warnings = [record.getMessage() for record in caplog.records if record.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert expected_warning in warnings[0]
+    assert ("ORDER BY" in warnings[0]) == (len(rows) > 1)
+    assert sql in warnings[0]
+
+
 @pytest.mark.parametrize(
     "db_value, expected",
     [
