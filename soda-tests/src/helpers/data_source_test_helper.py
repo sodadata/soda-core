@@ -314,6 +314,10 @@ class DataSourceTestHelper:
             from soda_mysql.test_helpers.mysql_data_source_test_helper import MysqlDataSourceTestHelper
 
             return MysqlDataSourceTestHelper(name)
+        elif test_datasource == "mariadb":
+            from soda_mariadb.test_helpers.mariadb_data_source_test_helper import MariadbDataSourceTestHelper
+
+            return MariadbDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
