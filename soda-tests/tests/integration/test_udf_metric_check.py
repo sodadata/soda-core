@@ -225,3 +225,49 @@ def test_metric_query_returning_nan_is_not_evaluated(data_source_test_helper: Da
     assert metric_check_json["outcome"] == "unevaluated"
     assert row_count_check_json["outcome"] == "pass"
     assert "Metric query returned float nan, not a finite number" in contract_verification_result.get_errors_str()
+
+
+@pytest.mark.parametrize(
+    "select_clause, order_by_clause, expected_offenses",
+    [
+        pytest.param("{start}", "ORDER BY {start}", "3 rows, expected 1.", id="multi_row"),
+        pytest.param("MIN({start}), MAX({end})", "", "2 columns, expected 1.", id="multi_column"),
+        pytest.param(
+            "{start}, {end}",
+            "ORDER BY {start}",
+            "3 rows, expected 1 and 2 columns, expected 1.",
+            id="multi_row_and_multi_column",
+        ),
+    ],
+)
+def test_metric_query_returning_a_non_scalar_result_warns_and_evaluates_the_first_cell(
+    data_source_test_helper: DataSourceTestHelper, select_clause: str, order_by_clause: str, expected_offenses: str
+):
+    """A metric query is read as the first column of the first row. Extra rows and columns are
+    dropped, so the check still evaluates, with a warning naming what was dropped."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    quoted_columns = {
+        "start": data_source_test_helper.quote_column("start"),
+        "end": data_source_test_helper.quote_column("end"),
+    }
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    SELECT {select_clause.format(**quoted_columns)}
+                    FROM {test_table.qualified_name}
+                    {order_by_clause.format(**quoted_columns)}
+                  threshold:
+                    must_be: 0
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.threshold_value == 0
+
+    logs_str: str = contract_verification_result.get_logs_str()
+    assert f"Metric query returned {expected_offenses} Using the first column of the first row." in logs_str
+    assert ("nondeterministic without an ORDER BY" in logs_str) == ("rows, expected" in expected_offenses)
