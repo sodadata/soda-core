@@ -349,6 +349,8 @@ class SodaCloud:
 
     @property
     def headers(self) -> dict[str, str]:
+        """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
+        it changes nothing: pass request-specific headers through request_headers() instead."""
         return {"User-Agent": user_agent()}
 
     def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
