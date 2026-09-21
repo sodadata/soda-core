@@ -1856,9 +1856,12 @@ def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]
     Soda Cloud fills a dataset's column list from here, so a dataset whose only activity
     is contract verification also gets its columns. Only results that already hold the
     dataset's columns contribute one entry each (see ``CheckCollectionResult.dataset_columns``);
-    the same dataset twice in one batch is sent once. A column without a usable type name
-    is left out: a blank ``sourceDataType`` carries no information, and Cloud's validation
-    of that field may well turn strict.
+    the same dataset twice in one batch is sent once.
+
+    A column without a type name is sent by name only and logged as an error. No data
+    source produces one (every column-metadata query builds a ``SqlDataType``), so it signals
+    a broken invariant. Cloud marks any column absent from ``schema`` as deleted, whereas a
+    missing ``sourceDataType`` leaves the column's stored type as it is, so the column survives.
     """
     dataset_metadata: list[dict] = []
     seen_dataset_qualified_names: set[str] = set()
@@ -1870,17 +1873,21 @@ def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]
         dataset_qualified_name: str = result.check_collection.soda_qualified_dataset_name
         if dataset_qualified_name in seen_dataset_qualified_names:
             continue
-        schema: list[dict] = [
-            # The bare type name, already lowercased by SqlDataType, without the
-            # precision/length parameters: the same columnName / sourceDataType spelling
-            # capture-schema uses. The primary-key flag it also sends is left out here on
-            # purpose — contract verification has no reason to restate it.
-            {"columnName": column.column_name, "sourceDataType": column.sql_data_type.name}
-            for column in result.dataset_columns
-            if column.sql_data_type and column.sql_data_type.name
-        ]
-        if not schema:
-            continue
+        schema: list[dict] = []
+        for column in result.dataset_columns:
+            schema_element: dict = {"columnName": column.column_name}
+            if column.sql_data_type and column.sql_data_type.name:
+                # The bare type name, already lowercased by SqlDataType, without the
+                # precision/length parameters: the same columnName / sourceDataType spelling
+                # capture-schema uses. The primary-key flag it also sends is left out here on
+                # purpose — contract verification has no reason to restate it.
+                schema_element["sourceDataType"] = column.sql_data_type.name
+            else:
+                logger.error(
+                    f"Column '{column.column_name}' of dataset '{dataset_qualified_name}' has no data type "
+                    f"name. It is sent to Soda Cloud by name only, so its type there stays as it was."
+                )
+            schema.append(schema_element)
         seen_dataset_qualified_names.add(dataset_qualified_name)
         dataset_metadata.append({"datasetQualifiedName": dataset_qualified_name, "schema": schema})
     return dataset_metadata

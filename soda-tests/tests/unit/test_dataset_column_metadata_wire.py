@@ -8,6 +8,7 @@ is populated and stays silent otherwise. No extra warehouse query is ever run fo
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -142,22 +143,27 @@ def test_source_data_type_drops_the_type_parameters():
     assert payload["metadata"][0]["schema"] == [{"columnName": "score", "sourceDataType": "numeric"}]
 
 
-def test_columns_without_a_data_type_are_skipped():
-    """An empty source data type says nothing, so a column without one is left out."""
+def test_column_without_a_data_type_is_sent_by_name_only_and_logged_as_an_error(caplog):
+    """Cloud marks any column missing from ``schema`` as deleted, whereas a missing
+    ``sourceDataType`` leaves the stored type alone, so the column goes out by name. No data
+    source produces a typeless column, so the error line makes the broken invariant visible."""
     result = _make_result(
         dataset_columns=[
             ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar")),
             ColumnMetadata(column_name="mystery", sql_data_type=None),
         ]
     )
-    payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
-    assert payload["metadata"][0]["schema"] == [{"columnName": "id", "sourceDataType": "varchar"}]
+    with caplog.at_level(logging.ERROR, logger="soda"):
+        payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
 
-
-def test_metadata_absent_when_every_column_lacks_a_data_type():
-    result = _make_result(dataset_columns=[ColumnMetadata(column_name="mystery", sql_data_type=None)])
-    payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
-    assert "metadata" not in payload
+    assert payload["metadata"][0]["schema"] == [
+        {"columnName": "id", "sourceDataType": "varchar"},
+        {"columnName": "mystery"},
+    ]
+    error_messages = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(error_messages) == 1
+    assert "'mystery'" in error_messages[0]
+    assert "test_ds/s/t" in error_messages[0]
 
 
 def test_one_metadata_entry_per_dataset_in_a_batch():
@@ -199,23 +205,22 @@ def test_repeated_dataset_in_a_batch_is_deduplicated():
     ]
 
 
-def test_columns_with_an_empty_data_type_name_are_skipped():
-    """A type name that is blank rather than absent is left out for the same reason:
-    it carries no information, and Cloud may start validating the field strictly."""
+def test_column_with_an_empty_data_type_name_is_sent_by_name_only_and_logged_as_an_error(caplog):
+    """A type name that is blank rather than absent is treated the same way."""
     result = _make_result(
         dataset_columns=[
             ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar")),
             ColumnMetadata(column_name="blank", sql_data_type=SqlDataType(name="")),
         ]
     )
-    payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
-    assert payload["metadata"][0]["schema"] == [{"columnName": "id", "sourceDataType": "varchar"}]
+    with caplog.at_level(logging.ERROR, logger="soda"):
+        payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
 
-
-def test_metadata_absent_when_every_data_type_name_is_empty():
-    result = _make_result(dataset_columns=[ColumnMetadata(column_name="blank", sql_data_type=SqlDataType(name=""))])
-    payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
-    assert "metadata" not in payload
+    assert payload["metadata"][0]["schema"] == [
+        {"columnName": "id", "sourceDataType": "varchar"},
+        {"columnName": "blank"},
+    ]
+    assert any("'blank'" in r.getMessage() for r in caplog.records if r.levelno == logging.ERROR)
 
 
 def _make_schema_check_result(*, outcome: CheckOutcome, actual_columns: list[ColumnMetadata]) -> SchemaCheckResult:
