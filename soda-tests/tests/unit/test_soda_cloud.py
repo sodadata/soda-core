@@ -704,7 +704,7 @@ def test_fetch_contract(mock_post):
     soda_cloud.fetch_contract(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"},
+        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
         json={
             "type": "sodaCoreContracts",
             "filter": {
@@ -734,7 +734,7 @@ def test_poll_contract_skeleton_generation__completed(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"},
+        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
         json={
             "type": "sodaCoreContractSkeletonGenerationState",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -785,7 +785,7 @@ def test_trigger_contract_skeleton_generation__success(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"},
+        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -807,7 +807,7 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
 
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"},
+        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -1033,7 +1033,7 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     assert response.status_code == 200
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"},
+        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
