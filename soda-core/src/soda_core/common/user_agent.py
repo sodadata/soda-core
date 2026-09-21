@@ -11,7 +11,7 @@ import re
 
 from soda_core.__version__ import SODA_CORE_VERSION
 
-SODA_CORE_PRODUCT = "SodaCore"
+SODA_CORE_PRODUCT = "soda-core"
 
 # RFC 9110 "token": no whitespace, no separators.
 _TOKEN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
