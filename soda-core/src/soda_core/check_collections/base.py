@@ -28,7 +28,7 @@ from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
-from soda_core.common.metadata_types import SamplerType
+from soda_core.common.metadata_types import ColumnMetadata, SamplerType
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
@@ -69,6 +69,21 @@ def _skip_non_numeric_threshold_value(check_result: CheckResult, relative_path: 
     check_result.outcome = CheckOutcome.NOT_EVALUATED
 
 
+def _find_measured_dataset_columns(check_results: list[CheckResult]) -> Optional[list[ColumnMetadata]]:
+    """The dataset's actual columns, if a check in this collection already measured them.
+
+    Only the schema check reads the dataset's column list today. Without a schema check,
+    or when it errored before getting the columns, there is nothing to report here and no
+    query is run to go and find them.
+    """
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    for check_result in check_results:
+        if isinstance(check_result, SchemaCheckResult) and check_result.actual_columns:
+            return check_result.actual_columns
+    return None
+
+
 @dataclass
 class CheckCollectionResult:
     """Result of verifying one check-collection file.
@@ -106,6 +121,11 @@ class CheckCollectionResult:
     # list[dict] rather than list[Measurement] so callers can attach pre-serialised
     # cloud-shape dicts without depending on the engine's internal Measurement class.
     measurement_dicts: list[dict] = field(default_factory=list)
+    # The dataset's actual columns, when this verification already measured them.
+    # Sent to Soda Cloud in the ``metadata`` bucket, which is where Cloud reads a
+    # dataset's column list from. None when nothing measured the columns: the engine
+    # never runs an extra query just to fill this in.
+    dataset_columns: Optional[list[ColumnMetadata]] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -999,6 +1019,7 @@ class CheckCollectionImpl:
             status=verification_status,
             log_records=log_records,
             post_processing_stages=post_processing_stages,
+            dataset_columns=_find_measured_dataset_columns(check_results),
         )
 
         scan_id: Optional[str] = None
