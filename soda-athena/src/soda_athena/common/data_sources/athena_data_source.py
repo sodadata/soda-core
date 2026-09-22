@@ -188,6 +188,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     SUPPORTS_DROP_TABLE_CASCADE = False
+    # Athena (Trino engine) requires OFFSET before LIMIT.
+    OFFSET_BEFORE_LIMIT: bool = True
 
     # Primary-key introspection stays opt-out (supports_primary_keys inherits False from the
     # base dialect): Athena runs over Glue/Hive-style catalogs that neither declare primary keys
@@ -488,26 +490,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def supports_datetime_microseconds(self) -> bool:
         return False
-
-    # TODO: This exists only to change the order of limit and offset. Remove when the SQL AST supports ordering of clauses.
-    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
-        statement_lines: list[str] = []
-        statement_lines.extend(self._build_cte_sql_lines(select_elements))
-        statement_lines.extend(self._build_select_sql_lines(select_elements))
-        statement_lines.extend(self._build_from_sql_lines(select_elements))
-        statement_lines.extend(self._build_where_sql_lines(select_elements))
-        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def get_max_sql_statement_length(self) -> int:
         return 262144

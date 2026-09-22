@@ -61,6 +61,8 @@ class TrinoSqlDataType(SqlDataType):
 class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
     USES_SEMICOLONS_BY_DEFAULT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
+    # Trino requires OFFSET before LIMIT (standard SQL order); LIMIT before OFFSET is invalid.
+    OFFSET_BEFORE_LIMIT: bool = True
 
     # Trino connectors may promote types (e.g. Iceberg: char→varchar, smallint→integer).
     # These synonyms prevent false schema check failures across all connectors.
@@ -338,29 +340,6 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
         not Trino syntax); approx_percentile is its percentile aggregate."""
         expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
         return f"approx_percentile({expression_sql}, {percentile_within_group.percentile})"
-
-    def build_select_sql(self, select_elements: list, add_semicolon: Optional[bool] = None) -> str:
-        # Trino requires OFFSET before LIMIT (standard SQL order).
-        # The base implementation emits LIMIT before OFFSET, which is invalid in Trino.
-        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
-        statement_lines: list[str] = []
-        statement_lines.extend(self._build_cte_sql_lines(select_elements))
-        statement_lines.extend(self._build_select_sql_lines(select_elements))
-        statement_lines.extend(self._build_into_sql_lines(select_elements))
-        statement_lines.extend(self._build_from_sql_lines(select_elements))
-        statement_lines.extend(self._build_where_sql_lines(select_elements))
-        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def build_insert_into_via_select_sql(
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: Optional[bool] = None

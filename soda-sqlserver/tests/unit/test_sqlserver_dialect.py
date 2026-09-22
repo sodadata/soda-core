@@ -373,9 +373,10 @@ def test_regex_like_rewrites_and_escapes_the_pattern():
 
 
 def test_select_all_paginated_sql_renders_offset_before_fetch():
-    """The T-SQL page order is owned by this dialect's build_select_sql, not by any
-    statement-list order — there is no select_all_paginated_sql override anymore, and the
-    base composition must keep rendering the exact same page."""
+    """The T-SQL page order is owned by OFFSET_BEFORE_LIMIT (rendered by the base
+    _build_pagination_lines), not by any statement-list order — there is no
+    build_select_sql copy anymore, and the base composition must keep rendering the
+    exact same page."""
     sql = SqlServerSqlDialect().select_all_paginated_sql(
         dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["dbo"], dataset_name="orders"),
         columns=["id", "name"],
@@ -395,3 +396,9 @@ def test_pagination_statements_render_in_tsql_order_through_build_select_sql():
     elements = sql_dialect.pagination_statements(limit=100, offset=200)
 
     assert sql_dialect.build_select_sql(elements, add_semicolon=False) == "OFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY"
+
+
+def test_pagination_clause_sql_renders_in_tsql_order():
+    clause = SqlServerSqlDialect().pagination_clause_sql(order_by=["id"], limit=100, offset=200)
+
+    assert clause == "ORDER BY [id] ASC\nOFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY"

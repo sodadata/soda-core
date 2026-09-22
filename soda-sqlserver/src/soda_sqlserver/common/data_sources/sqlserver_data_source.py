@@ -100,6 +100,8 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
+    # T-SQL's page window is `OFFSET m ROWS` then `FETCH NEXT n ROWS ONLY`.
+    OFFSET_BEFORE_LIMIT: bool = True
 
     def __init__(self):
         super().__init__()
@@ -137,26 +139,6 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             AZURE_SQL_DATABASE_ENGINE_EDITION,
             AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION,
         )
-
-    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
-        statement_lines: list[str] = []
-        statement_lines.extend(self._build_cte_sql_lines(select_elements))
-        statement_lines.extend(self._build_select_sql_lines(select_elements))
-        statement_lines.extend(self._build_into_sql_lines(select_elements))
-        statement_lines.extend(self._build_from_sql_lines(select_elements))
-        statement_lines.extend(self._build_where_sql_lines(select_elements))
-        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         # Use the default implementation, but we need to handle the case where the select elements contain a LIMIT statement.

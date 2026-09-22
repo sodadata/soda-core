@@ -127,6 +127,35 @@ def test_select_all_paginated_sql_composes_with_pagination_statements():
     assert sql == 'SELECT "id",\n       "name"\nFROM "public"."orders"\nORDER BY "id" ASC\nLIMIT 100\nOFFSET 200;'
 
 
+def test_pagination_clause_sql_renders_order_by_and_the_window():
+    sql_dialect = PostgresSqlDialect()
+
+    clause = sql_dialect.pagination_clause_sql(order_by=["id"], limit=100, offset=200)
+
+    assert clause == 'ORDER BY "id" ASC\nLIMIT 100\nOFFSET 200'
+
+
+def test_pagination_clause_sql_folds_normalized_keys_with_a_tiebreaker():
+    """The clause orders through `_order_by_key`, so a normalized text key gets the same
+    LOWER() fold plus raw-column tiebreaker the generated select orders by -- the two
+    sides of one merge join must sort identically."""
+    sql_dialect = PostgresSqlDialect()
+
+    clause = sql_dialect.pagination_clause_sql(
+        order_by=["k"], limit=10, offset=0, normalize_key_columns=frozenset({"k"})
+    )
+
+    assert clause == 'ORDER BY LOWER("k") ASC, "k" ASC\nLIMIT 10\nOFFSET 0'
+
+
+def test_pagination_clause_sql_is_none_for_a_wrapping_paginator():
+    class _WrappingPaginatorDialect(PostgresSqlDialect, sqlglot_dialect="postgres"):
+        def pagination_statements(self, limit: int, offset: int):
+            return None
+
+    assert _WrappingPaginatorDialect().pagination_clause_sql(order_by=["id"], limit=1, offset=0) is None
+
+
 def test_a_dialect_declaring_no_trailing_pagination_must_own_its_paginated_select():
     """`pagination_statements() -> None` declares a wrapping paginator (Synapse); the base
     `select_all_paginated_sql` cannot render for such a dialect and says so instead of
