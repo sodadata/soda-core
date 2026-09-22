@@ -5,7 +5,6 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
@@ -35,7 +34,6 @@ from soda_core.common.sql_ast import (
     TUPLE,
     VALUES,
     WITH,
-    SqlColumnTerm,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
