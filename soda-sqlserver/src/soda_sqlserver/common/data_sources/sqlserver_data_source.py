@@ -5,7 +5,6 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
@@ -35,7 +34,6 @@ from soda_core.common.sql_ast import (
     TUPLE,
     VALUES,
     WITH,
-    SqlColumnTerm,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -328,33 +326,9 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
-    def select_all_paginated_sql(
-        self,
-        dataset_identifier: DatasetIdentifier,
-        columns: list[SqlColumnTerm],
-        filter: Optional[str],
-        order_by: list[SqlColumnTerm],
-        limit: int,
-        offset: int,
-        normalize_key_columns: frozenset[str] = frozenset(),
-        distinct: bool = False,
-    ) -> str:
-        # Same elements as the base paginator (including its distinct x normalize composition),
-        # but T-SQL spells the page as OFFSET n ROWS FETCH NEXT m ROWS ONLY, so OFFSET leads.
-        statements = [
-            *self._paginated_select_statements(
-                dataset_identifier=dataset_identifier,
-                columns=columns,
-                filter=filter,
-                order_by=order_by,
-                normalize_key_columns=normalize_key_columns,
-                distinct=distinct,
-            ),
-            OFFSET(offset),
-            LIMIT(limit),
-        ]
-
-        return self.build_select_sql(statements)
+    # No select_all_paginated_sql override: the base composes the same elements, and the
+    # OFFSET-before-FETCH order of the rendered clause is owned by this dialect's
+    # build_select_sql — the statement-list order never influenced rendering.
 
     def _build_limit_sql(self, limit_element: LIMIT) -> str:
         return f"FETCH NEXT {limit_element.limit} ROWS ONLY"

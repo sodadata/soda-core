@@ -586,6 +586,14 @@ class VariableResolver:
             return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
         return obj
 
+    # Template slots in the `soda` namespace that the ENGINE substitutes later — per query,
+    # per page — not parse-time variables. The resolver passes them through (normalized, so
+    # `${ soda.PAGINATION }` becomes `${soda.PAGINATION}`) instead of erroring on an unknown
+    # soda variable or ever substituting a value into them. Currently one:
+    # soda-reconciliation's `source_query` / `target_query` pagination marker, replaced with
+    # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
+    RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
+
     @classmethod
     def resolve(
         cls,
@@ -600,6 +608,8 @@ class VariableResolver:
             pattern = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
             match = re.fullmatch(pattern, source_text)
             if match:
+                if match.group(1).strip() == "soda" and match.group(2).strip() in cls.RESERVED_SODA_TEMPLATE_SLOTS:
+                    return f"${{soda.{match.group(2).strip()}}}"
                 return cls.get_variable(
                     namespace=match.group(1).strip(),
                     variable=match.group(2).strip(),
@@ -635,6 +645,8 @@ class VariableResolver:
         use_env_vars: bool,
         location: Optional[Location] = None,
     ) -> str:
+        if namespace == "soda" and variable in cls.RESERVED_SODA_TEMPLATE_SLOTS:
+            return f"${{soda.{variable}}}"
         value: Optional[str] = cls.get_variable(
             namespace=namespace,
             variable=variable,

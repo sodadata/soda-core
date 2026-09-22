@@ -133,6 +133,17 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         """
         return f"[{identifier.replace(']', ']]')}]"
 
+    def pagination_statements(self, limit: int, offset: int) -> Optional[list]:
+        """Synapse dedicated pools have no trailing pagination clause — no OFFSET/FETCH, no
+        LIMIT — which is why ``select_all_paginated_sql`` below wraps the query in a
+        ROW_NUMBER() CTE instead. ``None`` declares that: a caller that needs to APPEND a
+        pagination clause to SQL it does not control (soda-reconciliation's
+        ``{{pagination}}`` marker) reads it as "this dialect cannot serve that". Do not
+        inherit SQL Server's ``[LIMIT, OFFSET]`` here — rendered through the inherited
+        ``build_select_sql`` those produce a perfectly plausible OFFSET/FETCH clause that
+        this engine rejects at run time."""
+        return None
+
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,

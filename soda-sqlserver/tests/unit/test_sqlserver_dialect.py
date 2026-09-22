@@ -370,3 +370,28 @@ def test_regex_like_rewrites_and_escapes_the_pattern():
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^[a-z]+$")) == (
         "PATINDEX ('%^[abcdefghijklmnopqrstuvwxyz]+$%', [c] COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
     )
+
+
+def test_select_all_paginated_sql_renders_offset_before_fetch():
+    """The T-SQL page order is owned by this dialect's build_select_sql, not by any
+    statement-list order — there is no select_all_paginated_sql override anymore, and the
+    base composition must keep rendering the exact same page."""
+    sql = SqlServerSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["dbo"], dataset_name="orders"),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=100,
+        offset=200,
+    )
+
+    assert sql.endswith("\nOFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY;")
+    assert "OFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY" in sql
+
+
+def test_pagination_statements_render_in_tsql_order_through_build_select_sql():
+    sql_dialect = SqlServerSqlDialect()
+
+    elements = sql_dialect.pagination_statements(limit=100, offset=200)
+
+    assert sql_dialect.build_select_sql(elements, add_semicolon=False) == "OFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY"

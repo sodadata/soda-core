@@ -264,3 +264,10 @@ def test_paginated_distinct_rejects_an_unprojected_order_by_column():
 def test_paginated_distinct_rejects_an_unprojected_normalized_key():
     with pytest.raises(ValueError, match=r"can only order by projected columns"):
         _paginated(order_by=["other"], normalize_key_columns=frozenset({"other"}), distinct=True)
+
+
+def test_pagination_statements_declares_no_trailing_clause():
+    """Synapse dedicated pools have no OFFSET/FETCH and no LIMIT; the ROW_NUMBER paginator
+    above is the only page shape. None is the declaration a clause-appending caller
+    (soda-reconciliation's {{pagination}} marker) reads as "cannot serve"."""
+    assert SynapseSqlDialect().pagination_statements(limit=100, offset=200) is None

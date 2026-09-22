@@ -38,3 +38,25 @@ def test_contract_variable_resolving(env_vars: dict, logs: Logs):
         "Environment variable 'state' will not be resolved because environment "
         "variables are not supported inside contract."
     ) in logs.get_errors_str()
+
+
+def test_reserved_soda_template_slots_pass_through_unresolved(logs: Logs):
+    """`${soda.PAGINATION}` is a template slot the ENGINE fills later (per page, by
+    soda-reconciliation's query mode), not a parse-time variable: the resolver must not
+    error on it as an unknown soda variable, and must never substitute a value into it —
+    only normalize its spacing."""
+    from soda_core.common.yaml import VariableResolver
+
+    # Embedded in a larger string (the common case: a source_query ending in the marker).
+    assert (
+        VariableResolver.resolve("SELECT id FROM orders\n${soda.PAGINATION}", soda_variable_values={"NOW": "ts"})
+        == "SELECT id FROM orders\n${soda.PAGINATION}"
+    )
+    # The whole value (the fullmatch fast path), spacing normalized.
+    assert VariableResolver.resolve("${ soda.PAGINATION }", soda_variable_values={"NOW": "ts"}) == "${soda.PAGINATION}"
+    assert logs.get_errors_str() == ""
+
+    # A genuinely unknown soda variable still errors — the reservation is one name, not a
+    # loophole.
+    VariableResolver.resolve("${soda.UNKNOWN_THING}", soda_variable_values={"NOW": "ts"})
+    assert "not available in the 'soda' namespace" in logs.get_errors_str()
