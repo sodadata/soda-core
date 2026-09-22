@@ -127,6 +127,10 @@ class SqlDialect:
     # be rendered on the distinct select itself. See `_paginated_select_statements`.
     DISTINCT_PAGE_CTE_NAME: str = "_soda_distinct_page"
     USES_SEMICOLONS_BY_DEFAULT: bool = True
+    # Order of the page-window lines rendered by `_build_pagination_lines`. The base renders
+    # LIMIT before OFFSET; grammars whose window is `OFFSET m ROWS / FETCH NEXT n ROWS ONLY`
+    # (T-SQL, Trino, Athena, Oracle) set True instead of copying `build_select_sql` wholesale.
+    OFFSET_BEFORE_LIMIT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
@@ -500,9 +504,37 @@ class SqlDialect:
         wrapped around the query) MUST override ``select_all_paginated_sql`` wholesale;
         the base implementation refuses to render for it. Callers that need to append a
         pagination clause to SQL they do not control (soda-reconciliation's
-        ``{{pagination}}`` marker) read ``None`` as "this dialect cannot serve that".
+        ``${soda.PAGINATION}`` marker) read ``None`` as "this dialect cannot serve that".
         """
         return [LIMIT(limit), OFFSET(offset)]
+
+    def pagination_clause_sql(
+        self,
+        order_by: list[SqlColumnTerm],
+        limit: int,
+        offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
+    ) -> Optional[str]:
+        """This dialect's ORDER BY + page-window clause on its own, or ``None``.
+
+        For appending one page's pagination to SQL the engine does not control
+        (soda-reconciliation replaces its ``${soda.PAGINATION}`` marker with this).
+        Renders through ``_order_by_key`` and ``_build_pagination_lines``, so the key
+        normalization, the clause spellings and the window order are exactly the ones
+        ``select_all_paginated_sql`` renders — nothing is extracted from a full select.
+
+        ``None`` mirrors ``pagination_statements``: a wrapping paginator (Synapse's
+        ROW_NUMBER CTE) has no trailing clause to hand out, and the caller owns the
+        refusal message.
+        """
+        pagination_elements = self.pagination_statements(limit=limit, offset=offset)
+        if pagination_elements is None:
+            return None
+        elements = [
+            *(term for column in order_by for term in self._order_by_key(column, normalize_key_columns)),
+            *pagination_elements,
+        ]
+        return "\n".join(self._build_pagination_lines(elements))
 
     def _paginated_select_statements(
         self,
@@ -985,16 +1017,24 @@ class SqlDialect:
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
+        statement_lines.extend(self._build_pagination_lines(select_elements))
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def _build_pagination_lines(self, select_elements: list) -> list[str]:
+        """ORDER BY and the page window, in this dialect's clause order.
+
+        The one contiguous suffix of ``build_select_sql`` whose ORDER differs between
+        grammars; `OFFSET_BEFORE_LIMIT` flips the window pair, so a dialect never copies
+        ``build_select_sql`` just to reorder it. Also the rendering of
+        ``pagination_clause_sql``, which is why it must not read any non-pagination
+        element.
+        """
+        lines: list[str] = list(self._build_order_by_lines(select_elements))
+        window_lines = [self._build_limit_line(select_elements), self._build_offset_line(select_elements)]
+        if self.OFFSET_BEFORE_LIMIT:
+            window_lines.reverse()
+        lines.extend(line for line in window_lines if line)
+        return lines
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []

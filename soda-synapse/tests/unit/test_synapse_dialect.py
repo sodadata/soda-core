@@ -269,5 +269,6 @@ def test_paginated_distinct_rejects_an_unprojected_normalized_key():
 def test_pagination_statements_declares_no_trailing_clause():
     """Synapse dedicated pools have no OFFSET/FETCH and no LIMIT; the ROW_NUMBER paginator
     above is the only page shape. None is the declaration a clause-appending caller
-    (soda-reconciliation's {{pagination}} marker) reads as "cannot serve"."""
+    (soda-reconciliation's ${soda.PAGINATION} marker) reads as "cannot serve"."""
     assert SynapseSqlDialect().pagination_statements(limit=100, offset=200) is None
+    assert SynapseSqlDialect().pagination_clause_sql(order_by=["id"], limit=100, offset=200) is None
