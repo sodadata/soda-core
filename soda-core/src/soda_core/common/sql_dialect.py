@@ -462,6 +462,14 @@ class SqlDialect:
         ``_order_by_key``). For how it composes with ``distinct``, see
         ``_paginated_select_statements``.
         """
+        pagination_elements = self.pagination_statements(limit=limit, offset=offset)
+        if pagination_elements is None:
+            # A dialect that declares no trailing pagination must own the whole paginated
+            # select (Synapse overrides this method with its ROW_NUMBER CTE shape).
+            raise ValueError(
+                f"{type(self).__name__} declares pagination_statements() -> None but does not "
+                f"override select_all_paginated_sql"
+            )
         statements = [
             *self._paginated_select_statements(
                 dataset_identifier=dataset_identifier,
@@ -471,11 +479,30 @@ class SqlDialect:
                 normalize_key_columns=normalize_key_columns,
                 distinct=distinct,
             ),
-            LIMIT(limit),
-            OFFSET(offset),
+            *pagination_elements,
         ]
 
         return self.build_select_sql(statements)
+
+    def pagination_statements(self, limit: int, offset: int) -> Optional[list]:
+        """The trailing pagination elements of one page, or ``None``.
+
+        The elements a paginated select carries AFTER its ORDER BY — the page window. The
+        per-dialect SPELLING and ORDER of the rendered clause are owned by
+        ``build_select_sql`` and the ``_build_limit_sql`` / ``_build_offset_sql`` hooks
+        (the base renders ``LIMIT n / OFFSET m``, T-SQL renders ``OFFSET m ROWS`` before
+        ``FETCH NEXT n ROWS ONLY``), so this list carries no ordering information — it
+        declares WHAT the page window is, and rendering it through ``build_select_sql``
+        yields the dialect's own clause.
+
+        ``None`` declares that this dialect does not paginate with a trailing clause at
+        all. Such a dialect (Synapse dedicated pools paginate with a ROW_NUMBER() CTE
+        wrapped around the query) MUST override ``select_all_paginated_sql`` wholesale;
+        the base implementation refuses to render for it. Callers that need to append a
+        pagination clause to SQL they do not control (soda-reconciliation's
+        ``{{pagination}}`` marker) read ``None`` as "this dialect cannot serve that".
+        """
+        return [LIMIT(limit), OFFSET(offset)]
 
     def _paginated_select_statements(
         self,
@@ -1170,6 +1197,11 @@ class SqlDialect:
         from_elements: list[FROM] = [
             select_element for select_element in select_elements if isinstance(select_element, FROM)
         ]
+
+        # No FROM element, no FROM line — a clause-only element list (e.g. the trailing
+        # pagination of `pagination_statements`) must render without a dangling "FROM ".
+        if not from_elements:
+            return []
 
         from_sql_line: str = "FROM "
         for from_element in from_elements:

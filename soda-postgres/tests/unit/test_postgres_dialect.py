@@ -1,4 +1,6 @@
 import pytest
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.sql_ast import LIMIT, OFFSET
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
@@ -101,3 +103,45 @@ def test_regex_like_pattern_goes_through_literal_string():
     sql_dialect = PostgresSqlDialect()
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "\"c\" ~ '^1\\.5$'"
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "\"c\" ~ '^it''s$'"
+
+
+def test_pagination_statements_render_the_base_trailing_clause():
+    sql_dialect = PostgresSqlDialect()
+
+    elements = sql_dialect.pagination_statements(limit=100, offset=200)
+
+    assert [type(element) for element in elements] == [LIMIT, OFFSET]
+    assert sql_dialect.build_select_sql(elements, add_semicolon=False) == "LIMIT 100\nOFFSET 200"
+
+
+def test_select_all_paginated_sql_composes_with_pagination_statements():
+    sql = PostgresSqlDialect().select_all_paginated_sql(
+        dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=["public"], dataset_name="orders"),
+        columns=["id", "name"],
+        filter=None,
+        order_by=["id"],
+        limit=100,
+        offset=200,
+    )
+
+    assert sql == 'SELECT "id",\n       "name"\nFROM "public"."orders"\nORDER BY "id" ASC\nLIMIT 100\nOFFSET 200;'
+
+
+def test_a_dialect_declaring_no_trailing_pagination_must_own_its_paginated_select():
+    """`pagination_statements() -> None` declares a wrapping paginator (Synapse); the base
+    `select_all_paginated_sql` cannot render for such a dialect and says so instead of
+    emitting a trailing clause the engine would reject."""
+
+    class _NoTrailingPaginationDialect(PostgresSqlDialect, sqlglot_dialect="postgres"):
+        def pagination_statements(self, limit: int, offset: int):
+            return None
+
+    with pytest.raises(ValueError, match="pagination_statements"):
+        _NoTrailingPaginationDialect().select_all_paginated_sql(
+            dataset_identifier=DatasetIdentifier(data_source_name="ds", prefixes=[], dataset_name="orders"),
+            columns=["id"],
+            filter=None,
+            order_by=["id"],
+            limit=1,
+            offset=0,
+        )
