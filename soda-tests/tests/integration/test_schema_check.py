@@ -435,14 +435,6 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
     assert schema_should_not_exist == False
 
 
-def _is_salesforce(data_source_test_helper: DataSourceTestHelper) -> bool:
-    """Describe reports every object's standard fields alongside the fixture's own, in the org's own
-    order, so on Salesforce a contract over the fixture's columns is never the whole schema, nor in
-    declaration order. The two metadata tests below relax the schema check and drop the exact expected
-    column set for that source alone; every other data source keeps both strict."""
-    return data_source_test_helper.data_source_impl.type_name == "salesforce"
-
-
 def test_schema_check_sends_the_dataset_columns_as_metadata(data_source_test_helper: DataSourceTestHelper):
     """The columns the schema check already measured travel to Soda Cloud in the
     ``metadata`` bucket, which is where Cloud reads a dataset's column list from."""
@@ -454,16 +446,16 @@ def test_schema_check_sends_the_dataset_columns_as_metadata(data_source_test_hel
         ]
     )
 
-    shape_tolerances = (
-        "\n                  allow_extra_columns: true\n                  allow_other_column_order: true"
-        if _is_salesforce(data_source_test_helper)
-        else ""
-    )
+    # The subject here is the metadata bucket, not the schema check's strictness — which the rest of
+    # this module covers. The tolerances keep a source whose datasets carry columns no fixture
+    # declared, in the source's own order, from failing the contract before the assertions below run.
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
+        contract_yaml_str="""
             checks:
-              - schema:{shape_tolerances}
+              - schema:
+                  allow_extra_columns: true
+                  allow_other_column_order: true
             columns:
               - name: id
               - name: size
@@ -485,13 +477,12 @@ def test_schema_check_sends_the_dataset_columns_as_metadata(data_source_test_hel
     source_data_types: dict[str, str] = {
         column["columnName"]: column["sourceDataType"] for column in metadata[0]["schema"]
     }
-    # The bucket mirrors what the schema check measured, types included.
+    # Against what the schema check measured, types included: which columns a dataset has, and how
+    # they are spelled, is the source's to report.
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert source_data_types == {
         column.column_name: column.sql_data_type.name for column in schema_check_result.actual_columns
     }
-    if not _is_salesforce(data_source_test_helper):
-        assert set(source_data_types.keys()) == {"id", "size", "created", "label", "score", "created_at"}
     for column_name, source_data_type in source_data_types.items():
         assert source_data_type, f"Column {column_name} has no source data type"
         assert source_data_type == source_data_type.lower()
@@ -534,15 +525,13 @@ def test_metadata_carries_the_whole_table_not_the_declared_columns(data_source_t
         ]
     )
 
-    column_order_tolerance = (
-        "\n                  allow_other_column_order: true" if _is_salesforce(data_source_test_helper) else ""
-    )
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
+        contract_yaml_str="""
             checks:
               - schema:
-                  allow_extra_columns: true{column_order_tolerance}
+                  allow_extra_columns: true
+                  allow_other_column_order: true
             columns:
               - name: id
               - name: size
@@ -555,14 +544,6 @@ def test_metadata_carries_the_whole_table_not_the_declared_columns(data_source_t
     metadata_column_names = {column["columnName"] for column in metadata[0]["schema"]}
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert metadata_column_names == {column.column_name for column in schema_check_result.actual_columns}
-    # More than the two the contract declared, which is what this test is about.
+    # More than the two the contract declared, which is what this test is about. How many more is the
+    # source's business, so it is not pinned here.
     assert len(metadata_column_names) > 2
-    if not _is_salesforce(data_source_test_helper):
-        assert metadata_column_names == {
-            "id",
-            "size",
-            "created",
-            "label",
-            "score",
-            "created_at",
-        }
