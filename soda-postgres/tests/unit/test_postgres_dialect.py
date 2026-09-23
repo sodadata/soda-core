@@ -177,14 +177,15 @@ def test_a_dialect_declaring_no_trailing_pagination_must_own_its_paginated_selec
 
 
 # ---------------------------------------------------------------------------
-# FROM-less SELECT — `FROM_LESS_SELECT_TABLE`
+# FROM-less SELECT — `from_less_select_table`
 # ---------------------------------------------------------------------------
 
 
 class _FromLessRejectingDialect(PostgresSqlDialect, sqlglot_dialect="postgres"):
     """Stands in for HANA / Db2 / Oracle: every SELECT must carry a FROM clause."""
 
-    FROM_LESS_SELECT_TABLE = "SYS.DUMMY"
+    def from_less_select_table(self):
+        return "SYS.DUMMY"
 
 
 def test_a_from_less_select_carries_no_from_line_by_default():
