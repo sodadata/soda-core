@@ -10,6 +10,7 @@ and ``timezone(timedelta(...))`` for non-zero offsets.
 
 These tests stub the ``pyodbc`` cursor so they run without a live SQL Server.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

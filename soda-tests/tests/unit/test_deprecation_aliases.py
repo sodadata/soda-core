@@ -3,6 +3,7 @@
 Every renamed symbol must keep its old name working and emit a single ``DeprecationWarning`` when
 the old name is used.
 """
+
 from __future__ import annotations
 
 import pytest
