@@ -1,6 +1,6 @@
 import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.sql_ast import LIMIT, OFFSET
+from soda_core.common.sql_ast import EQ, LIMIT, LITERAL, OFFSET, WHERE
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
@@ -174,3 +174,51 @@ def test_a_dialect_declaring_no_trailing_pagination_must_own_its_paginated_selec
             limit=1,
             offset=0,
         )
+
+
+# ---------------------------------------------------------------------------
+# FROM-less SELECT — `from_less_select_table`
+# ---------------------------------------------------------------------------
+
+
+class _FromLessRejectingDialect(PostgresSqlDialect, sqlglot_dialect="postgres"):
+    """Stands in for HANA / Db2 / Oracle: every SELECT must carry a FROM clause."""
+
+    def from_less_select_table(self):
+        return "SYS.DUMMY"
+
+
+def test_a_from_less_select_carries_no_from_line_by_default():
+    """Postgres accepts `SELECT 1`, so the base declares no table and emits no FROM line.
+    Pinned because a dangling `FROM ` here is what dialects used to patch out of the
+    rendered text."""
+    assert PostgresSqlDialect().build_select_sql([SELECT([LITERAL(1)])]) == "SELECT 1;"
+
+
+def test_a_declaring_dialect_substitutes_its_one_row_table():
+    assert _FromLessRejectingDialect().build_select_sql([SELECT([LITERAL(1)])]) == "SELECT 1\nFROM SYS.DUMMY;"
+
+
+def test_the_substituted_table_lands_in_the_from_slot_before_trailing_clauses():
+    """The clause is rendered in the base composition, so every clause emitted after the
+    FROM slot still follows it. Appending the table to the finished statement instead put
+    it after the WHERE."""
+    sql = _FromLessRejectingDialect().build_select_sql([SELECT([LITERAL(1)]), WHERE(EQ(LITERAL(1), LITERAL(1)))])
+
+    assert sql == "SELECT 1\nFROM SYS.DUMMY\nWHERE 1 = 1;"
+
+
+def test_a_real_from_element_is_left_alone_on_a_declaring_dialect():
+    sql = _FromLessRejectingDialect().build_select_sql([SELECT([COLUMN("a")]), FROM("t")])
+
+    assert sql == 'SELECT "a"\nFROM "t";'
+
+
+def test_a_clause_only_element_list_gets_no_table_on_a_declaring_dialect():
+    """`pagination_statements` renders through `build_select_sql` with no SELECT element.
+    That is a clause, not a FROM-less SELECT, and must not acquire a FROM."""
+    sql_dialect = _FromLessRejectingDialect()
+
+    elements = sql_dialect.pagination_statements(limit=100, offset=200)
+
+    assert sql_dialect.build_select_sql(elements, add_semicolon=False) == "LIMIT 100\nOFFSET 200"

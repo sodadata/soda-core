@@ -1227,6 +1227,19 @@ class SqlDialect:
             return self.build_expression_sql(and_expr.clauses)
         return " AND ".join(self.build_expression_sql(and_clause) for and_clause in and_expr.clauses)
 
+    def from_less_select_table(self) -> Optional[str]:
+        """The one-row table a FROM-less SELECT sits on, or ``None``.
+
+        Most engines accept ``SELECT 1`` as it stands and inherit ``None``. An engine that
+        rejects a FROM-less SELECT answers with its own table -- HANA ``SYS.DUMMY``, Db2
+        ``SYSIBM.SYSDUMMY1``, Oracle ``DUAL`` -- and ``_build_from_sql_lines`` renders
+        ``FROM <table>`` in the FROM slot of every FROM-less SELECT the base composes.
+
+        A hook rather than a class constant because the answer can depend on the server:
+        Oracle accepts a FROM-less SELECT from 23ai on and needs DUAL only before it.
+        """
+        return None
+
     def _build_from_sql_lines(self, select_elements: list) -> list[str]:
         sql_lines: list[str] = []
         # This method formats with newlines and indentation.
@@ -1238,9 +1251,16 @@ class SqlDialect:
             select_element for select_element in select_elements if isinstance(select_element, FROM)
         ]
 
-        # No FROM element, no FROM line — a clause-only element list (e.g. the trailing
-        # pagination of `pagination_statements`) must render without a dangling "FROM ".
         if not from_elements:
+            # A SELECT with no FROM element. On a dialect that rejects one, substitute its
+            # one-row table; the clause is rendered here, in the base composition, so it lands
+            # in the FROM slot whatever else the statement carries.
+            from_less_select_table: Optional[str] = self.from_less_select_table()
+            if from_less_select_table and any(isinstance(select_element, SELECT) for select_element in select_elements):
+                return [f"FROM {from_less_select_table}"]
+            # Otherwise no FROM element means no FROM line: a clause-only element list (the
+            # trailing pagination of `pagination_statements`) must render without a dangling
+            # "FROM ", and it is not a SELECT that needs a table to sit on either.
             return []
 
         from_sql_line: str = "FROM "
