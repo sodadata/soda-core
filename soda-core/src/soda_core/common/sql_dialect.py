@@ -1227,16 +1227,15 @@ class SqlDialect:
             return self.build_expression_sql(and_expr.clauses)
         return " AND ".join(self.build_expression_sql(and_clause) for and_clause in and_expr.clauses)
 
-    def from_less_select_table(self) -> Optional[str]:
-        """The one-row table a FROM-less SELECT sits on, or ``None``.
+    def _get_dummy_table_for_select_without_from(self) -> Optional[str]:
+        """The one-row dummy table a SELECT without a FROM clause sits on, or ``None``.
 
-        Most engines accept ``SELECT 1`` as it stands and inherit ``None``. An engine that
-        rejects a FROM-less SELECT answers with its own table -- HANA ``SYS.DUMMY``, Db2
-        ``SYSIBM.SYSDUMMY1``, Oracle ``DUAL`` -- and ``_build_from_sql_lines`` renders
-        ``FROM <table>`` in the FROM slot of every FROM-less SELECT the base composes.
+        Most engines accept ``SELECT 1`` as it stands and inherit ``None``. Some do not,
+        and answer with their own one-row table instead; ``_build_from_sql_lines`` then
+        renders ``FROM <table>`` in the FROM slot of every such SELECT the base composes.
 
         A hook rather than a class constant because the answer can depend on the server:
-        Oracle accepts a FROM-less SELECT from 23ai on and needs DUAL only before it.
+        an engine may accept a SELECT without FROM only from a certain version on.
         """
         return None
 
@@ -1255,9 +1254,9 @@ class SqlDialect:
             # A SELECT with no FROM element. On a dialect that rejects one, substitute its
             # one-row table; the clause is rendered here, in the base composition, so it lands
             # in the FROM slot whatever else the statement carries.
-            from_less_select_table: Optional[str] = self.from_less_select_table()
-            if from_less_select_table and any(isinstance(select_element, SELECT) for select_element in select_elements):
-                return [f"FROM {from_less_select_table}"]
+            dummy_table: Optional[str] = self._get_dummy_table_for_select_without_from()
+            if dummy_table and any(isinstance(select_element, SELECT) for select_element in select_elements):
+                return [f"FROM {dummy_table}"]
             # Otherwise no FROM element means no FROM line: a clause-only element list (the
             # trailing pagination of `pagination_statements`) must render without a dangling
             # "FROM ", and it is not a SELECT that needs a table to sit on either.
