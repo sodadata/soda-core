@@ -35,6 +35,7 @@ from soda_core.common.soda_cloud_dto import (
     CheckAttributes,
     DatasetConfigurationDTO,
     DatasetConfigurationsDTO,
+    ReportOutcome,
     RequestDatasetsConfigurationDatasetDTO,
     RequestDatasetsConfigurationDTO,
     SodaCoreInsertScanResultsDTO,
@@ -253,21 +254,21 @@ def _is_scan_gone(response: Optional[Response]) -> bool:
     return body is not None and body.get("code") in _SCAN_GONE_ERROR_CODES
 
 
-def _command_needs_no_fallback(response: Optional[Response]) -> bool:
-    """Whether the caller can let this command rest. The shared contract of every
-    ``bool``-returning command method: True when Soda Cloud accepted it, or when the scan it
-    reports on is already finished and is not waiting for it. False means the report is still
-    owed and the caller must fall back to another way of surfacing it, usually the exit code —
-    so no response at all (the client swallowed the error) counts as False."""
+def _report_outcome(response: Optional[Response]) -> ReportOutcome:
+    """How Soda Cloud answered, for every command a run uses to report on its scan.
+
+    No response at all — the client swallowed the error — counts as ``REFUSED``. Says the
+    scan-gone case out loud once, here, so the four command methods don't each repeat it.
+    """
     if response is not None and response.ok:
-        return True
+        return ReportOutcome.ACCEPTED
     if _is_scan_gone(response):
         logger.info(
             f"{Emoticons.CLOUD} Soda Cloud is no longer accepting reports for this scan. It was "
             "cancelled, or its scan definition was removed while this run was still going."
         )
-        return True
-    return False
+        return ReportOutcome.SCAN_GONE
+    return ReportOutcome.REFUSED
 
 
 class SodaCloud:
@@ -412,11 +413,10 @@ class SodaCloud:
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
         )
-        return _command_needs_no_fallback(response)
+        return _report_outcome(response) is not ReportOutcome.REFUSED
 
-    def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
-        """Send one ``sodaCoreInsertScanResults`` payload; returns True when the results need
-        no further reporting (same contract as ``mark_scan_as_failed``).
+    def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> ReportOutcome:
+        """Send one ``sodaCoreInsertScanResults`` payload and report how Soda Cloud answered.
 
         Transport for flows that build the DTO themselves — discovery today,
         profiling (soda-extensions) next. The contract flow keeps its own
@@ -427,7 +427,7 @@ class SodaCloud:
             command_json_dict=payload,
             request_log_name="insert_scan_results",
         )
-        return _command_needs_no_fallback(response)
+        return _report_outcome(response)
 
     def scan_start(
         self,
@@ -470,28 +470,26 @@ class SodaCloud:
             return None
         return scan_reference
 
-    def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> bool:
+    def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> ReportOutcome:
         """Send one results payload as a ``sodaCoreInsertScanDataBatch``, keyed by the
         ``scan_start`` scanReference. Takes the same payload dict the sync flows build; the batch
-        type and scanReference are stamped on a copy. Returns True when the batch needs no
-        further reporting (same contract as ``mark_scan_as_failed``).
+        type and scanReference are stamped on a copy. Reports how Soda Cloud answered.
         """
         command: dict = {**payload, "type": "sodaCoreInsertScanDataBatch", "scanReference": scan_reference}
         response: Optional[Response] = self._execute_command(
             command_json_dict=command,
             request_log_name="insert_scan_data_batch",
         )
-        return _command_needs_no_fallback(response)
+        return _report_outcome(response)
 
-    def scan_end_async(self, scan_reference: str) -> bool:
-        """Send ``sodaCoreScanEndAsync``, closing the async ingestion opened by ``scan_start``.
-        Returns True when the close needs no further reporting (same contract as
-        ``mark_scan_as_failed``)."""
+    def scan_end_async(self, scan_reference: str) -> ReportOutcome:
+        """Send ``sodaCoreScanEndAsync``, closing the async ingestion opened by ``scan_start``,
+        and report how Soda Cloud answered."""
         response: Optional[Response] = self._execute_command(
             command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
             request_log_name="scan_end_async",
         )
-        return _command_needs_no_fallback(response)
+        return _report_outcome(response)
 
     def send_check_collection_results(
         self,
@@ -563,12 +561,7 @@ class SodaCloud:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
                 return response_json
-        if _is_scan_gone(response):
-            logger.info(
-                f"{Emoticons.CLOUD} Soda Cloud is no longer accepting results for this scan, so they "
-                "were discarded. It was cancelled, or its scan definition was removed while this "
-                "run was still going."
-            )
+        if _report_outcome(response) is ReportOutcome.SCAN_GONE:
             return None
         for r in results:
             r.sending_results_to_soda_cloud_failed = True

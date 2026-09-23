@@ -22,6 +22,7 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import interpret_contract_verification_result
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import ReportOutcome
 from soda_core.contracts.contract_verification import (
     Check,
     CheckCollectionStatus,
@@ -175,30 +176,35 @@ def test_marking_a_scan_as_failed_still_reports_a_real_rejection():
 
 
 @pytest.mark.parametrize("code", SCAN_GONE_CODES)
-def test_batch_upload_to_a_finished_scan_needs_no_fallback(code):
+def test_batch_upload_to_a_finished_scan_reports_scan_gone(code):
     """``sodaCoreInsertScanDataBatch`` is the command that failed in the original incident:
     the scan definition of a running backfill was deleted, and every batch from that point
     on came back ``scan_not_found``."""
     cloud = _cloud_answering(400, {"code": code, "message": "scan is done"})
 
-    assert cloud.insert_scan_data_batch({"definitionName": "s"}, scan_reference="ref-1") is True
+    outcome = cloud.insert_scan_data_batch({"definitionName": "s"}, scan_reference="ref-1")
+
+    assert outcome is ReportOutcome.SCAN_GONE
 
 
 def test_batch_upload_still_reports_a_real_rejection():
     cloud = _cloud_answering(503, {})
 
-    assert cloud.insert_scan_data_batch({"definitionName": "s"}, scan_reference="ref-1") is False
+    outcome = cloud.insert_scan_data_batch({"definitionName": "s"}, scan_reference="ref-1")
+
+    assert outcome is ReportOutcome.REFUSED
 
 
 @pytest.mark.parametrize("code", SCAN_GONE_CODES)
-def test_scan_results_insert_to_a_finished_scan_needs_no_fallback(code):
+def test_scan_results_insert_to_a_finished_scan_reports_scan_gone(code):
     """The discovery and profiling upload path shares the same contract."""
     cloud = _cloud_answering(400, {"code": code, "message": "scan is done"})
 
-    assert cloud.insert_scan_results({"type": "sodaCoreInsertScanResults"}) is True
+    assert cloud.insert_scan_results({"type": "sodaCoreInsertScanResults"}) is ReportOutcome.SCAN_GONE
 
 
-def test_closing_the_ingestion_of_a_finished_scan_needs_no_fallback():
+def test_closing_the_ingestion_of_a_finished_scan_reports_scan_gone():
+    """The scan can also reach its terminal state between the last batch and the end command."""
     cloud = _cloud_answering(400, {"code": "invalid_scan_state", "message": "already CANCELED"})
 
-    assert cloud.scan_end_async(scan_reference="ref-1") is True
+    assert cloud.scan_end_async(scan_reference="ref-1") is ReportOutcome.SCAN_GONE
