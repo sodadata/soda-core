@@ -131,6 +131,11 @@ class SqlDialect:
     # LIMIT before OFFSET; grammars whose window is `OFFSET m ROWS / FETCH NEXT n ROWS ONLY`
     # (T-SQL, Trino, Athena, Oracle) set True instead of copying `build_select_sql` wholesale.
     OFFSET_BEFORE_LIMIT: bool = False
+    # The one-row table a FROM-less SELECT is given a FROM clause on. Most engines accept
+    # `SELECT 1` as it stands and leave this None. Engines that reject it declare their own
+    # (HANA `SYS.DUMMY`, Db2 `SYSIBM.SYSDUMMY1`, Oracle `DUAL`) and `_build_from_sql_lines`
+    # renders the clause for every FROM-less SELECT it composes.
+    FROM_LESS_SELECT_TABLE: Optional[str] = None
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
@@ -1238,9 +1243,17 @@ class SqlDialect:
             select_element for select_element in select_elements if isinstance(select_element, FROM)
         ]
 
-        # No FROM element, no FROM line — a clause-only element list (e.g. the trailing
-        # pagination of `pagination_statements`) must render without a dangling "FROM ".
         if not from_elements:
+            # A SELECT with no FROM element. On a dialect that rejects one, substitute its
+            # one-row table; the clause is rendered here, in the base composition, so it lands
+            # in the FROM slot whatever else the statement carries.
+            if self.FROM_LESS_SELECT_TABLE and any(
+                isinstance(select_element, SELECT) for select_element in select_elements
+            ):
+                return [f"FROM {self.FROM_LESS_SELECT_TABLE}"]
+            # Otherwise no FROM element means no FROM line: a clause-only element list (the
+            # trailing pagination of `pagination_statements`) must render without a dangling
+            # "FROM ", and it is not a SELECT that needs a table to sit on either.
             return []
 
         from_sql_line: str = "FROM "
