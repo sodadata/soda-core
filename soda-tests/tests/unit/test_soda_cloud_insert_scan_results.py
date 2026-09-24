@@ -1,10 +1,11 @@
 from unittest.mock import MagicMock, patch
 
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
+from soda_core.common.soda_cloud_dto import ReportOutcome, SodaCoreInsertScanResultsDTO
 
 # SodaCloud.insert_scan_results: the transport for DTO-building flows
-# (discovery today, profiling next). Same bool contract as mark_scan_as_failed.
+# (discovery today, profiling next). Reports the outcome in full, so a caller can
+# tell a refusal apart from a scan Soda Cloud has already finished with.
 
 
 def _soda_cloud() -> SodaCloud:
@@ -27,11 +28,11 @@ def _payload() -> SodaCoreInsertScanResultsDTO:
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_insert_scan_results_passes_payload_through_and_returns_true_when_accepted(mock_execute_command):
+def test_insert_scan_results_passes_payload_through_and_reports_accepted(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True)
     payload = _payload()
 
-    assert _soda_cloud().insert_scan_results(payload) is True
+    assert _soda_cloud().insert_scan_results(payload) is ReportOutcome.ACCEPTED
 
     mock_execute_command.assert_called_once_with(
         command_json_dict=payload,
@@ -40,14 +41,14 @@ def test_insert_scan_results_passes_payload_through_and_returns_true_when_accept
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_insert_scan_results_returns_false_when_rejected(mock_execute_command):
+def test_insert_scan_results_reports_refused_when_rejected(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False)
 
-    assert _soda_cloud().insert_scan_results(_payload()) is False
+    assert _soda_cloud().insert_scan_results(_payload()) is ReportOutcome.REFUSED
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_insert_scan_results_returns_false_without_response(mock_execute_command):
+def test_insert_scan_results_reports_refused_without_response(mock_execute_command):
     mock_execute_command.return_value = None
 
-    assert _soda_cloud().insert_scan_results(_payload()) is False
+    assert _soda_cloud().insert_scan_results(_payload()) is ReportOutcome.REFUSED

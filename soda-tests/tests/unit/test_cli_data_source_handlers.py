@@ -12,6 +12,7 @@ from soda_core.cli.handlers.data_source import (
 from soda_core.cli.handlers.dependencies import resolve_data_source, resolve_soda_cloud
 from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.scan_context import AtomicScanContext, using_scan_context
+from soda_core.common.soda_cloud_dto import ReportOutcome
 
 
 @patch("soda_core.cli.handlers.data_source.exists", return_value=True)
@@ -196,7 +197,7 @@ def _data_source_impl_fake() -> MagicMock:
 def test_discover_success_sends_results_and_exits_ok(mock_discover_dataset_dqns):
     data_source_impl = _data_source_impl_fake()
     soda_cloud = MagicMock()
-    soda_cloud.insert_scan_results.return_value = True
+    soda_cloud.insert_scan_results.return_value = ReportOutcome.ACCEPTED
     mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
 
     with using_scan_context(AtomicScanContext(soda_cloud)):
@@ -229,9 +230,30 @@ def test_discover_query_failure_propagates_raw(mock_discover_dataset_dqns, caplo
 
 
 @patch("soda_core.discovery.discovery.discover_dataset_dqns")
+def test_discover_on_a_finished_scan_exits_ok_without_claiming_the_results_were_sent(
+    mock_discover_dataset_dqns, caplog
+):
+    # The scan was cancelled while discovery ran, so Soda Cloud discarded the results. Nothing is
+    # owed, so this is not a delivery failure — but the run must not report success it didn't have.
+    soda_cloud = MagicMock()
+    soda_cloud.insert_scan_results.return_value = ReportOutcome.SCAN_GONE
+    mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
+
+    with caplog.at_level(logging.INFO):
+        with using_scan_context(AtomicScanContext(soda_cloud)):
+            exit_code = handle_discover_data_source(_data_source_impl_fake(), scan_definition_name="my_scan")
+
+    assert exit_code == ExitCode.OK
+    messages = [record.getMessage() for record in caplog.records]
+    assert not any("sent results to Soda Cloud" in message for message in messages)
+    assert any("the results were discarded" in message for message in messages)
+    soda_cloud.mark_scan_as_failed.assert_not_called()
+
+
+@patch("soda_core.discovery.discovery.discover_dataset_dqns")
 def test_discover_results_send_rejected_exits_results_not_sent(mock_discover_dataset_dqns):
     soda_cloud = MagicMock()
-    soda_cloud.insert_scan_results.return_value = False
+    soda_cloud.insert_scan_results.return_value = ReportOutcome.REFUSED
     mock_discover_dataset_dqns.return_value = ["ds/schema/table"]
 
     with using_scan_context(AtomicScanContext(soda_cloud)):
