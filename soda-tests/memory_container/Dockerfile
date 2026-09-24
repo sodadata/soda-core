@@ -81,7 +81,8 @@ RUN pip install --no-cache-dir \
         freezegun \
         pytz \
         python-dateutil \
-        "ruamel.yaml>=0.17.0,<0.18.0" \
+        # Keep identical to soda-core/pyproject.toml — the editable install below is --no-deps, so this line alone governs ruamel here. Floor 0.18.17 to overlap soda-mcp's range (ADO-338); 0.18 dropped the module-level safe_load/safe_dump — use the YAML() instance API. Capped <0.19: 0.19 repackages the C extension, widen only when tested.
+        "ruamel.yaml>=0.18.17,<0.19" \
         "requests>=2.32.3,<2.34.0" \
         "pydantic>=2.11,<3.0" \
         "opentelemetry-api>=1.16.0,<2.0.0" \
