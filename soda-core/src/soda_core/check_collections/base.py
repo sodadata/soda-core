@@ -205,6 +205,13 @@ class CheckCollectionResult:
             [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
         )
 
+    @property
+    def has_excluded(self) -> bool:
+        """
+        Returns true if there are checks that have been excluded.
+        """
+        return self.number_of_checks_excluded > 0
+
 
 @dataclass
 class CheckCollectionSessionResult:
