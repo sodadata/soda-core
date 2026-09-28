@@ -403,6 +403,7 @@ class CheckResult:
     def is_not_evaluated(self) -> bool:
         return self.outcome == CheckOutcome.NOT_EVALUATED
 
+    @property
     def is_excluded(self) -> bool:
         return self.outcome == CheckOutcome.EXCLUDED
 
