@@ -1,7 +1,7 @@
 """Pin the ``sodaCoreInsertScanResults`` payload of an unscoped contract, byte for byte.
 
-Recorded on origin/main before any scope code existed (DET-235 stage 0), so the scope work can prove that
-an unscoped contract still uploads exactly what it uploaded before: check paths, identities, definitions,
+Recorded on origin/main ac8c7474, before any scope code existed, so the scope work can prove that an
+unscoped contract still uploads exactly what it uploaded before: check paths, identities, definitions,
 attributes, diagnostics, key order and the ordered log lines.
 
 The fixture contract covers every core check type that runs on DuckDB without a warehouse, a top-level
