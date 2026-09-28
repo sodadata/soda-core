@@ -2,7 +2,7 @@
 
 Recorded on origin/main ac8c7474, before any scope code existed, so the scope work can prove that an
 unscoped contract still uploads exactly what it uploaded before: check paths, identities, definitions,
-attributes, diagnostics, key order and the ordered log lines.
+attributes, diagnostics, key order and the ordered log lines, which carry the full SQL of each query.
 
 The fixture contract covers every core check type that runs on DuckDB without a warehouse, a top-level
 filter, a check-level filter, check attributes at both levels and an empty qualifier. It runs on a private
@@ -30,6 +30,7 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import dedent_and_strip
 from soda_core.common import logging_configuration
+from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
@@ -132,10 +133,12 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
 
 def _verify_fixture_contract(monkeypatch, caplog) -> dict:
     # Runner env vars add or change payload fields.
-    for env_var in ("SODA_SCAN_ID", "SODA_INSTRUCTION_ID", "SODA_SCAN_DATA_TIMESTAMP"):
+    for env_var in ("SODA_SCAN_ID", "SODA_INSTRUCTION_ID", "SODA_SCAN_DATA_TIMESTAMP", "SODA_SCAN_DEFINITION"):
         monkeypatch.delenv(env_var, raising=False)
     # The log lines depend on verbose mode and on the root log level, which other tests may change.
     monkeypatch.setattr(logging_configuration, "verbose_mode", True)
+    # By default the SQL debug line stops at 1024 chars, which would leave the end of the metrics query unpinned.
+    monkeypatch.setattr(DataSourceConnection, "MAX_CHARS_PER_SQL", 100_000)
     caplog.set_level(logging.DEBUG)
     # The first use of this singleton logs a line; keep it out of the recorded logs.
     EnvConfigHelper()
