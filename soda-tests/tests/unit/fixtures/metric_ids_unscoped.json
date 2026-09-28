@@ -1,0 +1,179 @@
+{
+  "metrics": [
+    {
+      "metric": "RowCountMetricImpl",
+      "type": "row_count",
+      "column": null,
+      "filter": null,
+      "id": "812a68a4"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "missing",
+      "column": "id",
+      "filter": null,
+      "id": "5edcd2f3"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "missing_percent",
+      "column": "id",
+      "filter": null,
+      "id": "ec1a2082"
+    },
+    {
+      "metric": "ColumnDistinctCountMetricImpl",
+      "type": "distinct_count",
+      "column": "id",
+      "filter": null,
+      "id": "cf25c4cf"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "duplicate",
+      "column": "id",
+      "filter": null,
+      "id": "3038e5a7"
+    },
+    {
+      "metric": "DuplicateCountMetricImpl",
+      "type": "duplicate_count",
+      "column": "id",
+      "filter": null,
+      "id": "9e27eb87"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "duplicate_percent",
+      "column": "id",
+      "filter": null,
+      "id": "da6d690c"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "missing",
+      "column": "customer_id",
+      "filter": null,
+      "id": "1aa033e9"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "missing_percent",
+      "column": "customer_id",
+      "filter": null,
+      "id": "4c8d785a"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "invalid",
+      "column": "amount",
+      "filter": null,
+      "id": "2784aad0"
+    },
+    {
+      "metric": "InvalidCountMetricImpl",
+      "type": "invalid_count",
+      "column": "amount",
+      "filter": null,
+      "id": "3dc2e08c"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "invalid_percent",
+      "column": "amount",
+      "filter": null,
+      "id": "b2fb8a3c"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "invalid",
+      "column": "amount",
+      "filter": "country = 'BE'",
+      "id": "4f3ef548"
+    },
+    {
+      "metric": "InvalidCountMetricImpl",
+      "type": "invalid_count",
+      "column": "amount",
+      "filter": "country = 'BE'",
+      "id": "3db4979e"
+    },
+    {
+      "metric": "RowCountMetricImpl",
+      "type": "row_count",
+      "column": null,
+      "filter": "country = 'BE'",
+      "id": "ff5f0cff"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "invalid_percent",
+      "column": "amount",
+      "filter": null,
+      "id": "63d1ff09"
+    },
+    {
+      "metric": "AggregateFunctionMetricImpl",
+      "type": "aggregate",
+      "column": "amount",
+      "filter": null,
+      "id": "48765b2d"
+    },
+    {
+      "metric": "MissingCountMetricImpl",
+      "type": "invalid",
+      "column": "country",
+      "filter": null,
+      "id": "d17c4f79"
+    },
+    {
+      "metric": "InvalidReferenceCountMetricImpl",
+      "type": "invalid_reference_count",
+      "column": "country",
+      "filter": null,
+      "id": "6ddf3860"
+    },
+    {
+      "metric": "DerivedPercentageMetricImpl",
+      "type": "invalid_percent",
+      "column": "country",
+      "filter": null,
+      "id": "8761eaad"
+    },
+    {
+      "metric": "SchemaMetricImpl",
+      "type": "schema",
+      "column": null,
+      "filter": null,
+      "id": "bac1eba7"
+    },
+    {
+      "metric": "MaxTimestampMetricImpl",
+      "type": "freshness",
+      "column": null,
+      "filter": null,
+      "id": "06ba97fc"
+    },
+    {
+      "metric": "MultiColumnDistinctCountMetricImpl",
+      "type": "distinct_count",
+      "column": null,
+      "filter": null,
+      "id": "edc7d74e"
+    },
+    {
+      "metric": "MetricExpressionMetricImpl",
+      "type": "metric",
+      "column": null,
+      "filter": null,
+      "id": "84c30396"
+    },
+    {
+      "metric": "FailedRowsExpressionMetricImpl",
+      "type": "failed_rows",
+      "column": null,
+      "filter": null,
+      "id": "972d4c80"
+    }
+  ]
+}
