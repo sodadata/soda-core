@@ -1,10 +1,11 @@
 """Pin the wire ``checkPath`` and the identity of each unscoped check form.
 
-The rows live in ``fixtures/check_path_grammar.yml``, the list the backend mirrors (DET-206). Each row is
+The rows live in ``fixtures/check_path_grammar.yml``, the list the Soda Cloud backend mirrors. Each row is
 built as a one-check contract on the fixture's dataset and parsed without executing, so no table is
 needed. The data source is named like the dataset's first segment, because its name is part of the
 identity. The ``checkPath`` of a row is the grammar and is written by hand; the identity is recorded.
-Recorded on origin/main before any scope code existed (DET-235 stage 0); C-2 adds the ``scope.eu:`` rows.
+Recorded on origin/main ac8c7474, before any scope code existed; the scope work adds each row again with
+the ``scope.eu:`` prefix.
 
 To re-record the identities after an intended change, run with ``SODA_TEST_RECORD_FIXTURES=1`` and review
 the fixture diff before committing it.

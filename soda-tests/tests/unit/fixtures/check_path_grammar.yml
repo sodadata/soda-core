@@ -4,11 +4,11 @@
 # contract on the dataset below with a data source named like its first segment. checkPath is the grammar
 # and is written by hand. identity is recorded: SODA_TEST_RECORD_FIXTURES=1 rewrites it.
 #
-# Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code (DET-235 stage 0).
-# C-2 adds each row again with the scope.eu: prefix. The backend mirrors this list (DET-206).
+# Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scope work adds
+# each row again with the scope.eu: prefix. The Soda Cloud backend mirrors this list.
 #
-# TODO(X-4): the reconciliation rows need soda-reconciliation, which lives in soda-extensions, so X-4
-# records and asserts them there:
+# TODO(X-4): the reconciliation rows come from the reconciliation check type, which lives in
+# soda-extensions, so they are recorded and asserted there:
 #   reconciliation.checks.row_count_diff
 #   reconciliation.payments.checks.aggregate_diff
 #   reconciliation.payments.checks.aggregate_diff.sum
