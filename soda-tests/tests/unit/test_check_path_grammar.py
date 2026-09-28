@@ -90,6 +90,8 @@ def _record_identity(row_index: int, identity: str) -> None:
 
 
 def test_grammar_identities_are_unique():
+    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+        pytest.skip("Asserts the recorded identities, which a recording run is rewriting")
     identities: list[str] = [row["identity"] for row in GRAMMAR["rows"]]
     assert len(identities) == len(set(identities))
 
