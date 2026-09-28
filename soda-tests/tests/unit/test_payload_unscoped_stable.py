@@ -25,7 +25,6 @@ import logging
 import os
 from pathlib import Path
 
-import dotenv
 import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -245,13 +244,10 @@ def test_debug_print_limits_from_the_environment_do_not_change_the_payload(monke
     _assert_payload_matches_recording(_mask_run_varying_values(_verify_fixture_contract(monkeypatch, caplog)))
 
 
-def test_runner_env_vars_in_a_dotenv_file_do_not_change_the_payload(monkeypatch, caplog, tmp_path):
-    dotenv_path: Path = tmp_path / ".env"
-    dotenv_path.write_text("SODA_SCAN_ID=scan-from-dotenv\n", encoding="utf-8")
-    # load_dotenv writes os.environ directly; this records the value to restore after the test.
-    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+def test_runner_env_vars_in_a_dotenv_file_do_not_change_the_payload(monkeypatch, caplog):
+    # Stands in for a .env that sets a runner env var; through monkeypatch, so the test leaves it unset.
     monkeypatch.setattr(
-        env_config_helper, "load_dotenv", lambda override=False: dotenv.load_dotenv(dotenv_path, override=override)
+        env_config_helper, "load_dotenv", lambda override=False: monkeypatch.setenv("SODA_SCAN_ID", "scan-from-dotenv")
     )
     # A fresh singleton loads the .env on first use, as in a new process; the old one comes back afterwards.
     monkeypatch.setattr(EnvConfigHelper, "_EnvConfigHelper__instance", None)
