@@ -702,7 +702,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query fetchall in datasource fixture_ds (first 1024 chars): \nSELECT \"column_name\",\n       \"data_type\",\n       \"numeric_precision\",\n       \"numeric_scale\"\nFROM \"information_schema\".\"columns\"\nWHERE \"table_schema\" = 'main' AND \"table_name\" = 'orders'\nORDER BY ORDINAL_POSITION ASC;",
+      "message": "SQL query fetchall in datasource fixture_ds (first 100000 chars): \nSELECT \"column_name\",\n       \"data_type\",\n       \"numeric_precision\",\n       \"numeric_scale\"\nFROM \"information_schema\".\"columns\"\nWHERE \"table_schema\" = 'main' AND \"table_name\" = 'orders'\nORDER BY ORDINAL_POSITION ASC;",
       "timestamp": "<masked>",
       "index": 3,
       "thread": "soda-contract"
@@ -716,7 +716,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query fetchall in datasource fixture_ds (first 1024 chars): \nWITH \n\"_soda_filtered_dataset\" AS (\nSELECT *\nFROM \"main\".\"orders\"\nWHERE (status <> 'cancelled')\n)\nSELECT COUNT(*) AS \"m_0\",\n       SUM(CASE WHEN \"id\" IS NULL THEN 1 END) AS \"m_1\",\n       COUNT(DISTINCT(CASE WHEN NOT(\"id\" IS NULL) THEN \"id\" END)) AS \"m_2\",\n       SUM(CASE WHEN \"customer_id\" IS NULL THEN 1 END) AS \"m_3\",\n       SUM(CASE WHEN \"amount\" IS NULL THEN 1 END) AS \"m_4\",\n       SUM(CASE WHEN NOT(\"amount\" IS NULL) AND \"amount\" < 0 THEN 1 END) AS \"m_5\",\n       SUM(CASE WHEN (country = 'BE') AND \"amount\" IS NULL THEN 1 END) AS \"m_6\",\n       SUM(CASE WHEN (country = 'BE') AND NOT(\"amount\" IS NULL) AND (\"amount\" < 1 OR \"amount\" > 200) THEN 1 END) AS \"m_7\",\n       SUM(CASE WHEN (country = 'BE') THEN 1 END) AS \"m_8\",\n       AVG(CASE WHEN NOT(\"amount\" IS NULL) THEN \"amount\" END) AS \"m_9\",\n       SUM(CASE WHEN \"country\" IS NULL THEN 1 END) AS \"m_10\",\n       MAX(\"updated_at\") AS \"m_11\",\n       COUNT(DISTINCT(MD5(CONCAT_WS('||', COALESCE(CAST(\"customer_id\" AS varchar), '__SODA_NULL__'), COALESCE(CAST(\"country\"...",
+      "message": "SQL query fetchall in datasource fixture_ds (first 100000 chars): \nWITH \n\"_soda_filtered_dataset\" AS (\nSELECT *\nFROM \"main\".\"orders\"\nWHERE (status <> 'cancelled')\n)\nSELECT COUNT(*) AS \"m_0\",\n       SUM(CASE WHEN \"id\" IS NULL THEN 1 END) AS \"m_1\",\n       COUNT(DISTINCT(CASE WHEN NOT(\"id\" IS NULL) THEN \"id\" END)) AS \"m_2\",\n       SUM(CASE WHEN \"customer_id\" IS NULL THEN 1 END) AS \"m_3\",\n       SUM(CASE WHEN \"amount\" IS NULL THEN 1 END) AS \"m_4\",\n       SUM(CASE WHEN NOT(\"amount\" IS NULL) AND \"amount\" < 0 THEN 1 END) AS \"m_5\",\n       SUM(CASE WHEN (country = 'BE') AND \"amount\" IS NULL THEN 1 END) AS \"m_6\",\n       SUM(CASE WHEN (country = 'BE') AND NOT(\"amount\" IS NULL) AND (\"amount\" < 1 OR \"amount\" > 200) THEN 1 END) AS \"m_7\",\n       SUM(CASE WHEN (country = 'BE') THEN 1 END) AS \"m_8\",\n       AVG(CASE WHEN NOT(\"amount\" IS NULL) THEN \"amount\" END) AS \"m_9\",\n       SUM(CASE WHEN \"country\" IS NULL THEN 1 END) AS \"m_10\",\n       MAX(\"updated_at\") AS \"m_11\",\n       COUNT(DISTINCT(MD5(CONCAT_WS('||', COALESCE(CAST(\"customer_id\" AS varchar), '__SODA_NULL__'), COALESCE(CAST(\"country\" AS varchar), '__SODA_NULL__'))))) AS \"m_12\",\n       (sum(amount) / count(*)) AS \"m_13\",\n       COUNT(CASE WHEN (amount > 150) THEN 1 END) AS \"m_14\"\nFROM \"_soda_filtered_dataset\";",
       "timestamp": "<masked>",
       "index": 5,
       "thread": "soda-contract"
@@ -730,7 +730,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query fetchall in datasource fixture_ds (first 1024 chars): \nWITH \n\"_soda_filtered_dataset\" AS (\nSELECT *\nFROM \"main\".\"orders\"\nWHERE (status <> 'cancelled')\n),\n\"_soda_filtered_referenced_dataset\" AS (\nSELECT *\nFROM \"main\".\"countries\"\n)\nSELECT COUNT(*)\nFROM \"_soda_filtered_dataset\" AS \"C\"\n     LEFT JOIN \"_soda_filtered_referenced_dataset\" AS \"R\" ON \"C\".\"country\" = \"R\".\"code\"\nWHERE NOT(\"C\".\"country\" IS NULL) AND \"R\".\"code\" IS NULL;",
+      "message": "SQL query fetchall in datasource fixture_ds (first 100000 chars): \nWITH \n\"_soda_filtered_dataset\" AS (\nSELECT *\nFROM \"main\".\"orders\"\nWHERE (status <> 'cancelled')\n),\n\"_soda_filtered_referenced_dataset\" AS (\nSELECT *\nFROM \"main\".\"countries\"\n)\nSELECT COUNT(*)\nFROM \"_soda_filtered_dataset\" AS \"C\"\n     LEFT JOIN \"_soda_filtered_referenced_dataset\" AS \"R\" ON \"C\".\"country\" = \"R\".\"code\"\nWHERE NOT(\"C\".\"country\" IS NULL) AND \"R\".\"code\" IS NULL;",
       "timestamp": "<masked>",
       "index": 7,
       "thread": "soda-contract"
