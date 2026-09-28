@@ -15,34 +15,34 @@
 dataset: fixture_ds/main/orders
 rows:
   - checkPath: checks.row_count
-    identity:
+    identity: 3a083c70
     check:
       row_count:
   - checkPath: checks.row_count.2
-    identity:
+    identity: 56b4b91d
     check:
       row_count:
         qualifier: 2
   - checkPath: columns.amount.checks.invalid
-    identity:
+    identity: 8725d00a
     column: amount
     check:
       invalid:
         valid_min: 0
   - checkPath: columns.amount.checks.invalid.strict
-    identity:
+    identity: a1716a97
     column: amount
     check:
       invalid:
         qualifier: strict
         valid_min: 1
   - checkPath: checks.schema
-    identity:
+    identity: 1002744d
     check:
       schema:
   # An empty qualifier is dropped from the path but kept in the identity.
   - checkPath: checks.row_count
-    identity:
+    identity: bd98ebd7
     check:
       row_count:
         qualifier: ''
