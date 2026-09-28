@@ -5,12 +5,15 @@ unscoped contract still uploads exactly what it uploaded before: check paths, id
 attributes, diagnostics, key order and the ordered log lines, which carry the full SQL of each query.
 
 The fixture contract covers every core check type that runs on DuckDB without a warehouse, a top-level
-filter, a check-level filter, check attributes at both levels and an empty qualifier. It runs on a private
-in-memory DuckDB against the mock Soda Cloud, whatever ``TEST_DATASOURCE`` says, so the recording does not
-depend on the suite's data source or schema name. The contract comes from a string, which keeps
-``contract.metadata.source.filePath`` stable, and the data timestamp is pinned, which keeps the freshness
-values stable. Only values that change between runs are masked: the scan id, the scan start and end
-timestamps, and each log's timestamp and file path.
+filter, a check-level filter, check attributes at both levels with one key set at both, and an empty
+qualifier. It runs on a private in-memory DuckDB against the mock Soda Cloud, whatever ``TEST_DATASOURCE``
+says, so the recording does not depend on the suite's data source or schema name. The contract comes from a
+string, which keeps ``contract.metadata.source.filePath`` stable, and the data timestamp is pinned, which
+keeps the freshness values stable. Only values that change between runs are masked: the scan id, the scan
+start and end timestamps, and each log's timestamp and file path.
+
+The payload carries no metric ids, so the ids of the contract's resolved metrics are pinned next to it in
+``fixtures/metric_ids_unscoped.json``, in resolution order.
 
 To re-record after an intended change, run with ``SODA_TEST_RECORD_FIXTURES=1`` and review the fixture
 diff before committing it.
@@ -29,6 +32,7 @@ import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import dedent_and_strip
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult
 from soda_core.common import env_config_helper, logging_configuration
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -38,6 +42,7 @@ from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceI
 
 RECORD_FIXTURES_ENV_VAR = "SODA_TEST_RECORD_FIXTURES"
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "scan_results_payload_unscoped.json"
+METRIC_IDS_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "metric_ids_unscoped.json"
 MASK = "<masked>"
 
 DATA_TIMESTAMP = "2026-09-28T12:00:00+00:00"
@@ -82,6 +87,7 @@ CONTRACT_YAML = """
           - invalid:
               attributes:
                 owner: geo
+                priority: 1
       - name: status
       - name: updated_at
     checks:
@@ -183,13 +189,17 @@ def _to_json_text(payload: dict) -> str:
 
 
 def _load_recording(masked_payload: dict) -> str:
+    return _load_or_record(FIXTURE_PATH, _to_json_text(masked_payload))
+
+
+def _load_or_record(fixture_path: Path, actual_text: str) -> str:
     if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
-        FIXTURE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        FIXTURE_PATH.write_text(_to_json_text(masked_payload), encoding="utf-8")
-        pytest.skip(f"Re-recorded {FIXTURE_PATH.name}; review the diff and rerun without {RECORD_FIXTURES_ENV_VAR}")
-    if not FIXTURE_PATH.exists():
-        pytest.fail(f"No recording at {FIXTURE_PATH}. Record it with {RECORD_FIXTURES_ENV_VAR}=1.", pytrace=False)
-    return FIXTURE_PATH.read_text(encoding="utf-8")
+        fixture_path.parent.mkdir(parents=True, exist_ok=True)
+        fixture_path.write_text(actual_text, encoding="utf-8")
+        pytest.skip(f"Re-recorded {fixture_path.name}; review the diff and rerun without {RECORD_FIXTURES_ENV_VAR}")
+    if not fixture_path.exists():
+        pytest.fail(f"No recording at {fixture_path}. Record it with {RECORD_FIXTURES_ENV_VAR}=1.", pytrace=False)
+    return fixture_path.read_text(encoding="utf-8")
 
 
 def _assert_lines_match_recording(recorded: list[str], actual: list[str], what: str) -> None:
@@ -223,6 +233,44 @@ def test_unscoped_payload_matches_recording(monkeypatch, caplog):
     _assert_lines_match_recording(
         recorded_payload_text.splitlines(), _to_json_text(masked_payload).splitlines(), "payload"
     )
+
+
+def _verified_check_collection_impl(monkeypatch, caplog) -> CheckCollectionImpl:
+    verified: list[CheckCollectionImpl] = []
+    original_verify = CheckCollectionImpl.verify
+
+    def recording_verify(self) -> CheckCollectionResult:
+        verified.append(self)
+        return original_verify(self)
+
+    monkeypatch.setattr(CheckCollectionImpl, "verify", recording_verify)
+    _verify_fixture_contract(monkeypatch, caplog)
+    assert len(verified) == 1
+    return verified[0]
+
+
+def _metric_ids(check_collection_impl: CheckCollectionImpl) -> dict:
+    # Everything but the id only labels the row, so a changed id shows up in the diff next to its metric.
+    return {
+        "metrics": [
+            {
+                "metric": type(metric_impl).__name__,
+                "type": metric_impl.type,
+                "column": metric_impl.column_impl.column_yaml.name if metric_impl.column_impl else None,
+                "filter": metric_impl.check_filter,
+                "id": metric_impl.id,
+            }
+            for metric_impl in check_collection_impl.metrics_resolver.get_resolved_metrics()
+        ]
+    }
+
+
+def test_unscoped_metric_ids_match_recording(monkeypatch, caplog):
+    check_collection_impl: CheckCollectionImpl = _verified_check_collection_impl(monkeypatch, caplog)
+    metric_ids_text: str = _to_json_text(_metric_ids(check_collection_impl))
+    recorded_metric_ids_text: str = _load_or_record(METRIC_IDS_FIXTURE_PATH, metric_ids_text)
+
+    _assert_lines_match_recording(recorded_metric_ids_text.splitlines(), metric_ids_text.splitlines(), "metric ids")
 
 
 def _assert_payload_matches_recording(masked_payload: dict) -> None:
