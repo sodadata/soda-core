@@ -287,7 +287,7 @@
       "name": "No invalid values",
       "type": "generic",
       "checkType": "invalid",
-      "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: country\n  checks:\n  - attributes:\n      owner: geo\n",
+      "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: country\n  checks:\n  - attributes:\n      owner: geo\n      priority: 1\n",
       "resourceAttributes": [
         {
           "name": "team",
@@ -295,7 +295,7 @@
         },
         {
           "name": "priority",
-          "value": "2"
+          "value": "1"
         },
         {
           "name": "owner",
@@ -349,7 +349,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 42,
+        "line": 43,
         "col": 4
       },
       "dataSource": "fixture_ds",
@@ -437,7 +437,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 43,
+        "line": 44,
         "col": 4
       },
       "dataSource": "fixture_ds",
@@ -480,7 +480,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 45,
+        "line": 46,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -523,7 +523,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 49,
+        "line": 50,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -570,7 +570,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 54,
+        "line": 55,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -613,7 +613,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 56,
+        "line": 57,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -655,7 +655,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 60,
+        "line": 61,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -1423,7 +1423,7 @@
     },
     {
       "level": "debug",
-      "message": "Sending command upload_contract_file to Soda Cloud with body: {\n  \"type\": \"sodaCoreUploadContractFile\",\n  \"contents\": \"dataset: fixture_ds/main/orders\\nfilter: |\\n  status <> 'cancelled'\\ncheck_attributes:\\n  team: data-eng\\n  priority: 2\\ncolumns:\\n  - name: id\\n    data_type: integer\\n    checks:\\n      - missing:\\n      - duplicate:\\n  - name: customer_id\\n    checks:\\n      - missing:\\n          qualifier: \\\"\\\"\\n  - name: amount\\n    checks:\\n      - invalid:\\n          valid_min: 0\\n      - invalid:\\n          qualifier: strict\\n          valid_min: 1\\n          valid_max: 200\\n          filter: country = 'BE'\\n      - aggregate:\\n          function: avg\\n          threshold:\\n            must_be_between:\\n              greater_than: 0\\n              less_than: 1000\\n  - name: country\\n    valid_reference_data:\\n      dataset: fixture_ds/main/countries\\n      column: code\\n    checks:\\n      - invalid:\\n          attributes:\\n            owner: geo\\n  - name: status\\n  - name: updated_at\\nchecks:\\n  - schema:\\n  - row_count:\\n  - row_count:\\n      qualifier: 2\\n      threshold:\\n        must_be_greater_than: 1\\n  - freshness:\\n      column: updated_at\\n      threshold:\\n        unit: hour\\n        must_be_less_than: 24\\n  - duplicate:\\n      columns: [customer_id, country]\\n  - metric:\\n      expression: sum(amount) / count(*)\\n      threshold:\\n        must_be_greater_than: 0\\n  - failed_rows:\\n      expression: amount > 150\",\n  \"token\": \"****\"\n}",
+      "message": "Sending command upload_contract_file to Soda Cloud with body: {\n  \"type\": \"sodaCoreUploadContractFile\",\n  \"contents\": \"dataset: fixture_ds/main/orders\\nfilter: |\\n  status <> 'cancelled'\\ncheck_attributes:\\n  team: data-eng\\n  priority: 2\\ncolumns:\\n  - name: id\\n    data_type: integer\\n    checks:\\n      - missing:\\n      - duplicate:\\n  - name: customer_id\\n    checks:\\n      - missing:\\n          qualifier: \\\"\\\"\\n  - name: amount\\n    checks:\\n      - invalid:\\n          valid_min: 0\\n      - invalid:\\n          qualifier: strict\\n          valid_min: 1\\n          valid_max: 200\\n          filter: country = 'BE'\\n      - aggregate:\\n          function: avg\\n          threshold:\\n            must_be_between:\\n              greater_than: 0\\n              less_than: 1000\\n  - name: country\\n    valid_reference_data:\\n      dataset: fixture_ds/main/countries\\n      column: code\\n    checks:\\n      - invalid:\\n          attributes:\\n            owner: geo\\n            priority: 1\\n  - name: status\\n  - name: updated_at\\nchecks:\\n  - schema:\\n  - row_count:\\n  - row_count:\\n      qualifier: 2\\n      threshold:\\n        must_be_greater_than: 1\\n  - freshness:\\n      column: updated_at\\n      threshold:\\n        unit: hour\\n        must_be_less_than: 24\\n  - duplicate:\\n      columns: [customer_id, country]\\n  - metric:\\n      expression: sum(amount) / count(*)\\n      threshold:\\n        must_be_greater_than: 0\\n  - failed_rows:\\n      expression: amount > 150\",\n  \"token\": \"****\"\n}",
       "timestamp": "<masked>",
       "index": 106,
       "thread": "soda-contract"
