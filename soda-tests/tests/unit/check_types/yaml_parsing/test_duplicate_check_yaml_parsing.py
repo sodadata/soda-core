@@ -8,7 +8,6 @@ Two variants:
 Common fields (name, filter, threshold, metric, attributes) are tested in test_common_check_yaml_features.py.
 """
 
-
 from helpers.yaml_parsing_helpers import parse_check_from_contract, parse_column_check
 
 
