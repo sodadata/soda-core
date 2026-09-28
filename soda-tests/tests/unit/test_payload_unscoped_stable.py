@@ -133,16 +133,20 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
 
 
 def _verify_fixture_contract(monkeypatch, caplog) -> dict:
+    # The first use of this singleton logs a line and loads a .env, which may set runner env vars; keep the
+    # line out of the recorded logs and clear the env vars after it.
+    EnvConfigHelper()
     # Runner env vars add or change payload fields.
     for env_var in ("SODA_SCAN_ID", "SODA_INSTRUCTION_ID", "SODA_SCAN_DATA_TIMESTAMP", "SODA_SCAN_DEFINITION"):
         monkeypatch.delenv(env_var, raising=False)
     # The log lines depend on verbose mode and on the root log level, which other tests may change.
     monkeypatch.setattr(logging_configuration, "verbose_mode", True)
-    # By default the SQL debug line stops at 1024 chars, which would leave the end of the metrics query unpinned.
+    # The debug print limits come from SODA_DEBUG_PRINT_* env vars at import; pin the defaults, except that by
+    # default the SQL debug line stops at 1024 chars, which would leave the end of the metrics query unpinned.
+    monkeypatch.setattr(DataSourceConnection, "MAX_CHARS_PER_STRING", 256)
+    monkeypatch.setattr(DataSourceConnection, "MAX_ROWS", 20)
     monkeypatch.setattr(DataSourceConnection, "MAX_CHARS_PER_SQL", 100_000)
     caplog.set_level(logging.DEBUG)
-    # The first use of this singleton logs a line; keep it out of the recorded logs.
-    EnvConfigHelper()
 
     soda_cloud = MockSodaCloud([MockResponse(status_code=200, json_object={"fileId": "fixture-file-id"})])
     ContractVerificationSession.execute(
