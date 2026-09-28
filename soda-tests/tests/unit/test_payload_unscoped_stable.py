@@ -25,11 +25,12 @@ import logging
 import os
 from pathlib import Path
 
+import dotenv
 import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import dedent_and_strip
-from soda_core.common import logging_configuration
+from soda_core.common import env_config_helper, logging_configuration
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.yaml import ContractYamlSource
@@ -219,3 +220,35 @@ def test_unscoped_payload_matches_recording(monkeypatch, caplog):
     _assert_lines_match_recording(
         recorded_payload_text.splitlines(), _to_json_text(masked_payload).splitlines(), "payload"
     )
+
+
+def _assert_payload_matches_recording(masked_payload: dict) -> None:
+    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+        pytest.skip(f"Records nothing; rerun without {RECORD_FIXTURES_ENV_VAR}")
+    _assert_lines_match_recording(
+        FIXTURE_PATH.read_text(encoding="utf-8").splitlines(), _to_json_text(masked_payload).splitlines(), "payload"
+    )
+
+
+@pytest.mark.parametrize(
+    "limit, value",
+    [("MAX_CHARS_PER_STRING", 5), ("MAX_ROWS", 1), ("MAX_CHARS_PER_SQL", 50)],
+)
+def test_debug_print_limits_from_the_environment_do_not_change_the_payload(monkeypatch, caplog, limit, value):
+    # DataSourceConnection reads each limit from a SODA_DEBUG_PRINT_* env var when it is imported, so a limit
+    # set in the environment has the same effect as this patch.
+    monkeypatch.setattr(DataSourceConnection, limit, value)
+    _assert_payload_matches_recording(_mask_run_varying_values(_verify_fixture_contract(monkeypatch, caplog)))
+
+
+def test_runner_env_vars_in_a_dotenv_file_do_not_change_the_payload(monkeypatch, caplog, tmp_path):
+    dotenv_path: Path = tmp_path / ".env"
+    dotenv_path.write_text("SODA_SCAN_ID=scan-from-dotenv\n", encoding="utf-8")
+    # load_dotenv writes os.environ directly; this records the value to restore after the test.
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    monkeypatch.setattr(
+        env_config_helper, "load_dotenv", lambda override=False: dotenv.load_dotenv(dotenv_path, override=override)
+    )
+    # A fresh singleton loads the .env on first use, as in a new process; the old one comes back afterwards.
+    monkeypatch.setattr(EnvConfigHelper, "_EnvConfigHelper__instance", None)
+    _assert_payload_matches_recording(_mask_run_varying_values(_verify_fixture_contract(monkeypatch, caplog)))
