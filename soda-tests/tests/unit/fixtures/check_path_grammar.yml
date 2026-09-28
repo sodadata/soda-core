@@ -7,11 +7,9 @@
 # Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scope work adds
 # each row again with the scope.eu: prefix. The Soda Cloud backend mirrors this list.
 #
-# TODO(X-4): the reconciliation rows come from the reconciliation check type, which lives in
-# soda-extensions, so they are recorded and asserted there:
-#   reconciliation.checks.row_count_diff
-#   reconciliation.payments.checks.aggregate_diff
-#   reconciliation.payments.checks.aggregate_diff.sum
+# The reconciliation path forms, such as reconciliation.checks.row_count_diff,
+# reconciliation.payments.checks.aggregate_diff and reconciliation.payments.checks.aggregate_diff.sum,
+# are pinned in soda-extensions, where the reconciliation check type lives.
 dataset: fixture_ds/main/orders
 rows:
   - checkPath: checks.row_count
