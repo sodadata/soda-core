@@ -472,7 +472,7 @@ def test_the_errors_carry_the_location_of_the_key_they_name():
     ]
 
 
-# The scoped example of the product brief, with its variables declared and referenced the way the engine reads them:
+# A contract that uses every part of scopes, with its variables declared and referenced the way the engine reads them:
 # 'name: {default: value}' and '${var.name}'. The reconciliation block needs an extension that core does not have.
 SCOPED_EXAMPLE: str = """
     dataset: snowflake/analytics/orders
