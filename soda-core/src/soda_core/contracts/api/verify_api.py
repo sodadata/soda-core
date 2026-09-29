@@ -4,7 +4,12 @@ from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
+from soda_core.common.exceptions import (
+    ContractFetchFailedException,
+    DatasetQueryException,
+    InvalidArgumentException,
+    SodaCloudException,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -423,11 +428,20 @@ def _create_contract_yamls(
             try:
                 contract: Optional[str] = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
             except SodaCloudException as exc:
-                fetch_error_results.append(_build_fetch_error_result(dataset_identifier, exc))
+                # A dataset query failure gives its reason without the dataset, so the line names
+                # the dataset once. Any other Soda Cloud failure falls back to its message.
+                reason: str = exc.reason if isinstance(exc, DatasetQueryException) else str(exc)
+                fetch_failure = ContractFetchFailedException(dataset_identifier, reason)
+                fetch_failure.__cause__ = exc
+                fetch_error_results.append(_build_fetch_error_result(fetch_failure))
                 continue
-            if not contract:
+            # Whitespace-only contents count as no contract: the YAML parser would reject them
+            # with an error that does not name the dataset.
+            if not contract or not contract.strip():
                 fetch_error_results.append(
-                    _build_fetch_error_result(dataset_identifier, SodaCloudException("Soda Cloud returned no contract"))
+                    _build_fetch_error_result(
+                        ContractFetchFailedException(dataset_identifier, "Soda Cloud returned no contract")
+                    )
                 )
                 continue
             contract_yaml_sources.append(ContractYamlSource.from_str(contract))
@@ -435,7 +449,7 @@ def _create_contract_yamls(
     return contract_yaml_sources, fetch_error_results
 
 
-def _build_fetch_error_result(dataset_identifier: str, exception: SodaCloudException) -> ContractVerificationResult:
+def _build_fetch_error_result(fetch_failure: ContractFetchFailedException) -> ContractVerificationResult:
     """An ERROR result for a dataset whose contract could not be fetched from Soda Cloud.
 
     Nothing was verified, so it has no checks and nothing is sent to Soda Cloud. The ERROR status
@@ -447,13 +461,13 @@ def _build_fetch_error_result(dataset_identifier: str, exception: SodaCloudExcep
     # The console still shows it.
     with preserve_active_logs():
         error_logs = Logs()
-        soda_logger.error(f"Could not fetch the contract for dataset '{dataset_identifier}': {exception}")
+        soda_logger.error(str(fetch_failure))
     return ContractVerificationResult(
         check_collection=Contract(
             data_source_name=None,
             dataset_prefix=[],
             dataset_name="",
-            soda_qualified_dataset_name=dataset_identifier,
+            soda_qualified_dataset_name=fetch_failure.dataset_identifier,
             source=YamlFileContentInfo(source_content_str=None, local_file_path=None),
         ),
         data_source=None,
@@ -466,7 +480,7 @@ def _build_fetch_error_result(dataset_identifier: str, exception: SodaCloudExcep
         sending_results_to_soda_cloud_failed=False,
         log_records=error_logs.get_log_records(),
         post_processing_stages=[],
-        error=exception,
+        error=fetch_failure,
     )
 
 
