@@ -23,7 +23,7 @@ from ruamel.yaml.comments import TaggedScalar
 from soda_core.common.filtered_cte import filtered_cte_alias
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
-from soda_core.common.yaml import YamlList, YamlObject, YamlSource
+from soda_core.common.yaml import VariableResolver, YamlList, YamlObject, YamlSource
 
 if TYPE_CHECKING:
     from soda_core.common.sql_ast import CTE
@@ -393,6 +393,27 @@ def check_scope_error(scope: Any, scopes: Mapping) -> Optional[str]:
         declared = f"Declared scopes: {_value_text(declared_keys)}" if declared_keys else "No scopes are declared"
         return f"Check references unknown scope {_value_text(scope)}. {declared}"
     return None
+
+
+def null_check_scope_error(check_body: Any, yaml_source: YamlSource) -> Optional[str]:
+    """Why a check whose ``scope`` reads as null must not run in the base scope. ``check_body`` is the body of the
+    check as written.
+
+    None when the body sets no ``scope``, or when it sets a lone reference whose resolving to null logged why.
+    """
+    if not isinstance(check_body, dict) or "scope" not in check_body:
+        return None
+    written: Any = check_body["scope"]
+    if written is None:
+        return "Check 'scope' must name a declared scope, but was null"
+    if VariableResolver.logs_unresolved_reference(
+        written,
+        variable_values=yaml_source.resolve_on_read_variable_values,
+        soda_variable_values=yaml_source.resolve_on_read_soda_variable_values,
+        use_env_vars=yaml_source.resolve_on_read_use_env_vars,
+    ):
+        return None
+    return f"Check 'scope' must name a declared scope, but {_value_text(written)} resolved to null"
 
 
 def check_scope_location(check_yaml_object: Optional[YamlObject]) -> Optional[Location]:
