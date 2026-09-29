@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest import mock
@@ -20,6 +21,7 @@ from soda_core.common.exceptions import (
     DatasetNotFoundException,
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
+    InvalidArgumentException,
     SodaCloudException,
 )
 from soda_core.common.soda_cloud import (
@@ -36,12 +38,14 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     ContractVerificationResult,
+    ContractVerificationSession,
     ContractVerificationSessionResult,
     ContractVerificationStatus,
     PostProcessingStage,
     PostProcessingStageState,
     ScanTokenUsage,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     ContractVerificationHandler,
@@ -492,6 +496,16 @@ def test_execute_over_runner(data_source_test_helper: DataSourceTestHelper):
                         must_be_less_than_or_equal: 2
         """,
     )
+
+    # Without check paths and check filters the command carries no executionOptions.
+    assert _runner_commands(data_source_test_helper.soda_cloud) == [
+        {
+            "type": "sodaCoreVerifyContract",
+            "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
+            "verbose": False,
+            "variables": {},
+        }
+    ]
 
 
 def test_execute_over_runner_completed_with_warnings(data_source_test_helper: DataSourceTestHelper):
@@ -1489,3 +1503,245 @@ def test_verify_contract_on_runner_keeps_polling_through_status_request_failure(
     assert res.status is ContractVerificationStatus.PASSED
     assert calls["count"] == 2
     assert any("retrying" in warning for warning in res.get_warnings())
+
+
+# ---- verify on the runner: check paths and check filters go up as the command's executionOptions ----
+
+_SCOPED_RUNNER_CONTRACT_YAML = """
+dataset: test/some/schema/CUSTOMERS
+scopes:
+  eu:
+    name: EU
+  us:
+    name: US
+  apac:
+    name: APAC
+columns:
+- name: id
+checks:
+- row_count:
+- row_count:
+    scope: eu
+"""
+
+_EU_US_RUNNER_CONTRACT_YAML = """
+dataset: test/some/schema/CUSTOMERS
+scopes:
+  eu:
+    name: EU
+  us:
+    name: US
+columns:
+- name: id
+"""
+
+_RUNNER_COMMAND_TYPES = ("sodaCoreVerifyContract", "sodaCoreTestContract")
+
+
+def _runner_commands(cloud: MockSodaCloud) -> list[dict]:
+    """The runner commands Cloud received, without the token the client adds to every request."""
+    return [
+        {key: value for key, value in request.json.items() if key != "token"}
+        for request in cloud.requests
+        if isinstance(request.json, dict) and request.json.get("type") in _RUNNER_COMMAND_TYPES
+    ]
+
+
+def _runner_completed() -> list[MockResponse]:
+    return [
+        _runner_allowed(),
+        _runner_uploaded(),
+        _runner_scan_created(),
+        _runner_scan_state("completed"),
+        _runner_scan_logs(),
+    ]
+
+
+def _runner_command_rejected(code: str, message: str) -> list[MockResponse]:
+    return [
+        _runner_allowed(),
+        _runner_uploaded(),
+        MockResponse(method=MockHttpMethod.POST, status_code=400, json_object={"code": code, "message": message}),
+    ]
+
+
+def _execute_session_on_runner(
+    cloud: MockSodaCloud,
+    check_paths: Optional[list[str]] = None,
+    check_filters: Optional[list[str]] = None,
+    publish: bool = True,
+    contract_yaml: str = _SCOPED_RUNNER_CONTRACT_YAML,
+) -> ContractVerificationSessionResult:
+    return ContractVerificationSession.execute(
+        contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml)],
+        soda_cloud_impl=cloud,
+        soda_cloud_publish_results=publish,
+        soda_cloud_use_runner=True,
+        check_paths=check_paths,
+        check_selectors=CheckSelector.parse_all(check_filters),
+    )
+
+
+@pytest.mark.parametrize("publish, command_type", [(True, "sodaCoreVerifyContract"), (False, "sodaCoreTestContract")])
+def test_runner_command_carries_check_paths_and_check_filters(publish: bool, command_type: str):
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_session_on_runner(
+        cloud,
+        check_paths=["a", "b"],
+        check_filters=["scope=eu", "scope=us", "scope!=apac"],
+        publish=publish,
+    )
+
+    assert interpret_contract_verification_result(session_result) == ExitCode.OK
+    [command] = _runner_commands(cloud)
+    assert command["type"] == command_type
+    # The check paths go up as given, and never as a check_path filter.
+    assert command["executionOptions"] == {
+        "checkPaths": ["a", "b"],
+        "checkFilters": [
+            {"field": "scope", "values": ["eu", "us"], "negate": False},
+            {"field": "scope", "values": ["apac"], "negate": True},
+        ],
+    }
+    assert list(command) == ["type", "contract", "verbose", "variables", "executionOptions"]
+
+
+def test_runner_command_carries_a_negated_check_filter():
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud, check_filters=["scope!=eu"])
+
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": True}]}
+    assert command["executionOptions"]["checkFilters"][0]["negate"] is True
+
+
+def test_runner_command_without_check_paths_and_check_filters_is_unchanged():
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud)
+
+    [command] = _runner_commands(cloud)
+    assert list(command) == ["type", "contract", "verbose", "variables"]
+    assert command == {
+        "type": "sodaCoreVerifyContract",
+        "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
+        "verbose": False,
+        "variables": {},
+    }
+
+
+@pytest.mark.parametrize(
+    "check_paths, check_filters, expected_execution_options",
+    [
+        pytest.param(
+            [], ["scope=eu"], {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": False}]}, id="no-paths"
+        ),
+        pytest.param(["a"], None, {"checkPaths": ["a"]}, id="no-filters"),
+        pytest.param([], [], None, id="neither"),
+    ],
+)
+def test_runner_command_omits_an_empty_list(
+    check_paths: list[str], check_filters: Optional[list[str]], expected_execution_options: Optional[dict]
+):
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud, check_paths=check_paths, check_filters=check_filters)
+
+    [command] = _runner_commands(cloud)
+    assert ("executionOptions" in command) is (expected_execution_options is not None)
+    assert command.get("executionOptions") == expected_execution_options
+
+
+def test_runner_command_has_one_check_filter_per_field_and_polarity():
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(
+        cloud,
+        check_filters=["name=row_count", "scope!=eu", "attributes.team=a", "scope=us", "name=missing", "scope=us"],
+    )
+
+    # In the order of each field and polarity's first filter, values in the order given, a repeated value once.
+    # Fields other than scope go up as written, for Cloud to reject.
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "name", "values": ["row_count", "missing"], "negate": False},
+            {"field": "scope", "values": ["eu"], "negate": True},
+            {"field": "attributes.team", "values": ["a"], "negate": False},
+            {"field": "scope", "values": ["us"], "negate": False},
+        ]
+    }
+
+
+def test_runner_command_sends_base_and_wildcard_scope_values_without_a_local_check():
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_session_on_runner(
+        cloud, check_filters=["scope=base", "scope=a*", "scope!=?u"], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
+    )
+
+    assert interpret_contract_verification_result(session_result) == ExitCode.OK
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "scope", "values": ["base", "a*"], "negate": False},
+            {"field": "scope", "values": ["?u"], "negate": True},
+        ]
+    }
+
+
+def test_runner_command_rejected_by_cloud_ends_in_error_with_the_cloud_message():
+    cloud = MockSodaCloud(
+        _runner_command_rejected("invalid_contract", "checkFilters field is missing or not one of: scope")
+    )
+
+    session_result = _execute_session_on_runner(cloud, check_filters=["name=row_count"])
+
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [{"field": "name", "values": ["row_count"], "negate": False}]
+    }
+    [result] = session_result.contract_verification_results
+    assert result.status is ContractVerificationStatus.ERROR
+    assert result.sending_results_to_soda_cloud_failed is True
+    assert any(
+        "checkFilters field is missing or not one of: scope" in error and "invalid_contract" in error
+        for error in result.get_errors()
+    )
+    assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_runner_sends_a_contradiction_up_unchanged():
+    message = "checkFilters value eu of field scope must not be both included and excluded"
+    cloud = MockSodaCloud(_runner_command_rejected("invalid_contract", message))
+
+    session_result = _execute_session_on_runner(cloud, check_filters=["scope=eu", "scope!=eu"])
+
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "scope", "values": ["eu"], "negate": False},
+            {"field": "scope", "values": ["eu"], "negate": True},
+        ]
+    }
+    [result] = session_result.contract_verification_results
+    assert result.status is ContractVerificationStatus.ERROR
+    assert any(message in error for error in result.get_errors())
+    assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@pytest.mark.parametrize(
+    "check_filter, unknown_key",
+    [("scope=apac", "apac"), ("scope!=apac", "apac"), ("scope=[eu,us]", "[eu,us]")],
+)
+def test_runner_refuses_an_unknown_scope_key_before_any_cloud_request(check_filter: str, unknown_key: str):
+    cloud = MockSodaCloud([])
+
+    with pytest.raises(InvalidArgumentException, match=re.escape(f"'{unknown_key}'")):
+        _execute_session_on_runner(
+            cloud, check_filters=["scope=eu", check_filter], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
+        )
+
+    assert cloud.requests == []
