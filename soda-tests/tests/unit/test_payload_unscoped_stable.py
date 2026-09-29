@@ -41,6 +41,7 @@ import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.snapshot_updates import UPDATE_SNAPSHOTS_ENV_VAR, updating_snapshots
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -366,6 +367,8 @@ def _snapshot_checks() -> list[dict]:
     return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))["payload"]["checks"]
 
 
+# Pins the EXCLUDED outcome of core alone, so it drops the soda-scopes extension wherever that is installed.
+@pytest.mark.usefixtures("without_scopes_extension")
 def test_declared_scopes_leave_the_unscoped_checks_as_in_the_snapshot(monkeypatch):
     session_result, unscoped_checks, scoped_checks = _verify_scoped_contract(monkeypatch)
 
