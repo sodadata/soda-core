@@ -347,6 +347,80 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     )
 
 
+# (command, its other required arguments, the handler that would parse, connect and call Cloud)
+CONTRACT_COMMANDS_TAKING_ONE_CONTRACT = [
+    ("verify", ["-ds", "ds.yaml", "-sc", "cloud.yaml"], "handle_verify_contract"),
+    ("publish", ["-sc", "cloud.yaml"], "handle_publish_contract"),
+    ("test", [], "handle_test_contract"),
+]
+
+
+@pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
+@pytest.mark.parametrize(
+    "contract_args",
+    [
+        ["-c", "a.yaml", "-c", "b.yaml"],
+        ["--contract", "a.yaml", "--contract=b.yaml"],
+    ],
+)
+def test_contract_command_refuses_a_second_contract_before_it_runs(command, other_args, handler_name, contract_args):
+    """A second -c used to replace the first without a word, so the command ran on b.yaml
+    only. It now fails with exit 3 before any parsing, query or Cloud call. Not argparse's
+    exit 2, which a launcher cannot tell apart from check warnings."""
+    logs = Logs()
+    sys.argv = ["soda", "contract", command, *contract_args, *other_args]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with patch(f"soda_core.cli.cli.{handler_name}") as mock_handler, patch(
+        "soda_core.cli.cli.resolve_soda_cloud_for_failure_report"
+    ) as mock_resolve_soda_cloud, patch("soda_core.cli.cli.run_scan") as mock_run_scan:
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == ExitCode.LOG_ERRORS
+    assert logs.get_errors() == [
+        f"soda contract {command} takes one contract, but -c/--contract was given 2 files: a.yaml, b.yaml. "
+        f"Run the command once per contract."
+    ]
+    mock_handler.assert_not_called()
+    mock_resolve_soda_cloud.assert_not_called()
+    mock_run_scan.assert_not_called()
+
+
+@pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
+@pytest.mark.parametrize("contract_args", [["-c", "a.yaml"], ["--contract", "a.yaml"], ["--contract=a.yaml"]])
+def test_contract_command_runs_one_contract_as_before(command, other_args, handler_name, contract_args):
+    sys.argv = ["soda", "contract", command, *contract_args, *other_args]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    assert args.contract == "a.yaml"
+    with patch(f"soda_core.cli.cli.{handler_name}", return_value=ExitCode.CHECK_FAILURES) as mock_handler:
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == ExitCode.CHECK_FAILURES
+    mock_handler.assert_called_once()
+    assert mock_handler.call_args.args[0] == "a.yaml"
+
+
+@pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
+def test_contract_command_without_a_value_for_contract_keeps_the_argparse_error(
+    command, other_args, handler_name, capsys
+):
+    sys.argv = ["soda", "contract", command, *other_args, "-c"]
+
+    parser = create_cli_parser()
+    with pytest.raises(SystemExit) as e:
+        parser.parse_args()
+
+    assert e.value.code == 2
+    assert "argument -c/--contract: expected one argument" in capsys.readouterr().err
+
+
 @patch("soda_core.cli.cli.handle_create_data_source")
 def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
