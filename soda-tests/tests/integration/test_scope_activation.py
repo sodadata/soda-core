@@ -3,6 +3,8 @@
 ``helpers.scope_activation_extension`` stands in for the module that runs declared scopes. Without it a declared
 scope stays inactive and core builds no SQL for it. Scoped and unscoped checks on the same column carry different
 qualifiers, so their check paths stay distinct.
+
+Every test here drops the soda-scopes extension, so only the stand-in activates scopes even with soda-scopes installed.
 """
 
 from __future__ import annotations
@@ -10,9 +12,12 @@ from __future__ import annotations
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.scope_activation_extension import scope_activation
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import CheckOutcome, ContractVerificationResult
 from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 test_table_specification = (
     TestTableSpecification.builder()
