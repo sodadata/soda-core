@@ -5,6 +5,7 @@ result that has errors instead of raising, and the CLI maps that result to exit 
 managed run marks its scan failed first, so exit code 3 means Soda Cloud has the failure.
 """
 
+import pickle
 import sys
 from logging import ERROR
 from typing import Optional
@@ -19,6 +20,7 @@ from soda_core.common.exceptions import (
     ContractFetchFailedException,
     ContractNotFoundException,
     DatasetNotFoundException,
+    DatasetQueryException,
     DataSourceNotFoundException,
     SodaCloudException,
 )
@@ -135,6 +137,39 @@ def test_contract_not_found_message_names_the_dataset_as_typed():
 
     assert f"No data contract found for dataset '{DATASET}' in Soda Cloud." in message
     assert "DatasetIdentifier(" not in message
+
+
+def _fetch_exceptions() -> list:
+    """Each exception with a reason that a fetch raises or a fetch failure result carries."""
+    parsed = DatasetIdentifier.parse(DATASET)
+    return [
+        pytest.param(
+            DatasetQueryException(
+                f"Failed 'sodaCoreGetContract' for dataset '{DATASET}': boom",
+                reason="Soda Cloud returned status 500: boom",
+            ),
+            id="DatasetQueryException",
+        ),
+        pytest.param(ContractNotFoundException(parsed), id="ContractNotFoundException"),
+        pytest.param(DatasetNotFoundException(parsed), id="DatasetNotFoundException"),
+        pytest.param(DataSourceNotFoundException(parsed), id="DataSourceNotFoundException"),
+        pytest.param(
+            ContractFetchFailedException(DATASET, "Soda Cloud returned no contract"), id="ContractFetchFailedException"
+        ),
+    ]
+
+
+@pytest.mark.parametrize("exception", _fetch_exceptions())
+def test_fetch_exception_survives_a_pickle_round_trip(exception):
+    # A caller that runs verify_contract in a worker process gets the result and its error back
+    # pickled.
+    round_tripped = pickle.loads(pickle.dumps(exception))
+
+    assert type(round_tripped) is type(exception)
+    assert str(round_tripped) == str(exception)
+    assert round_tripped.args == exception.args
+    assert round_tripped.message == exception.message
+    assert round_tripped.reason == exception.reason
 
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
