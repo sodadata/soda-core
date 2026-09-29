@@ -1,6 +1,8 @@
 import pytest
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.common.exceptions import YamlParserException
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
@@ -271,6 +273,28 @@ def test_contract_publication_skips_only_the_contract_with_errors():
     assert len(result) == 2
     assert result[0].contract is None
     assert result[1].contract.soda_qualified_dataset_name == "ds/db/sch/CUSTOMERS"
+
+
+def test_contract_publication_keeps_its_errors_when_another_logs_is_active():
+    mock_cloud = MockSodaCloud(publish_responses())
+    caller_logs = Logs()
+    builder = ContractPublication.builder(logs=caller_logs).with_contract_yaml_str(DUPLICATE_COLUMNS_CONTRACT_YAML)
+    # Constructing a Logs makes it the active capture target, so the caller's Logs is no longer active at build.
+    other_logs = Logs()
+
+    result = builder.with_soda_cloud(mock_cloud).build().execute()
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result.logs is caller_logs
+    assert caller_logs.get_errors() == [
+        "Duplicate columns with name 'id': At file locations: [2,4], [3,4]",
+        "Skipping publication of the contract because it has 1 error: "
+        "Duplicate columns with name 'id': At file locations: [2,4], [3,4]",
+    ]
+    assert other_logs.get_errors() == []
+    soda_logger.error("logged after the publication")
+    assert other_logs.get_errors() == ["logged after the publication"]
 
 
 # TODO @Niels: To be evaluated if still needed refactored after rework
