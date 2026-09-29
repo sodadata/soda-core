@@ -94,6 +94,43 @@ checks:
   - row_count:
 """
 
+# A scope value that is not a string names no declared scope, so its check counts as scoped.
+NON_STRING_SCOPES_CONTRACT: str = """\
+dataset: telemetry_ds/telemetry/main/telemetry_scopes
+scopes:
+  eu:
+    name: EU rows
+    filter: region = 'eu'
+columns:
+  - name: id
+    checks:
+      - missing:
+          scope: 7
+  - name: region
+checks:
+  - row_count:
+      scope: true
+  - row_count:
+"""
+
+# The engine reads a tagged 'base' as the base scope, so its check counts as unscoped.
+TAGGED_BASE_SCOPE_CONTRACT: str = """\
+dataset: telemetry_ds/telemetry/main/telemetry_scopes
+scopes:
+  eu:
+    name: EU rows
+    filter: region = 'eu'
+columns:
+  - name: id
+    checks:
+      - missing:
+          scope: !custom base
+  - name: region
+checks:
+  - row_count:
+      scope: eu
+"""
+
 SPAN_NAME: str = "telemetry_scopes_test"
 OUTPUT_PREFIX: str = "TELEMETRY_TEST_OUTPUT "
 
@@ -420,21 +457,30 @@ def test_session_ingest_sends_the_scope_and_excluded_counts(monkeypatch):
     assert recorded == [_counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=0, passed=0)]
 
 
-def test_publication_and_verification_count_invalid_scopes_alike(monkeypatch):
-    """Keys that no scope can have add no scope, and their checks count the way the engine places them."""
+@pytest.mark.parametrize(
+    "contract, expected_counts",
+    [
+        pytest.param(INVALID_SCOPES_CONTRACT, (1, 2, 2), id="invalid_keys"),
+        pytest.param(NON_STRING_SCOPES_CONTRACT, (1, 2, 1), id="non_string_values"),
+        pytest.param(TAGGED_BASE_SCOPE_CONTRACT, (1, 1, 1), id="tagged_base"),
+    ],
+)
+def test_publication_and_verification_count_invalid_scopes_alike(monkeypatch, contract, expected_counts):
+    """Keys and values that name no scope add no scope, and their checks count the way the engine places them."""
     recorded = _record_attributes(monkeypatch)
-    contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(INVALID_SCOPES_CONTRACT))
+    contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(contract))
 
     test_api.soda_telemetry.ingest_contract_publication(contract_yaml)
     session_result = ContractVerificationSession.execute(
-        contract_yaml_sources=[ContractYamlSource.from_str(INVALID_SCOPES_CONTRACT)],
+        contract_yaml_sources=[ContractYamlSource.from_str(contract)],
         only_validate_without_execute=True,
     )
 
-    assert recorded == [_counts(scopes=1, scoped=2, unscoped=2)]
+    scopes, scoped, unscoped = expected_counts
+    assert recorded == [_counts(scopes=scopes, scoped=scoped, unscoped=unscoped)]
     [result] = session_result.contract_verification_results
     assert result.status is CheckCollectionStatus.ERROR
-    assert (result.scopes_count, result.scoped_checks_count, result.unscoped_checks_count) == (1, 2, 2)
+    assert (result.scopes_count, result.scoped_checks_count, result.unscoped_checks_count) == expected_counts
 
 
 def test_publication_counts_a_contract_without_checks(monkeypatch):
