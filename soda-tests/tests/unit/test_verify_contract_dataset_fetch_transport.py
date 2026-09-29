@@ -6,6 +6,7 @@ run sends, are exercised end to end.
 """
 
 import json
+import pickle
 import sys
 from logging import ERROR
 from pathlib import Path
@@ -217,6 +218,32 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_rejects_the_failure_report(monk
     assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
 
 
+@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
+def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_and_the_report(
+    monkeypatch, caplog, config_files, extra_args
+):
+    # The fetch and the failure report both fail to reach Soda Cloud, so exit 3 would claim a
+    # delivery that never happened.
+    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
+    attempts: list[str] = []
+
+    def unreachable(soda_cloud: SodaCloud, request_log_name: str = None, **kwargs) -> Response:
+        attempts.append((kwargs.get("json") or {}).get("type"))
+        raise requests.exceptions.ConnectionError("Connection refused")
+
+    monkeypatch.setattr(SodaCloud, "_http_post", unreachable)
+    data_source_file, soda_cloud_file = config_files
+
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    # Each attempt dies at login: one for the fetch, one for the failure report.
+    assert attempts == ["login", "login"]
+    assert [message for message in _error_messages(caplog) if DATASET in message] == [
+        _fetch_failure_line("no response from Soda Cloud")
+    ]
+
+
 @pytest.mark.parametrize("scan_id", [None, SCAN_ID], ids=["ad-hoc", "managed"])
 @pytest.mark.parametrize("get_contract, reason", REJECTING_RESPONSES)
 def test_api_reports_the_failed_fetch_in_the_result_without_raising_or_marking(
@@ -242,6 +269,28 @@ def test_api_reports_the_failed_fetch_in_the_result_without_raising_or_marking(
     assert not result.is_ok
     assert result.get_errors() == [_fetch_failure_line(reason)]
     assert transport.request_types == ["sodaCoreGetContract"]
+
+
+@pytest.mark.parametrize("get_contract, reason", REJECTING_RESPONSES)
+def test_api_result_for_a_failed_fetch_survives_a_pickle_round_trip(monkeypatch, config_files, get_contract, reason):
+    # A caller that runs verify_contract in a worker process gets the result back pickled.
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    monkeypatch.setattr(SodaCloud, "_http_post", _Transport(get_contract))
+    data_source_file, soda_cloud_file = config_files
+
+    result = verify_contract(
+        contract_file_path=None,
+        dataset_identifier=DATASET,
+        data_source_file_path=data_source_file,
+        soda_cloud_file_path=soda_cloud_file,
+        publish=False,
+    )
+    round_tripped = pickle.loads(pickle.dumps(result))
+
+    assert round_tripped.has_errors
+    assert round_tripped.get_errors() == [_fetch_failure_line(reason)]
+    [contract_result] = round_tripped.contract_verification_results
+    assert str(contract_result.error) == _fetch_failure_line(reason)
 
 
 def _check_outcomes(result) -> list[tuple]:
