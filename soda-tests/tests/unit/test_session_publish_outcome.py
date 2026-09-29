@@ -11,6 +11,9 @@ clean run:
 * a collection whose file upload is rejected holds back the whole combined upload, and
   the run exits RESULTS_NOT_SENT_TO_CLOUD, alone or next to others; a contract whose file
   upload is rejected exits the same way;
+* whenever results could not be sent, a managed scan is marked failed once, with the
+  records of every file, since the launcher commands that verify do not mark it; an
+  ad-hoc run sends no mark;
 * a run where every collection succeeds sends what it always sent.
 
 The first part drives the executor with a combine-upload test kind and no data source.
@@ -62,11 +65,17 @@ _SCAN_ID = "scan-under-test"
 
 class _SodaCloud(MockSodaCloud):
     """Accepts every command, except the file uploads whose contents hold
-    ``reject_file_upload_containing`` and, when asked, the mark."""
+    ``reject_file_upload_containing`` and, when asked, the insert and the mark."""
 
-    def __init__(self, reject_file_upload_containing: Optional[str] = None, reject_mark: bool = False):
+    def __init__(
+        self,
+        reject_file_upload_containing: Optional[str] = None,
+        reject_insert: bool = False,
+        reject_mark: bool = False,
+    ):
         super().__init__()
         self._reject_file_upload_containing = reject_file_upload_containing
+        self._reject_insert = reject_insert
         self._reject_mark = reject_mark
 
     def _http_handle(self, method, url, headers, json, data):
@@ -77,6 +86,8 @@ class _SodaCloud(MockSodaCloud):
                 return MockResponse(status_code=500, json_object={"message": "rejected"})
             return MockResponse(json_object={"fileId": f"file-{len(self.requests)}"})
         if command_type == "sodaCoreInsertScanResults":
+            if self._reject_insert:
+                return MockResponse(status_code=500, json_object={"message": "rejected"})
             return MockResponse(json_object={"scanId": _SCAN_ID})
         if command_type == "sodaCoreMarkScanFailed" and self._reject_mark:
             return MockResponse(status_code=500, json_object={"message": "rejected"})
@@ -429,19 +440,62 @@ def test_ad_hoc_file_that_never_became_a_collection_sends_nothing_and_exits_3(mo
     ],
     ids=["lone", "second_of_two", "first_of_two", "next_to_errored", "next_to_errored_nothing_evaluated"],
 )
-def test_rejected_file_upload_sends_nothing_and_exits_results_not_sent(
+def test_rejected_file_upload_holds_back_the_group_and_exits_results_not_sent(
     monkeypatch, managed: bool, labels: list[str], rejected_label: str
 ):
     """Soda Cloud rejected one file, so its collection cannot be part of the scan. A
-    combined upload of the others would read as a complete run: nothing goes up, no
-    mark either, and the exit code tells a managed run's launcher to mark the scan failed."""
+    combined upload of the others would read as a complete run, so nothing is inserted.
+    A managed scan is marked failed once, with every file's records, since no launcher
+    command that verifies marks it. An ad-hoc run has no scan to mark."""
     results, exit_code, soda_cloud = _verify(
         monkeypatch, labels, managed, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
     )
 
     assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    if managed:
+        [mark] = marks
+        assert mark["scanId"] == _SCAN_ID
+        errors = _log_messages(mark, level="error")
+        assert any("did not upload to Soda Cloud" in message for message in errors)
+        for label in labels:
+            assert f"Built {label}" in _log_messages(mark)
+            if label.startswith("unparseable"):
+                assert f"{label} does not parse" in errors
+    else:
+        assert marks == []
     assert all(result.sending_results_to_soda_cloud_failed for result in results)
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@_MANAGED
+def test_rejected_insert_marks_a_managed_scan_failed_and_exits_results_not_sent(monkeypatch, managed: bool):
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch, ["healthy-a", "unparseable-b"], managed, soda_cloud=_SodaCloud(reject_insert=True)
+    )
+
+    assert len(soda_cloud.requests_of_type("sodaCoreInsertScanResults")) == 1
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    if managed:
+        [mark] = marks
+        assert "unparseable-b does not parse" in _log_messages(mark, level="error")
+        assert "Built healthy-a" in _log_messages(mark)
+    else:
+        assert marks == []
+    assert all(result.sending_results_to_soda_cloud_failed for result in results)
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_held_back_group_is_marked_failed_once_even_when_the_mark_is_rejected(monkeypatch):
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch,
+        ["unparseable-a", "healthy-b"],
+        managed=True,
+        soda_cloud=_SodaCloud(reject_file_upload_containing="healthy-b", reject_mark=True),
+    )
+
+    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
+    assert len(soda_cloud.requests_of_type("sodaCoreMarkScanFailed")) == 1
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
@@ -571,7 +625,7 @@ def test_combined_contract_filter_selecting_only_the_unparseable_one_marks_the_s
     ],
     ids=["lone", "second_of_two"],
 )
-def test_combined_contract_with_a_rejected_file_upload_sends_nothing_and_exits_results_not_sent(
+def test_combined_contract_with_a_rejected_file_upload_sends_no_results_and_exits_results_not_sent(
     data_source_test_helper: DataSourceTestHelper, monkeypatch, combined_contracts, managed: bool, checks_yamls
 ):
     session_result, exit_code, soda_cloud = _verify_contracts(
@@ -583,7 +637,12 @@ def test_combined_contract_with_a_rejected_file_upload_sends_nothing_and_exits_r
     )
 
     assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    if managed:
+        [mark] = marks
+        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
+    else:
+        assert marks == []
     assert all(result.sending_results_to_soda_cloud_failed for result in session_result.contract_verification_results)
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
@@ -592,8 +651,9 @@ def test_combined_contract_with_a_rejected_file_upload_sends_nothing_and_exits_r
 def test_contract_with_a_rejected_file_upload_exits_results_not_sent(
     data_source_test_helper: DataSourceTestHelper, monkeypatch, managed: bool
 ):
-    """The per-file path of a single contract: nothing reaches Soda Cloud, so the run
-    must not exit 0, and the reason is in the results."""
+    """The per-file path of a single contract: no results reach Soda Cloud, so the run
+    must not exit 0, the reason is in the results, and a managed scan is marked failed
+    with the contract's records."""
     session_result, exit_code, soda_cloud = _verify_contracts(
         data_source_test_helper,
         monkeypatch,
@@ -607,14 +667,56 @@ def test_contract_with_a_rejected_file_upload_exits_results_not_sent(
     assert result.sending_results_to_soda_cloud_failed is True
     assert any("Not sending results to Soda Cloud" in error for error in result.get_errors())
     assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    if managed:
+        [mark] = marks
+        assert mark["scanId"] == _SCAN_ID
+        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
+        assert result.scan_id is None
+    else:
+        assert marks == []
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@_MANAGED
+def test_contract_with_a_rejected_insert_exits_results_not_sent(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, managed: bool
+):
+    session_result, exit_code, soda_cloud = _verify_contracts(
+        data_source_test_helper,
+        monkeypatch,
+        [_HEALTHY_CONTRACT],
+        managed,
+        soda_cloud=_SodaCloud(reject_insert=True),
+    )
+
+    assert len(soda_cloud.requests_of_type("sodaCoreInsertScanResults")) == 1
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    assert len(marks) == (1 if managed else 0)
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_contract_whose_mark_is_rejected_is_marked_once(data_source_test_helper: DataSourceTestHelper, monkeypatch):
+    """The contract errored before its results, so its managed scan is marked failed. Soda
+    Cloud rejects the mark and the run exits RESULTS_NOT_SENT_TO_CLOUD, with no second mark."""
+    session_result, exit_code, soda_cloud = _verify_contracts(
+        data_source_test_helper,
+        monkeypatch,
+        [_UNPARSEABLE_CONTRACT],
+        managed=True,
+        soda_cloud=_SodaCloud(reject_mark=True),
+    )
+
+    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
+    assert len(soda_cloud.requests_of_type("sodaCoreMarkScanFailed")) == 1
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
 @_MANAGED
 def test_contract_verify_cli_with_a_rejected_file_upload_exits_results_not_sent(monkeypatch, tmp_path, managed: bool):
     """soda contract verify end to end through its failure boundary: the file upload is
-    rejected, nothing reaches Soda Cloud, and the CLI exits RESULTS_NOT_SENT_TO_CLOUD."""
+    rejected, no results reach Soda Cloud, a managed scan is marked failed once, and the
+    CLI exits RESULTS_NOT_SENT_TO_CLOUD."""
     import duckdb
 
     _set_scan_id(monkeypatch, managed)
@@ -650,5 +752,10 @@ def test_contract_verify_cli_with_a_rejected_file_upload_exits_results_not_sent(
 
     assert len(soda_cloud.requests_of_type("sodaCoreUploadContractFile")) == 1
     assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    if managed:
+        [mark] = marks
+        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
+    else:
+        assert marks == []
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
