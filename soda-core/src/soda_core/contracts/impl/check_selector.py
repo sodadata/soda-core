@@ -212,3 +212,18 @@ class CheckSelector:
             if any(s.matches(check_impl) for s in negated):
                 return False
         return True
+
+
+# Help for -cf/--check-filter, shared by every CLI that takes check filters.
+# Generated from the parser's own field set so help, error message and
+# docs cannot drift apart again.
+CHECK_FILTER_HELP: str = (
+    "Filter checks by attributes. Format: key=value. "
+    f"Supported keys: {', '.join(sorted(CheckSelector.SUPPORTED_FIELDS))}, "
+    f"{CheckSelector.ATTRIBUTES_PREFIX}<key>. "
+    "Multiple filters: AND across fields, OR within same field. "
+    "Use key!=value to exclude the checks that match. "
+    "Wildcards (* and ?) supported in values. "
+    "For list attributes: key=value for member match, key=[a,b] for exact list match. "
+    'Quote values containing shell special characters: -cf "attributes.tags=[a,b]".'
+)

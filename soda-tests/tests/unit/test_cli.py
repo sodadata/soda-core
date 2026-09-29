@@ -7,7 +7,7 @@ import pytest
 from soda_core.cli.cli import create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
-from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
 
 # from soda_core.cli.soda import CLI
 
@@ -715,3 +715,17 @@ def test_check_filter_help_explains_negation():
     check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
 
     assert "key!=value" in check_filter_action.help
+
+
+def test_check_filter_help_is_the_shared_constant():
+    """Other CLIs that take -cf import CHECK_FILTER_HELP, so contract verify must show exactly that text."""
+    verify_parser = (
+        create_cli_parser()
+        ._subparsers._group_actions[0]
+        .choices["contract"]
+        ._subparsers._group_actions[0]
+        .choices["verify"]
+    )
+    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
+
+    assert check_filter_action.help == CHECK_FILTER_HELP
