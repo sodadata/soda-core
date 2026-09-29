@@ -3,6 +3,8 @@
 A contract checks its scope input while the YAML is parsed, so ``soda contract test`` and publication report
 the same errors. Each error names the key it is about, carries its location and ends the file with errors, which
 ``soda contract test`` reports with exit code 3. A kind without scope support never validates scope input.
+
+Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from typing import Optional
 
 import pytest
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND, ScopeUnsupportedImpl
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from ruamel.yaml import YAML
 from soda_core.check_collections.base import CheckCollectionImpl
@@ -29,6 +32,8 @@ from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckImpl, ContractImpl
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ContractYaml
 from soda_core.contracts.impl.scope import RESERVED_SCOPE_KEYS, scope_key_error
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 SCOPE_KEYS_FIXTURE_PATH: Path = Path(__file__).parent.parent / "fixtures" / "scope_keys.yml"
 
