@@ -1,14 +1,22 @@
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
-from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
+from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
+    Contract,
+    ContractVerificationResult,
+    ContractVerificationSession,
+    ContractVerificationSessionResult,
+    YamlFileContentInfo,
+)
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
@@ -302,7 +310,14 @@ def verify_contract(
         soda_cloud_client,
     )
 
-    contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
+    contract_yaml_sources, fetch_error_results = _create_contract_yamls(
+        contract_file_paths, dataset_identifiers, soda_cloud_client
+    )
+
+    # A contract that could not be fetched fails the run. An empty result has no errors, so the
+    # CLI would exit 0 on it.
+    if fetch_error_results:
+        return ContractVerificationSessionResult(contract_verification_results=fetch_error_results)
 
     if len(contract_yaml_sources) == 0:
         soda_logger.debug("No contracts given. Exiting.")
@@ -394,8 +409,11 @@ def _create_contract_yamls(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
-) -> list[ContractYamlSource]:
-    contract_yaml_sources = []
+) -> tuple[list[ContractYamlSource], list[ContractVerificationResult]]:
+    """Returns the contract YAML sources to verify, and an ERROR result for each dataset whose
+    contract could not be fetched from Soda Cloud."""
+    contract_yaml_sources: list[ContractYamlSource] = []
+    fetch_error_results: list[ContractVerificationResult] = []
 
     if contract_file_paths:
         contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
@@ -403,15 +421,53 @@ def _create_contract_yamls(
     if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
         for dataset_identifier in dataset_identifiers:
             try:
-                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+                contract: Optional[str] = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
             except SodaCloudException as exc:
-                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
+                fetch_error_results.append(_build_fetch_error_result(dataset_identifier, exc))
+                continue
+            if not contract:
+                fetch_error_results.append(
+                    _build_fetch_error_result(dataset_identifier, SodaCloudException("Soda Cloud returned no contract"))
+                )
+                continue
+            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
 
-    if not contract_yaml_sources:
-        return []
+    return contract_yaml_sources, fetch_error_results
 
-    return contract_yaml_sources
+
+def _build_fetch_error_result(dataset_identifier: str, exception: SodaCloudException) -> ContractVerificationResult:
+    """An ERROR result for a dataset whose contract could not be fetched from Soda Cloud.
+
+    Nothing was verified, so it has no checks and nothing is sent to Soda Cloud. The ERROR status
+    makes the session result report errors, and the log records carry the message.
+    """
+    now = datetime.now(tz=timezone.utc)
+    # Captured into the result's own Logs, the way build_error_result does for a check
+    # collection that fails before producing output, so the error travels with the result.
+    # The console still shows it.
+    with preserve_active_logs():
+        error_logs = Logs()
+        soda_logger.error(f"Could not fetch the contract for dataset '{dataset_identifier}': {exception}")
+    return ContractVerificationResult(
+        check_collection=Contract(
+            data_source_name=None,
+            dataset_prefix=[],
+            dataset_name="",
+            soda_qualified_dataset_name=dataset_identifier,
+            source=YamlFileContentInfo(source_content_str=None, local_file_path=None),
+        ),
+        data_source=None,
+        data_timestamp=None,
+        started_timestamp=now,
+        ended_timestamp=now,
+        status=CheckCollectionStatus.ERROR,
+        measurements=[],
+        check_results=[],
+        sending_results_to_soda_cloud_failed=False,
+        log_records=error_logs.get_log_records(),
+        post_processing_stages=[],
+        error=exception,
+    )
 
 
 def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:
