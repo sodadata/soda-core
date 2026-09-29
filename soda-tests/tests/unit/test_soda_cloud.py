@@ -1745,3 +1745,68 @@ def test_runner_refuses_an_unknown_scope_key_before_any_cloud_request(check_filt
         )
 
     assert cloud.requests == []
+
+
+def _execute_files_on_runner(
+    cloud: MockSodaCloud, contract_yamls: list[str], check_filters: list[str]
+) -> ContractVerificationSessionResult:
+    return ContractVerificationSession.execute(
+        contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml) for contract_yaml in contract_yamls],
+        soda_cloud_impl=cloud,
+        soda_cloud_publish_results=True,
+        soda_cloud_use_runner=True,
+        check_selectors=CheckSelector.parse_all(check_filters),
+    )
+
+
+def test_runner_keeps_an_invalid_argument_while_sending_to_its_own_file(monkeypatch: pytest.MonkeyPatch):
+    """Only the scope key check stops a runner session. Any other error while sending a file, an invalid argument
+    too, becomes that file's ERROR result and the next file still goes up."""
+    verify_on_runner = ContractImpl.verify_on_runner
+    sent_files: list[ContractImpl] = []
+
+    def verify_on_runner_refusing_the_first_file(self: ContractImpl, **kwargs) -> ContractVerificationResult:
+        sent_files.append(self)
+        if len(sent_files) == 1:
+            raise InvalidArgumentException("refused while sending the first file")
+        return verify_on_runner(self, **kwargs)
+
+    monkeypatch.setattr(ContractImpl, "verify_on_runner", verify_on_runner_refusing_the_first_file)
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_files_on_runner(
+        cloud, [_EU_US_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=eu"]
+    )
+
+    first_result, second_result = session_result.contract_verification_results
+    assert first_result.status is ContractVerificationStatus.ERROR
+    assert any("refused while sending the first file" in error for error in first_result.get_errors())
+    assert second_result.status is ContractVerificationStatus.PASSED
+    assert [command["executionOptions"] for command in _runner_commands(cloud)] == [
+        {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": False}]}
+    ]
+
+
+def test_runner_keeps_a_file_that_fails_to_build_to_its_own_error():
+    """A file that fails to build gets an ERROR result and sends nothing, so no scope key check runs for it. The
+    next file's keys are checked on their own and it goes up."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_files_on_runner(cloud, ["- not a mapping\n", _EU_US_RUNNER_CONTRACT_YAML], ["scope=eu"])
+
+    first_result, second_result = session_result.contract_verification_results
+    assert first_result.status is ContractVerificationStatus.ERROR
+    assert any("root must be an object" in error for error in first_result.get_errors())
+    assert second_result.status is ContractVerificationStatus.PASSED
+    assert len(_runner_commands(cloud)) == 1
+
+
+def test_runner_checks_scope_keys_per_file():
+    """Soda Cloud checks the scope keys of each contract on its own, so the runner path does too: a key that only
+    another file declares is unknown, and the error stops the session."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    with pytest.raises(InvalidArgumentException, match=re.escape("'apac'")):
+        _execute_files_on_runner(cloud, [_SCOPED_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=apac"])
+
+    assert len(_runner_commands(cloud)) == 1
