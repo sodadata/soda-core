@@ -10,6 +10,7 @@ from numbers import Number
 from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
+from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.error import MarkedYAMLError
 from soda_core.common.exceptions import InvalidDataSourceConfigurationException, YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -192,11 +193,18 @@ class YamlSource:
                 )
 
         except MarkedYAMLError as e:
+            message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
+            if isinstance(e, DuplicateKeyError) and e.problem_mark:
+                # The problem names the key, and its mark is the second occurrence of the key. The context mark
+                # is only where the mapping starts. The problem goes on to print both values, which can be a
+                # password in a data source file, so the message stops at the key.
+                message = f"YAML syntax error: {str(e.problem).split(' with value ', 1)[0]}"
+                mark = e.problem_mark
             line = mark.line + 1
             col = mark.column + 1
             location = Location(file_path=self.file_path, line=line, column=col)
-            raise YamlParserException(f"YAML syntax error", str(location))
+            raise YamlParserException(message, str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
