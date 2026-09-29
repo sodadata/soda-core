@@ -41,8 +41,10 @@ class ContractPublicationImpl:
             else:
                 for contract_yaml_source in contract_yaml_sources:
                     error_count_before_parse: int = len(self.logs.get_errors())
-                    contract_yaml: ContractYaml = ContractYaml.parse(
-                        yaml_source=contract_yaml_source, provided_variable_values=variables
+                    contract_yaml: ContractYaml = ContractYaml(
+                        yaml_source=contract_yaml_source,
+                        provided_variable_values=variables,
+                        leave_variables_without_value_unresolved=True,
                     )
                     self.contract_yamls.append(contract_yaml)
                     self.contract_yaml_errors.append(self.logs.get_errors()[error_count_before_parse:])
@@ -61,18 +63,12 @@ class ContractPublicationImpl:
             )
 
     def _publish_contract(self, contract_yaml: ContractYaml, parse_errors: list[str]) -> ContractPublicationResult:
-        errors: list[str] = _errors_that_block_publication(contract_yaml, parse_errors)
-        if errors:
+        if parse_errors:
             file_path: Optional[str] = contract_yaml.yaml_source.file_path
             contract_name: str = f"contract '{file_path}'" if file_path else "the contract"
-            error_count: str = "1 error" if len(errors) == 1 else f"{len(errors)} errors"
-            logger.error(f"Skipping publication of {contract_name} because it has {error_count}: {'; '.join(errors)}")
+            error_count: str = "1 error" if len(parse_errors) == 1 else f"{len(parse_errors)} errors"
+            logger.error(
+                f"Skipping publication of {contract_name} because it has {error_count}: {'; '.join(parse_errors)}"
+            )
             return ContractPublicationResult(contract=None)
         return self.soda_cloud.publish_contract(contract_yaml)
-
-
-def _errors_that_block_publication(contract_yaml: ContractYaml, parse_errors: list[str]) -> list[str]:
-    # Publish has no variable values and uploads the contract text unresolved. A variable without
-    # a default gets its value when the contract is verified, so it does not block publication.
-    missing_variable_value_errors: set[str] = {variable.missing_value_error() for variable in contract_yaml.variables}
-    return [error for error in parse_errors if error not in missing_variable_value_errors]

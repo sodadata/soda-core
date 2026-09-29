@@ -76,6 +76,7 @@ class ContractYaml(CheckCollectionYaml):
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         yaml_object: Optional[YamlObject] = None,
+        leave_variables_without_value_unresolved: bool = False,
     ):
         # ``yaml_source``, ``yaml_object``, ``kind``, ``execution_timestamp``,
         # and ``data_timestamp`` are first-class fields on the base
@@ -113,6 +114,7 @@ class ContractYaml(CheckCollectionYaml):
             variable_yamls=self.variables,
             provided_variable_values=provided_variable_values,
             soda_variable_values=soda_variable_values,
+            leave_variables_without_value_unresolved=leave_variables_without_value_unresolved,
         )
 
         if "NOW" in self.resolved_variable_values:
@@ -170,6 +172,7 @@ class ContractYaml(CheckCollectionYaml):
         variable_yamls: list[VariableYaml],
         provided_variable_values: Optional[dict[str, str]],
         soda_variable_values: Optional[dict[str, str]],
+        leave_variables_without_value_unresolved: bool = False,
     ) -> dict[str, str]:
         variable_values: dict[str, str] = {}
 
@@ -184,7 +187,12 @@ class ContractYaml(CheckCollectionYaml):
 
         for variable_yaml in variable_yamls:
             if variable_values.get(variable_yaml.name) is None:
-                logger.error(variable_yaml.missing_value_error())
+                if leave_variables_without_value_unresolved:
+                    # Publishing needs no variable values. A variable without one gets its value when the contract is
+                    # verified, so until then it resolves to its own reference and is not an error.
+                    variable_values[variable_yaml.name] = f"${{var.{variable_yaml.name}}}"
+                else:
+                    logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
 
         if isinstance(provided_variable_values, dict) and "NOW" in provided_variable_values:
             now_str: str = provided_variable_values["NOW"]
@@ -397,9 +405,6 @@ class VariableYaml:
             if variable_yaml_object
             else None
         )
-
-    def missing_value_error(self) -> str:
-        return f"Required variable '{self.name}' did not get a value"
 
 
 class ValidReferenceDataYaml:

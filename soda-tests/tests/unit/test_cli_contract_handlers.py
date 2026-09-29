@@ -258,6 +258,14 @@ def _publish_contract_file(tmp_path, contract_yaml_str: str) -> tuple[ExitCode, 
             "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\n  - name: id\n", id="contract_validation_error"
         ),
         pytest.param("dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n", id="yaml_syntax_error"),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - not_a_check:\n",
+            id="invalid_check_type",
+        ),
+        pytest.param(
+            'dataset: ds/db/sch/CUSTOMERS\nfilter: "id > ${var.UNDECLARED}"\ncolumns:\n  - name: id\n',
+            id="undeclared_variable",
+        ),
     ],
 )
 def test_handle_publish_contract_uploads_nothing_when_the_contract_has_errors(tmp_path, contract_yaml_str):
@@ -283,6 +291,39 @@ def test_handle_publish_contract_uploads_a_valid_contract(tmp_path):
         "fileId": "fake_file_id",
         "metadata": {"source": {"type": "local", "filePath": contract_file_path}},
     }
+
+
+REQUIRED_VARIABLE_CONTRACT_YAML = (
+    "dataset: ds/db/sch/CUSTOMERS\nvariables:\n  QUERY:\ncolumns:\n  - name: id\nchecks:\n"
+    "  - metric:\n      query: ${var.QUERY}\n      threshold:\n        must_be_greater_than: 0\n"
+)
+
+
+def test_handle_publish_contract_uploads_a_contract_with_a_variable_without_value(tmp_path, caplog):
+    exit_code, mock_cloud, _ = _publish_contract_file(tmp_path, REQUIRED_VARIABLE_CONTRACT_YAML)
+
+    assert exit_code == ExitCode.OK
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == []
+    assert [request.json["type"] for request in mock_cloud.requests] == [
+        "sodaCoreCanManageContracts",
+        "sodaCoreUploadContractFile",
+        "sodaCorePublishContract",
+    ]
+    assert mock_cloud.requests[1].json["contents"] == REQUIRED_VARIABLE_CONTRACT_YAML
+
+
+def test_handle_test_contract_still_reports_a_variable_without_value(tmp_path, caplog):
+    contract_file_path = str(tmp_path / "contract.yml")
+    with open(contract_file_path, "w") as contract_file:
+        contract_file.write(REQUIRED_VARIABLE_CONTRACT_YAML)
+
+    exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={})
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
+        "Required variable 'QUERY' did not get a value",
+        "In a 'metric' check, either 'expression' or 'query' is required",
+    ]
 
 
 def test_handle_publish_contract_logs_a_yaml_syntax_error_in_one_line(tmp_path, caplog):
