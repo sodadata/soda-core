@@ -520,7 +520,7 @@ def _mark_scan_failed(
         for result in results_to_mark_failed:
             result.sending_results_to_soda_cloud_failed = True
         return
-    # Stamp the known scan id (so post-processing failure reporting can update Cloud) and
+    # Stamp the known scan id, so post-processing failure reporting can update Cloud, and
     # pass it explicitly. Forward the first stored exception too, which a file that never
     # became a collection carries on result.error.
     # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
