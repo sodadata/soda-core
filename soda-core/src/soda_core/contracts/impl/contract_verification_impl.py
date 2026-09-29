@@ -532,6 +532,9 @@ class CheckCollectionImplExtension(Protocol):
     def build_queries(self, contract_impl: CheckCollectionImpl) -> list[Query]:
         return []
 
+    def activate_scopes(self, contract_impl: CheckCollectionImpl) -> None:
+        return None
+
 
 class ContractImpl(CheckCollectionImpl):
     """Contract subtype — same engine as ``CheckCollectionImpl``, contract identity.
@@ -1441,7 +1444,23 @@ class CheckImpl:
             return default_check_name
         return check_yaml.type_name
 
+    def _apply_scope_to_metric(self, metric_impl: MetricImpl) -> MetricImpl:
+        """Puts a metric on the collection's dataset in this check's scope, before it is resolved.
+
+        A metric that already has a scope comes back untouched. Only a declared scope rebuilds the id, so a
+        base metric keeps its id, including any suffix a caller added before resolving it.
+        """
+        if metric_impl.scope is not None:
+            return metric_impl
+        if metric_impl.dataset_identifier is not self.contract_impl.dataset_identifier:
+            return metric_impl
+        metric_impl.scope = self.scope
+        if not self.scope.is_base:
+            metric_impl.id = metric_impl._build_id()
+        return metric_impl
+
     def _resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
+        self._apply_scope_to_metric(metric_impl)
         resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
         return resolved_metric_impl
@@ -1593,6 +1612,9 @@ class MissingAndValidityCheckImpl(CheckImpl):
 
 
 class MetricImpl:
+    # The scope the metric is measured in. None until a check puts it in one; stubs that skip __init__ read None.
+    scope: Optional[Scope] = None
+
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -1606,6 +1628,7 @@ class MetricImpl:
         dataset_identifier: Optional[DatasetIdentifier] = None,
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1621,6 +1644,8 @@ class MetricImpl:
             self.data_source_impl = data_source_impl
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
+        # Set before the id, which reads it.
+        self.scope: Optional[Scope] = scope
 
         self.id: str = self._build_id()
 
@@ -1632,7 +1657,13 @@ class MetricImpl:
         return hash_builder.get_hash()
 
     def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = {"type": self.type}
+        id_properties: dict[str, any] = {}
+        # A declared scope goes first and ends with ':', like the scope term of a check identity, so it can never
+        # run into the next term. Every unscoped id starts with 'type', and the base scope adds nothing, so
+        # unscoped metric ids stay byte-identical.
+        if self.scope is not None and not self.scope.is_base:
+            id_properties["scope"] = f"{self.scope.key}:"
+        id_properties["type"] = self.type
 
         if self.data_source_impl:
             id_properties["data_source"] = self.data_source_impl.name
@@ -1713,6 +1744,7 @@ class AggregationMetricImpl(MetricImpl):
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1723,6 +1755,7 @@ class AggregationMetricImpl(MetricImpl):
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
             column_expression=column_expression,
+            scope=scope,
         )
 
     @abstractmethod

@@ -99,12 +99,11 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # data_source_impl is None and SQL cannot be generated.
             if contract_impl.data_source_impl is not None:
                 self.ref_query = InvalidReferenceCountQuery(
-                    cte=contract_impl.cte,
+                    cte=self.scope.cte,
                     sampler_type=contract_impl.sampler_type,
                     sampler_limit=contract_impl.sampler_limit,
                     apply_sampling=contract_impl.should_apply_sampling,
                     metric_impl=self.invalid_count_metric_impl,
-                    dataset_filter=self.contract_impl.filter,
                     check_filter=self.check_yaml.filter,
                     data_source_impl=contract_impl.data_source_impl,
                 )
@@ -234,7 +233,6 @@ class InvalidReferenceCountQuery(Query):
         sampler_limit: Optional[Number],
         apply_sampling: bool,
         metric_impl: InvalidReferenceCountMetricImpl,
-        dataset_filter: Optional[str],
         check_filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
     ):

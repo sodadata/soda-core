@@ -27,6 +27,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
+from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import ColumnMetadata, SamplerType
@@ -34,7 +35,7 @@ from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
-from soda_core.common.sql_dialect import CTE, FROM, SELECT, STAR, WHERE, DatasetIdentifier, SqlExpressionStr
+from soda_core.common.sql_dialect import DatasetIdentifier
 from soda_core.common.yaml import CheckCollectionYamlSource, YamlObject
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
@@ -674,14 +675,6 @@ class CheckCollectionImpl:
         self.row_count_metric_impl = self.metrics_resolver.resolve_metric(RowCountMetricImpl(contract_impl=self))
         self.dataset_rows_tested: Optional[int] = None
 
-        # Dataset defining CTE - used as basis for all queries in this collection
-        self.cte = CTE(SODA_FILTERED_CTE_NAME).AS(
-            [
-                SELECT(STAR()),
-                FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
-                WHERE.optional(SqlExpressionStr.optional(self.filter)),
-            ]
-        )
         # Optional sampler configuration.
         self.sampler_type: Optional[SamplerType] = None
         self.sampler_limit: Optional[Number] = None
@@ -704,23 +697,19 @@ class CheckCollectionImpl:
             if self.dataset_configuration.compute_warehouse_override:
                 self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
 
-        # The CTE is sampled only when sampling is both requested and supported. The capability term is
-        # load-bearing: without it .SAMPLE() attaches to the CTE and query BUILDING reaches the
-        # dialect's _build_sample_sql, which raises NotImplementedError during __init__ — before the
-        # execute loop exists to catch anything — so the whole verification aborts. verify() reports the
-        # refusal via _log_sampling_refusal; it cannot prevent that abort on its own.
-        if self.should_apply_sampling and self.data_source_supports_sampling:
+        # Logged before the CTE is built, so it still shows when the sample size is refused.
+        if self.filtered_cte_sampler is not None:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
                 f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', "
                 f"limit:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit}'"
             )
 
-            self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
-                self.sampler_type,
-                self.sampler_limit,
-            )
-
+        # Dataset defining CTE - used as basis for all queries in this collection. Built after the dataset
+        # configuration fetch, which decides the sampler.
+        self.cte = build_filtered_cte(
+            self.dataset_identifier, self.filter, SODA_FILTERED_CTE_NAME, self.filtered_cte_sampler
+        )
         self.base_scope.activate(cte=self.cte, row_count_metric=self.row_count_metric_impl)
 
         self.extensions: list = []
@@ -732,6 +721,18 @@ class CheckCollectionImpl:
                 logger.error(
                     f"Error extending {self.display_name} implementation with extension {extension_cls.__name__}: {e}",
                 )
+
+        # Before the columns are parsed: column checks are built there, and a check in an inactive scope is
+        # skipped when it is built.
+        if type(self).supports_scopes:
+            for extension in self.extensions:
+                activate_scopes = getattr(extension, "activate_scopes", None)
+                if activate_scopes is None:
+                    continue
+                try:
+                    activate_scopes(contract_impl=self)
+                except Exception as e:
+                    logger.error(f"Error activating scopes with extension {extension.__class__.__name__}: {e}")
 
         self.column_impls = self._parse_columns(yaml)
         self.check_impls = self._parse_checks(yaml)
@@ -793,6 +794,20 @@ class CheckCollectionImpl:
         so there is nothing to refuse.
         """
         return self.data_source_impl is None or self.data_source_impl.sql_dialect.supports_row_sampling()
+
+    @property
+    def filtered_cte_sampler(self) -> Optional[tuple[SamplerType, Number]]:
+        """The sampler for every filtered CTE of this collection, the base and each declared scope, or None.
+
+        A CTE is sampled only when sampling is both requested and supported. The capability term is
+        load-bearing: without it .SAMPLE() attaches to the CTE and query BUILDING reaches the
+        dialect's _build_sample_sql, which raises NotImplementedError during __init__, before the
+        execute loop exists to catch anything, so the whole verification aborts. verify() reports the
+        refusal via _log_sampling_refusal; it cannot prevent that abort on its own.
+        """
+        if self.should_apply_sampling and self.data_source_supports_sampling:
+            return (self.sampler_type, self.sampler_limit)
+        return None
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         keys: list[str] = self.yaml.yaml_object.keys()
@@ -864,7 +879,7 @@ class CheckCollectionImpl:
 
     def _build_queries(self) -> list:
         from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
-        from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl, AggregationQuery
+        from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl
 
         queries: list = []
 
@@ -875,6 +890,9 @@ class CheckCollectionImpl:
         for metric in self.metrics:
             # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
             if isinstance(metric, AggregationMetricImpl):
+                # A metric in a declared scope is queried by the extension that activated the scope.
+                if metric.scope is not None and not metric.scope.is_base:
+                    continue
                 if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
                     metric.data_source_impl == self.data_source_impl
                     and metric.dataset_identifier == self.dataset_identifier
@@ -889,48 +907,7 @@ class CheckCollectionImpl:
             else:
                 other_queries.append(query)
 
-        # Deduplicate byte-identical aggregation metrics before bundling them into
-        # queries. Two metrics that render to the same SQL (e.g. MissingCheckImpl
-        # and InvalidCheckImpl on the same column both resolving a MissingCount
-        # metric) compute the redundant aggregate twice on the warehouse otherwise.
-        # Key on (type, rendered_sql) so we never collapse metrics that would
-        # convert their DB value differently (``int`` vs ``float`` vs identity).
-        canonical_metrics: list = []
-        canonical_by_sql: dict = {}
-        # canonical_metric.id -> [aliased_metric, ...]. We keep the full metric impls
-        # (not just ids) so AggregationQuery.execute can emit each Measurement under
-        # the aliased metric's own get_short_description() — two deduped metrics may
-        # belong to different check types (e.g. missing vs invalid) and have different
-        # metric_name semantics for downstream consumers.
-        metric_aliases: dict = {}
-        if self.data_source_impl is not None:
-            sql_dialect = self.data_source_impl.sql_dialect
-            for metric in aggregation_metrics:
-                key = (type(metric), sql_dialect.build_expression_sql(metric.sql_expression()))
-                canonical = canonical_by_sql.get(key)
-                if canonical is None:
-                    canonical_by_sql[key] = metric
-                    canonical_metrics.append(metric)
-                else:
-                    metric_aliases.setdefault(canonical.id, []).append(metric)
-        else:
-            canonical_metrics = aggregation_metrics
-
-        aggregation_queries: list = []
-        for aggregation_metric in canonical_metrics:
-            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
-                aggregation_queries.append(
-                    AggregationQuery(
-                        cte=self.cte,
-                        dataset_prefix=self.dataset_prefix,
-                        dataset_name=self.dataset_name,
-                        data_source_impl=self.data_source_impl,
-                        logs=self.logs,
-                        metric_aliases=metric_aliases,
-                    )
-                )
-            last_aggregation_query = aggregation_queries[-1]
-            last_aggregation_query.append_aggregation_metric(aggregation_metric)
+        aggregation_queries: list = self.bundle_aggregation_metrics(aggregation_metrics, self.base_scope)
 
         all_queries: list = schema_queries + aggregation_queries + other_queries
 
@@ -942,6 +919,67 @@ class CheckCollectionImpl:
                 logger.error(f"Error building queries with extension {extension.__class__.__name__}: {e}")
 
         return all_queries
+
+    def bundle_aggregation_metrics(
+        self,
+        metrics: list[AggregationMetricImpl],
+        scope: Scope,
+    ) -> list[AggregationQuery]:
+        """Aggregation queries over ``scope``'s CTE that measure ``metrics``, in input order.
+
+        The caller passes the metrics of one active scope: the base passes its own, and an extension that
+        activated a declared scope passes that scope's.
+        """
+        from soda_core.contracts.impl.contract_verification_impl import AggregationQuery
+
+        if not scope.is_active:
+            raise ValueError(f"Cannot bundle aggregation metrics for inactive scope '{scope.key}'")
+
+        # Deduplicate byte-identical aggregation metrics before bundling them into
+        # queries. Two metrics that render to the same SQL (e.g. MissingCheckImpl
+        # and InvalidCheckImpl on the same column both resolving a MissingCount
+        # metric) compute the redundant aggregate twice on the warehouse otherwise.
+        # Key on (type, cte_alias, rendered_sql) so we never collapse metrics that would
+        # convert their DB value differently (``int`` vs ``float`` vs identity), nor
+        # metrics that read different scopes.
+        canonical_metrics: list = []
+        canonical_by_sql: dict = {}
+        # canonical_metric.id -> [aliased_metric, ...]. We keep the full metric impls
+        # (not just ids) so AggregationQuery.execute can emit each Measurement under
+        # the aliased metric's own get_short_description(). Two deduped metrics may
+        # belong to different check types (e.g. missing vs invalid) and have different
+        # metric_name semantics for downstream consumers.
+        metric_aliases: dict = {}
+        if self.data_source_impl is not None:
+            sql_dialect = self.data_source_impl.sql_dialect
+            cte_alias: str = scope.cte_alias()
+            for metric in metrics:
+                key = (type(metric), cte_alias, sql_dialect.build_expression_sql(metric.sql_expression()))
+                canonical = canonical_by_sql.get(key)
+                if canonical is None:
+                    canonical_by_sql[key] = metric
+                    canonical_metrics.append(metric)
+                else:
+                    metric_aliases.setdefault(canonical.id, []).append(metric)
+        else:
+            canonical_metrics = metrics
+
+        aggregation_queries: list = []
+        for aggregation_metric in canonical_metrics:
+            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
+                aggregation_queries.append(
+                    AggregationQuery(
+                        cte=scope.cte,
+                        dataset_prefix=self.dataset_prefix,
+                        dataset_name=self.dataset_name,
+                        data_source_impl=self.data_source_impl,
+                        logs=self.logs,
+                        metric_aliases=metric_aliases,
+                    )
+                )
+            last_aggregation_query = aggregation_queries[-1]
+            last_aggregation_query.append_aggregation_metric(aggregation_metric)
+        return aggregation_queries
 
     def _parse_columns(self, yaml: CheckCollectionYaml) -> list:
         from soda_core.contracts.impl.contract_verification_impl import ColumnImpl
@@ -962,6 +1000,30 @@ class CheckCollectionImpl:
             except SodaCoreException as e:
                 logger.error(f"Query execution failed, continuing with remaining checks: {e}")
         return measurements
+
+    def _add_scope_rows_tested(
+        self, check_impl, check_result: CheckResult, measurement_values: MeasurementValues
+    ) -> None:
+        """Adds ``scope_rows_tested`` next to ``dataset_rows_tested`` for a check in a declared scope.
+
+        Only a check that aggregates in its own scope gets it: a query-form check reads no filtered CTE, so a
+        scope count would not describe its rows. Diagnostics without ``dataset_rows_tested``, empty ones
+        included, stay as they are.
+        """
+        from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl
+
+        scope = getattr(check_impl, "scope", None)
+        if scope is None or scope.is_base or scope.row_count_metric is None:
+            return
+        if not any(
+            isinstance(metric, AggregationMetricImpl) and metric.scope is scope
+            for metric in getattr(check_impl, "metrics", [])
+        ):
+            return
+        values = check_result.diagnostic_metric_values
+        if not isinstance(values, dict) or "dataset_rows_tested" not in values:
+            return
+        values["scope_rows_tested"] = measurement_values.get_value(scope.row_count_metric)
 
     def _log_sampling_refusal(self) -> None:
         # Leaving every metric unmeasured, so each check reports NOT_EVALUATED. Running the queries
@@ -1098,8 +1160,10 @@ class CheckCollectionImpl:
                                     "dataset_rows_tested": self.dataset_rows_tested,
                                 },
                             )
+                            self._add_scope_rows_tested(check_impl, check_result, measurement_values)
                         else:
                             check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                            self._add_scope_rows_tested(check_impl, check_result, measurement_values)
                             _skip_non_numeric_threshold_value(check_result, check_impl.relative_path)
                     check_results.append(check_result)
 
