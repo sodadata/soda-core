@@ -99,7 +99,9 @@ def execute_check_collections(
     RESULTS_NOT_SENT_TO_CLOUD. Whenever results could not be sent, a managed
     scan is marked failed once, with every file's records, since the launcher
     commands that verify do not mark it on that exit code. An ad-hoc run has no
-    scan to mark. A session where every file succeeds uploads exactly as before.
+    scan to mark, so when the group's other files carry an error they still go
+    up, with errors, and only the file that cannot be sent is flagged. A
+    session where every file succeeds uploads exactly as before.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -309,8 +311,9 @@ def execute_check_collections(
         # of it could only hold excluded checks next to the error, so the scan is marked
         # failed instead, below.
         results_to_mark_failed: list[CheckCollectionResult] = []
-        for wire_source, members in groups.items():
-            if _hold_back_group_with_unsendable_result(members):
+        for wire_source, group_members in groups.items():
+            members: list[_CombineUploadMember] = _members_to_send(group_members, ad_hoc=not soda_scan_id)
+            if not members:
                 continue
             member_results: list[CheckCollectionResult] = [result for _, _, result in members]
             if soda_scan_id and _errored_without_evaluating_a_check(member_results):
@@ -477,15 +480,21 @@ def _group_combine_upload_results(
     return groups, unplaced_results
 
 
-def _hold_back_group_with_unsendable_result(members: list[_CombineUploadMember]) -> bool:
-    """Flag every result of the group as not sent when one of them cannot be sent,
-    and return whether it did.
+def _members_to_send(members: list[_CombineUploadMember], ad_hoc: bool) -> list[_CombineUploadMember]:
+    """The members of the group that go up in its combined upload, flagging the
+    results that do not as not sent.
 
     A result cannot be sent when the alignment guard, a missing data source or a
     rejected file upload already flagged it, or when it became a collection but has
     no file on Soda Cloud. An upload of the others would read as a complete run, so
     nothing goes up. Every result is flagged, so the run exits
-    RESULTS_NOT_SENT_TO_CLOUD and a managed scan is marked failed.
+    RESULTS_NOT_SENT_TO_CLOUD and a managed scan is marked failed with every file's
+    records.
+
+    An ad-hoc run has no scan to mark, so holding back others that carry an error
+    would leave that error off Soda Cloud. When one of them became a collection to
+    lead the upload, they go up instead, in an upload with errors, and only the
+    results that cannot be sent are flagged.
     """
     unsendable_ids: set[int] = {
         id(result)
@@ -493,8 +502,17 @@ def _hold_back_group_with_unsendable_result(members: list[_CombineUploadMember])
         if result.sending_results_to_soda_cloud_failed or (result.error is None and not _soda_cloud_file_id(result))
     }
     if not unsendable_ids:
-        return False
+        return members
+    sendable: list[_CombineUploadMember] = [member for member in members if id(member[2]) not in unsendable_ids]
+    # A file that never became a collection cannot lead an upload, so one of them must have.
+    send_errors: bool = (
+        ad_hoc
+        and any(result.has_errors for _, _, result in sendable)
+        and any(result.error is None for _, _, result in sendable)
+    )
     for _, impl, result in members:
+        if send_errors and id(result) not in unsendable_ids:
+            continue
         if impl is not None and result.error is None and not result.sending_results_to_soda_cloud_failed:
             with impl.logs.activate(impl.thread_label):
                 if id(result) in unsendable_ids:
@@ -508,7 +526,7 @@ def _hold_back_group_with_unsendable_result(members: list[_CombineUploadMember])
                         f"could be sent, and an upload without all of them would read as a complete run."
                     )
         result.sending_results_to_soda_cloud_failed = True
-    return True
+    return sendable if send_errors else []
 
 
 def _soda_cloud_file_id(result: CheckCollectionResult) -> Optional[str]:
