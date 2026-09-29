@@ -1,10 +1,11 @@
 """Corners next to the publish-outcome cases in ``test_session_publish_outcome``.
 
 Two wire sources in one session, a per-file contract rejected after its sibling went up,
-a session without a default subtype, and a managed collection that errored before its
-results next to a rejected file upload. In each, every collection's outcome reaches Soda
-Cloud, or a managed scan is marked failed with the files' records and the run exits
-RESULTS_NOT_SENT_TO_CLOUD.
+a session without a default subtype, and a collection that errored next to a rejected
+file upload. In each, every collection's outcome reaches Soda Cloud, or a managed scan is
+marked failed with the files' records and the run exits RESULTS_NOT_SENT_TO_CLOUD. An
+ad-hoc run has no scan to mark, so its errored collection goes up without the rejected
+file.
 """
 
 from __future__ import annotations
@@ -198,21 +199,29 @@ def test_combined_collection_erroring_before_results_with_a_rejected_file_reache
     ), (exit_code, [r.get("type") for r in (req.json for req in soda_cloud.requests)])
 
 
-@outcome._MANAGED
 @pytest.mark.parametrize(
-    "combined, checks_yamls",
+    "managed, combined, checks_yamls",
     [
-        (True, [_REJECTED_UNPARSEABLE_CONTRACT]),
-        (True, [outcome._UNPARSEABLE_CONTRACT, outcome._REJECTED_HEALTHY_CONTRACT]),
-        (False, [_REJECTED_UNPARSEABLE_CONTRACT]),
+        (True, True, [_REJECTED_UNPARSEABLE_CONTRACT]),
+        (False, True, [_REJECTED_UNPARSEABLE_CONTRACT]),
+        (True, True, [outcome._UNPARSEABLE_CONTRACT, outcome._REJECTED_HEALTHY_CONTRACT]),
+        (True, False, [_REJECTED_UNPARSEABLE_CONTRACT]),
+        (False, False, [_REJECTED_UNPARSEABLE_CONTRACT]),
     ],
-    ids=["combined_own_file_rejected", "combined_sibling_file_rejected", "per_file_own_file_rejected"],
+    ids=[
+        "combined_own_file_rejected-managed",
+        "combined_own_file_rejected-ad_hoc",
+        "combined_sibling_file_rejected-managed",
+        "per_file_own_file_rejected-managed",
+        "per_file_own_file_rejected-ad_hoc",
+    ],
 )
 def test_collection_erroring_before_results_next_to_a_rejected_file_marks_the_scan_failed_with_its_error(
     data_source_test_helper: DataSourceTestHelper, monkeypatch, managed: bool, combined: bool, checks_yamls
 ):
     """A managed scan is marked failed once, with the parse error among its records, and
-    nothing is inserted. An ad-hoc run sends nothing. Both exit RESULTS_NOT_SENT_TO_CLOUD."""
+    nothing is inserted. An ad-hoc run whose own file was rejected sends nothing. Both
+    exit RESULTS_NOT_SENT_TO_CLOUD."""
     if combined:
         monkeypatch.setattr(ContractImpl, "combine_uploads", True)
     session_result, exit_code, soda_cloud = outcome._verify_contracts(
@@ -233,4 +242,45 @@ def test_collection_erroring_before_results_next_to_a_rejected_file_marks_the_sc
         assert any("did not upload to Soda Cloud" in message for message in errors)
     else:
         assert marks == []
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+# A check that errors while it is evaluated, so its collection has check results.
+_EVAL_ERROR_CONTRACT = """
+    columns:
+      - name: id
+    checks:
+      - failed_rows:
+          query: |
+            SELECT * FROM no_such_table
+"""
+
+
+@pytest.mark.parametrize(
+    "errored_contract, error_fragment",
+    [(outcome._UNPARSEABLE_CONTRACT, "not_a_check_type"), (_EVAL_ERROR_CONTRACT, "no_such_table")],
+    ids=["unparseable", "eval_error"],
+)
+def test_ad_hoc_combined_error_next_to_a_rejected_file_goes_up_without_it(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, errored_contract: str, error_fragment: str
+):
+    """An ad-hoc run has no scan to mark, so the errored contract goes up without its
+    rejected sibling, in an insert with errors, and the run exits RESULTS_NOT_SENT_TO_CLOUD."""
+    monkeypatch.setattr(ContractImpl, "combine_uploads", True)
+    session_result, exit_code, soda_cloud = outcome._verify_contracts(
+        data_source_test_helper,
+        monkeypatch,
+        [errored_contract, outcome._REJECTED_HEALTHY_CONTRACT],
+        managed=False,
+        soda_cloud=outcome._SodaCloud(reject_file_upload_containing=outcome._REJECTED_UPLOAD_MARKER),
+    )
+
+    [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
+    assert insert["hasErrors"] is True
+    assert any(error_fragment in message for message in outcome._log_messages(insert, level="error"))
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    assert [r.sending_results_to_soda_cloud_failed for r in session_result.contract_verification_results] == [
+        False,
+        True,
+    ]
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
