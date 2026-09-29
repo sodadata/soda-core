@@ -1,6 +1,6 @@
 import platform
 import types
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -11,8 +11,12 @@ from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, scope_value_text
 from soda_core.telemetry.memory_span_exporter import MemorySpanExporter
 from soda_core.telemetry.soda_exporter import SodaConsoleSpanExporter, SodaOTLPSpanExporter
+
+if TYPE_CHECKING:
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
 class SodaTelemetry:
@@ -103,6 +107,37 @@ class SodaTelemetry:
                 "result__checks_count": contract_verification_session_result.number_of_checks,
                 "result__checks_failed_count": contract_verification_session_result.number_of_checks_failed,
                 "result__checks_passed_count": contract_verification_session_result.number_of_checks_passed,
+                "result__checks_excluded_count": contract_verification_session_result.number_of_checks_excluded,
+                "result__scopes_count": contract_verification_session_result.number_of_scopes,
+                "result__scoped_checks_count": contract_verification_session_result.number_of_scoped_checks,
+                "result__unscoped_checks_count": contract_verification_session_result.number_of_unscoped_checks,
+            }
+        )
+
+    def ingest_contract_publication(self, contract_yaml: "ContractYaml") -> None:
+        """Counts of the published contract's scopes and checks, under the names verify and test use.
+
+        Counts the checks core parses, under ``checks`` and under each column. A check that an extension parses
+        from a section of its own, such as ``reconciliation``, counts on verify and test but not here.
+        """
+        check_yamls: list = [check_yaml for check_yaml in contract_yaml.checks or [] if check_yaml is not None]
+        for column_yaml in contract_yaml.columns or []:
+            check_yamls.extend(check_yaml for check_yaml in column_yaml.check_yamls or [] if check_yaml is not None)
+        # Placed as verify places them: no scope and 'base' are the base scope, any other value is not.
+        scoped_checks_count: int = len(
+            [
+                check_yaml
+                for check_yaml in check_yamls
+                if check_yaml.scope is not None and scope_value_text(check_yaml.scope) != BASE_SCOPE_KEY
+            ]
+        )
+        self.set_attributes(
+            {
+                "result__scopes_count": len(
+                    [key for key in contract_yaml.scopes if isinstance(key, str) and key != BASE_SCOPE_KEY]
+                ),
+                "result__scoped_checks_count": scoped_checks_count,
+                "result__unscoped_checks_count": len(check_yamls) - scoped_checks_count,
             }
         )
 
