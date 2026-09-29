@@ -171,7 +171,7 @@ class ContractYaml(CheckCollectionYaml):
 
         for variable_yaml in variable_yamls:
             if variable_values.get(variable_yaml.name) is None:
-                logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
+                logger.error(variable_yaml.missing_value_error())
 
         if isinstance(provided_variable_values, dict) and "NOW" in provided_variable_values:
             now_str: str = provided_variable_values["NOW"]
@@ -372,6 +372,9 @@ class VariableYaml:
             if variable_yaml_object
             else None
         )
+
+    def missing_value_error(self) -> str:
+        return f"Required variable '{self.name}' did not get a value"
 
 
 class ValidReferenceDataYaml:
