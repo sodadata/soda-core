@@ -1,0 +1,40 @@
+# Scope keys the engine accepts and rejects, as the keys of 'scopes' and as a check's 'scope'.
+#
+# A scope key matches ^[a-z][a-z0-9_-]{0,63}$ and is not one of the reserved words: 'base', which
+# names the checks without a scope, and the words that YAML parsers read as a boolean or null.
+# Every entry is quoted, so each parser reads it as a string.
+#
+# Other tools that validate scope keys can check themselves against this list.
+
+valid:
+  - "a"
+  - "eu"
+  - "eu-west"
+  - "eu_west"
+  - "release-gate"
+  - "a-"
+  - "a1"
+  - "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl"
+
+invalid:
+  - ""
+  - "9a"
+  - "-a"
+  - "_a"
+  - "Base"
+  - "EU"
+  - "eu.west"
+  - "eu:west"
+  - "eu west"
+  - "eu/west"
+  - "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm"
+  - "base"
+  - "true"
+  - "false"
+  - "null"
+  - "yes"
+  - "no"
+  - "on"
+  - "off"
+  - "y"
+  - "n"
