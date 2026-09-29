@@ -6,6 +6,8 @@ without ``scopes`` and ``scope`` behaves exactly as before. Origin never reads `
 or ``scope``, so a kind without scope support must run every file here that origin runs.
 A contract validates its scope input, see ``contract_yaml/test_scopes_parsing.py``, and
 reports what these files get wrong.
+
+Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND, ScopeUnsupportedImpl
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from helpers.test_table import TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
@@ -41,6 +44,8 @@ from soda_core.contracts.impl.contract_verification_impl import CheckCollectionI
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, RESERVED_SCOPE_KEYS, SCOPE_KEY_PATTERN, Scope, ScopeYaml
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 KINDS: list[type[CheckCollectionImpl]] = [ContractImpl, ScopeUnsupportedImpl]
 KIND_LINES: dict[type, str] = {ContractImpl: "", ScopeUnsupportedImpl: f"kind: {SCOPE_UNSUPPORTED_KIND}\n"}
