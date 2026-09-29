@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser, _SubParsersAction
-from typing import Dict, List, NoReturn, Optional, Union
+from typing import Any, Dict, List, NamedTuple, NoReturn, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
@@ -70,6 +70,8 @@ def execute() -> None:
         handle_legacy_commands()
 
         args = cli_parser.parse_args()
+        # Off the args before telemetry and the handler read them, so both see what argparse makes.
+        repeated_flags: List[_RepeatedFlag] = vars(args).pop(_REPEATED_FLAGS, [])
 
         soda_telemetry.ingest_cli_arguments(vars(args))
 
@@ -82,6 +84,12 @@ def execute() -> None:
 
         if not hasattr(args, "handler_func"):
             soda_logger.error(f"No handler found for resource '{args.resource}' and command '{args.command}'")
+            exit_with_code(ExitCode.LOG_ERRORS)
+
+        if repeated_flags:
+            # Exit 3 like the CLI's other argument errors, not argparse's exit 2, which is also
+            # the check-warnings code.
+            soda_logger.error(_describe_repeated_flags(repeated_flags))
             exit_with_code(ExitCode.LOG_ERRORS)
 
         args.handler_func(args)
@@ -107,8 +115,117 @@ def handle_legacy_commands():
         exit_with_code(ExitCode.LOG_ERRORS)
 
 
+class _CountsUses:
+    """Mixed into an argparse action: tells the parser each time its flag is used."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if self.option_strings:
+            parser.count_flag_use(self, values)
+        super().__call__(parser, namespace, values, option_string)
+
+
+class _StoreCountingUses(_CountsUses, argparse._StoreAction):
+    pass
+
+
+class _StoreConstCountingUses(_CountsUses, argparse._StoreConstAction):
+    pass
+
+
+class _StoreTrueCountingUses(_CountsUses, argparse._StoreTrueAction):
+    pass
+
+
+class _StoreFalseCountingUses(_CountsUses, argparse._StoreFalseAction):
+    pass
+
+
+# The actions of the flags a soda command takes once, under the names add_argument knows them by.
+# None is the action add_argument picks when given none. append, extend and count collect every
+# use on purpose, so the flags built on them, like --set and -cf/--check-filter, stay repeatable.
+# To take such a flag once too, add its action here the way store is added.
+_ACTIONS_OF_FLAGS_GIVEN_ONCE = {
+    None: _StoreCountingUses,
+    "store": _StoreCountingUses,
+    "store_const": _StoreConstCountingUses,
+    "store_true": _StoreTrueCountingUses,
+    "store_false": _StoreFalseCountingUses,
+}
+
+# The key under which the parser leaves the flags given more than once on the args.
+_REPEATED_FLAGS = "repeated_flags"
+
+
+class _RepeatedFlag(NamedTuple):
+    command: str  # the prog of the parser the flag belongs to, like "soda contract fetch"
+    action: argparse.Action
+    uses: List[Any]  # the values each use gave, in order
+
+
+class _SodaArgumentParser(ArgumentParser):
+    """Parses like ArgumentParser, and also finds the flags given more than once.
+
+    argparse keeps the last use of a repeated flag and drops the others without a word. This
+    parser counts the uses of each flag and leaves the flags used more than once on the args, for
+    execute to refuse the command. A command line without a repeat parses exactly as with
+    ArgumentParser. add_subparsers builds each subcommand's parser with the class of its parent,
+    so every soda command parses with this class, including the ones extensions add through
+    get_or_create_command_parser.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for action_name, action_class in _ACTIONS_OF_FLAGS_GIVEN_ONCE.items():
+            self.register("action", action_name, action_class)
+        self._uses_by_flag: Dict[argparse.Action, List[Any]] = {}
+
+    def count_flag_use(self, action: argparse.Action, values: Any) -> None:
+        self._uses_by_flag.setdefault(action, []).append(values)
+
+    def parse_known_args(self, args=None, namespace=None):
+        self._uses_by_flag = {}
+        namespace, extras = super().parse_known_args(args, namespace)
+        repeated = [
+            _RepeatedFlag(self.prog, action, uses) for action, uses in self._uses_by_flag.items() if len(uses) > 1
+        ]
+        if repeated:
+            # A subcommand's parser finishes first and copies its args up to this one, repeats included.
+            setattr(namespace, _REPEATED_FLAGS, [*getattr(namespace, _REPEATED_FLAGS, []), *repeated])
+        return namespace, extras
+
+
+def _describe_repeated_flags(repeated_flags: List[_RepeatedFlag]) -> str:
+    # Like: soda contract fetch got -d/--dataset 2 times: a b, c. Give each flag once, like -d a b c.
+    flags = "; ".join(_describe_repeated_flag(flag) for flag in repeated_flags)
+    # A flag that takes several values takes them all after one use.
+    one_use_examples = [
+        " ".join([flag.action.option_strings[0], *_given_values(flag)])
+        for flag in repeated_flags
+        if flag.action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
+    ]
+    like = f", like {', '.join(one_use_examples)}" if one_use_examples else ""
+    return f"{repeated_flags[0].command} got {flags}. Give each flag once{like}."
+
+
+def _describe_repeated_flag(flag: _RepeatedFlag) -> str:
+    uses = f"{'/'.join(flag.action.option_strings)} {len(flag.uses)} times"
+    given_values = _given_values(flag)
+    return f"{uses}: {', '.join(given_values)}" if given_values else uses
+
+
+def _given_values(flag: _RepeatedFlag) -> List[str]:
+    # The values each use gave, as typed. A switch like -v gives none.
+    return [text for text in map(_as_typed, flag.uses) if text]
+
+
+def _as_typed(values: Any) -> str:
+    if values is None:
+        return ""
+    return " ".join(map(str, values)) if isinstance(values, list) else str(values)
+
+
 def create_cli_parser() -> ArgumentParser:
-    parser = ArgumentParser(
+    parser = _SodaArgumentParser(
         prog="soda",
         epilog="Run 'soda {resource} {command} -h' for help on a specific command",
     )
@@ -132,52 +249,6 @@ def _setup_contract_resource(resource_parsers) -> None:
     _setup_contract_fetch_command(contract_subparsers)
 
 
-def _repeated_dest(dest: str) -> str:
-    # Set on the parsed args only when the option is given more than once, so a single use
-    # leaves the args, and the CLI telemetry built from them, as they were.
-    return f"repeated_{dest}"
-
-
-class _OneValueAction(argparse.Action):
-    """Stores an option like argparse's default store action, so args.<dest> stays one value.
-    With the store action a second use replaces the first without a word; this action also
-    keeps every value given, so the command can refuse them before it runs."""
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        previous = getattr(namespace, self.dest, None)
-        if previous is not None:
-            repeated_dest = _repeated_dest(self.dest)
-            given = getattr(namespace, repeated_dest, None) or [previous]
-            setattr(namespace, repeated_dest, [*given, values])
-        setattr(namespace, self.dest, values)
-
-
-# The options set up with _OneValueAction, by dest: the option, what it takes, and what the
-# refusal calls several of those.
-_ONE_VALUE_OPTIONS = {
-    "contract": ("-c/--contract", "contract", "files"),
-    "dataset": ("-d/--dataset", "dataset", "datasets"),
-}
-
-
-def _exit_if_an_option_is_repeated(args) -> None:
-    # Runs first in each handler: no YAML parse, data source connection or Soda Cloud call
-    # happens for a refused command. Names every repeated option before it exits 3 like the
-    # CLI's other argument errors, not argparse's exit 2, which is also the check-warnings code.
-    refused = False
-    for dest, (option, noun, plural) in _ONE_VALUE_OPTIONS.items():
-        values: list[str] = getattr(args, _repeated_dest(dest), None) or []
-        if len(values) > 1:
-            soda_logger.error(
-                f"soda contract {args.command} takes one {noun}, but {option} was given "
-                f"{len(values)} {plural}: {', '.join(values)}. "
-                f"Run the command once per {noun}."
-            )
-            refused = True
-    if refused:
-        exit_with_code(ExitCode.LOG_ERRORS)
-
-
 def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser = contract_parsers.add_parser("verify", help="Verify a contract")
 
@@ -185,14 +256,12 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "-c",
         "--contract",
         type=str,
-        action=_OneValueAction,
         help="Contract file path to verify. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
         "-d",
         "--dataset",
         type=str,
-        action=_OneValueAction,
         help="Name of dataset to verify. Use this to work with remote contracts present in Soda Cloud.",
     )
 
@@ -287,7 +356,6 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        _exit_if_an_option_is_repeated(args)
         contract_file_path = args.contract
         dataset_identifier = args.dataset
         data_source_file_paths = args.data_source
@@ -391,9 +459,7 @@ def _parse_variable_value(key: str, value: str) -> Union[str, float, int]:
 
 def _setup_contract_publish_command(contract_parsers) -> None:
     publish_parser = contract_parsers.add_parser("publish", help="Publish a contract")
-    publish_parser.add_argument(
-        "-c", "--contract", type=str, action=_OneValueAction, help="Contract file path to publish."
-    )
+    publish_parser.add_argument("-c", "--contract", type=str, help="Contract file path to publish.")
 
     publish_parser.add_argument(
         "-sc",
@@ -413,7 +479,6 @@ def _setup_contract_publish_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        _exit_if_an_option_is_repeated(args)
         contract_file_path = args.contract
         soda_cloud_file_path = args.soda_cloud
         exit_code = handle_publish_contract(contract_file_path, soda_cloud_file_path)
@@ -424,9 +489,7 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 
 def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
-    test_contract_parser.add_argument(
-        "-c", "--contract", type=str, action=_OneValueAction, help="Contract file path to test."
-    )
+    test_contract_parser.add_argument("-c", "--contract", type=str, help="Contract file path to test.")
 
     test_contract_parser.add_argument(
         "-v",
@@ -438,7 +501,6 @@ def _setup_contract_test_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        _exit_if_an_option_is_repeated(args)
         contract_file_path = args.contract
 
         exit_code = handle_test_contract(contract_file_path, {})
