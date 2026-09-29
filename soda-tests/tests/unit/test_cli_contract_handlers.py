@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -282,6 +283,20 @@ def test_handle_publish_contract_uploads_a_valid_contract(tmp_path):
         "fileId": "fake_file_id",
         "metadata": {"source": {"type": "local", "filePath": contract_file_path}},
     }
+
+
+def test_handle_publish_contract_logs_a_yaml_syntax_error_in_one_line(tmp_path, caplog):
+    exit_code, mock_cloud, contract_file_path = _publish_contract_file(
+        tmp_path, "dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n"
+    )
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert mock_cloud.requests == []
+    error_records = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert [record.getMessage() for record in error_records] == [
+        f"Failed to parse YAML: YAML syntax error, in {contract_file_path}[3,1]"
+    ]
+    assert error_records[0].exc_info is None
 
 
 @pytest.mark.parametrize(

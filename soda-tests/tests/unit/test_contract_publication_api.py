@@ -297,6 +297,15 @@ def test_contract_publication_keeps_its_errors_when_another_logs_is_active():
     assert other_logs.get_errors() == ["logged after the publication"]
 
 
+def test_contract_publication_raises_on_a_yaml_syntax_error():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    with pytest.raises(YamlParserException, match="YAML syntax error"):
+        publish_contract_yaml_strs(mock_cloud, "dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n")
+
+    assert mock_cloud.requests == []
+
+
 # TODO @Niels: To be evaluated if still needed refactored after rework
 # @pytest.mark.parametrize(
 #     "logs, has_errors",

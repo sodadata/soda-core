@@ -9,6 +9,7 @@ from soda_core.common.exceptions import (
     ContractParserException,
     InvalidArgumentException,
     ScanExecutionFailedException,
+    YamlParserException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
@@ -127,6 +128,10 @@ def handle_publish_contract(
             return ExitCode.OK
     except ContractParserException as exc:
         soda_logger.error(f"Failed to parse contract: {exc}")
+        return ExitCode.LOG_ERRORS
+    except YamlParserException as exc:
+        # The message ends with the location, which names the contract or Soda Cloud configuration file.
+        soda_logger.error(f"Failed to parse YAML: {exc}")
         return ExitCode.LOG_ERRORS
     except Exception as exc:
         soda_logger.exception(f"Failed to publish contract: {exc}")
