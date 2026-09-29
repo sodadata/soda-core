@@ -1,8 +1,8 @@
 """Unit tests for the memory-optimized driver toggle's two sources.
 
 The driver is enabled when EITHER soda-extensions' Soda Cloud override
-(``memory_optimized_driver_settings.configure``, from the ``useMemoryOptimized``
-feature flag) OR the ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env var is on — ORed, so
+(``memory_optimized_driver_settings.configure``, from the Soda Cloud
+``useMemoryOptimized`` setting) OR the ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env var is on — ORed, so
 neither can force the other off.
 """
 
