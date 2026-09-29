@@ -11,6 +11,8 @@ clean run:
 * a collection whose file upload is rejected holds back the whole combined upload, and
   the run exits RESULTS_NOT_SENT_TO_CLOUD, alone or next to others; a contract whose file
   upload is rejected exits the same way;
+* an ad-hoc run has no scan to mark, so when the other files of that group carry an
+  error they still go up, with errors, and the run exits the same way;
 * whenever results could not be sent, a managed scan is marked failed once, with the
   records of every file, since the launcher commands that verify do not mark it; an
   ad-hoc run sends no mark;
@@ -428,6 +430,18 @@ def test_ad_hoc_file_that_never_became_a_collection_sends_nothing_and_exits_3(mo
     assert exit_code == ExitCode.LOG_ERRORS
 
 
+_REJECTED_NEXT_TO_ERRORED = pytest.mark.parametrize(
+    "labels, rejected_label",
+    [
+        (["healthy-a", "unparseable-b"], "healthy-a"),
+        (["excluded-a", "unparseable-b"], "excluded-a"),
+        (["healthy-a", "unparseable-b", "healthy-c"], "healthy-c"),
+        (["broken-yaml", "healthy-b", "healthy-c"], "healthy-c"),
+    ],
+    ids=["next_to_errored", "next_to_errored_nothing_evaluated", "next_to_errored_and_healthy", "next_to_broken_yaml"],
+)
+
+
 @_MANAGED
 @pytest.mark.parametrize(
     "labels, rejected_label",
@@ -435,18 +449,16 @@ def test_ad_hoc_file_that_never_became_a_collection_sends_nothing_and_exits_3(mo
         (["healthy-a"], "healthy-a"),
         (["healthy-a", "healthy-b"], "healthy-b"),
         (["healthy-a", "healthy-b"], "healthy-a"),
-        (["healthy-a", "unparseable-b"], "healthy-a"),
-        (["excluded-a", "unparseable-b"], "excluded-a"),
     ],
-    ids=["lone", "second_of_two", "first_of_two", "next_to_errored", "next_to_errored_nothing_evaluated"],
+    ids=["lone", "second_of_two", "first_of_two"],
 )
-def test_rejected_file_upload_holds_back_the_group_and_exits_results_not_sent(
+def test_rejected_file_upload_holds_back_a_clean_group_and_exits_results_not_sent(
     monkeypatch, managed: bool, labels: list[str], rejected_label: str
 ):
     """Soda Cloud rejected one file, so its collection cannot be part of the scan. A
-    combined upload of the others would read as a complete run, so nothing is inserted.
-    A managed scan is marked failed once, with every file's records, since no launcher
-    command that verifies marks it. An ad-hoc run has no scan to mark."""
+    combined upload of the others would read as a complete, clean run, so nothing is
+    inserted. A managed scan is marked failed once, with every file's records, since no
+    launcher command that verifies marks it. An ad-hoc run has no scan to mark."""
     results, exit_code, soda_cloud = _verify(
         monkeypatch, labels, managed, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
     )
@@ -456,14 +468,81 @@ def test_rejected_file_upload_holds_back_the_group_and_exits_results_not_sent(
     if managed:
         [mark] = marks
         assert mark["scanId"] == _SCAN_ID
-        errors = _log_messages(mark, level="error")
-        assert any("did not upload to Soda Cloud" in message for message in errors)
+        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
         for label in labels:
             assert f"Built {label}" in _log_messages(mark)
-            if label.startswith("unparseable"):
-                assert f"{label} does not parse" in errors
     else:
         assert marks == []
+    assert all(result.sending_results_to_soda_cloud_failed for result in results)
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@_REJECTED_NEXT_TO_ERRORED
+def test_rejected_file_upload_holds_back_a_managed_group_with_errors_and_marks_it_failed(
+    monkeypatch, labels: list[str], rejected_label: str
+):
+    """The mark carries every file's records, the errors among them, so nothing is
+    inserted next to it."""
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch, labels, managed=True, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
+    )
+
+    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
+    [mark] = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
+    assert mark["scanId"] == _SCAN_ID
+    errors = _log_messages(mark, level="error")
+    assert any("did not upload to Soda Cloud" in message for message in errors)
+    for label in labels:
+        if label.startswith("unparseable"):
+            assert f"{label} does not parse" in errors
+        elif label == "broken-yaml":
+            assert any("broken-yaml.yml is not valid YAML" in message for message in errors)
+        else:
+            assert f"Built {label}" in _log_messages(mark)
+    assert all(result.sending_results_to_soda_cloud_failed for result in results)
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@_REJECTED_NEXT_TO_ERRORED
+def test_ad_hoc_group_with_errors_still_goes_up_without_its_rejected_file(
+    monkeypatch, labels: list[str], rejected_label: str
+):
+    """An ad-hoc run has no scan to mark, so holding the group back would leave its errors
+    off Soda Cloud. The other files go up in an insert with errors, which does not read as
+    a clean run, and the run still exits RESULTS_NOT_SENT_TO_CLOUD for the rejected file."""
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch, labels, managed=False, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
+    )
+
+    [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
+    assert insert["hasErrors"] is True
+    assert [check["checkPath"] for check in insert.get("checks", [])] == [
+        f"checks.{label}" for label in labels if label.startswith("healthy") and label != rejected_label
+    ]
+    errors = _log_messages(insert, level="error")
+    for label in labels:
+        if label.startswith("unparseable"):
+            assert f"{label} does not parse" in errors
+        elif label == "broken-yaml":
+            assert any("broken-yaml.yml is not valid YAML" in message for message in errors)
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    assert [result.sending_results_to_soda_cloud_failed for result in results] == [
+        label == rejected_label for label in labels
+    ]
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_ad_hoc_group_left_with_only_a_file_that_never_became_a_collection_stays_held_back(monkeypatch):
+    """Nothing is left to lead an upload, so nothing goes up and every result is flagged."""
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch,
+        ["broken-yaml", "healthy-b"],
+        managed=False,
+        soda_cloud=_SodaCloud(reject_file_upload_containing="healthy-b"),
+    )
+
+    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
     assert all(result.sending_results_to_soda_cloud_failed for result in results)
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
