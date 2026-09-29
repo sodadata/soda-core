@@ -4,9 +4,9 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numbers import Number
-from typing import Optional
+from typing import Any, Optional
 
-from soda_core.check_collections.base import CheckCollectionYaml
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.exceptions import ContractParserException
@@ -15,10 +15,21 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import ContractYamlSource, VariableResolver, YamlList, YamlObject, YamlValue
+from soda_core.contracts.impl.scope import ScopeYaml, mark_scope_support, read_check_scope
 
 logger: logging.Logger = soda_logger
 
 from typing import Protocol
+
+
+def _kind_supports_scopes(kind: Optional[str]) -> bool:
+    """``supports_scopes`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
+    as ``contract`` when the file names no kind. A kind nobody registered supports no scopes."""
+    try:
+        impl_class = CheckCollectionImpl.for_kind(kind or "contract")
+    except ValueError:
+        return False
+    return getattr(impl_class, "supports_scopes", False)
 
 
 class ContractYamlExtension(Protocol):
@@ -112,6 +123,11 @@ class ContractYaml(CheckCollectionYaml):
         self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
+
+        # Decided before the first read of scope input, here and in the checks below. The base __init__ read the
+        # kind, and its impl class registered on import, before the session looked it up to parse this file.
+        mark_scope_support(self.yaml_source, _kind_supports_scopes(self.kind))
+        self.scopes: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(self.yaml_object)
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
@@ -637,6 +653,7 @@ class CheckYaml(ABC):
         self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
+        self.scope: Any = read_check_scope(check_yaml_object) if check_yaml_object else None
         self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
         self.store_failed_rows: Optional[bool] = (
             check_yaml_object.read_bool_opt("store_failed_rows", default_value=False) if check_yaml_object else None

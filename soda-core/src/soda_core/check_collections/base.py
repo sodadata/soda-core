@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
 from numbers import Number
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
@@ -47,6 +48,7 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope, ScopeYaml, scope_value_text
 
 logger: logging.Logger = soda_logger
 
@@ -259,6 +261,11 @@ class CheckCollectionYaml:
     fields. ``ContractYaml`` is the canonical example.
     """
 
+    # Declared scopes by key, in file order. ``ContractYaml`` and its subtypes
+    # overwrite it per instance; a yaml that never reads ``scopes`` keeps this
+    # empty, read-only default.
+    scopes: Mapping[Any, ScopeYaml] = MappingProxyType({})
+
     def __init__(
         self,
         yaml_source: CheckCollectionYamlSource,
@@ -362,6 +369,13 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
+    # Whether this kind runs declared scopes. Read it from the class, as
+    # ``type(impl).supports_scopes``. A kind without support skips the checks of
+    # every declared scope as EXCLUDED; ``scope: base`` still runs unscoped.
+    supports_scopes: bool = False
+    # Defaults for stubs that skip ``__init__``; real instances overwrite both.
+    base_scope: Optional[Scope] = None
+    scopes: Mapping[str, Scope] = MappingProxyType({})
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -560,6 +574,15 @@ class CheckCollectionImpl:
 
         self.check_attributes: dict[str, Any] = yaml.check_attributes
 
+        # The base scope shares the collection's own filter and check attributes. The declared
+        # scopes start inactive; non-string keys and the key 'base' are never scopes.
+        self.base_scope: Scope = Scope(key=BASE_SCOPE_KEY, filter=self.filter, check_attributes=self.check_attributes)
+        self.scopes: dict[str, Scope] = {
+            key: Scope.from_yaml(scope_yaml)
+            for key, scope_yaml in (getattr(yaml, "scopes", None) or {}).items()
+            if isinstance(key, str) and key != BASE_SCOPE_KEY
+        }
+
         self.dataset_identifier = DatasetIdentifier.parse(yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
         self.dataset_name = self.dataset_identifier.dataset_name
@@ -637,6 +660,8 @@ class CheckCollectionImpl:
                 self.sampler_limit,
             )
 
+        self.base_scope.activate(cte=self.cte, row_count_metric=self.row_count_metric_impl)
+
         self.extensions: list = []
         for extension_cls in type(self)._resolve_impl_extensions().values():
             try:
@@ -712,6 +737,26 @@ class CheckCollectionImpl:
         if "checks" in keys and "columns" in keys:
             return keys.index("checks") < keys.index("columns")
         return None
+
+    def scope_for(self, check_yaml) -> Scope:
+        """The scope a check runs in, never None.
+
+        A check without ``scope``, or with ``scope: base``, runs in the base scope. Any
+        value that names no declared scope gets an inactive placeholder that is not stored
+        in ``self.scopes``, so the check is skipped.
+        """
+        raw = getattr(check_yaml, "scope", None)
+        if raw is None:
+            return self.base_scope
+        # str() of the value, or its type name when printing it would fail or run long.
+        key = scope_value_text(raw)
+        # Compared as str, so a tagged '!x base' is the base scope too and no placeholder
+        # carries the base key.
+        if key == BASE_SCOPE_KEY:
+            return self.base_scope
+        if isinstance(raw, str) and raw in self.scopes:
+            return self.scopes[raw]
+        return Scope(key=key)
 
     def _parse_checks(self, yaml: CheckCollectionYaml) -> list:
         from soda_core.contracts.impl.contract_verification_impl import CheckImpl
