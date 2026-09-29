@@ -22,7 +22,7 @@ class MemoryOptimizedDriverSettings:
     """Process-level enablement for the bounded-memory streaming fetch driver.
 
     Enabled when EITHER the Soda Cloud override (``configure``, plumbed in by
-    soda-extensions from the ``useMemoryOptimized`` feature flag) OR the env var
+    soda-extensions from the Soda Cloud ``useMemoryOptimized`` setting) OR the env var
     ``MEMORY_OPTIMIZED_DRIVER_ENABLED`` is on; DISABLED by default.
 
     When disabled, every connection's ``execute_query_one_by_one_prefer_streaming``
@@ -32,7 +32,7 @@ class MemoryOptimizedDriverSettings:
     throughput for bounded peak memory and regresses DWH runtime on fast /
     low-latency sources.
 
-    Process-scoped (a single module instance) because the Soda Cloud flag is
+    Process-scoped (a single module instance) because the Soda Cloud setting is
     resolved during diagnostics-config parse, before any DWH/source connection
     exists, and connections are reused across scans. The env var is read at call
     time so it can be toggled per-process (or per-test via ``monkeypatch.setenv``).
@@ -462,7 +462,7 @@ class DataSourceConnection(ABC):
         this dispatch.
         """
         # Two terms, one feature: the "memory-optimized driver" is the operator-facing
-        # toggle (the MEMORY_OPTIMIZED_DRIVER_ENABLED env var / Soda Cloud flag);
+        # toggle (the MEMORY_OPTIMIZED_DRIVER_ENABLED env var / Soda Cloud setting);
         # "streaming" is the fetch mechanism it prefers. So: driver enabled AND this
         # adapter can stream → stream, otherwise buffer. The "driver active" log lives
         # in the streaming impl (it fires only when streaming actually engages, not when
