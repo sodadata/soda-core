@@ -22,6 +22,7 @@ from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
+    DatasetQueryException,
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     InvalidSodaCloudConfigurationException,
@@ -1425,6 +1426,9 @@ class SodaCloud:
         Feature-specific 400 codes can be mapped via ``error_codes`` (e.g.
         ``{"contract_not_found": ContractNotFoundException}``); payload extraction
         stays with the caller.
+
+        The failures mapped here raise a ``DatasetQueryException``, whose ``reason``
+        leaves the dataset out for a caller that names it itself.
         """
         parsed = DatasetIdentifier.parse(dataset_identifier)
         response = self._execute_query(
@@ -1439,8 +1443,9 @@ class SodaCloud:
             request_log_name=request_log_name,
         )
         if response is None:
-            raise SodaCloudException(
-                f"No response from Soda Cloud for '{query_type}' on dataset '{dataset_identifier}'"
+            raise DatasetQueryException(
+                f"No response from Soda Cloud for '{query_type}' on dataset '{dataset_identifier}'",
+                reason="no response from Soda Cloud",
             )
 
         body = self._parse_json_body(response)
@@ -1455,8 +1460,11 @@ class SodaCloud:
                 raise exception_type(parsed)
 
         if response.status_code != 200:
-            detail = body.get("message") or body.get("code") or response.text or response.status_code
-            raise SodaCloudException(f"Failed '{query_type}' for dataset '{dataset_identifier}': {detail}")
+            detail = body.get("message") or body.get("code") or response.text
+            raise DatasetQueryException(
+                f"Failed '{query_type}' for dataset '{dataset_identifier}': {detail or response.status_code}",
+                reason=f"Soda Cloud returned status {response.status_code}" + (f": {detail}" if detail else ""),
+            )
 
         return body
 

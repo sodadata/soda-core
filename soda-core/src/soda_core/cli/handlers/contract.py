@@ -1,16 +1,18 @@
+from logging import LogRecord
 from os.path import dirname, exists
 from pathlib import Path
 from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common._deprecation import deprecated_kwarg
-from soda_core.common.exceptions import ContractParserException, InvalidArgumentException
+from soda_core.common.exceptions import ContractFetchFailedException, ContractParserException, InvalidArgumentException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
+from soda_core.common.scan_context import get_scan_context
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
-from soda_core.contracts.contract_verification import ContractVerificationSessionResult
+from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
@@ -39,6 +41,11 @@ def handle_verify_contract(
     Cloud-marking site for escaped exceptions (delivery-aware: exit 3 when
     Cloud has the failure or the run is ad-hoc, 4 when a managed run's failure
     couldn't reach Cloud so the launcher's fallback reports).
+
+    A contract that could not be fetched for -d/--dataset comes back as an
+    ERROR result instead of an exception, so ``run_scan`` never sees it. It is
+    reported here through the same ``report_scan_execution_failure``, with the
+    same exit codes.
 
     ``logs`` is the wrapper's collector, threaded into the session so every
     construction/verify record lands in the collector the failure report
@@ -75,6 +82,25 @@ def handle_verify_contract(
         dwh_data_source_file_path=dwh_files,
         logs=logs,
     )
+
+    fetch_failure_results: list[ContractVerificationResult] = [
+        result
+        for result in contract_verification_result.contract_verification_results
+        if isinstance(result.error, ContractFetchFailedException)
+    ]
+    if fetch_failure_results:
+        # Imported here: failure_reporting pulls in soda_cloud, which at module-import time trips
+        # the soda_cloud<->contracts import cycle.
+        from soda_core.cli.handlers.failure_reporting import report_scan_execution_failure
+
+        # Nothing was verified, so nothing else reports the run. A managed run marks its scan failed
+        # with the run's logs and the fetch error, which sit in the result's own records. An ad-hoc
+        # run exits 3 without calling Soda Cloud.
+        log_records: list[LogRecord] = [
+            *(logs.records_for_failure_report() if logs is not None else []),
+            *(record for result in fetch_failure_results for record in result.log_records or []),
+        ]
+        return report_scan_execution_failure(get_scan_context().soda_cloud, log_records)
 
     return interpret_contract_verification_result(contract_verification_result)
 
