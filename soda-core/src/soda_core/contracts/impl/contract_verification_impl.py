@@ -12,7 +12,7 @@ from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectio
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidArgumentException, InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
@@ -494,13 +494,19 @@ class ContractVerificationSessionImpl:
                 )
                 init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
+            except Exception as exc:
+                logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                # Same per-item isolation as the local path: keep an ERROR placeholder for the
+                # item. Dropping it left the session without a result, and an empty session
+                # reads as a pass.
+                contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
+                continue
 
-                # Soda Cloud refuses a scope key the file does not declare. Refuse it here as a local run does,
-                # before any request to Soda Cloud.
-                raise_if_unknown_scope_keys(
-                    [(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors
-                )
+            # Soda Cloud refuses a scope key the file does not declare. Refuse it here as a local run does,
+            # before any request to Soda Cloud. Outside the try, so the error stops the session.
+            raise_if_unknown_scope_keys([(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors)
 
+            try:
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
@@ -515,14 +521,8 @@ class ContractVerificationSessionImpl:
                         contract_verification_result.log_records or []
                     )
                 contract_verification_results.append(contract_verification_result)
-            except InvalidArgumentException:
-                # A check filter the file cannot honour stops the run, as it stops a local session.
-                raise
             except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
-                # Same per-item isolation as the local path: keep an ERROR placeholder for the
-                # item. Dropping it left the session without a result, and an empty session
-                # reads as a pass.
                 contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
         return contract_verification_results
 
