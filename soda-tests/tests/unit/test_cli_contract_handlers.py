@@ -1,11 +1,13 @@
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
 from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
 from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.logs import Logs
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
@@ -222,6 +224,64 @@ def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_fail
     )
 
     assert exit_code == expected_exit_code
+
+
+def _publish_contract_file(tmp_path, contract_yaml_str: str) -> tuple[ExitCode, MockSodaCloud, str]:
+    contract_file_path = str(tmp_path / "contract.yml")
+    with open(contract_file_path, "w") as contract_file:
+        contract_file.write(contract_yaml_str)
+    soda_cloud_file_path = str(tmp_path / "sc.yml")
+    with open(soda_cloud_file_path, "w") as soda_cloud_file:
+        soda_cloud_file.write("soda_cloud:\n  api_key_id: id\n  api_key_secret: secret\n")
+
+    mock_cloud = MockSodaCloud(
+        [
+            MockResponse(method=MockHttpMethod.POST, json_object={"allowed": True}),
+            MockResponse(method=MockHttpMethod.POST, json_object={"fileId": "fake_file_id"}),
+            MockResponse(
+                method=MockHttpMethod.POST,
+                json_object={"publishedContract": {}, "metadata": {"source": {"filePath": contract_file_path}}},
+            ),
+        ]
+    )
+    with patch.object(SodaCloud, "from_yaml_source", return_value=mock_cloud):
+        exit_code = handle_publish_contract(contract_file_path, soda_cloud_file_path)
+    return exit_code, mock_cloud, contract_file_path
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        pytest.param("dataset: ds/db/sch/CUSTOMERS\nfilter: [id, name]\ncolumns:\n  - name: id\n", id="yaml_error"),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\n  - name: id\n", id="contract_validation_error"
+        ),
+        pytest.param("dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n", id="yaml_syntax_error"),
+    ],
+)
+def test_handle_publish_contract_uploads_nothing_when_the_contract_has_errors(tmp_path, contract_yaml_str):
+    exit_code, mock_cloud, _ = _publish_contract_file(tmp_path, contract_yaml_str)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert mock_cloud.requests == []
+
+
+def test_handle_publish_contract_uploads_a_valid_contract(tmp_path):
+    contract_yaml_str = "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\n"
+
+    exit_code, mock_cloud, contract_file_path = _publish_contract_file(tmp_path, contract_yaml_str)
+
+    assert exit_code == ExitCode.OK
+    assert [request.json["type"] for request in mock_cloud.requests] == [
+        "sodaCoreCanManageContracts",
+        "sodaCoreUploadContractFile",
+        "sodaCorePublishContract",
+    ]
+    assert mock_cloud.requests[1].json["contents"] == contract_yaml_str
+    assert mock_cloud.requests[2].json["contract"] == {
+        "fileId": "fake_file_id",
+        "metadata": {"source": {"type": "local", "filePath": contract_file_path}},
+    }
 
 
 @pytest.mark.parametrize(
