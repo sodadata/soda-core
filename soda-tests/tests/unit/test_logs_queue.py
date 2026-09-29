@@ -327,6 +327,21 @@ def test_child_logs_keep_their_own_records_and_forward_to_the_parents_current_ga
         parent.close()
 
 
+def test_child_logs_count_inherited_records_without_handing_them_on_again():
+    parent = Logs()
+    soda_logger.error("logged by the parent")
+    child = parent.child(inherited_records=parent.get_log_records())
+    try:
+        soda_logger.info("logged by the child")
+
+        assert child.get_logs() == ["logged by the parent", "logged by the child"]
+        assert child.get_errors() == ["logged by the parent"]
+        assert parent.get_logs() == ["logged by the parent", "logged by the child"]
+    finally:
+        child.close()
+        parent.close()
+
+
 def test_get_all_logs_returns_empty_list_for_streaming_gatherer():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.INFO, "streamed away"))
