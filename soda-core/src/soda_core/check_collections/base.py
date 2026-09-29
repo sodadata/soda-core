@@ -48,7 +48,15 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
-from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope, ScopeYaml, scope_value_text
+from soda_core.contracts.impl.scope import (
+    BASE_SCOPE_KEY,
+    Scope,
+    ScopeYaml,
+    check_scope_error,
+    check_scope_location,
+    log_scope_error,
+    scope_value_text,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -687,6 +695,7 @@ class CheckCollectionImpl:
         )
 
         self._verify_duplicate_identities(self.all_check_impls)
+        self._log_checks_excluded_for_their_scope()
         self.metrics: list = self.metrics_resolver.get_resolved_metrics()
 
         self.queries: list = []
@@ -748,6 +757,11 @@ class CheckCollectionImpl:
         raw = getattr(check_yaml, "scope", None)
         if raw is None:
             return self.base_scope
+        # ContractYaml validates the checks it parses. This reports the checks an extension parsed itself.
+        if type(self).supports_scopes and not getattr(check_yaml, "scope_validated", False):
+            error: Optional[str] = check_scope_error(raw, self.scopes)
+            if error:
+                log_scope_error(error, check_scope_location(getattr(check_yaml, "check_yaml_object", None)))
         # str() of the value, or its type name when printing it would fail or run long.
         key = scope_value_text(raw)
         # Compared as str, so a tagged '!x base' is the base scope too and no placeholder
@@ -757,6 +771,27 @@ class CheckCollectionImpl:
         if isinstance(raw, str) and raw in self.scopes:
             return self.scopes[raw]
         return Scope(key=key)
+
+    def _log_checks_excluded_for_their_scope(self) -> None:
+        """One line for the selected checks that are skipped because their scope is not active.
+
+        Logs nothing when there are none, so a file without such a check logs exactly what it logged before.
+        """
+        excluded: int = 0
+        for check_impl in self.all_check_impls:
+            scope: Optional[Scope] = getattr(check_impl, "scope", None)
+            if scope is not None and not scope.is_active and check_impl.selected:
+                excluded += 1
+        if not excluded:
+            return
+        checks: str = "1 check" if excluded == 1 else f"{excluded} checks"
+        if type(self).supports_scopes:
+            logger.info(
+                f"Excluded {checks} whose scope is not active. "
+                f"Running checks in a scope needs a Soda extension that runs scopes."
+            )
+        else:
+            logger.info(f"Excluded {checks} with a scope: kind '{self.kind}' does not support scopes.")
 
     def _parse_checks(self, yaml: CheckCollectionYaml) -> list:
         from soda_core.contracts.impl.contract_verification_impl import CheckImpl
