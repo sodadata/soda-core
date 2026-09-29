@@ -1326,9 +1326,9 @@ class CheckImpl:
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
-        # Merge attributes before filtering (selectors may query them). The base scope holds the top-level
-        # check attributes; a declared scope holds its own and never sees the top-level ones.
-        self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
+        # Merge attributes before filtering (selectors may query them). The check's own attributes go over the
+        # check attributes of its definition scope, see _definition_scope.
+        self.attributes: dict[str, any] = {**self._definition_scope().check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
         # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
@@ -1536,10 +1536,23 @@ class CheckImpl:
         parts = [p for p in parts if p is not None]
         return "/".join(parts)
 
+    def _definition_scope(self) -> Scope:
+        """The scope whose filter goes into this check's definition and whose check attributes go under its own.
+
+        On a kind with scope support that is the check's own scope. The base scope holds the top-level filter
+        and check attributes; a declared scope holds its own and never sees the top-level ones. A kind without
+        support never applies a declared scope and reads scope input as written, so its checks carry the base
+        scope whatever their scope, as before scopes existed.
+        """
+        return self.scope if type(self.contract_impl).supports_scopes else self.contract_impl.base_scope
+
     def _build_definition(self) -> str:
         contract_dict: dict = {}
         # A scope filter replaces the top-level filter; the base scope keeps the top-level filter as written.
-        dataset_filter: Optional[str] = self.contract_impl.yaml.filter if self.scope.is_base else self.scope.filter
+        definition_scope: Scope = self._definition_scope()
+        dataset_filter: Optional[str] = (
+            self.contract_impl.yaml.filter if definition_scope.is_base else definition_scope.filter
+        )
         if dataset_filter:
             contract_dict["filter"] = dataset_filter
 
