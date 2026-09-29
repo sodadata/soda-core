@@ -8,6 +8,7 @@ from soda_core.common.exceptions import (
     ContractFetchFailedException,
     DatasetQueryException,
     InvalidArgumentException,
+    SodaCloudAuthenticationFailedException,
     SodaCloudException,
 )
 from soda_core.common.logging_constants import soda_logger
@@ -427,9 +428,10 @@ def _create_contract_yamls(
         for dataset_identifier in dataset_identifiers:
             try:
                 contract: Optional[str] = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-            except SodaCloudException as exc:
+            except (SodaCloudException, SodaCloudAuthenticationFailedException) as exc:
                 # A dataset query failure gives its reason without the dataset, so the line names
-                # the dataset once. Any other Soda Cloud failure falls back to its message.
+                # the dataset once. Any other Soda Cloud failure, such as a rejected API key at
+                # login, falls back to its message.
                 reason: str = exc.reason if isinstance(exc, DatasetQueryException) else str(exc)
                 fetch_failure = ContractFetchFailedException(dataset_identifier, reason)
                 fetch_failure.__cause__ = exc
