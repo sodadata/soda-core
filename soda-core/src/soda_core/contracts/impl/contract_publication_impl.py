@@ -24,37 +24,41 @@ class ContractPublicationImpl:
         self.logs: Logs = logs
 
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
-        if self.soda_cloud is None and soda_cloud_yaml_source is not None:
-            self.soda_cloud = SodaCloud.from_yaml_source(
-                soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=variables
-            )
-
         self.contract_yamls: list[ContractYaml] = []
         # Positional with contract_yamls: the errors that parsing each contract logged.
         self.contract_yaml_errors: list[list[str]] = []
         self.contract_impls: list[ContractImpl] = []
-        if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            logger.error(f"No contracts configured")
-        else:
-            for contract_yaml_source in contract_yaml_sources:
-                error_count_before_parse: int = len(self.logs.get_errors())
-                contract_yaml: ContractYaml = ContractYaml.parse(
-                    yaml_source=contract_yaml_source, provided_variable_values=variables
+        # Publication reads back the errors each parse logged, so capture them in self.logs even
+        # when another Logs became active after it was created.
+        with self.logs.activate():
+            if self.soda_cloud is None and soda_cloud_yaml_source is not None:
+                self.soda_cloud = SodaCloud.from_yaml_source(
+                    soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=variables
                 )
-                self.contract_yamls.append(contract_yaml)
-                self.contract_yaml_errors.append(self.logs.get_errors()[error_count_before_parse:])
+
+            if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
+                logger.error(f"No contracts configured")
+            else:
+                for contract_yaml_source in contract_yaml_sources:
+                    error_count_before_parse: int = len(self.logs.get_errors())
+                    contract_yaml: ContractYaml = ContractYaml.parse(
+                        yaml_source=contract_yaml_source, provided_variable_values=variables
+                    )
+                    self.contract_yamls.append(contract_yaml)
+                    self.contract_yaml_errors.append(self.logs.get_errors()[error_count_before_parse:])
 
     def execute(self) -> ContractPublicationResultList:
-        if not self.soda_cloud:
-            logger.warning("skipping publication because of missing Soda Cloud configuration")
-            return ContractPublicationResultList(items=[], logs=self.logs)
-        return ContractPublicationResultList(
-            items=[
-                self._publish_contract(contract_yaml, parse_errors)
-                for contract_yaml, parse_errors in zip(self.contract_yamls, self.contract_yaml_errors)
-            ],
-            logs=self.logs,
-        )
+        with self.logs.activate():
+            if not self.soda_cloud:
+                logger.warning("skipping publication because of missing Soda Cloud configuration")
+                return ContractPublicationResultList(items=[], logs=self.logs)
+            return ContractPublicationResultList(
+                items=[
+                    self._publish_contract(contract_yaml, parse_errors)
+                    for contract_yaml, parse_errors in zip(self.contract_yamls, self.contract_yaml_errors)
+                ],
+                logs=self.logs,
+            )
 
     def _publish_contract(self, contract_yaml: ContractYaml, parse_errors: list[str]) -> ContractPublicationResult:
         errors: list[str] = _errors_that_block_publication(contract_yaml, parse_errors)
