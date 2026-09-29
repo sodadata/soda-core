@@ -12,7 +12,7 @@ from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectio
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import InvalidArgumentException, InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
@@ -216,6 +216,9 @@ class ContractVerificationSessionImpl:
     @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
     @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
     @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
+    @param check_paths: The check paths to run. A local run adds them to the check selectors, the runner gets them
+        as given.
+    @param check_selectors: The check selectors, without the check paths.
     @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
@@ -233,6 +236,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
+        check_paths: Optional[list[str]] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
@@ -316,6 +320,8 @@ class ContractVerificationSessionImpl:
                 soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 soda_cloud_verbose=soda_cloud_verbose,
+                check_paths=check_paths,
+                check_selectors=check_selectors,
             )
 
         else:
@@ -329,7 +335,8 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
-                check_selectors=check_selectors,
+                # A local run matches the check paths as check_path selectors, after the other selectors.
+                check_selectors=[*check_selectors, *CheckSelector.from_check_paths(check_paths)],
                 dwh_files=dwh_files,
             )
             return ContractVerificationSessionResult(
@@ -454,8 +461,12 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
+        from soda_core.check_collections.session import raise_if_unknown_scope_keys
+
         contract_verification_results: list[ContractVerificationResult] = []
 
         for contract_yaml_source in contract_yaml_sources:
@@ -484,18 +495,29 @@ class ContractVerificationSessionImpl:
                 init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
 
+                # Soda Cloud refuses a scope key the file does not declare. Refuse it here as a local run does,
+                # before any request to Soda Cloud.
+                raise_if_unknown_scope_keys(
+                    [(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors
+                )
+
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
+                    check_paths=check_paths,
+                    check_selectors=check_selectors,
                 )
                 if init_log_records:
                     contract_verification_result.log_records = init_log_records + (
                         contract_verification_result.log_records or []
                     )
                 contract_verification_results.append(contract_verification_result)
+            except InvalidArgumentException:
+                # A check filter the file cannot honour stops the run, as it stops a local session.
+                raise
             except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
                 # Same per-item isolation as the local path: keep an ERROR placeholder for the
@@ -640,6 +662,8 @@ class ContractImpl(CheckCollectionImpl):
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> ContractVerificationResult:
         return soda_cloud_impl.verify_contract_on_runner(
             contract_yaml=self.yaml,
@@ -647,6 +671,8 @@ class ContractImpl(CheckCollectionImpl):
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             publish_results=publish_results,
             verbose=verbose,
+            check_paths=check_paths,
+            check_selectors=check_selectors,
         )
 
     def verify_on_agent(self, *args, **kwargs) -> ContractVerificationResult:

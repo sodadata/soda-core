@@ -1409,6 +1409,8 @@ class CheckCollectionImpl:
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list] = None,
     ) -> CheckCollectionResult:
         """Runner-path verification. Default: raise NotImplementedError.
 
