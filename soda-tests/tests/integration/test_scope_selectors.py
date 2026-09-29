@@ -4,6 +4,8 @@
 together and ``scope!=<key>`` excludes. Core never activates a declared scope, so a selected scoped check still goes
 up as EXCLUDED; the selection itself is read from ``CheckImpl.selected``. A key that no collection in the session
 declares fails the run with exit code 3 before any query against the dataset.
+
+Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from helpers.test_table import TestTable, TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl
@@ -28,6 +31,8 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import CheckOutcome, ContractVerificationSession
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension, ContractImpl
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 test_table_specification = (
     TestTableSpecification.builder()
