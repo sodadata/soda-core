@@ -54,9 +54,12 @@ class _Transport:
     Set on the class as ``SodaCloud._http_post``: an instance is not a descriptor, so it is
     called without the SodaCloud instance."""
 
-    def __init__(self, get_contract: Callable[[], Response], mark_scan_failed_status: int = 200):
+    def __init__(
+        self, get_contract: Callable[[], Response], mark_scan_failed_status: int = 200, login_status: int = 200
+    ):
         self.get_contract = get_contract
         self.mark_scan_failed_status = mark_scan_failed_status
+        self.login_status = login_status
         self.requests: list[dict] = []
 
     def __call__(self, request_log_name: str = None, **kwargs) -> Response:
@@ -64,6 +67,8 @@ class _Transport:
         self.requests.append(body)
         request_type: Optional[str] = body.get("type")
         if request_type == "login":
+            if self.login_status != 200:
+                return _response(self.login_status, {"code": "unauthorized"})
             return _response(200, {"token": "token"})
         if request_type == "sodaCoreGetContract":
             return self.get_contract()
@@ -149,7 +154,26 @@ REJECTING_RESPONSES = [
         "data source 'my_ds' is unknown in Soda Cloud",
         id="datasource-not-found",
     ),
+    pytest.param(
+        lambda: _response(500, "", "text/plain"), "Soda Cloud returned status 500", id="server-error-empty-body"
+    ),
+    pytest.param(
+        lambda: _response(404, "Not Found", "text/plain"),
+        "Soda Cloud returned status 404: Not Found",
+        id="not-found-text",
+    ),
+    pytest.param(
+        lambda: _response(400, {"code": "bad_request", "message": "Invalid request"}),
+        "Soda Cloud returned status 400: Invalid request",
+        id="unmapped-400-with-message",
+    ),
+    pytest.param(
+        lambda: _response(400, {"code": "bad_request"}),
+        "Soda Cloud returned status 400: bad_request",
+        id="unmapped-400-code-only",
+    ),
     pytest.param(lambda: _response(200, {}), NO_CONTRACT, id="no-contents"),
+    pytest.param(lambda: _response(200, "ok", "text/plain"), NO_CONTRACT, id="non-json-200"),
     pytest.param(lambda: _response(200, {"contents": None}), NO_CONTRACT, id="null-contents"),
     pytest.param(lambda: _response(200, {"contents": ""}), NO_CONTRACT, id="empty-contents"),
     pytest.param(lambda: _response(200, {"contents": "\n"}), NO_CONTRACT, id="newline-contents"),
@@ -242,6 +266,97 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_an
     assert [message for message in _error_messages(caplog) if DATASET in message] == [
         _fetch_failure_line("no response from Soda Cloud")
     ]
+
+
+@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
+def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_cloud(
+    monkeypatch, config_files, extra_args
+):
+    # The fetch gets an answer, the failure report does not: Soda Cloud never has the failure.
+    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
+    transport = _Transport(lambda: _response(500, {"message": "boom"}))
+
+    def mark_unreachable(soda_cloud: SodaCloud, request_log_name: str = None, **kwargs) -> Response:
+        if (kwargs.get("json") or {}).get("type") == "sodaCoreMarkScanFailed":
+            transport.requests.append(kwargs["json"])
+            raise requests.exceptions.ConnectionError("Connection refused")
+        return transport(request_log_name, **kwargs)
+
+    monkeypatch.setattr(SodaCloud, "_http_post", mark_unreachable)
+    data_source_file, soda_cloud_file = config_files
+
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
+
+
+REJECTED_API_KEY = (
+    "Soda Cloud authentication failed. The provided API keys are unknown or invalid. Please verify your credentials."
+)
+
+
+def _rejecting_the_api_key() -> _Transport:
+    # Soda Cloud answers login with 401, so no request after login is ever sent.
+    return _Transport(lambda: _response(200, {"contents": CONTRACT_YAML}), login_status=401)
+
+
+@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
+def test_cli_exits_3_with_the_fetch_line_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files, extra_args):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    transport = _rejecting_the_api_key()
+    monkeypatch.setattr(SodaCloud, "_http_post", transport)
+    data_source_file, soda_cloud_file = config_files
+
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert [message for message in _error_messages(caplog) if DATASET in message] == [
+        _fetch_failure_line(REJECTED_API_KEY)
+    ]
+    assert not [record.getMessage() for record in caplog.records if record.levelno >= ERROR and record.exc_info]
+    assert [body.get("type") for body in transport.requests] == ["login"]
+
+
+@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
+def test_cli_on_a_managed_run_exits_4_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files, extra_args):
+    # The failure report cannot log in either, so Soda Cloud never has the failure.
+    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
+    transport = _rejecting_the_api_key()
+    monkeypatch.setattr(SodaCloud, "_http_post", transport)
+    data_source_file, soda_cloud_file = config_files
+
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+    assert [message for message in _error_messages(caplog) if DATASET in message] == [
+        _fetch_failure_line(REJECTED_API_KEY)
+    ]
+    assert [body.get("type") for body in transport.requests] == ["login", "login"]
+
+
+@pytest.mark.parametrize("scan_id", [None, SCAN_ID], ids=["ad-hoc", "managed"])
+def test_api_reports_a_rejected_api_key_in_the_result_without_raising_or_marking(monkeypatch, config_files, scan_id):
+    if scan_id:
+        monkeypatch.setenv("SODA_SCAN_ID", scan_id)
+    else:
+        monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    transport = _rejecting_the_api_key()
+    monkeypatch.setattr(SodaCloud, "_http_post", transport)
+    data_source_file, soda_cloud_file = config_files
+
+    result = verify_contract(
+        contract_file_path=None,
+        dataset_identifier=DATASET,
+        data_source_file_path=data_source_file,
+        soda_cloud_file_path=soda_cloud_file,
+        publish=True,
+    )
+
+    assert result.has_errors
+    assert result.get_errors() == [_fetch_failure_line(REJECTED_API_KEY)]
+    assert pickle.loads(pickle.dumps(result)).get_errors() == [_fetch_failure_line(REJECTED_API_KEY)]
+    assert [body.get("type") for body in transport.requests] == ["login"]
 
 
 @pytest.mark.parametrize("scan_id", [None, SCAN_ID], ids=["ad-hoc", "managed"])
