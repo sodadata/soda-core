@@ -15,7 +15,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.cli.exit_codes import ExitCode, session_result_to_exit_code
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
-
 from unit import test_session_publish_outcome as outcome
 
 
