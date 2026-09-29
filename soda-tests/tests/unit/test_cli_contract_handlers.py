@@ -326,6 +326,69 @@ def test_handle_test_contract_still_reports_a_variable_without_value(tmp_path, c
     ]
 
 
+THRESHOLD_VARIABLE_CONTRACT_YAML = (
+    "dataset: ds/db/sch/CUSTOMERS\nvariables:\n  MAX:\ncolumns:\n  - name: id\nchecks:\n"
+    "  - row_count:\n      threshold:\n        must_be_less_than: ${var.MAX}\n"
+)
+
+
+def test_handle_publish_contract_uploads_a_contract_with_a_threshold_variable_without_value(tmp_path, caplog):
+    exit_code, mock_cloud, _ = _publish_contract_file(tmp_path, THRESHOLD_VARIABLE_CONTRACT_YAML)
+
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == []
+    assert exit_code == ExitCode.OK
+    assert [request.json["type"] for request in mock_cloud.requests] == [
+        "sodaCoreCanManageContracts",
+        "sodaCoreUploadContractFile",
+        "sodaCorePublishContract",
+    ]
+    assert mock_cloud.requests[1].json["contents"] == THRESHOLD_VARIABLE_CONTRACT_YAML
+
+
+def test_handle_test_contract_still_reports_a_threshold_variable_without_value(tmp_path, caplog):
+    contract_file_path = str(tmp_path / "contract.yml")
+    with open(contract_file_path, "w") as contract_file:
+        contract_file.write(THRESHOLD_VARIABLE_CONTRACT_YAML)
+
+    exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={})
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
+        "Required variable 'MAX' did not get a value",
+    ]
+
+
+def test_handle_test_contract_accepts_a_threshold_variable_with_a_number_value(tmp_path, caplog):
+    contract_file_path = str(tmp_path / "contract.yml")
+    with open(contract_file_path, "w") as contract_file:
+        contract_file.write(THRESHOLD_VARIABLE_CONTRACT_YAML)
+
+    exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={"MAX": 5})
+
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == []
+    assert exit_code == ExitCode.OK
+
+
+def test_handle_test_contract_still_reports_an_additional_threshold_without_its_own_comparison(tmp_path, caplog):
+    contract_file_path = str(tmp_path / "contract.yml")
+    with open(contract_file_path, "w") as contract_file:
+        contract_file.write(
+            THRESHOLD_VARIABLE_CONTRACT_YAML + "        additional:\n          must_be_less_than: 1000\n"
+            "          level: warn\n"
+        )
+
+    exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={})
+
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
+        "Required variable 'MAX' did not get a value",
+        "A threshold with an 'additional' threshold must specify a comparison itself "
+        "(one must_be_* key, or one must_be_between/must_be_not_between range)",
+        "A check type's default threshold does not combine with an 'additional' threshold. "
+        "State this check type's default explicitly: must_be_greater_than: 0",
+    ]
+
+
 def test_handle_publish_contract_logs_a_yaml_syntax_error_in_one_line(tmp_path, caplog):
     exit_code, mock_cloud, contract_file_path = _publish_contract_file(
         tmp_path, "dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n"
