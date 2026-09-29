@@ -189,6 +189,12 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
         "      scope:\n",
         ["Check 'scope' must name a declared scope, but was null"],
     ),
+    # A reference in a namespace the engine does not know reads as null without an error of its own.
+    "scope-reference-in-an-unknown-namespace": (
+        "scopes:\n  eu: {name: EU}\n",
+        "      scope: ${nope.SCOPE}\n",
+        ["Check 'scope' must name a declared scope, but '${nope.SCOPE}' resolved to null"],
+    ),
     "scope-number": (
         "scopes:\n  eu: {name: EU}\n",
         "      scope: 5\n",
@@ -385,6 +391,44 @@ def test_a_schema_check_accepts_a_scope(monkeypatch, tmp_path):
     _, logs = _parse(yaml_str)
     assert logs.get_errors() == []
     assert _soda_contract_test(monkeypatch, tmp_path, yaml_str) == (ExitCode.OK, [])
+
+
+SCOPE_ENVIRONMENT_VARIABLE: str = "SODA_TEST_SCOPE_KEY"
+
+
+def _environment_scope_contract(kind_line: str = "") -> str:
+    return _contract("scopes:\n  eu: {name: EU}\n", f"      scope: ${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}\n", kind_line)
+
+
+def test_a_check_scope_from_an_unset_environment_variable_is_an_error(monkeypatch, tmp_path):
+    # An unset environment variable reads as null without an error of its own. The check must not end up in the base
+    # scope, where core runs it over the whole dataset.
+    monkeypatch.delenv(SCOPE_ENVIRONMENT_VARIABLE, raising=False)
+    errors = [f"Check 'scope' must name a declared scope, but '${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}' resolved to null"]
+    _, logs = _parse(_environment_scope_contract())
+    assert logs.get_errors() == errors
+    [record] = logs.gatherer.get_error_logs()
+    assert getattr(record, ExtraKeys.LOCATION).line is not None
+    assert _soda_contract_test(monkeypatch, tmp_path, _environment_scope_contract()) == (ExitCode.LOG_ERRORS, errors)
+
+    unsupported: str = _environment_scope_contract(KIND_LINE_WITHOUT_SCOPE_SUPPORT)
+    _, logs = _build_contract_impl(unsupported, impl_class=ScopeUnsupportedImpl)
+    assert logs.get_errors() == []
+    assert _soda_contract_test(monkeypatch, tmp_path, unsupported) == (ExitCode.OK, [])
+
+
+def test_a_check_scope_from_a_set_environment_variable_is_validated(monkeypatch):
+    monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, "apac")
+    _, logs = _parse(_environment_scope_contract())
+    assert logs.get_errors() == ["Check references unknown scope 'apac'. Declared scopes: ['eu']"]
+
+    monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, "eu")
+    impl, logs = _build_contract_impl(_environment_scope_contract())
+    assert logs.get_errors() == []
+    assert [(check_impl.scope.key, check_impl.skip) for check_impl in impl.all_check_impls] == [
+        ("base", False),
+        ("eu", True),
+    ]
 
 
 def test_a_file_without_scopes_parses_as_before():
@@ -646,6 +690,7 @@ EXTENSION_CHECKS_YAML: str = """
       - row_count: {qualifier: base, scope: base}
       - row_count: {qualifier: undeclared, scope: apac}
       - row_count: {qualifier: number, scope: 5}
+      - row_count: {qualifier: null-scope, scope: null}
 """
 
 
@@ -665,6 +710,7 @@ def test_checks_an_extension_parses_are_checked_where_their_scope_is_resolved(im
         "base",
         "undeclared",
         "number",
+        "null-scope",
     ]
     if impl_class is ScopeUnsupportedImpl:
         assert logs.get_errors() == []
@@ -676,6 +722,7 @@ def test_checks_an_extension_parses_are_checked_where_their_scope_is_resolved(im
         f"Invalid check scope 'base': {BASE_REASON}",
         "Check references unknown scope 'apac'. Declared scopes: ['eu']",
         "Check 'scope' must name a declared scope, but was a number: 5",
+        "Check 'scope' must name a declared scope, but was null",
     ]
     locations = [record.location for record in logs.gatherer.get_error_logs()]
     assert all(location is not None and location.line is not None for location in locations)

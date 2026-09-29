@@ -123,3 +123,40 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
         for check_result in result.check_results
     }
     assert [log["message"] for log in upload["logs"] if log["message"].startswith("Excluded ")] == [NUDGE]
+
+
+def test_a_check_scope_from_an_unset_environment_variable_fails_without_queries(
+    monkeypatch, data_source_test_helper: DataSourceTestHelper
+):
+    # Read as null, the scope would put the check in the base scope and run it over the whole dataset.
+    monkeypatch.delenv("SODA_TEST_SCOPE_KEY", raising=False)
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+            MockResponse(status_code=200, json_object={"scanId": "scopes-oss-skip-scan"}),
+        ]
+    )
+    executed_sql: list[str] = _record_queries(monkeypatch, data_source_test_helper.data_source_impl)
+
+    session_result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            scopes:
+              high:
+                name: High ids
+            checks:
+              - row_count:
+              - failed_rows:
+                  scope: ${env.SODA_TEST_SCOPE_KEY}
+                  expression: amount > 20
+        """,
+    )
+
+    [result] = session_result.contract_verification_results
+    assert result.get_errors() == [
+        "Check 'scope' must name a declared scope, but '${env.SODA_TEST_SCOPE_KEY}' resolved to null"
+    ]
+    assert result.status == CheckCollectionStatus.ERROR
+    assert interpret_contract_verification_result(session_result) == ExitCode.LOG_ERRORS
+    assert [sql for sql in executed_sql if "amount" in sql.lower()] == []
