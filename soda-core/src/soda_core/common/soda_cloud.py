@@ -2010,7 +2010,9 @@ def _build_check_collection_results_json_dict(
     - ``scanStartTimestamp`` = min of per-result starts
     - ``scanEndTimestamp`` = max of per-result ends
     - ``hasErrors``/``hasWarnings``/``hasFailures`` = ORs over per-result flags
-    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results
+    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results; a log
+      record that several results carry, like one the caller logged before the
+      session, is listed once
     - ``postProcessingStages`` = de-duped by name (the backend tracks
       one ONGOING stage per scan)
     - ``resultsIngestionMode`` = PARTIAL if any check across the batch is
@@ -2033,9 +2035,12 @@ def _build_check_collection_results_json_dict(
             checks.extend(per_file)
 
     log_records: list[LogRecord] = []
+    seen_log_record_ids: set[int] = set()
     for r in results:
-        if r.log_records:
-            log_records.extend(r.log_records)
+        for log_record in r.log_records or []:
+            if id(log_record) not in seen_log_record_ids:
+                seen_log_record_ids.add(id(log_record))
+                log_records.append(log_record)
     logs = _build_log_cloud_json_dicts(log_records)
 
     # De-dup post-processing stages by name: the backend tracks one
