@@ -104,6 +104,11 @@ class DatasetQueryException(SodaCloudException):
         super().__init__(message)
         self.reason: str = reason
 
+    def __reduce__(self):
+        # Pickle calls the class again with args, which holds only the message, so pass the
+        # constructor arguments instead. Each subclass passes its own.
+        return type(self), (self.message, self.reason), self.__dict__
+
 
 class ContractNotFoundException(DatasetQueryException):
     """Indicates the contract was not found in Soda Cloud."""
@@ -114,6 +119,10 @@ class ContractNotFoundException(DatasetQueryException):
             "Please publish a contract for this dataset in Soda Cloud before proceeding.",
             reason="the dataset has no published contract in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
 
 
 class DataSourceNotFoundException(DatasetQueryException):
@@ -125,6 +134,10 @@ class DataSourceNotFoundException(DatasetQueryException):
             "Please verify the data source name or configure it in Soda Cloud.",
             reason=f"data source '{dataset_identifier.data_source_name}' is unknown in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
 
 
 class DatasetNotFoundException(DatasetQueryException):
@@ -136,6 +149,10 @@ class DatasetNotFoundException(DatasetQueryException):
             "Please verify the dataset name or configure it in Soda Cloud.",
             reason="the dataset is unknown in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
 
 
 class ContractFetchFailedException(SodaCloudException):
@@ -149,6 +166,10 @@ class ContractFetchFailedException(SodaCloudException):
         super().__init__(f"Could not fetch the contract for dataset '{dataset_identifier}': {reason}")
         self.dataset_identifier: str = dataset_identifier
         self.reason: str = reason
+
+    def __reduce__(self):
+        # Pickle calls the class again with args, which holds only the message.
+        return type(self), (self.dataset_identifier, self.reason), self.__dict__
 
 
 def get_exception_stacktrace(exception) -> Optional[str]:
