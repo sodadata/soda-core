@@ -3,16 +3,22 @@
 Each declared scope stays inactive. Its checks build no metrics and send no queries, go up to Soda Cloud as
 excluded next to the checks that ran, and one log line says why. The contract then ends as any partial run does:
 UNKNOWN when the checks that ran passed, with exit code 0.
+
+Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
 
 from __future__ import annotations
 
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_table import TestTableSpecification
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import interpret_contract_verification_result
 from soda_core.contracts.contract_verification import CheckCollectionStatus, CheckOutcome
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 test_table_specification = (
     TestTableSpecification.builder()
