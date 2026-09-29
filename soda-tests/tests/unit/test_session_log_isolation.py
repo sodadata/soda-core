@@ -339,3 +339,43 @@ def test_caller_logs_see_every_collection_record_once(_isolate_logging):
     ]
     assert records[-1].getMessage() == "after-session"
     assert records[-1].thread not in {f"{_WIRE_SOURCE}.erroring-a", f"{_WIRE_SOURCE}.b"}
+
+
+@pytest.mark.parametrize("labels", [["a"], ["a", "b"]], ids=["one-collection", "two-collections"])
+def test_caller_error_logged_before_the_session_errors_every_collection(_isolate_logging, labels: list[str]):
+    """What the caller logged before the session belongs to no one collection. A
+    lone collection runs on the caller's ``Logs`` and so counts it; each of two
+    starts with it and counts it too, so the number of files never decides whether
+    an error logged before the session fails it. The caller still holds it once."""
+    caller_logs = Logs()
+    soda_logger.error("before-session")
+    session_result = execute_check_collections(
+        yaml_sources=[_LabelledSource(label) for label in labels], data_source_impl=None, logs=caller_logs
+    )
+
+    assert session_result.has_errors
+    assert [r.status for r in session_result.results] == [CheckCollectionStatus.ERROR] * len(labels)
+    for label, result in zip(labels, session_result.results):
+        assert _messages(result) == ["before-session", f"construct-{label}", f"verify-{label}"]
+        assert result.get_errors() == ["before-session"]
+    assert [record.getMessage() for record in caller_logs.get_log_records()] == (
+        ["before-session"] + [f"construct-{label}" for label in labels] + [f"verify-{label}" for label in labels]
+    )
+
+
+def test_combined_payload_carries_a_record_logged_before_the_session_once(_isolate_logging):
+    """Each collection starts with what the caller logged before the session, and
+    the combined upload still lists that record once."""
+    caller_logs = Logs()
+    soda_logger.warning("before-session")
+    results = _run_two_collections_with_caller_logs(caller_logs)
+
+    payload = _build_check_collection_results_json_dict(results, wire_source=_WIRE_SOURCE)
+    assert [log["message"] for log in payload["logs"]] == [
+        "before-session",
+        "construct-erroring-a",
+        "verify-erroring-a",
+        "construct-b",
+        "verify-b",
+    ]
+    assert [log["index"] for log in payload["logs"]] == [0, 1, 2, 3, 4]

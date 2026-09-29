@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 import pytest
@@ -7,7 +8,7 @@ from helpers.test_functions import dedent_and_strip
 from helpers.test_table import TestTable, TestTableSpecification
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     CheckOutcome,
@@ -114,10 +115,10 @@ def _contract_yaml_source(
 
 def _verify_contracts(
     data_source_test_helper: DataSourceTestHelper,
+    test_table: TestTable,
     checks_yamls: list[str],
     logs: Optional[Logs] = None,
 ) -> tuple[ContractVerificationSessionResult, list[dict]]:
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     soda_cloud = MockSodaCloud(
         [MockResponse(status_code=200, json_object={"scanId": f"scan-{index}"}) for index in range(len(checks_yamls))]
     )
@@ -150,8 +151,9 @@ def test_first_contract_error_leaves_the_second_contract_its_own_status(
     """Without a caller Logs, ``ContractVerificationSession.execute`` builds one and
     hands it to the session, so this is what every two-contract API call does."""
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     session_result, _ = _verify_contracts(
-        data_source_test_helper, [_ERRORING_CONTRACT_CHECKS[erroring_phase], _PASSING_CONTRACT_CHECKS]
+        data_source_test_helper, test_table, [_ERRORING_CONTRACT_CHECKS[erroring_phase], _PASSING_CONTRACT_CHECKS]
     )
 
     first, second = session_result.contract_verification_results
@@ -165,12 +167,17 @@ def test_first_contract_error_leaves_the_second_contract_its_own_status(
 def test_each_contract_of_a_session_uploads_only_its_own_records_and_the_caller_sees_each_once(
     data_source_test_helper: DataSourceTestHelper, monkeypatch, erroring_phase: str
 ):
-    """Each upload carries only its own contract's records, and the caller's Logs,
-    the one its failure report reads, gets every record exactly once."""
+    """Each upload carries its own contract's records and what the caller logged
+    before the session, never the other contract's, and the caller's Logs, the one
+    its failure report reads, gets every record exactly once."""
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    # Set up the table first, so the one line below is all the caller logs before the session.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     caller_logs = Logs()
+    soda_logger.warning("Logged by the caller before the session")
     session_result, payloads = _verify_contracts(
         data_source_test_helper,
+        test_table,
         [_ERRORING_CONTRACT_CHECKS[erroring_phase], _PASSING_CONTRACT_CHECKS],
         logs=caller_logs,
     )
@@ -182,11 +189,16 @@ def test_each_contract_of_a_session_uploads_only_its_own_records_and_the_caller_
     first_payload, second_payload = payloads
     for payload in payloads:
         assert len([m for m in _payload_messages(payload) if m.startswith("Verifying contract")]) == 1
+        assert _payload_messages(payload).count("Logged by the caller before the session") == 1
     assert _payload_messages(first_payload, level="error")
     assert _payload_messages(second_payload, level="error") == []
 
-    first_record_ids = {id(record) for record in first.log_records}
-    second_record_ids = {id(record) for record in second.log_records}
+    pre_session_record = caller_logs.get_log_records()[0]
+    assert pre_session_record.getMessage() == "Logged by the caller before the session"
+    assert first.log_records[0] is pre_session_record
+    assert second.log_records[0] is pre_session_record
+    first_record_ids = {id(record) for record in first.log_records[1:]}
+    second_record_ids = {id(record) for record in second.log_records[1:]}
     assert first_record_ids.isdisjoint(second_record_ids)
     caller_record_ids = [id(record) for record in caller_logs.get_log_records()]
     assert len(caller_record_ids) == len(set(caller_record_ids))
@@ -197,13 +209,50 @@ def test_single_contract_session_keeps_the_callers_logs(data_source_test_helper:
     """A lone contract has no sibling to keep apart from, so it keeps using the
     caller's Logs: its upload still carries what the caller logged before the session."""
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     caller_logs = Logs()
     soda_logger.warning("Logged by the caller before the session")
     session_result, (payload,) = _verify_contracts(
-        data_source_test_helper, [_PASSING_CONTRACT_CHECKS], logs=caller_logs
+        data_source_test_helper, test_table, [_PASSING_CONTRACT_CHECKS], logs=caller_logs
     )
 
     (result,) = session_result.contract_verification_results
     assert result.status is CheckCollectionStatus.PASSED
     assert result.log_records is caller_logs.get_log_records()
     assert "Logged by the caller before the session" in _payload_messages(payload, level="warning")
+
+
+def _unused_data_source_with_an_undeclared_variable(
+    data_source_test_helper: DataSourceTestHelper,
+) -> DataSourceYamlSource:
+    """A second data source of the test type that no contract uses, so it never
+    connects. Its name references a variable nobody declared, which logs an error
+    without raising while the session parses it."""
+    data_source_dict: dict = dict(data_source_test_helper._create_data_source_yaml_source().parse().yaml_dict)
+    data_source_dict["name"] = "unused_${var.NOT_DECLARED_IN_DATA_SOURCE}"
+    return DataSourceYamlSource.from_str(yaml_str=json.dumps(data_source_dict))
+
+
+@pytest.mark.parametrize("contract_count", [1, 2])
+def test_data_source_error_logged_before_the_contracts_errors_each_contract(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, contract_count: int
+):
+    """``ContractVerificationSession.execute`` parses the data source YAMLs into the
+    Logs it builds before any contract runs. An error logged there errors every
+    contract, one or two, and each result says why."""
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    session_result = ContractVerificationSession.execute(
+        contract_yaml_sources=[
+            _contract_yaml_source(data_source_test_helper, test_table, _PASSING_CONTRACT_CHECKS)
+            for _ in range(contract_count)
+        ],
+        data_source_impls=[data_source_test_helper.data_source_impl],
+        data_source_yaml_sources=[_unused_data_source_with_an_undeclared_variable(data_source_test_helper)],
+    )
+
+    assert session_result.has_errors
+    for result in session_result.contract_verification_results:
+        assert result.status is CheckCollectionStatus.ERROR
+        assert "Variable 'NOT_DECLARED_IN_DATA_SOURCE' was used and not declared" in result.get_errors()
+    assert len(session_result.contract_verification_results) == contract_count
