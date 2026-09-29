@@ -339,6 +339,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         f"Supported keys: {', '.join(sorted(CheckSelector.SUPPORTED_FIELDS))}, "
         f"{CheckSelector.ATTRIBUTES_PREFIX}<key>. "
         "Multiple filters: AND across fields, OR within same field. "
+        "Use key!=value to exclude the checks that match. "
         "Wildcards (* and ?) supported in values. "
         "For list attributes: key=value for member match, key=[a,b] for exact list match. "
         'Quote values containing shell special characters: -cf "attributes.tags=[a,b]".',
