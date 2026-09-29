@@ -421,6 +421,149 @@ def test_contract_command_without_a_value_for_contract_keeps_the_argparse_error(
     assert "argument -c/--contract: expected one argument" in capsys.readouterr().err
 
 
+VERIFY_OTHER_ARGS = ["-ds", "ds.yaml", "-sc", "cloud.yaml"]
+
+
+@pytest.mark.parametrize(
+    "dataset_args, given",
+    [
+        (["-d", "ds/a", "-d", "ds/b"], "2 datasets: ds/a, ds/b"),
+        (["--dataset", "ds/a", "--dataset=ds/b"], "2 datasets: ds/a, ds/b"),
+        (["-d", "ds/a", "--dataset", "ds/b", "-d", "ds/c"], "3 datasets: ds/a, ds/b, ds/c"),
+        (["-c", "a.yaml", "-d", "ds/a", "-d", "ds/b"], "2 datasets: ds/a, ds/b"),
+    ],
+)
+def test_contract_verify_refuses_a_second_dataset_before_it_runs(dataset_args, given):
+    """A second -d used to replace the first without a word, so verify fetched and ran only the
+    last dataset's contract from Soda Cloud. It now fails with exit 3 before any Cloud call."""
+    logs = Logs()
+    sys.argv = ["soda", "contract", "verify", *dataset_args, *VERIFY_OTHER_ARGS]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with patch("soda_core.cli.cli.handle_verify_contract") as mock_handler, patch(
+        "soda_core.cli.cli.resolve_soda_cloud_for_failure_report"
+    ) as mock_resolve_soda_cloud, patch("soda_core.cli.cli.run_scan") as mock_run_scan:
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == ExitCode.LOG_ERRORS
+    assert logs.get_errors() == [
+        f"soda contract verify takes one dataset, but -d/--dataset was given {given}. "
+        f"Run the command once per dataset."
+    ]
+    mock_handler.assert_not_called()
+    mock_resolve_soda_cloud.assert_not_called()
+    mock_run_scan.assert_not_called()
+
+
+def test_contract_verify_names_both_a_second_contract_and_a_second_dataset():
+    logs = Logs()
+    sys.argv = [
+        "soda",
+        "contract",
+        "verify",
+        *["-c", "a.yaml", "-c", "b.yaml", "-d", "ds/a", "-d", "ds/b"],
+        *VERIFY_OTHER_ARGS,
+    ]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with patch("soda_core.cli.cli.handle_verify_contract") as mock_handler:
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == ExitCode.LOG_ERRORS
+    assert logs.get_errors() == [
+        "soda contract verify takes one contract, but -c/--contract was given 2 files: a.yaml, b.yaml. "
+        "Run the command once per contract.",
+        "soda contract verify takes one dataset, but -d/--dataset was given 2 datasets: ds/a, ds/b. "
+        "Run the command once per dataset.",
+    ]
+    mock_handler.assert_not_called()
+
+
+@pytest.mark.parametrize("dataset_args", [["-d", "ds/a"], ["--dataset", "ds/a"], ["--dataset=ds/a"]])
+@pytest.mark.parametrize("contract_args, expected_contract", [([], None), (["-c", "a.yaml"], "a.yaml")])
+def test_contract_verify_runs_one_dataset_as_before(dataset_args, contract_args, expected_contract):
+    logs = Logs()
+    sys.argv = ["soda", "contract", "verify", *contract_args, *dataset_args, *VERIFY_OTHER_ARGS]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    assert args.dataset == "ds/a"
+    with patch("soda_core.cli.cli.handle_verify_contract", return_value=ExitCode.CHECK_FAILURES) as mock_handler, patch(
+        "soda_core.cli.cli.resolve_soda_cloud_for_failure_report", return_value=None
+    ):
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == ExitCode.CHECK_FAILURES
+    assert logs.get_errors() == []
+    mock_handler.assert_called_once()
+    assert mock_handler.call_args.args[:2] == (expected_contract, "ds/a")
+
+
+@pytest.mark.parametrize(
+    "command, one_value_args, expected_values, other_args",
+    [
+        ("verify", ["-d", "ds/a"], {"dataset": "ds/a"}, VERIFY_OTHER_ARGS),
+        ("verify", ["-c", "a.yaml", "-d", "ds/a"], {"contract": "a.yaml", "dataset": "ds/a"}, VERIFY_OTHER_ARGS),
+        ("verify", ["-c", "a.yaml"], {"contract": "a.yaml"}, VERIFY_OTHER_ARGS),
+        ("publish", ["-c", "a.yaml"], {"contract": "a.yaml"}, ["-sc", "cloud.yaml"]),
+        ("test", ["-c", "a.yaml"], {"contract": "a.yaml"}, []),
+    ],
+)
+def test_one_contract_or_dataset_changes_only_its_own_value_in_the_args_telemetry_reads(
+    command, one_value_args, expected_values, other_args
+):
+    """execute() sends vars(args) to telemetry, one attribute per key. A single -c or -d must
+    set its own value and add no key."""
+    parser = create_cli_parser()
+    given = vars(parser.parse_args(["contract", command, *one_value_args, *other_args]))
+    absent = vars(parser.parse_args(["contract", command, *other_args]))
+
+    assert given == {**absent, **expected_values}
+
+
+def test_contract_verify_without_a_value_for_dataset_keeps_the_argparse_error(capsys):
+    sys.argv = ["soda", "contract", "verify", *VERIFY_OTHER_ARGS, "-d"]
+
+    parser = create_cli_parser()
+    with pytest.raises(SystemExit) as e:
+        parser.parse_args()
+
+    assert e.value.code == 2
+    assert "argument -d/--dataset: expected one argument" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "dataset_args, expected_datasets",
+    [
+        (["-d", "ds/a"], ["ds/a"]),
+        (["-d", "ds/a", "ds/b"], ["ds/a", "ds/b"]),
+        (["--dataset", "ds/a", "ds/b"], ["ds/a", "ds/b"]),
+    ],
+)
+def test_contract_fetch_takes_several_datasets_as_before(dataset_args, expected_datasets):
+    logs = Logs()
+    sys.argv = ["soda", "contract", "fetch", *dataset_args, "-f", "a.yaml", "b.yaml", "-sc", "cloud.yaml"]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with patch("soda_core.cli.cli.handle_fetch_contract", return_value=ExitCode.OK.value) as mock_handler:
+        with pytest.raises(SystemExit) as e:
+            args.handler_func(args)
+
+    assert e.value.code == 0
+    assert logs.get_errors() == []
+    mock_handler.assert_called_once_with(["a.yaml", "b.yaml"], expected_datasets, "cloud.yaml")
+
+
 @patch("soda_core.cli.cli.handle_create_data_source")
 def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
