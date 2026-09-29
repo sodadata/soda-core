@@ -142,14 +142,46 @@ columns:
   - name: id
 """
 
-# Variables without a default get their value at verification time, and publish uploads the
-# contract text with the variable reference unresolved.
+# Publish needs no variable values. A variable without a default gets its value when the contract
+# is verified, and publish uploads the contract text with the variable reference unresolved.
 REQUIRED_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
 variables:
   START_DATE:
 filter: "created_at >= '${var.START_DATE}'"
 columns:
   - name: id
+"""
+
+METRIC_QUERY_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  QUERY:
+columns:
+  - name: id
+checks:
+  - metric:
+      query: ${var.QUERY}
+      threshold:
+        must_be_greater_than: 0
+"""
+
+FAILED_ROWS_QUERY_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  QUERY:
+columns:
+  - name: id
+checks:
+  - failed_rows:
+      query: ${var.QUERY}
+"""
+
+FAILED_ROWS_EXPRESSION_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  CONDITION:
+columns:
+  - name: id
+checks:
+  - failed_rows:
+      expression: ${var.CONDITION}
 """
 
 
@@ -253,14 +285,79 @@ def test_contract_publication_uploads_a_valid_contract_unchanged():
     assert result[0].contract.soda_qualified_dataset_name == "ds/db/sch/CUSTOMERS"
 
 
-def test_contract_publication_still_uploads_a_contract_with_a_required_variable():
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        pytest.param(REQUIRED_VARIABLE_CONTRACT_YAML, id="filter"),
+        pytest.param(METRIC_QUERY_VARIABLE_CONTRACT_YAML, id="metric_query"),
+        pytest.param(FAILED_ROWS_QUERY_VARIABLE_CONTRACT_YAML, id="failed_rows_query"),
+        pytest.param(FAILED_ROWS_EXPRESSION_VARIABLE_CONTRACT_YAML, id="failed_rows_expression"),
+    ],
+)
+def test_contract_publication_uploads_a_contract_with_a_variable_without_value_unchanged(contract_yaml_str):
     mock_cloud = MockSodaCloud(publish_responses())
 
-    result = publish_contract_yaml_strs(mock_cloud, REQUIRED_VARIABLE_CONTRACT_YAML)
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
 
-    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(REQUIRED_VARIABLE_CONTRACT_YAML)
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert not result.has_errors
+    assert result.logs.get_errors() == []
     assert result[0].contract is not None
-    assert result.logs.get_errors() == ["Required variable 'START_DATE' did not get a value"]
+
+
+def test_contract_publication_uploads_nothing_when_a_contract_with_a_variable_without_value_has_another_error():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, REQUIRED_VARIABLE_CONTRACT_YAML + "  - name: id\n")
+
+    assert mock_cloud.requests == []
+    assert result[0].contract is None
+    assert result.logs.get_errors() == [
+        "Duplicate columns with name 'id': At file locations: [5,4], [6,4]",
+        "Skipping publication of the contract because it has 1 error: "
+        "Duplicate columns with name 'id': At file locations: [5,4], [6,4]",
+    ]
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str, expected_error",
+    [
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - not_a_check:\n",
+            "Invalid check type 'not_a_check'. Existing check types: ",
+            id="invalid_check_type",
+        ),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - row_count:\n"
+            "      threshold:\n        must_be_between: 5\n",
+            "YAML key 'must_be_between' expected one of ['dict'], but was int",
+            id="invalid_threshold",
+        ),
+        pytest.param(
+            'dataset: ds/db/sch/CUSTOMERS\nfilter: "id > ${var.UNDECLARED}"\ncolumns:\n  - name: id\n',
+            "Variable 'UNDECLARED' was used and not declared",
+            id="undeclared_variable",
+        ),
+        pytest.param(
+            'dataset: ds/db/sch/CUSTOMERS\nfilter: "ts > ${soda.UNKNOWN}"\ncolumns:\n  - name: id\n',
+            "Variable 'UNKNOWN' was used and not available in the 'soda' namespace",
+            id="unknown_soda_variable",
+        ),
+    ],
+)
+def test_contract_publication_uploads_nothing_for_check_and_variable_errors(contract_yaml_str, expected_error):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result[0].contract is None
+    errors = result.logs.get_errors()
+    assert len(errors) == 2
+    # The list of existing check types depends on the check types registered in this process.
+    assert errors[0].startswith(expected_error)
+    assert errors[1] == f"Skipping publication of the contract because it has 1 error: {errors[0]}"
 
 
 def test_contract_publication_skips_only_the_contract_with_errors():
