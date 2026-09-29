@@ -15,7 +15,16 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import ContractYamlSource, VariableResolver, YamlList, YamlObject, YamlValue
-from soda_core.contracts.impl.scope import ScopeYaml, mark_scope_support, read_check_scope
+from soda_core.contracts.impl.scope import (
+    ScopeYaml,
+    check_scope_error,
+    check_scope_location,
+    log_scope_error,
+    mark_scope_support,
+    read_check_scope,
+    scopes_supported,
+    validate_scopes,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -128,6 +137,10 @@ class ContractYaml(CheckCollectionYaml):
         # kind, and its impl class registered on import, before the session looked it up to parse this file.
         mark_scope_support(self.yaml_source, _kind_supports_scopes(self.kind))
         self.scopes: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(self.yaml_object)
+        # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope support
+        # never validates its scope input.
+        if scopes_supported(self.yaml_source):
+            validate_scopes(self.yaml_object)
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
@@ -341,6 +354,13 @@ class ContractYaml(CheckCollectionYaml):
                         )
                         if check_yaml:
                             checks.append(check_yaml)
+                            if scopes_supported(self.yaml_source):
+                                check_body: Any = (
+                                    check_yaml_object.yaml_dict.get(check_type_name)
+                                    if isinstance(check_yaml_object, YamlObject)
+                                    else None
+                                )
+                                self._validate_check_scope(check_yaml, check_body)
                         else:
                             logger.error(
                                 f"Invalid check type '{check_type_name}'. "
@@ -350,6 +370,21 @@ class ContractYaml(CheckCollectionYaml):
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    def _validate_check_scope(self, check_yaml: CheckYaml, check_body: Any) -> None:
+        """Logs an error when the check's ``scope`` names no scope it can run in.
+
+        ``check_body`` is the body as written. It tells an explicit null, which is an error, from a reference to an
+        undeclared variable that resolved to null, which already logged its own error.
+        """
+        location: Optional[Location] = check_scope_location(check_yaml.check_yaml_object)
+        if isinstance(check_body, dict) and "scope" in check_body and check_body["scope"] is None:
+            log_scope_error("Check 'scope' must name a declared scope, but was null", location)
+        elif check_yaml.scope is not None:
+            error: Optional[str] = check_scope_error(check_yaml.scope, self.scopes)
+            if error:
+                log_scope_error(error, location)
+        check_yaml.scope_validated = True
 
 
 class VariableYaml:
@@ -624,6 +659,9 @@ class CheckYamlParser(ABC):
 
 class CheckYaml(ABC):
     check_yaml_parsers: dict[str, CheckYamlParser] = {}
+    # Set once ContractYaml has validated this check's 'scope' while parsing the YAML, so that resolving the scope
+    # of the check does not report the same error again.
+    scope_validated: bool = False
 
     @classmethod
     def register(cls, check_yaml_parser: CheckYamlParser) -> None:
