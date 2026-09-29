@@ -148,6 +148,27 @@ def test_each_unscoped_row_is_repeated_in_the_scope_eu():
     assert [row["checkPath"] for row in scoped_rows] == [f"scope.eu:{row['checkPath']}" for row in unscoped_rows]
 
 
+def test_identical_checks_in_two_scopes_get_their_own_path_and_identity():
+    contract: dict = {
+        "dataset": GRAMMAR["dataset"],
+        "scopes": {**GRAMMAR["scopes"], "us": {"name": "US", "filter": "country = 'US'"}},
+        "columns": [
+            {
+                "name": "amount",
+                "checks": [{"invalid": {"scope": "eu", "valid_min": 0}}, {"invalid": {"scope": "us", "valid_min": 0}}],
+            }
+        ],
+    }
+    # Building the contract also fails on a duplicate identity.
+    [eu_check, us_check] = _build_contract_impl(contract).all_check_impls
+
+    assert [eu_check.check_path, us_check.check_path] == [
+        "scope.eu:columns.amount.checks.invalid",
+        "scope.us:columns.amount.checks.invalid",
+    ]
+    assert eu_check.identity != us_check.identity
+
+
 SELECTOR_CONTRACT: dict = {
     "dataset": GRAMMAR["dataset"],
     "scopes": GRAMMAR["scopes"],
