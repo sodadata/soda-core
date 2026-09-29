@@ -10,6 +10,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict, matcher_string_contains
 from helpers.mock_soda_cloud import MockHttpMethod, MockRequest, MockResponse, MockSodaCloud
 from helpers.test_table import TestTableSpecification
+from requests import Request
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import interpret_contract_verification_result
@@ -1615,6 +1616,52 @@ def test_runner_command_carries_a_negated_check_filter():
     [command] = _runner_commands(cloud)
     assert command["executionOptions"] == {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": True}]}
     assert command["executionOptions"]["checkFilters"][0]["negate"] is True
+
+
+@pytest.mark.parametrize(
+    "check_paths, check_filters, execution_options",
+    [
+        pytest.param(None, None, None, id="neither"),
+        pytest.param([], [], None, id="empty"),
+        pytest.param(
+            ["a", "b"],
+            ["scope=eu", "scope=us", "scope!=apac"],
+            {
+                "checkPaths": ["a", "b"],
+                "checkFilters": [
+                    {"field": "scope", "values": ["eu", "us"], "negate": False},
+                    {"field": "scope", "values": ["apac"], "negate": True},
+                ],
+            },
+            id="paths-and-filters",
+        ),
+    ],
+)
+def test_runner_command_wire_bytes(
+    check_paths: Optional[list[str]], check_filters: Optional[list[str]], execution_options: Optional[dict]
+):
+    """The runner command byte for byte as requests sends it. Without check paths and check filters these are the
+    bytes of the command before either existed."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud, check_paths=check_paths, check_filters=check_filters)
+
+    [command] = [
+        request.json
+        for request in cloud.requests
+        if isinstance(request.json, dict) and request.json.get("type") in _RUNNER_COMMAND_TYPES
+    ]
+    expected = {
+        "type": "sodaCoreVerifyContract",
+        "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
+        "verbose": False,
+        "variables": {},
+    }
+    if execution_options is not None:
+        expected["executionOptions"] = execution_options
+    expected["token"] = "mock-token"
+    wire_bytes = Request(method="post", url="https://mock.soda.io", json=command).prepare().body
+    assert wire_bytes == json.dumps(expected).encode("utf-8")
 
 
 def test_runner_command_without_check_paths_and_check_filters_is_unchanged():
