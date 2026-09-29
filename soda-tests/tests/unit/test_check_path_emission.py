@@ -5,7 +5,8 @@ the ``{type}.{id}`` prefix and the ``{relative}`` path:
 
 - Contracts: ``checkPath`` is the yaml-internal stripped
   ``Check.relative_path``. Byte-identical to every prior contract
-  verification.
+  verification. A check in a declared scope gets the ``scope.<key>:``
+  prefix.
 - Non-contract subtypes (e.g. data standards): ``checkPath`` is
   ``"{wire_source}.{collection_id}:{relative_path}"`` so the backend filter
   routes it. The ``type`` and ``id`` segments must not contain ``.`` or ``:``.
@@ -17,12 +18,14 @@ property on ``CheckImpl`` for both branches of the wire_source heuristic.
 
 from __future__ import annotations
 
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import _build_check_result_cloud_dict
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Contract, YamlFileContentInfo
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope
 
 
 def _make_contract() -> Contract:
@@ -101,8 +104,10 @@ class _StubCheckImpl:
     We don't subclass ``CheckImpl`` because the real ``__init__`` requires a
     full ``ContractImpl`` (and the real ``relative_path`` property reads
     ``column_impl.column_yaml.name``). The property under test only reads
-    ``self.relative_path``, ``self.contract_impl.wire_source``, and
-    ``self.contract_impl.collection_id`` — we mirror those exactly.
+    ``self.relative_path``, ``self.scope``, ``self.contract_impl.wire_source``,
+    and ``self.contract_impl.collection_id``, so we mirror those exactly.
+    ``scope_key=None`` leaves ``scope`` unset, like a stub that skips
+    ``CheckImpl.__init__``.
     """
 
     # Borrow the production property verbatim so any future refactor that
@@ -111,8 +116,10 @@ class _StubCheckImpl:
 
     check_path = _RealCheckImpl.check_path
 
-    def __init__(self, *, wire_source: str, collection_id, path: str):
+    def __init__(self, *, wire_source: str, collection_id, path: str, scope_key: Optional[str] = BASE_SCOPE_KEY):
         self.relative_path = path
+        if scope_key is not None:
+            self.scope = Scope(key=scope_key)
         self.contract_impl = MagicMock()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
@@ -171,6 +178,60 @@ def test_check_full_path_falls_back_to_bare_path_when_collection_id_missing():
         path="checks.row_count",
     )
     assert stub.check_path == "checks.row_count"
+
+
+def test_check_path_for_contract_subtype_prefixes_a_declared_scope():
+    """A contract check in a declared scope carries ``scope.<key>:`` before its
+    relative path. The backend splits the path on the first ``:``.
+    """
+    stub = _StubCheckImpl(
+        wire_source="soda-contract",
+        collection_id=None,
+        path="columns.amount.checks.invalid",
+        scope_key="eu",
+    )
+    assert stub.check_path == "scope.eu:columns.amount.checks.invalid"
+
+
+@pytest.mark.parametrize("scope_key", [BASE_SCOPE_KEY, None], ids=["base-scope", "no-scope-attribute"])
+def test_check_path_for_contract_subtype_without_a_declared_scope_is_bare(scope_key):
+    stub = _StubCheckImpl(
+        wire_source="soda-contract",
+        collection_id=None,
+        path="checks.row_count.2",
+        scope_key=scope_key,
+    )
+    assert stub.check_path == "checks.row_count.2"
+
+
+@pytest.mark.parametrize(
+    "collection_id, expected",
+    [
+        ("my_pii_standard", "data-standard.my_pii_standard:columns.age.checks.missing"),
+        (None, "columns.age.checks.missing"),
+    ],
+)
+def test_check_path_for_non_contract_subtype_ignores_the_scope(collection_id, expected):
+    """Only contract paths carry the scope prefix; other subtypes keep today's path."""
+    stub = _StubCheckImpl(
+        wire_source="data-standard",
+        collection_id=collection_id,
+        path="columns.age.checks.missing",
+        scope_key="eu",
+    )
+    assert stub.check_path == expected
+
+
+def test_scoped_contract_check_path_goes_on_the_wire_unchanged():
+    relative = "columns.amount.checks.invalid"
+    check_path = f"scope.eu:{relative}"
+    wire = _build_check_result_cloud_dict(
+        contract=_make_contract(),
+        check_result=_make_check_result(relative_path=relative, check_path=check_path),
+        wire_source="soda-contract",
+    )
+    assert wire["checkPath"] == "scope.eu:columns.amount.checks.invalid"
+    assert wire["source"] == "soda-contract"
 
 
 def test_verify_raises_when_non_contract_impl_missing_collection_id():
