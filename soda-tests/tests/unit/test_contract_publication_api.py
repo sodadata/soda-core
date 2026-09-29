@@ -305,6 +305,129 @@ def test_contract_publication_uploads_a_contract_with_a_variable_without_value_u
     assert result[0].contract is not None
 
 
+THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: ${var.MAX}
+"""
+
+BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MIN:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_between:
+          greater_than: ${var.MIN}
+          less_than: 100
+"""
+
+VALID_MIN_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MIN:
+columns:
+  - name: id
+    valid_min: ${var.MIN}
+    checks:
+      - invalid:
+"""
+
+QUOTED_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: "${var.MAX}"
+"""
+
+FRESHNESS_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - freshness:
+      column: updated_at
+      threshold:
+        must_be_less_than: ${var.MAX}
+        unit: hour
+"""
+
+ADDITIONAL_THRESHOLD_OUTER_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: ${var.MAX}
+        additional:
+          must_be_less_than: 1000
+          level: warn
+"""
+
+ADDITIONAL_THRESHOLD_INNER_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: 100
+        additional:
+          must_be_less_than: ${var.MAX}
+          level: warn
+"""
+
+BOOLEAN_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  STORE:
+columns:
+  - name: id
+    checks:
+      - missing:
+          store_failed_rows: ${var.STORE}
+"""
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        pytest.param(THRESHOLD_VARIABLE_CONTRACT_YAML, id="threshold"),
+        pytest.param(QUOTED_THRESHOLD_VARIABLE_CONTRACT_YAML, id="quoted_threshold"),
+        pytest.param(BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML, id="between_threshold"),
+        pytest.param(FRESHNESS_THRESHOLD_VARIABLE_CONTRACT_YAML, id="freshness_threshold"),
+        pytest.param(ADDITIONAL_THRESHOLD_OUTER_VARIABLE_CONTRACT_YAML, id="additional_threshold_outer"),
+        pytest.param(ADDITIONAL_THRESHOLD_INNER_VARIABLE_CONTRACT_YAML, id="additional_threshold_inner"),
+        pytest.param(VALID_MIN_VARIABLE_CONTRACT_YAML, id="valid_min"),
+        pytest.param(BOOLEAN_VARIABLE_CONTRACT_YAML, id="boolean"),
+    ],
+)
+def test_contract_publication_uploads_a_contract_with_a_non_string_variable_without_value_unchanged(
+    contract_yaml_str,
+):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert not result.has_errors
+    assert result.logs.get_errors() == []
+    assert result[0].contract is not None
+
+
 def test_contract_publication_uploads_nothing_when_a_contract_with_a_variable_without_value_has_another_error():
     mock_cloud = MockSodaCloud(publish_responses())
 
