@@ -26,10 +26,11 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
-from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.contracts.contract_verification import CheckOutcome
 from soda_core.contracts.impl.check_selector import value_matches
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
@@ -85,6 +86,18 @@ def execute_check_collections(
     ``execute_check_collections`` call are therefore safe (each wire-source
     group uploads independently); a single item must never emit checks
     whose ``source`` disagrees with its own ``wire_source``.
+
+    On a run that publishes, every file of a combined upload reaches Soda
+    Cloud, or the scan is marked failed and the results say what did not
+    arrive. A file that errored before it had check results goes up with the
+    others, so the upload has errors; a file that never became a collection
+    rides along after them and never leads the upload. When a managed run's
+    files errored and evaluated no check, the scan is marked failed instead of
+    uploading excluded checks next to the error. When one file cannot be sent,
+    such as when Soda Cloud rejected its file upload, nothing of the group
+    goes up and every result is flagged as not sent, so the CLI exits
+    RESULTS_NOT_SENT_TO_CLOUD. A session where every file succeeds uploads
+    exactly as before.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -274,85 +287,61 @@ def execute_check_collections(
     #     of cloud presence, mirroring the non-combine path's "handlers run
     #     unconditionally at the end of verify()" semantics. Handlers receive
     #     the shared response_json when the result was actually uploaded, or
-    #     None otherwise (alignment-guard failure, missing file_id, cloud absent,
-    #     publish_results=False).
+    #     None otherwise (a group held back, a managed scan marked failed, cloud
+    #     absent, publish_results=False).
     response_json_by_wire_source: dict[str, Optional[dict]] = {}
     uploaded_ids: set[int] = set()
     if soda_cloud_impl is not None and publish_results:
-        combined_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
-        combined_suffix_by_wire_source: dict[str, Optional[str]] = {}
         # A runner-created scan id is the precondition for reporting FAILED (it's what
-        # mark_scan_as_failed needs). Ad-hoc runs have no scan id, so for those we keep the
-        # normal upload behavior and don't special-case errored results.
+        # mark_scan_as_failed needs). An ad-hoc run has no scan to mark, so its upload
+        # creates the scan and carries the errors.
         soda_scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
-        # First collection that errored before producing any check results (e.g. the data
-        # source connection failed). Such a result must not be sent as results — see the
-        # per-file handling in CheckCollectionImpl.verify(). Held so that, if the whole scan
-        # produced nothing to send, we report it as FAILED. Keep the first match so the logs
-        # used are deterministic when several collections error.
-        errored_without_results_result: Optional[CheckCollectionResult] = None
-        for (_, impl_class, _, _), result in zip(constructed, results):
-            if impl_class is None or not impl_class.combine_uploads:
+        uploads_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
+        suffix_by_wire_source: dict[str, Optional[str]] = {}
+        # Every result of a managed run's group that errored and evaluated no check. An upload
+        # of it could only hold excluded checks next to the error, so the scan is marked
+        # failed instead, below.
+        results_to_mark_failed: list[CheckCollectionResult] = []
+        for wire_source, members in _group_combine_upload_results(constructed, results, default_impl_class).items():
+            if _hold_back_group_with_unsendable_result(members):
                 continue
-            # Per-file alignment guard or data-source-missing path already
-            # flagged this result; don't include it in the combined upload.
-            if result.sending_results_to_soda_cloud_failed:
+            member_results: list[CheckCollectionResult] = [result for _, _, result in members]
+            if soda_scan_id and _errored_without_evaluating_a_check(member_results):
+                results_to_mark_failed.extend(member_results)
                 continue
-            if soda_scan_id and result.errored_without_results:
-                if errored_without_results_result is None:
-                    errored_without_results_result = result
+            # Every collection goes up, so the upload has errors when one of them errored, and
+            # carries its records. A file that never became a collection has no dataset, data
+            # source or file of its own: it rides along after the collections and never leads
+            # the upload, whose first result names the scan.
+            upload: list[CheckCollectionResult] = [r for r in member_results if r.error is None] + [
+                r for r in member_results if r.error is not None
+            ]
+            if upload[0].error is not None:
+                # Only files that never became a collection, so nothing to build a scan from.
+                # An ad-hoc run has no scan to mark either: the errors are on the console and
+                # the run exits LOG_ERRORS, as when it fails before it has results.
                 continue
-            file_id = (
-                result.check_collection.source.soda_cloud_file_id
-                if result.check_collection and result.check_collection.source
-                else None
-            )
-            if file_id is None:
-                continue
-            combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
-            combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
-            uploaded_ids.add(id(result))
+            uploads_by_wire_source[wire_source] = upload
+            suffix_by_wire_source[wire_source] = [
+                member_class.scan_definition_suffix for member_class, _, result in members if result.error is None
+            ][-1]
 
-        for wire_source, group in combined_by_wire_source.items():
+        for wire_source, upload in uploads_by_wire_source.items():
             response_json_by_wire_source[wire_source] = soda_cloud_impl.send_check_collection_results(
-                results=group,
+                results=upload,
                 wire_source=wire_source,
-                scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
-                session_log_records=pre_session_records,
+                scan_definition_suffix=suffix_by_wire_source[wire_source],
             )
+            uploaded_ids.update(id(result) for result in upload)
 
-        # Report the (still-PENDING) scan as FAILED only when the whole scan produced nothing
-        # to send and at least one collection errored before producing results. Guarded so we
-        # never override a sibling result that already uploaded (scan_id stamped) or mask a
-        # genuine send failure (sending_results_to_soda_cloud_failed) — those must keep their
-        # own outcome. Sending an errored, result-less batch instead would make Cloud attempt
-        # PENDING -> COMPLETED_WITH_ERRORS, which the scan-state machine rejects; PENDING ->
-        # FAILED is allowed.
-        if (
-            soda_scan_id
-            and errored_without_results_result is not None
-            and not combined_by_wire_source
-            and not any(r.scan_id for r in results)
-            and not any(r.sending_results_to_soda_cloud_failed for r in results)
-        ):
-            # Stamp the known scan id (so post-processing failure reporting can update Cloud)
-            # and pass it explicitly. Forward any stored exception too: executor placeholders
-            # (build_error_result) carry result.error but log_records=None, so without this the
-            # scan would be marked FAILED in Cloud with an empty, undiagnosable log payload.
-            # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
-            # REPLACES the scan's stored logs. Move to Logs.records_for_failure_report() before
-            # any combine-uploads flow opts into batched ingestion.
-            errored_without_results_result.scan_id = soda_scan_id
-            marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
-                scan_id=soda_scan_id,
-                logs=[*pre_session_records, *(errored_without_results_result.log_records or [])],
-                exc=errored_without_results_result.error,
+        if results_to_mark_failed:
+            _mark_scan_failed(
+                results_to_mark_failed=results_to_mark_failed,
+                all_results=results,
+                other_group_uploaded=bool(uploads_by_wire_source),
+                soda_cloud_impl=soda_cloud_impl,
+                soda_scan_id=soda_scan_id,
             )
-            if not marked_as_failed:
-                # A rejected mark leaves the failure invisible on Cloud; surface it as a
-                # send failure so the exit code goes > 3 and the launcher fallback marks
-                # the scan failed itself.
-                errored_without_results_result.sending_results_to_soda_cloud_failed = True
 
     # Post-processing handlers — combine-upload subtypes. The non-combine path
     # runs handlers inline per file inside ``verify()``; combine-upload results are
@@ -428,6 +417,139 @@ def execute_check_collections(
                     )
 
     return CheckCollectionSessionResult(results, session_log_records=pre_session_records)
+
+
+_CombineUploadMember = tuple[type[CheckCollectionImpl], Optional[CheckCollectionImpl], CheckCollectionResult]
+
+
+def _group_combine_upload_results(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+    results: list[CheckCollectionResult],
+    default_impl_class: Optional[type[CheckCollectionImpl]],
+) -> dict[str, list[_CombineUploadMember]]:
+    """The results of combine-upload subtypes, by wire source, in session order.
+
+    A file that failed before its kind was known belongs to the caller's
+    ``default_impl_class``, the subtype the session verifies, so its error still
+    reaches Soda Cloud with the group.
+    """
+    groups: dict[str, list[_CombineUploadMember]] = {}
+    for (impl, impl_class, _, _), result in zip(constructed, results):
+        member_class = impl_class if impl_class is not None else default_impl_class
+        if member_class is None or not member_class.combine_uploads:
+            continue
+        groups.setdefault(member_class.wire_source, []).append((member_class, impl, result))
+    return groups
+
+
+def _hold_back_group_with_unsendable_result(members: list[_CombineUploadMember]) -> bool:
+    """Flag every result of the group as not sent when one of them cannot be sent,
+    and return whether it did.
+
+    A result cannot be sent when the alignment guard, a missing data source or a
+    rejected file upload already flagged it, or when it became a collection but has
+    no file on Soda Cloud. An upload of the others would read as a complete run, so
+    nothing goes up. Every result is flagged, so the run exits
+    RESULTS_NOT_SENT_TO_CLOUD and a managed run's launcher marks the scan failed.
+    """
+    unsendable_ids: set[int] = {
+        id(result)
+        for _, _, result in members
+        if result.sending_results_to_soda_cloud_failed or (result.error is None and not _soda_cloud_file_id(result))
+    }
+    if not unsendable_ids:
+        return False
+    for _, impl, result in members:
+        if impl is not None and result.error is None and not result.sending_results_to_soda_cloud_failed:
+            with impl.logs.activate(impl.thread_label):
+                if id(result) in unsendable_ids:
+                    logger.error(
+                        f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                        f"The {impl.display_name} file did not upload to Soda Cloud."
+                    )
+                else:
+                    logger.error(
+                        f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} Not every file of this run "
+                        f"could be sent, and an upload without all of them would read as a complete run."
+                    )
+        result.sending_results_to_soda_cloud_failed = True
+    return True
+
+
+def _soda_cloud_file_id(result: CheckCollectionResult) -> Optional[str]:
+    source = result.check_collection.source if result.check_collection else None
+    return source.soda_cloud_file_id if source else None
+
+
+def _errored_without_evaluating_a_check(results: list[CheckCollectionResult]) -> bool:
+    """True when a result errored before it had check results and no result
+    evaluated a check: every check there is was left out by a check filter."""
+    return any(result.errored_without_results for result in results) and not any(
+        check_result.outcome != CheckOutcome.EXCLUDED for result in results for check_result in result.check_results
+    )
+
+
+def _mark_scan_failed(
+    results_to_mark_failed: list[CheckCollectionResult],
+    all_results: list[CheckCollectionResult],
+    other_group_uploaded: bool,
+    soda_cloud_impl: SodaCloud,
+    soda_scan_id: str,
+) -> None:
+    """Report a managed scan as FAILED with the records of ``results_to_mark_failed``.
+
+    The mark goes out only when nothing else reached this scan and no result is
+    already flagged as not sent: a combined upload of another wire source or a
+    per-file upload would have moved the scan on, and a flagged result already makes
+    the run exit RESULTS_NOT_SENT_TO_CLOUD. In those cases these results are flagged
+    as not sent too, since a mark cannot carry them.
+    """
+    first_errored: CheckCollectionResult = next(r for r in results_to_mark_failed if r.errored_without_results)
+    if (
+        other_group_uploaded
+        or any(r.scan_id for r in all_results)
+        or any(r.sending_results_to_soda_cloud_failed for r in all_results)
+    ):
+        for result in results_to_mark_failed:
+            result.sending_results_to_soda_cloud_failed = True
+        return
+    # Stamp the known scan id (so post-processing failure reporting can update Cloud) and
+    # pass it explicitly. Forward the first stored exception too, which a file that never
+    # became a collection carries on result.error.
+    # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
+    # REPLACES the scan's stored logs. Move to Logs.records_for_failure_report() before
+    # any combine-uploads flow opts into batched ingestion.
+    first_errored.scan_id = soda_scan_id
+    marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
+        scan_id=soda_scan_id,
+        logs=_distinct_log_records(results_to_mark_failed),
+        exc=first_errored.error,
+    )
+    if not marked_as_failed:
+        # A rejected mark leaves the failure invisible on Cloud; surface it as a
+        # send failure so the exit code goes > 3 and the launcher fallback marks
+        # the scan failed itself.
+        first_errored.sending_results_to_soda_cloud_failed = True
+
+
+def _distinct_log_records(results: list[CheckCollectionResult]) -> list[LogRecord]:
+    """Every result's records in order, each once: a record the caller logged before
+    the session sits in every file's records."""
+    log_records: list[LogRecord] = []
+    seen_ids: set[int] = set()
+    for result in results:
+        for log_record in result.log_records or []:
+            if id(log_record) not in seen_ids:
+                seen_ids.add(id(log_record))
+                log_records.append(log_record)
+    return log_records
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:

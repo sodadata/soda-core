@@ -1318,8 +1318,8 @@ class CheckCollectionImpl:
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
             elif self.combine_uploads:
-                # Session-level combined upload — executor sends after the loop (and applies
-                # the same errored-without-results -> mark-scan-failed handling there).
+                # Session-level combined upload: the executor sends it after the loop, and marks
+                # a managed scan failed there instead when its session errored and evaluated no check.
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
             elif verification_result.errored_without_results and self.soda_config.soda_scan_id:
                 # A runner-created (still PENDING) Cloud scan errored before producing any
@@ -1353,6 +1353,17 @@ class CheckCollectionImpl:
                     scan_definition_suffix=type(self).scan_definition_suffix,
                     session_log_records=list(self.session_log_records),
                 )
+        elif self.soda_cloud and self.publish_results:
+            # Soda Cloud rejected the file upload, which logged why. Without the file there is
+            # no upload, so none of this verification reaches Soda Cloud: flag it as a send
+            # failure, so the CLI exits RESULTS_NOT_SENT_TO_CLOUD and a managed run's launcher
+            # marks the scan failed, instead of exiting as if Soda Cloud had the results.
+            logger.error(
+                f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                f"The {self.display_name} file did not upload to Soda Cloud."
+            )
+            sending_results_to_soda_cloud_failed = True
+            verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -1450,15 +1461,16 @@ class CheckCollectionImpl:
         with preserve_active_logs():
             error_logs = Logs()
             logger.error(describe_construct_failure(exception, yaml_source))
-        # Invariant: this placeholder Contract is never uploaded to Soda Cloud.
-        # ``build_error_result`` is only invoked when the YAML failed to parse
-        # before a real ``Contract`` could be constructed; the result it
+        # Invariant: this placeholder Contract never has a file on Soda Cloud and
+        # never leads an upload. ``build_error_result`` is only invoked when the
+        # file failed before a real ``Contract`` could be verified; the result it
         # produces has ERROR status and no ``soda_cloud_file_id`` is ever
-        # attached to ``source``, so the engine's "upload if file id present"
-        # gate in ``verify()`` skips it. The empty-string / empty-list /
-        # ``None`` values below are inert: they exist solely to satisfy the
-        # ``Contract`` dataclass signature on the in-memory result returned
-        # to the launcher.
+        # attached to ``source``. A combined upload carries it after the
+        # collections, for its ERROR status and error record only, and a managed
+        # scan with nothing evaluated is marked failed with its record. The
+        # empty-string / empty-list / ``None`` values below are inert: they exist
+        # solely to satisfy the ``Contract`` dataclass signature on the in-memory
+        # result returned to the launcher.
         result = cls.result_class(
             check_collection=Contract(
                 data_source_name=None,
