@@ -154,6 +154,27 @@ class ContractVerificationSessionResult:
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
+    def number_of_scopes(self) -> int:
+        return sum(
+            contract_verification_result.scopes_count
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def number_of_scoped_checks(self) -> int:
+        return sum(
+            contract_verification_result.scoped_checks_count
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def number_of_unscoped_checks(self) -> int:
+        return sum(
+            contract_verification_result.unscoped_checks_count
+            for contract_verification_result in self.contract_verification_results
+        )
+
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
