@@ -132,6 +132,38 @@ def _setup_contract_resource(resource_parsers) -> None:
     _setup_contract_fetch_command(contract_subparsers)
 
 
+# Set on the parsed args only when -c/--contract is given more than once, so a single -c
+# leaves the args, and the CLI telemetry built from them, as they were.
+_REPEATED_CONTRACTS_DEST = "repeated_contract_file_paths"
+
+
+class _OneContractAction(argparse.Action):
+    """Stores -c/--contract like argparse's default store action, so args.contract stays one
+    path. With the store action a second -c replaces the first without a word; this action
+    also keeps every path given, so the command can refuse them before it runs."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        previous = getattr(namespace, self.dest, None)
+        if previous is not None:
+            given = getattr(namespace, _REPEATED_CONTRACTS_DEST, None) or [previous]
+            setattr(namespace, _REPEATED_CONTRACTS_DEST, [*given, values])
+        setattr(namespace, self.dest, values)
+
+
+def _exit_if_more_than_one_contract(args) -> None:
+    # Runs first in each handler: no YAML parse, data source connection or Soda Cloud call
+    # happens for a refused command. Exit 3 like the CLI's other argument errors, not
+    # argparse's exit 2, which is also the check-warnings code.
+    contract_file_paths: list[str] = getattr(args, _REPEATED_CONTRACTS_DEST, None) or []
+    if len(contract_file_paths) > 1:
+        soda_logger.error(
+            f"soda contract {args.command} takes one contract, but -c/--contract was given "
+            f"{len(contract_file_paths)} files: {', '.join(contract_file_paths)}. "
+            f"Run the command once per contract."
+        )
+        exit_with_code(ExitCode.LOG_ERRORS)
+
+
 def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser = contract_parsers.add_parser("verify", help="Verify a contract")
 
@@ -139,6 +171,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "-c",
         "--contract",
         type=str,
+        action=_OneContractAction,
         help="Contract file path to verify. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
@@ -239,6 +272,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     )
 
     def handle(args):
+        _exit_if_more_than_one_contract(args)
         contract_file_path = args.contract
         dataset_identifier = args.dataset
         data_source_file_paths = args.data_source
@@ -342,7 +376,9 @@ def _parse_variable_value(key: str, value: str) -> Union[str, float, int]:
 
 def _setup_contract_publish_command(contract_parsers) -> None:
     publish_parser = contract_parsers.add_parser("publish", help="Publish a contract")
-    publish_parser.add_argument("-c", "--contract", type=str, help="Contract file path to publish.")
+    publish_parser.add_argument(
+        "-c", "--contract", type=str, action=_OneContractAction, help="Contract file path to publish."
+    )
 
     publish_parser.add_argument(
         "-sc",
@@ -362,6 +398,7 @@ def _setup_contract_publish_command(contract_parsers) -> None:
     )
 
     def handle(args):
+        _exit_if_more_than_one_contract(args)
         contract_file_path = args.contract
         soda_cloud_file_path = args.soda_cloud
         exit_code = handle_publish_contract(contract_file_path, soda_cloud_file_path)
@@ -372,7 +409,9 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 
 def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
-    test_contract_parser.add_argument("-c", "--contract", type=str, help="Contract file path to test.")
+    test_contract_parser.add_argument(
+        "-c", "--contract", type=str, action=_OneContractAction, help="Contract file path to test."
+    )
 
     test_contract_parser.add_argument(
         "-v",
@@ -384,6 +423,7 @@ def _setup_contract_test_command(contract_parsers) -> None:
     )
 
     def handle(args):
+        _exit_if_more_than_one_contract(args)
         contract_file_path = args.contract
 
         exit_code = handle_test_contract(contract_file_path, {})
