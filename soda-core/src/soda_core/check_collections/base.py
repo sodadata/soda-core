@@ -55,6 +55,7 @@ from soda_core.contracts.impl.scope import (
     check_scope_error,
     check_scope_location,
     log_scope_error,
+    null_check_scope_error,
     scope_value_text,
 )
 
@@ -762,13 +763,18 @@ class CheckCollectionImpl:
         in ``self.scopes``, so the check is skipped.
         """
         raw = getattr(check_yaml, "scope", None)
-        if raw is None:
-            return self.base_scope
         # ContractYaml validates the checks it parses. This reports the checks an extension parsed itself.
         if type(self).supports_scopes and not getattr(check_yaml, "scope_validated", False):
-            error: Optional[str] = check_scope_error(raw, self.scopes)
+            check_yaml_object = getattr(check_yaml, "check_yaml_object", None)
+            error: Optional[str] = None
+            if raw is not None:
+                error = check_scope_error(raw, self.scopes)
+            elif isinstance(check_yaml_object, YamlObject):
+                error = null_check_scope_error(check_yaml_object.yaml_dict, check_yaml_object.yaml_source)
             if error:
-                log_scope_error(error, check_scope_location(getattr(check_yaml, "check_yaml_object", None)))
+                log_scope_error(error, check_scope_location(check_yaml_object))
+        if raw is None:
+            return self.base_scope
         # str() of the value, or its type name when printing it would fail or run long.
         key = scope_value_text(raw)
         # Compared as str, so a tagged '!x base' is the base scope too and no placeholder

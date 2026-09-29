@@ -21,6 +21,7 @@ from soda_core.contracts.impl.scope import (
     check_scope_location,
     log_scope_error,
     mark_scope_support,
+    null_check_scope_error,
     read_check_scope,
     scopes_supported,
     validate_scopes,
@@ -374,16 +375,16 @@ class ContractYaml(CheckCollectionYaml):
     def _validate_check_scope(self, check_yaml: CheckYaml, check_body: Any) -> None:
         """Logs an error when the check's ``scope`` names no scope it can run in.
 
-        ``check_body`` is the body as written. It tells an explicit null, which is an error, from a reference to an
-        undeclared variable that resolved to null, which already logged its own error.
+        ``check_body`` is the body as written. A scope that reads as null would run the check in the base scope, so
+        the body tells whether it set one.
         """
-        location: Optional[Location] = check_scope_location(check_yaml.check_yaml_object)
-        if isinstance(check_body, dict) and "scope" in check_body and check_body["scope"] is None:
-            log_scope_error("Check 'scope' must name a declared scope, but was null", location)
-        elif check_yaml.scope is not None:
-            error: Optional[str] = check_scope_error(check_yaml.scope, self.scopes)
-            if error:
-                log_scope_error(error, location)
+        error: Optional[str] = (
+            check_scope_error(check_yaml.scope, self.scopes)
+            if check_yaml.scope is not None
+            else null_check_scope_error(check_body, self.yaml_source)
+        )
+        if error:
+            log_scope_error(error, check_scope_location(check_yaml.check_yaml_object))
         check_yaml.scope_validated = True
 
 
