@@ -3,6 +3,8 @@ selection and bundling of aggregation metrics, the filtered CTE sampler and the 
 
 ``helpers.scope_activation_extension`` stands in for the module that runs declared scopes. An unscoped contract
 must keep every metric id, every identity and its CTE, with and without runner sampling.
+
+Every test here drops the soda-scopes extension, so only the stand-in activates scopes even with soda-scopes installed.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import pytest
 from helpers.mock_soda_cloud import MockSodaCloud
 from helpers.scope_activation_extension import scope_activation
 from helpers.scope_test_kinds import ScopeUnsupportedImpl
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from soda_core.check_collections.base import CheckCollectionImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -47,6 +50,8 @@ from soda_core.contracts.impl.contract_verification_impl import (
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.contracts.impl.scope import Scope
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
+
+pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 SCOPED_YAML: str = """
     dataset: fx/main/orders
