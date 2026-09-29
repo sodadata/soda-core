@@ -177,8 +177,9 @@ class CheckCollectionResult:
     # dataset's column list from. None when nothing measured the columns: the engine
     # never runs an extra query just to fill this in.
     dataset_columns: Optional[list[ColumnMetadata]] = None
-    # The scopes the file declares, and its checks in one of them or in none. Counted from the parsed checks, so
-    # a run that builds no check results, such as 'soda contract test', reports them too.
+    # How many scopes the file declares, and how many of its checks sit outside the base scope and in it. A check
+    # whose scope names no declared scope sits outside. Counted from the parsed checks, so a run that builds no
+    # check results, such as 'soda contract test', reports them too.
     scopes_count: int = 0
     scoped_checks_count: int = 0
     unscoped_checks_count: int = 0
