@@ -602,6 +602,9 @@ class VariableResolver:
     # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
     RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
 
+    # A reference to a variable: its namespace and its name.
+    VARIABLE_PATTERN: str = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+
     @classmethod
     def resolve(
         cls,
@@ -613,7 +616,7 @@ class VariableResolver:
     ) -> str:
         if isinstance(source_text, str):
             # First pass: sometimes the value is just the variable with quotes. If so, we can just return the value directly, no casting to string needed.
-            pattern = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+            pattern = cls.VARIABLE_PATTERN
             match = re.fullmatch(pattern, source_text)
             if match:
                 if match.group(1).strip() == "soda" and match.group(2).strip() in cls.RESERVED_SODA_TEMPLATE_SLOTS:
@@ -704,6 +707,32 @@ class VariableResolver:
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
         return None
+
+    @classmethod
+    def logs_unresolved_reference(
+        cls,
+        source_text: str,
+        variable_values: Optional[dict[str, str]],
+        soda_variable_values: Optional[dict[str, str]],
+        use_env_vars: bool = True,
+    ) -> bool:
+        """Whether ``resolve`` logs an error when it resolves ``source_text``, a lone reference, to None.
+
+        ``get_variable`` logs for an undeclared ``var``, a ``soda`` variable that is not available and an ``env``
+        reference when environment variables are off. It returns None without an error for an unset environment
+        variable, a namespace it does not know and a declared variable whose value is None.
+        """
+        match = re.fullmatch(cls.VARIABLE_PATTERN, source_text) if isinstance(source_text, str) else None
+        if not match:
+            return False
+        namespace, variable = match.group(1), match.group(2)
+        if namespace == "var":
+            return not isinstance(variable_values, dict) or variable not in variable_values
+        if namespace == "soda":
+            return not isinstance(soda_variable_values, dict) or variable not in soda_variable_values
+        if namespace == "env":
+            return not use_env_vars
+        return False
 
 
 def yaml_to_string(yaml_value: dict) -> str:
