@@ -1,6 +1,6 @@
 from logging import Logger
 from numbers import Number
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -353,6 +353,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 COLUMN("nspname", table_alias="n").AS("table_schema"),
                 COLUMN("relname", table_alias="c").AS("table_name"),
                 RAW_SQL(self.relkind_table_type_sql_expression()),
+                # With typmod -1, format_type leaves out type parameters and spells char as bpchar.
+                RAW_SQL('pg_catalog.format_type(a.atttypid, -1) AS "source_data_type"'),
             ]
         )
 
@@ -426,6 +428,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
 
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         return self._build_pg_columns_metadata_query(table_namespace, table_name=table_name)
+
+    def extract_source_data_type(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+        return row[self.extract_column_index("source_data_type", columns)]
 
     def build_all_columns_metadata_query_str(
         self, table_namespace: DataSourceNamespace, table_names: list[str] | None = None
