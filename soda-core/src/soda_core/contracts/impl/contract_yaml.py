@@ -20,10 +20,8 @@ from soda_core.contracts.impl.scope import (
     check_scope_error,
     check_scope_location,
     log_scope_error,
-    mark_scope_support,
     null_check_scope_error,
     read_check_scope,
-    scopes_supported,
     validate_scopes,
 )
 
@@ -39,7 +37,7 @@ def _kind_supports_scopes(kind: Optional[str]) -> bool:
         impl_class = CheckCollectionImpl.for_kind(kind or "contract")
     except ValueError:
         return False
-    return getattr(impl_class, "supports_scopes", False)
+    return impl_class.supports_scopes
 
 
 class ContractYamlExtension(Protocol):
@@ -136,11 +134,11 @@ class ContractYaml(CheckCollectionYaml):
 
         # Decided before the first read of scope input, here and in the checks below. The base __init__ read the
         # kind, and its impl class registered on import, before the session looked it up to parse this file.
-        mark_scope_support(self.yaml_source, _kind_supports_scopes(self.kind))
+        self.yaml_source.supports_scopes = _kind_supports_scopes(self.kind)
         self.scopes: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(self.yaml_object)
         # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope support
         # never validates its scope input.
-        if scopes_supported(self.yaml_source):
+        if self.yaml_source.supports_scopes:
             validate_scopes(self.yaml_object)
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
@@ -355,7 +353,7 @@ class ContractYaml(CheckCollectionYaml):
                         )
                         if check_yaml:
                             checks.append(check_yaml)
-                            if scopes_supported(self.yaml_source):
+                            if self.yaml_source.supports_scopes:
                                 check_body: Any = (
                                     check_yaml_object.yaml_dict.get(check_type_name)
                                     if isinstance(check_yaml_object, YamlObject)
@@ -663,6 +661,8 @@ class CheckYaml(ABC):
     # Set once ContractYaml has validated this check's 'scope' while parsing the YAML, so that resolving the scope
     # of the check does not report the same error again.
     scope_validated: bool = False
+    # The check's 'scope' as read; set per instance in __init__. None runs the check in the base scope.
+    scope: Any = None
 
     @classmethod
     def register(cls, check_yaml_parser: CheckYamlParser) -> None:

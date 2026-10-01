@@ -169,6 +169,22 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
         "      scope: apac\n",
         ["Check references unknown scope 'apac'. Declared scopes: ['eu', 'us']"],
     ),
+    "unknown-scope-next-to-an-invalid-key": (
+        "scopes:\n  Bad: {name: Bad}\n  eu: {name: EU}\n",
+        "      scope: zzz\n",
+        [
+            f"Invalid scope key 'Bad': {KEY_PATTERN_REASON}",
+            "Check references unknown scope 'zzz'. Declared scopes: ['eu']",
+        ],
+    ),
+    "unknown-scope-next-to-invalid-keys-only": (
+        "scopes:\n  Bad: {name: Bad}\n",
+        "      scope: zzz\n",
+        [
+            f"Invalid scope key 'Bad': {KEY_PATTERN_REASON}",
+            "Check references unknown scope 'zzz'. No valid scopes are declared",
+        ],
+    ),
     "unknown-scope-without-scopes": (
         "",
         "      scope: eu\n",
@@ -785,6 +801,19 @@ def test_no_nudge_without_a_selected_check_in_an_inactive_scope():
         dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("qualifier=none")]
     )
     assert _nudge_lines(logs) == []
+
+
+def test_no_nudge_for_a_check_whose_scope_is_not_declared():
+    # The check already logs an error, and no extension would run a scope nobody declared.
+    _, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n"))
+    assert logs.get_errors() == ["Check references unknown scope 'nope'. Declared scopes: ['eu']"]
+    assert _nudge_lines(logs) == []
+    # Next to a check in a declared scope, only that one counts.
+    yaml_str = _contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n") + "  - row_count:\n      scope: eu\n"
+    _, logs = _build_contract_impl(yaml_str)
+    assert _nudge_lines(logs) == [
+        "Excluded 1 check whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
+    ]
 
 
 def test_a_kind_without_scope_support_names_itself_in_the_nudge():

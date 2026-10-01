@@ -40,21 +40,6 @@ SCOPE_YAML_KEYS: tuple[str, ...] = ("name", "description", "filter", "schedule",
 SCHEDULE_YAML_KEYS: tuple[str, ...] = ("cron", "timezone", "variables")
 
 
-def mark_scope_support(yaml_source: YamlSource, supports_scopes: bool) -> None:
-    """Records on ``yaml_source`` whether the kind of its file supports scopes.
-
-    Reads of scope input from that file resolve variables only when it does, so a kind without support never logs
-    or fails on its scope input. ``ContractYaml`` records it before it reads any. A file nobody recorded it for
-    reads its scope input as written.
-    """
-    yaml_source._supports_scopes = supports_scopes
-
-
-def scopes_supported(yaml_source: YamlSource) -> bool:
-    """What ``mark_scope_support`` recorded on ``yaml_source``, False when nothing did."""
-    return getattr(yaml_source, "_supports_scopes", False)
-
-
 def _wrap_scope_value(yaml_object: YamlObject, value: Any, location: Optional[Location]) -> Any:
     """``yaml_object._yaml_wrap(value, location)`` in a file whose kind supports scopes, which resolves variables
     one level deep. In any other file the same copy and wrapper without resolving them.
@@ -63,7 +48,7 @@ def _wrap_scope_value(yaml_object: YamlObject, value: Any, location: Optional[Lo
     reference the one before copies in exponential time, in scope input as in a check body on origin. Nothing here
     bounds it.
     """
-    if getattr(yaml_object.yaml_source, "_supports_scopes", False):
+    if yaml_object.yaml_source.supports_scopes:
         return yaml_object._yaml_wrap(value, location=location)
     if isinstance(value, dict):
         return YamlObject(yaml_source=yaml_object.yaml_source, yaml_dict=copy.deepcopy(value))
@@ -390,7 +375,14 @@ def check_scope_error(scope: Any, scopes: Mapping) -> Optional[str]:
         return f"Invalid check scope {_value_text(scope)}: {scope_key_error(scope)}"
     declared_keys = [key for key in scopes if isinstance(key, str) and key != BASE_SCOPE_KEY]
     if scope not in declared_keys:
-        declared = f"Declared scopes: {_value_text(declared_keys)}" if declared_keys else "No scopes are declared"
+        # The keys that were rejected already logged an error of their own, so the list leaves them out.
+        valid_keys = [key for key in declared_keys if scope_key_error(key) is None]
+        if valid_keys:
+            declared = f"Declared scopes: {_value_text(valid_keys)}"
+        elif declared_keys:
+            declared = "No valid scopes are declared"
+        else:
+            declared = "No scopes are declared"
         return f"Check references unknown scope {_value_text(scope)}. {declared}"
     return None
 

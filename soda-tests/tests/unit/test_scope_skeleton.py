@@ -439,7 +439,6 @@ def test_scope_for(impl_class: type[CheckCollectionImpl]):
     for placeholder in placeholders:
         assert not placeholder.is_active and not placeholder.is_base
         assert all(placeholder is not scope for scope in impl.scopes.values())
-    assert impl.scope_for(SimpleNamespace()) is impl.base_scope
 
     # Every check is selected. A check in an inactive scope is skipped and builds no metrics.
     assert all(check_impl.selected for check_impl in check_impls)
