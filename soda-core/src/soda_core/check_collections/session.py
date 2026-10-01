@@ -91,19 +91,22 @@ def execute_check_collections(
     On a run that publishes, a combined upload never goes up clean after an
     error. A file that errored before it had check results goes up with the
     others, so the upload has errors; a file that never became a collection
-    rides along after them and never leads the upload. When a managed run's
-    files errored and evaluated no check, the scan is marked failed instead of
-    uploading excluded checks next to the error. A file that cannot be sent,
+    rides along after them and never leads the upload. When a file of a managed
+    run's group errored before its check results and the files that can go up
+    evaluated no check, the scan is marked failed instead of uploading excluded
+    checks next to the error. A file that cannot be sent,
     such as one whose file upload Soda Cloud rejected, stays out, and every
     upload of the session carries an error record naming it instead, so it
     has errors. Its result is flagged as not sent, so the CLI exits
     RESULTS_NOT_SENT_TO_CLOUD. When nothing went up, a managed scan is marked
     failed once, with every file's records, since the launcher commands that
-    verify do not mark it on that exit code. A scan is never marked after an
-    insert that reached it, or may have: a 5xx or a timeout can follow an
-    insert Soda Cloud stored, and a mark would turn that scan FAILED and
-    replace its logs. A session where every file succeeds uploads exactly as
-    before.
+    verify do not mark it on that exit code. The combined uploads never mark a
+    scan after an insert that reached it, or may have: a 5xx or a timeout can
+    follow an insert Soda Cloud stored, and a mark would turn that scan FAILED
+    and replace its logs. Per-file collections decide in their own
+    ``verify()``, so in a session of several of them under one scan id, a file
+    that cannot be sent still marks the scan a sibling's insert completed. A
+    session where every file succeeds uploads exactly as before.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -570,11 +573,11 @@ def _soda_cloud_file_id(result: CheckCollectionResult) -> Optional[str]:
 def _errored_without_evaluating_a_check(
     results: list[CheckCollectionResult], left_out: list[CheckCollectionResult] = ()
 ) -> bool:
-    """True when something went wrong and no result evaluated a check: every check
-    there is was left out by a check filter. Something went wrong when a result errored
-    before it had check results, or a result of the group is ``left_out``, which no
-    upload holds."""
-    errored: bool = bool(left_out) or any(result.errored_without_results for result in results)
+    """True when a result of the group errored before it had check results and no result
+    that can go up evaluated a check: every check there is was left out by a check filter.
+    A result that is ``left_out`` only because it cannot be sent is no such error: the
+    others then go up with a stand-in that names it."""
+    errored: bool = any(result.errored_without_results for result in [*results, *left_out])
     return errored and not any(
         check_result.outcome != CheckOutcome.EXCLUDED for result in results for check_result in result.check_results
     )
