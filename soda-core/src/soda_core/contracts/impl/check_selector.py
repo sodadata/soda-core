@@ -4,7 +4,6 @@ import fnmatch
 from typing import Optional
 
 from soda_core.common.exceptions import SodaCoreException
-from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
 
 class CheckSelectorParseException(SodaCoreException):
@@ -83,6 +82,10 @@ class CheckSelector:
                 f"Supported: {', '.join(sorted(cls.SUPPORTED_FIELDS))}, {cls.ATTRIBUTES_PREFIX}<key>"
             )
 
+        if negated and not value:
+            # 'key!=' would exclude nothing and say nothing about it.
+            raise CheckSelectorParseException(f"Invalid check filter '{expression}': empty value after '!='")
+
         return cls(field=field, value=value, raw=expression, negated=negated)
 
     @classmethod
@@ -139,8 +142,7 @@ class CheckSelector:
         elif self.field in ("collection", "standard"):
             return check_impl.contract_impl.collection_id
         elif self.field == "scope":
-            scope = getattr(check_impl, "scope", None)
-            return scope.key if scope is not None else BASE_SCOPE_KEY
+            return check_impl.scope.key
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):
             attr_key = self.field[len(self.ATTRIBUTES_PREFIX) :]
             attr_value = check_impl.attributes.get(attr_key)
@@ -205,8 +207,8 @@ class CheckSelector:
 
         # AND across groups, OR within each group's positive selectors, and no negated match
         for field, group in groups.items():
-            positive = [s for s in group if not getattr(s, "negated", False)]
-            negated = [s for s in group if getattr(s, "negated", False)]
+            positive = [s for s in group if not s.negated]
+            negated = [s for s in group if s.negated]
             if positive and not any(s.matches(check_impl) for s in positive):
                 return False
             if any(s.matches(check_impl) for s in negated):
