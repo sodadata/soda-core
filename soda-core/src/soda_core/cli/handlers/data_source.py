@@ -10,7 +10,8 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.logs_queue import LogsQueue
+from soda_core.common.logs_queue import build_streaming_gatherer
+from soda_core.common.scan_context import ScanContext, get_scan_context
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
@@ -96,16 +97,11 @@ def handle_test_data_source(
 def build_test_connection_log_uploader(
     soda_cloud_file_path: Optional[str],
 ) -> Optional[Logs]:
-    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
-    root-logger records during the test stream to Soda Cloud — or None when
-    there is no scan id / cloud config. Must be closed to flush the final batch.
-
-    Public because connection-test commands outside soda-core (e.g. the
-    soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
-    their logs to the same scan-id-keyed endpoint.
+    """A ``Logs`` streaming a connection test's records to the scan's Cloud log stream, or None
+    when there is no scan id / cloud config. Must be closed to flush the final batch. Connection
+    tests need no ``sodaCoreScanStart``: the backend pre-creates their scan in its log-accepting
+    state. Public because connection-test commands in soda-extensions reuse it.
     """
-    # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
-    # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     if not scan_id or not soda_cloud_file_path:
         return None
@@ -126,13 +122,7 @@ def build_test_connection_log_uploader(
         soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
-    logs_queue = LogsQueue(
-        soda_cloud=soda_cloud,
-        stage="test_connection",
-        scan_id=scan_id,
-        dataset="",
-    )
-    return Logs(gatherer=logs_queue)
+    return Logs(gatherer=build_streaming_gatherer(soda_cloud, scan_id=scan_id))
 
 
 def _discover_dqns(
@@ -162,7 +152,6 @@ def _discover_dqns(
 
 def handle_discover_data_source(
     data_source_impl: DataSourceImpl,
-    soda_cloud: SodaCloud,
     scan_definition_name: str,
     include: Optional[list[str]] = None,
     exclude: Optional[list[str]] = None,
@@ -172,14 +161,29 @@ def handle_discover_data_source(
 
     Receives fully resolved dependencies — including the mandatory scan
     definition name (``resolve_scan_definition_name``). Engine failures
-    propagate raw: the CLI wiring (``dependencies.run_with_failure_reporting``)
-    is the single logging site and maps them to failure reporting. A rejected
-    results upload is not an engine failure: it returns
-    ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so no failure report is sent.
+    propagate raw: the CLI wiring (``scan.run_scan``) is the single logging
+    site and maps them to failure reporting. A rejected results upload is not
+    an engine failure: it returns ``RESULTS_NOT_SENT_TO_CLOUD`` directly, so
+    no failure report is sent.
+
+    Ingestion goes through the installed ``ScanContext``.
     """
+    from soda_core.common.datetime_conversions import resolve_data_timestamp
     from soda_core.discovery.discovery_payload import build_discovery_payload
 
     soda_logger.info(f"Discovering datasets in data source '{data_source_impl.name}'")
+
+    scan_context: ScanContext = get_scan_context()
+    # One dataTimestamp for the whole scan: the start command and the results payload must carry
+    # the same value (SODA_SCAN_DATA_TIMESTAMP from the launcher, now otherwise).
+    data_timestamp: datetime = resolve_data_timestamp(datetime.now(timezone.utc))
+    # Started here, the first point where the scan coordinates are all resolved, so the discovery
+    # queries stream their logs on a batched run.
+    scan_context.start_scan(
+        definition_name=scan_definition_name,
+        default_data_source=data_source_impl.name,
+        data_timestamp=data_timestamp,
+    )
 
     scan_start_timestamp: datetime = datetime.now(timezone.utc)
     dqns: list[str] = _discover_dqns(data_source_impl, include, exclude)
@@ -189,11 +193,12 @@ def handle_discover_data_source(
         dqns=dqns,
         data_source_name=data_source_impl.name,
         scan_definition_name=scan_definition_name,
+        data_timestamp=data_timestamp,
         scan_start_timestamp=scan_start_timestamp,
         scan_end_timestamp=scan_end_timestamp,
-        log_records=logs.get_log_records() if logs else None,
+        log_records=logs.get_log_records() if logs else None,  # [] once streaming
     )
-    if not soda_cloud.insert_scan_results(payload):
+    if not scan_context.insert_results(payload):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 

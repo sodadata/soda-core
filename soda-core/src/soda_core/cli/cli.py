@@ -26,10 +26,10 @@ from soda_core.cli.handlers.dependencies import (
     resolve_scan_definition_name,
     resolve_soda_cloud,
     resolve_soda_cloud_for_failure_report,
-    run_with_failure_reporting,
 )
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException
 from soda_core.cli.handlers.request import handle_fetch_proposal, handle_push_proposal, handle_transition_request
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_configuration import configure_logging
@@ -273,7 +273,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         # (verify_contract builds its own client) and the boundary reports it through
         # the None channel.
         soda_cloud = resolve_soda_cloud_for_failure_report(soda_cloud_file_path, variables)
-        exit_code = run_with_failure_reporting(
+        exit_code = run_scan(
             soda_cloud,
             lambda logs: handle_verify_contract(
                 contract_file_path,
@@ -546,19 +546,19 @@ def _setup_data_source_discover_command(data_source_parsers) -> None:
             # SODA_SCAN_DEFINITION) resolve inside the wrapped command: their
             # failures take the standard mark-with-logs mapping.
             # Discovery constructs no inner Logs (discover_dataset_dqns emits via soda_logger,
-            # which already lands in the active wrapper collector); the wrapper's
-            # ``logs`` is threaded through so the success payload carries the
-            # run's logs to Soda Cloud.
-            exit_code = run_with_failure_reporting(
+            # which already lands in the active capture target); the bracket's
+            # ``logs`` is threaded through so a sync run's payload carries the
+            # run's logs (a managed run streams them instead).
+            exit_code = run_scan(
                 soda_cloud,
                 lambda logs: handle_discover_data_source(
                     resolve_data_source(args.data_source),
-                    soda_cloud,
                     scan_definition_name=resolve_scan_definition_name(args.scan_definition_name),
                     include=args.include,
                     exclude=args.exclude,
                     logs=logs,
                 ),
+                batched=True,
             )
             exit_with_code(exit_code)
 

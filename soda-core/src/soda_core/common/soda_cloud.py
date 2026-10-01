@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
@@ -38,8 +39,8 @@ from soda_core.common.soda_cloud_dto import (
     RequestDatasetsConfigurationDTO,
     SodaCoreInsertScanResultsDTO,
 )
+from soda_core.common.user_agent import user_agent
 from soda_core.common.utils import to_camel_case
-from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -81,6 +82,10 @@ class RemoteScanStatus(Enum):
             if status.value_ == value:
                 return status
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
+
+
+# Seconds between two status polls when Soda Cloud does not suggest a next poll time.
+_DEFAULT_POLL_INTERVAL_SECONDS: float = 5
 
 
 class MigrationStatus(Enum):
@@ -231,6 +236,12 @@ class TimestampToCreatedLoggingFilter(logging.Filter):
         return True
 
 
+def _command_accepted(response: Optional[Response]) -> bool:
+    """Whether Soda Cloud accepted a command. The shared contract of every ``bool``-returning
+    command method: no response (the client swallowed the error) counts as a rejection."""
+    return response is not None and response.ok
+
+
 class SodaCloud:
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
@@ -333,9 +344,19 @@ class SodaCloud:
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
         self.token: Optional[str] = token
-        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
+        it changes nothing: pass request-specific headers through request_headers() instead."""
+        return {"User-Agent": user_agent()}
+
+    def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
+        """The default headers plus the request-specific ones, so every request identifies
+        the client even when it sets its own Authorization or Content-Type."""
+        return {**self.headers, **headers}
 
     def mark_scan_as_failed(
         self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
@@ -362,7 +383,7 @@ class SodaCloud:
             command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
 
     def insert_scan_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
         """Send one ``sodaCoreInsertScanResults`` payload; returns True when
@@ -377,13 +398,76 @@ class SodaCloud:
             command_json_dict=payload,
             request_log_name="insert_scan_results",
         )
-        return response is not None and response.ok
+        return _command_accepted(response)
+
+    def scan_start(
+        self,
+        scan_id: str,
+        definition_name: str,
+        default_data_source: str,
+        data_timestamp: Optional[datetime] = None,
+    ) -> Optional[str]:
+        """Send ``sodaCoreScanStart`` for a pre-created Cloud scan; returns the ``scanReference``
+        that keys the async ingestion pipeline, or None when the command was rejected or the
+        response carried no reference.
+
+        The name, data source and timestamp fields are backend-mandatory; ``data_timestamp``
+        defaults to now. ``version`` is the payload model version (this codebase is v4-only).
+        A successful start also moves the scan into its log-accepting state: the scan-id-keyed
+        ``batchV4`` log stream only accepts uploads after this command.
+        """
+        command: dict = {
+            "type": "sodaCoreScanStart",
+            "scanId": scan_id,
+            "version": "4",
+            "definitionName": definition_name,
+            "defaultDataSource": default_data_source,
+            "dataTimestamp": convert_datetime_to_str(
+                data_timestamp if data_timestamp is not None else datetime.now(timezone.utc)
+            ),
+        }
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="scan_start",
+        )
+        if response is None or not response.ok:
+            return None
+        try:
+            scan_reference: Optional[str] = response.json().get("scanReference")
+        except Exception:
+            scan_reference = None
+        if not scan_reference:
+            logger.warning(f"sodaCoreScanStart response for scan '{scan_id}' carried no scanReference")
+            return None
+        return scan_reference
+
+    def insert_scan_data_batch(self, payload: SodaCoreInsertScanResultsDTO, scan_reference: str) -> bool:
+        """Send one results payload as a ``sodaCoreInsertScanDataBatch``, keyed by the
+        ``scan_start`` scanReference. Takes the same payload dict the sync flows build; the batch
+        type and scanReference are stamped on a copy. Returns True when Soda Cloud accepted it.
+        """
+        command: dict = {**payload, "type": "sodaCoreInsertScanDataBatch", "scanReference": scan_reference}
+        response: Optional[Response] = self._execute_command(
+            command_json_dict=command,
+            request_log_name="insert_scan_data_batch",
+        )
+        return _command_accepted(response)
+
+    def scan_end_async(self, scan_reference: str) -> bool:
+        """Send ``sodaCoreScanEndAsync``, closing the async ingestion opened by ``scan_start``.
+        Returns True when Soda Cloud accepted it."""
+        response: Optional[Response] = self._execute_command(
+            command_json_dict={"type": "sodaCoreScanEndAsync", "scanReference": scan_reference},
+            request_log_name="scan_end_async",
+        )
+        return _command_accepted(response)
 
     def send_check_collection_results(
         self,
         results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
+        model_version: Optional[str] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
 
@@ -406,6 +490,8 @@ class SodaCloud:
         @param scan_definition_suffix: Optional suffix appended to the
             head result's qualified name to derive the Soda Cloud
             scan-definition name. ``None`` uses the bare qualified name.
+        @param model_version: Optional payload model version (the backend's
+            dataset-registry routing key); ``None`` omits the field.
         """
         if not results:
             return None
@@ -413,6 +499,7 @@ class SodaCloud:
             results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
+            model_version=model_version,
         )
         payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -623,7 +710,7 @@ class SodaCloud:
         response: Response = self._execute_query(
             query_json_dict=dataset_responsibilities_query, request_log_name="can_manage_contracts"
         )
-        if not response.status_code == 200:  # TODO: should this also not be a critical issue causing the scan to fail?
+        if response is None or response.status_code != 200:
             return False, None
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
@@ -679,6 +766,51 @@ class SodaCloud:
             status=CheckCollectionStatus.UNKNOWN,
         )
 
+        # Capture from the first Cloud call, not from the poll onwards: the errors logged on
+        # the failure paths (permissions, upload, command, poll) have to land in
+        # ``log_records`` for ``get_errors()`` to report them.
+        logs: Logs = Logs()
+        try:
+            verification_result.status = self._verify_contract_on_runner(
+                verification_result=verification_result,
+                contract_yaml_str_original=contract_yaml_str_original,
+                contract_local_file_path=contract_local_file_path,
+                dataset_identifier=dataset_identifier,
+                variables=variables,
+                blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+                publish_results=publish_results,
+                verbose=verbose,
+            )
+        except Exception as e:
+            # Caught inside the capture window: the traceback joins the records logged
+            # before it, and the result keeps its dataset identity instead of being
+            # replaced by a bare placeholder further up.
+            logger.error(f"Remote contract verification failed: {e}", exc_info=True)
+            verification_result.status = CheckCollectionStatus.ERROR
+        finally:
+            logs.close()
+            verification_result.log_records = logs.get_log_records()
+
+        return verification_result
+
+    def _verify_contract_on_runner(
+        self,
+        verification_result: ContractVerificationResult,
+        contract_yaml_str_original: str,
+        contract_local_file_path: Optional[str],
+        dataset_identifier: DatasetIdentifier,
+        variables: dict[str, str],
+        blocking_timeout_in_minutes: int,
+        publish_results: bool,
+        verbose: bool,
+    ) -> CheckCollectionStatus:
+        """Drive one remote verification and return its status.
+
+        Every path that ends without an outcome from Cloud returns ERROR: the result starts
+        out UNKNOWN, and UNKNOWN reads as a pass to ``has_errors``, ``is_failed`` and the CLI
+        exit code. ``sending_results_to_soda_cloud_failed`` is set on top of that only where
+        Cloud could not be reached or refused the request, which turns exit code 3 into 4.
+        """
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             dataset_identifier.data_source_name, dataset_identifier.prefixes, dataset_identifier.dataset_name
         )
@@ -688,12 +820,13 @@ class SodaCloud:
                 verification_result.sending_results_to_soda_cloud_failed = True
             else:
                 logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
-            return verification_result
+            return CheckCollectionStatus.ERROR
 
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
-            logger.critical("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
-            return []
+            logger.error("Contract wasn't uploaded, skipping remote contract verification")
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return CheckCollectionStatus.ERROR
 
         verify_contract_command: dict = {
             "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",
@@ -709,36 +842,56 @@ class SodaCloud:
             "verbose": verbose,
             "variables": variables,
         }
-        response: Response = self._execute_command(
+        response: Optional[Response] = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
         )
-        response_json: dict = response.json()
-        scan_id: str = response_json.get("scanId")
-
-        if response.status_code != 200:
+        if response is None or response.status_code != 200:
             logger.error("Remote contract verification failed.")
             verification_result.sending_results_to_soda_cloud_failed = True
-            return verification_result
+            return CheckCollectionStatus.ERROR
 
+        response_json: Optional[dict] = _parse_json_dict(response)
+        scan_id: Optional[str] = response_json.get("scanId") if response_json else None
         if not scan_id:
-            logger.warning("Did not receive a Scan ID from Soda Cloud")
-            return verification_result
+            logger.error("Did not receive a Scan ID from Soda Cloud")
+            return CheckCollectionStatus.ERROR
+        verification_result.scan_id = scan_id
 
         scan_is_finished, contract_dataset_cloud_url, scan_status = self._poll_remote_scan_finished(
             scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
 
-        verification_result.status = _map_remote_scan_status_to_contract_verification_status(scan_status)
+        try:
+            self._replay_remote_scan_logs(scan_id)
+        except Exception as e:
+            # The replay is informational. A hiccup fetching the logs must not turn the
+            # outcome Cloud already reported into an error.
+            logger.warning(f"Could not fetch the logs of scan {scan_id} from Soda Cloud: {e}")
 
+        if contract_dataset_cloud_url:
+            logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
+
+        if not scan_is_finished:
+            logger.error("Max retries exceeded. Contract verification did not finish yet.")
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return CheckCollectionStatus.ERROR
+
+        status: CheckCollectionStatus = _map_remote_scan_status_to_contract_verification_status(scan_status)
+        if status is CheckCollectionStatus.ERROR:
+            # Say what happened here as well: for canceled, timedOut and failed the scan logs
+            # Cloud has are usually empty, and get_errors() must never be empty on ERROR.
+            logger.error(f"Remote contract verification ended in state '{scan_status.value_}'")
+        return status
+
+    def _replay_remote_scan_logs(self, scan_id: str) -> None:
+        """Fetch the scan's logs from Soda Cloud and re-emit them locally, so they reach the
+        console and the active ``Logs`` capture (the verification result's ``log_records``)."""
         logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
         logger.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
 
-        # Start capturing logs here
-        logs: Logs = Logs()
-
-        response_json: dict = logs_response.json()
-        soda_cloud_log_dicts: list[dict] = response_json.get("content")
+        response_json: Optional[dict] = _parse_json_dict(logs_response)
+        soda_cloud_log_dicts: Optional[list[dict]] = response_json.get("content") if response_json else None
         # TODO implement extra page loading if there are more pages of scan logs....
         # response body: {
         #   "content": [...],
@@ -798,18 +951,6 @@ class SodaCloud:
             logger.debug(f"No logs in Soda Cloud response")
         else:
             logger.debug(f"Expected dict for logs, but was {type(soda_cloud_log_dicts).__name__}")
-
-        if not scan_is_finished:
-            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
-            verification_result.sending_results_to_soda_cloud_failed = True
-
-        if contract_dataset_cloud_url:
-            logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
-
-        logs.close()
-        verification_result.log_records = logs.get_log_records()
-
-        return verification_result
 
     def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetch the contract contents for the given dataset identifier.
@@ -1204,27 +1345,41 @@ class SodaCloud:
             logger.debug(
                 f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}. Max wait: {max_wait}"
             )
-            response = self._get_scan_status(scan_id)
-            logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+            try:
+                response = self._get_scan_status(scan_id)
+                logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+            except Exception as e:
+                logger.warning(f"Failed to poll the status of scan {scan_id}, retrying: {e}")
+                sleep(_DEFAULT_POLL_INTERVAL_SECONDS)
+                continue
             if not response:
-                logger.error(f"Failed to poll remote scan status. " f"Response: {response}")
+                logger.warning(f"Failed to poll the status of scan {scan_id}, retrying. Response: {response}")
+                sleep(_DEFAULT_POLL_INTERVAL_SECONDS)
                 continue
 
-            response_body_dict: Optional[dict] = response.json() if response else None
+            response_body_dict: Optional[dict] = _parse_json_dict(response)
             contract_dataset_cloud_url: Optional[str] = (
                 response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
             )
 
-            if "state" not in response_body_dict:
-                continue
-            scan_state = RemoteScanStatus.from_value(response_body_dict["state"])
+            state_value: Optional[str] = response_body_dict.get("state") if response_body_dict else None
+            scan_state: Optional[RemoteScanStatus] = None
+            if state_value is None:
+                logger.warning(f"Status response for scan {scan_id} carries no state, retrying")
+            else:
+                try:
+                    scan_state = RemoteScanStatus.from_value(state_value)
+                except ValueError:
+                    # A state this client does not know is treated as not final: keep polling
+                    # until Cloud reports one it does know, or the deadline passes.
+                    logger.warning(f"Scan {scan_id} has unknown state '{state_value}', treating it as not final")
 
-            logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+            if scan_state is not None:
+                logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+                if scan_state.is_final_state:
+                    return True, contract_dataset_cloud_url, scan_state
 
-            if scan_state.is_final_state:
-                return True, contract_dataset_cloud_url, scan_state
-
-            time_to_wait_in_seconds: float = 5
+            time_to_wait_in_seconds: float = _DEFAULT_POLL_INTERVAL_SECONDS
             next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
             if next_poll_time_str:
                 logger.debug(
@@ -1417,10 +1572,12 @@ class SodaCloud:
         credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
         credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
 
-        headers = {
-            "Authorization": f"Basic {credentials_encoded}",
-            "Accept": "application/json",
-        }
+        headers = self.request_headers(
+            {
+                "Authorization": f"Basic {credentials_encoded}",
+                "Accept": "application/json",
+            }
+        )
 
         url: str = f"{self.api_url}/v1/{relative_url_path}"
         logger.debug(f"Sending GET {url} request to Soda Cloud")
@@ -1630,31 +1787,43 @@ class SodaCloud:
         logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
     def logs_batch(self, scan_reference: str, body: str):
-        headers = {
-            "Authorization": self._get_token(),
-            "Content-Type": "application/jsonlines",
-        }
-
-        response = self._http_post(
+        return self._post_log_batch(
             url=f"{self.api_url}/logs/{scan_reference}/batchV3",
-            headers=headers,
-            data=body,
+            body=body,
             request_log_name="logs_batch",
         )
-        return response
 
     def logs_batch_v4(self, scan_id: str, body: str):
-        headers = {
-            "Authorization": self._get_token(),
-            "Content-Type": "application/jsonlines",
-        }
-
-        response = self._http_post(
+        return self._post_log_batch(
             url=f"{self.api_url}/logs/{scan_id}/batchV4",
-            headers=headers,
-            data=body,
+            body=body,
             request_log_name="logs_batch_v4",
         )
+
+    def _post_log_batch(self, url: str, body: str, request_log_name: str) -> Response:
+        """POST one jsonl log batch, re-authenticating once on a 401: the token can expire
+        mid-run on a long scan, and unlike the command path these REST uploads have no other
+        recovery."""
+        response = self._http_post(
+            url=url,
+            headers=self.request_headers({"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}),
+            data=body,
+            request_log_name=request_log_name,
+        )
+        if response.status_code == 401:
+            logger.debug(
+                f"Soda Cloud authentication failed for {request_log_name}. "
+                f"Probably token expired. Re-authenticating..."
+            )
+            self.token = None
+            response = self._http_post(
+                url=url,
+                headers=self.request_headers(
+                    {"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}
+                ),
+                data=body,
+                request_log_name=request_log_name,
+            )
         return response
 
 
@@ -1731,10 +1900,15 @@ def _build_check_results_cloud_json_dicts(
     return check_dicts
 
 
-def _build_scan_definition_name(
-    contract_verification_result: ContractVerificationResult,
+def build_scan_definition_name(
+    soda_qualified_dataset_name: Optional[str],
     scan_definition_suffix: Optional[str] = None,
 ) -> str:
+    """The scan-definition name a check-collection run registers under:
+    SODA_SCAN_DEFINITION when set, otherwise derived from the dataset's
+    qualified name. Public because batched-ingestion flows need the name
+    before any result exists (``sodaCoreScanStart`` requires it).
+    """
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
@@ -1744,10 +1918,9 @@ def _build_scan_definition_name(
     # non-empty ``scan_definition_suffix`` on their impl; the engine
     # threads it through here. Keeps subtype literals out of soda-core
     # common.
-    qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
     if scan_definition_suffix:
-        return f"{qualified_name}_{scan_definition_suffix}"
-    return qualified_name
+        return f"{soda_qualified_dataset_name}_{scan_definition_suffix}"
+    return soda_qualified_dataset_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1778,12 +1951,61 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
+def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]) -> list[dict]:
+    """The ``metadata`` bucket: the column list of each dataset in this batch.
+
+    Soda Cloud fills a dataset's column list from here, so a dataset whose only activity
+    is contract verification also gets its columns. Only results that already hold the
+    dataset's columns contribute one entry each (see ``CheckCollectionResult.dataset_columns``);
+    the same dataset twice in one batch is sent once.
+
+    A column without a type name is sent by name only and logged as an error. No data
+    source produces one (every column-metadata query builds a ``SqlDataType``), so it signals
+    a broken invariant. Cloud marks any column absent from ``schema`` as deleted, whereas a
+    missing ``sourceDataType`` leaves the column's stored type as it is, so the column survives.
+    """
+    dataset_metadata: list[dict] = []
+    seen_dataset_qualified_names: set[str] = set()
+    for result in results:
+        if not result.dataset_columns:
+            continue
+        # The same qualified name the checks carry as dataSource + datasetPrefix + table:
+        # Cloud resolves both through one identifier converter, so they must be identical.
+        dataset_qualified_name: str = result.check_collection.soda_qualified_dataset_name
+        if dataset_qualified_name in seen_dataset_qualified_names:
+            continue
+        schema: list[dict] = []
+        for column in result.dataset_columns:
+            schema_element: dict = {"columnName": column.column_name}
+            if column.sql_data_type and column.sql_data_type.name:
+                # The bare type name, already lowercased by SqlDataType, without the
+                # precision/length parameters: the same columnName / sourceDataType spelling
+                # capture-schema uses. The primary-key flag it also sends is left out here on
+                # purpose — contract verification has no reason to restate it.
+                schema_element["sourceDataType"] = column.sql_data_type.name
+            else:
+                logger.error(
+                    f"Column '{column.column_name}' of dataset '{dataset_qualified_name}' has no data type "
+                    f"name. It is sent to Soda Cloud by name only, so its type there stays as it was."
+                )
+            schema.append(schema_element)
+        seen_dataset_qualified_names.add(dataset_qualified_name)
+        dataset_metadata.append({"datasetQualifiedName": dataset_qualified_name, "schema": schema})
+    return dataset_metadata
+
+
 def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
+    model_version: Optional[str] = None,
+    scan_definition_name: Optional[str] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
+
+    ``model_version`` stamps the payload's ``version`` field — the backend's dataset-registry
+    routing key. Subtypes that build the payload themselves (metric monitoring's batched path)
+    pass their wire model version; None omits the field, matching the legacy builder output.
 
     Session-level fields (scanId, definitionName, data source, dataTimestamp)
     come from the first result; per-batch fields aggregate:
@@ -1849,8 +2071,14 @@ def _build_check_collection_results_json_dict(
             all_measurement_dicts.extend(r.measurement_dicts)
 
     payload: dict = {
-        "scanId": os.environ.get("SODA_SCAN_ID", None),
-        "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+        "scanId": EnvConfigHelper().soda_scan_id,
+        # A caller that needs the name before any result exists (a batched run, whose
+        # sodaCoreScanStart carries it) resolves it once and passes it here, so the start command
+        # and this payload cannot register under different scan definitions.
+        "definitionName": scan_definition_name
+        or build_scan_definition_name(
+            head.check_collection.soda_qualified_dataset_name, scan_definition_suffix=scan_definition_suffix
+        ),
         "defaultDataSource": head.data_source.name if head.data_source else None,
         "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
         "dataTimestamp": head.data_timestamp,
@@ -1875,6 +2103,8 @@ def _build_check_collection_results_json_dict(
         "resultsIngestionMode": ingestion_mode.value,
         "tokenUsage": token_usage,
     }
+    if model_version is not None:
+        payload["version"] = model_version
     # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
     # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
     # the ``metrics`` subscript-assign below is on a known-subscriptable type.
@@ -1890,6 +2120,12 @@ def _build_check_collection_results_json_dict(
     # null-stripping the payload dict already gets.
     if all_measurement_dicts:
         payload["metrics"] = to_jsonnable(all_measurement_dicts)
+
+    # Emit ``metadata`` only when a dataset's columns were actually measured: an
+    # empty list or an entry without columns would tell Cloud the dataset has none.
+    dataset_metadata: list[dict] = _build_dataset_metadata_json_dicts(results)
+    if dataset_metadata:
+        payload["metadata"] = dataset_metadata
 
     return payload
 
@@ -2154,18 +2390,29 @@ def _build_threshold_conditions(threshold: Threshold, check_result: CheckResult)
 
 
 def _map_remote_scan_status_to_contract_verification_status(
-    scan_status: RemoteScanStatus,
+    scan_status: Optional[RemoteScanStatus],
 ) -> CheckCollectionStatus:
     if scan_status == RemoteScanStatus.COMPLETED:
         return CheckCollectionStatus.PASSED
     elif scan_status == RemoteScanStatus.COMPLETED_WITH_WARNINGS:
         return CheckCollectionStatus.WARNED
-    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
+    elif scan_status == RemoteScanStatus.COMPLETED_WITH_FAILURES:
         return CheckCollectionStatus.FAILED
-    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):
-        return CheckCollectionStatus.ERROR
-    else:
-        return CheckCollectionStatus.UNKNOWN
+    # completedWithErrors: the engine errored. failed: the scan itself failed, which is also
+    # how a runner reports an engine that errored before producing results. canceled and
+    # timedOut: Cloud ended the scan without an outcome. None of these evaluated the checks,
+    # so none may read as a pass, nor ``failed`` as check failures.
+    return CheckCollectionStatus.ERROR
+
+
+def _parse_json_dict(response: Response) -> Optional[dict]:
+    """The response body as a dict, or None when it is not JSON or not an object."""
+    try:
+        body = response.json()
+    except ValueError:
+        logger.debug(f"Soda Cloud response is not JSON: {response.text[:200]}")
+        return None
+    return body if isinstance(body, dict) else None
 
 
 # def _build_diagnostics_column_data_type_mismatches(

@@ -284,7 +284,7 @@ def verify_contract(
         contract_file_paths = None
 
     # Failures propagate raw, without touching Cloud: the CLI failure boundary
-    # (``run_with_failure_reporting``) owns the single mark-scan-failed, and a
+    # (``scan.run_scan``) owns the single mark-scan-failed, and a
     # mark here would duplicate it (double backend scan-ended events).
     # Programmatic callers get the exception and own the reporting decision.
     soda_cloud_client: Optional[SodaCloud] = None

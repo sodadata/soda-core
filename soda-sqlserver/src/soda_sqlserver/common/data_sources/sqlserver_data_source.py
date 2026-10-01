@@ -5,7 +5,6 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
@@ -35,7 +34,6 @@ from soda_core.common.sql_ast import (
     TUPLE,
     VALUES,
     WITH,
-    SqlColumnTerm,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -102,6 +100,8 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
+    # T-SQL's page window is `OFFSET m ROWS` then `FETCH NEXT n ROWS ONLY`.
+    OFFSET_BEFORE_LIMIT: bool = True
 
     def __init__(self):
         super().__init__()
@@ -139,26 +139,6 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             AZURE_SQL_DATABASE_ENGINE_EDITION,
             AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION,
         )
-
-    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
-        statement_lines: list[str] = []
-        statement_lines.extend(self._build_cte_sql_lines(select_elements))
-        statement_lines.extend(self._build_select_sql_lines(select_elements))
-        statement_lines.extend(self._build_into_sql_lines(select_elements))
-        statement_lines.extend(self._build_from_sql_lines(select_elements))
-        statement_lines.extend(self._build_where_sql_lines(select_elements))
-        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         # Use the default implementation, but we need to handle the case where the select elements contain a LIMIT statement.
@@ -328,33 +308,9 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
-    def select_all_paginated_sql(
-        self,
-        dataset_identifier: DatasetIdentifier,
-        columns: list[SqlColumnTerm],
-        filter: Optional[str],
-        order_by: list[SqlColumnTerm],
-        limit: int,
-        offset: int,
-        normalize_key_columns: frozenset[str] = frozenset(),
-        distinct: bool = False,
-    ) -> str:
-        # Same elements as the base paginator (including its distinct x normalize composition),
-        # but T-SQL spells the page as OFFSET n ROWS FETCH NEXT m ROWS ONLY, so OFFSET leads.
-        statements = [
-            *self._paginated_select_statements(
-                dataset_identifier=dataset_identifier,
-                columns=columns,
-                filter=filter,
-                order_by=order_by,
-                normalize_key_columns=normalize_key_columns,
-                distinct=distinct,
-            ),
-            OFFSET(offset),
-            LIMIT(limit),
-        ]
-
-        return self.build_select_sql(statements)
+    # No select_all_paginated_sql override: the base composes the same elements, and the
+    # OFFSET-before-FETCH order of the rendered clause is owned by this dialect's
+    # build_select_sql — the statement-list order never influenced rendering.
 
     def _build_limit_sql(self, limit_element: LIMIT) -> str:
         return f"FETCH NEXT {limit_element.limit} ROWS ONLY"

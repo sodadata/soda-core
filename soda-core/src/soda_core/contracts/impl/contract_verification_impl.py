@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import reprlib
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
@@ -13,6 +14,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
+from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, SodaCloudYamlSource
@@ -68,6 +70,10 @@ class PostProcessingSessionItem:
 
 
 class ContractVerificationHandler(ABC):
+    # Set by handlers that can only run when the results insert returns the Cloud-minted ids
+    # (scan, dataset, check). Such a handler declares no stage on a run that will not get them.
+    requires_result_handles: bool = False
+
     @abstractmethod
     def handle(
         self,
@@ -156,6 +162,43 @@ class ContractVerificationHandlerRegistry(ABC):
             if stage_name in cls.post_processing_stages:
                 logger.warning(f"Overriding existing verification handler for post-processing stage {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
+
+
+def _runs_on_current_scan(handler: ContractVerificationHandler) -> bool:
+    """Whether the current run gives this handler what it needs: a handler keyed by the ids a
+    synchronous insert returns takes no part in a run whose context cannot provide them."""
+    from soda_core.common.scan_context import get_scan_context
+
+    return not handler.requires_result_handles or get_scan_context().provides_result_handles
+
+
+def post_processing_handlers_for_current_scan() -> list[ContractVerificationHandler]:
+    """The registered handlers to dispatch on the current run. Both dispatch sites (the per-file
+    loop inside ``verify()`` and the session executor's phase 3) go through here, so a handler
+    that declares no stage on this run is not run against ``None`` ids either."""
+    return [
+        handler
+        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers
+        if _runs_on_current_scan(handler)
+    ]
+
+
+def collect_post_processing_stages() -> list[PostProcessingStage]:
+    """The post-processing stages a run declares in its results payload.
+
+    A stage nobody can complete stays ONGOING on Soda Cloud and keeps the scan's logs pending
+    server-side, so handlers that need result handles contribute nothing to a run without them.
+
+    Only the synchronous insert carries the field to the backend. A batched run's stages ride
+    ``sodaCoreScanEndAsync``, which ``SodaCloud.scan_end_async`` sends without any, so on that
+    path the filter is a second guard: no handler that needs result handles declares a stage
+    there either way.
+    """
+    stages: list[PostProcessingStage] = []
+    for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+        if _runs_on_current_scan(handler):
+            stages += handler.provides_post_processing_stages()
+    return stages
 
 
 class ContractVerificationSessionImpl:
@@ -448,8 +491,12 @@ class ContractVerificationSessionImpl:
                         contract_verification_result.log_records or []
                     )
                 contract_verification_results.append(contract_verification_result)
-            except:
+            except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                # Same per-item isolation as the local path: keep an ERROR placeholder for the
+                # item. Dropping it left the session without a result, and an empty session
+                # reads as a pass.
+                contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
         return contract_verification_results
 
     @classmethod
@@ -1604,6 +1651,33 @@ class MetricImpl:
     def sql_condition_expression(self) -> Optional[SqlExpression]:
         pass
 
+    def convert_db_value(self, value: any) -> any:
+        return value
+
+    def _convert_db_value_to_number(self, value: any, source: str, hint: str) -> Optional[Number]:
+        """Read a warehouse value as a number, or skip it.
+
+        Finite numbers pass through unchanged, and numeric text, as produced by a CAST to a string
+        type, is parsed. Anything else, NaN and infinity included, is skipped with an error: the
+        value becomes None, so the check using it is not evaluated. Soda Cloud types check values
+        as numbers, and a single value it cannot carry loses the results of the whole scan.
+        """
+        if value is None or is_finite_number(value):
+            return value
+        if isinstance(value, str):
+            try:
+                number: float = float(value)
+            except ValueError:
+                pass
+            else:
+                if is_finite_number(number):
+                    return number
+        logger.error(
+            f"{source} returned {type(value).__name__} {reprlib.repr(value)}, not a finite number, "
+            f"so the check is not evaluated. {hint}"
+        )
+        return None
+
 
 class AggregationMetricImpl(MetricImpl):
     def __init__(
@@ -1637,9 +1711,6 @@ class AggregationMetricImpl(MetricImpl):
         """
         Used in extensions
         """
-
-    def convert_db_value(self, value: any) -> any:
-        return value
 
     def get_short_description(self) -> str:
         return self.type

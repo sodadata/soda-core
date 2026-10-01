@@ -392,7 +392,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Exact SQL → mock QueryResult mappings that bypass snapshot recording/replay.
         # These queries return the provided result directly without hitting the DB
         # or being stored in snapshots. Used for session-level queries that run
-        # lazily during tests (e.g. BigQuery's SELECT @@location).
+        # lazily during tests.
         self.passthrough_queries: dict[str, QueryResult] = {}
 
         # Like passthrough_queries, but only for record mode: returns the cached result

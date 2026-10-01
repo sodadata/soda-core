@@ -127,6 +127,10 @@ class SqlDialect:
     # be rendered on the distinct select itself. See `_paginated_select_statements`.
     DISTINCT_PAGE_CTE_NAME: str = "_soda_distinct_page"
     USES_SEMICOLONS_BY_DEFAULT: bool = True
+    # Order of the page-window lines rendered by `_build_pagination_lines`. The base renders
+    # LIMIT before OFFSET; grammars whose window is `OFFSET m ROWS / FETCH NEXT n ROWS ONLY`
+    # (T-SQL, Trino, Athena, Oracle) set True instead of copying `build_select_sql` wholesale.
+    OFFSET_BEFORE_LIMIT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
@@ -462,6 +466,14 @@ class SqlDialect:
         ``_order_by_key``). For how it composes with ``distinct``, see
         ``_paginated_select_statements``.
         """
+        pagination_elements = self.pagination_statements(limit=limit, offset=offset)
+        if pagination_elements is None:
+            # A dialect that declares no trailing pagination must own the whole paginated
+            # select (Synapse overrides this method with its ROW_NUMBER CTE shape).
+            raise ValueError(
+                f"{type(self).__name__} declares pagination_statements() -> None but does not "
+                f"override select_all_paginated_sql"
+            )
         statements = [
             *self._paginated_select_statements(
                 dataset_identifier=dataset_identifier,
@@ -471,11 +483,58 @@ class SqlDialect:
                 normalize_key_columns=normalize_key_columns,
                 distinct=distinct,
             ),
-            LIMIT(limit),
-            OFFSET(offset),
+            *pagination_elements,
         ]
 
         return self.build_select_sql(statements)
+
+    def pagination_statements(self, limit: int, offset: int) -> Optional[list]:
+        """The trailing pagination elements of one page, or ``None``.
+
+        The elements a paginated select carries AFTER its ORDER BY — the page window. The
+        per-dialect SPELLING and ORDER of the rendered clause are owned by
+        ``build_select_sql`` and the ``_build_limit_sql`` / ``_build_offset_sql`` hooks
+        (the base renders ``LIMIT n / OFFSET m``, T-SQL renders ``OFFSET m ROWS`` before
+        ``FETCH NEXT n ROWS ONLY``), so this list carries no ordering information — it
+        declares WHAT the page window is, and rendering it through ``build_select_sql``
+        yields the dialect's own clause.
+
+        ``None`` declares that this dialect does not paginate with a trailing clause at
+        all. Such a dialect (Synapse dedicated pools paginate with a ROW_NUMBER() CTE
+        wrapped around the query) MUST override ``select_all_paginated_sql`` wholesale;
+        the base implementation refuses to render for it. Callers that need to append a
+        pagination clause to SQL they do not control (soda-reconciliation's
+        ``${soda.PAGINATION}`` marker) read ``None`` as "this dialect cannot serve that".
+        """
+        return [LIMIT(limit), OFFSET(offset)]
+
+    def pagination_clause_sql(
+        self,
+        order_by: list[SqlColumnTerm],
+        limit: int,
+        offset: int,
+        normalize_key_columns: frozenset[str] = frozenset(),
+    ) -> Optional[str]:
+        """This dialect's ORDER BY + page-window clause on its own, or ``None``.
+
+        For appending one page's pagination to SQL the engine does not control
+        (soda-reconciliation replaces its ``${soda.PAGINATION}`` marker with this).
+        Renders through ``_order_by_key`` and ``_build_pagination_lines``, so the key
+        normalization, the clause spellings and the window order are exactly the ones
+        ``select_all_paginated_sql`` renders — nothing is extracted from a full select.
+
+        ``None`` mirrors ``pagination_statements``: a wrapping paginator (Synapse's
+        ROW_NUMBER CTE) has no trailing clause to hand out, and the caller owns the
+        refusal message.
+        """
+        pagination_elements = self.pagination_statements(limit=limit, offset=offset)
+        if pagination_elements is None:
+            return None
+        elements = [
+            *(term for column in order_by for term in self._order_by_key(column, normalize_key_columns)),
+            *pagination_elements,
+        ]
+        return "\n".join(self._build_pagination_lines(elements))
 
     def _paginated_select_statements(
         self,
@@ -658,7 +717,15 @@ class SqlDialect:
             column_clauses.append(primary_key_clause)
 
         create_table_sql = create_table_sql + "(\n" + ",\n".join(column_clauses) + "\n)"
+        table_properties_sql: str = self._build_create_table_properties_sql()
+        if table_properties_sql:
+            create_table_sql = f"{create_table_sql} {table_properties_sql}"
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_properties_sql(self) -> str:
+        """Dialect-specific table-level clauses, rendered after the column list in a CREATE TABLE
+        and before AS in a CTAS. Empty for every dialect that needs none."""
+        return ""
 
     def _create_table_with_primary_key_columns_not_null(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS
@@ -761,7 +828,11 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
-        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        table_properties_sql: str = self._build_create_table_properties_sql()
+        table_properties_prefix: str = f"{table_properties_sql} " if table_properties_sql else ""
+        result_sql: str = (
+            f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} {table_properties_prefix}AS "
+        )
         result_sql += (
             f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
@@ -946,16 +1017,24 @@ class SqlDialect:
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
-        statement_lines.extend(self._build_order_by_lines(select_elements))
-
-        limit_line = self._build_limit_line(select_elements)
-        if limit_line:
-            statement_lines.append(limit_line)
-
-        offset_line = self._build_offset_line(select_elements)
-        if offset_line:
-            statement_lines.append(offset_line)
+        statement_lines.extend(self._build_pagination_lines(select_elements))
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def _build_pagination_lines(self, select_elements: list) -> list[str]:
+        """ORDER BY and the page window, in this dialect's clause order.
+
+        The one contiguous suffix of ``build_select_sql`` whose ORDER differs between
+        grammars; `OFFSET_BEFORE_LIMIT` flips the window pair, so a dialect never copies
+        ``build_select_sql`` just to reorder it. Also the rendering of
+        ``pagination_clause_sql``, which is why it must not read any non-pagination
+        element.
+        """
+        lines: list[str] = list(self._build_order_by_lines(select_elements))
+        window_lines = [self._build_limit_line(select_elements), self._build_offset_line(select_elements)]
+        if self.OFFSET_BEFORE_LIMIT:
+            window_lines.reverse()
+        lines.extend(line for line in window_lines if line)
+        return lines
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
@@ -1148,6 +1227,18 @@ class SqlDialect:
             return self.build_expression_sql(and_expr.clauses)
         return " AND ".join(self.build_expression_sql(and_clause) for and_clause in and_expr.clauses)
 
+    def _get_dummy_table_for_select_without_from(self) -> Optional[str]:
+        """The one-row dummy table a SELECT without a FROM clause sits on, or ``None``.
+
+        Most engines accept ``SELECT 1`` as it stands and inherit ``None``. Some do not,
+        and answer with their own one-row table instead; ``_build_from_sql_lines`` then
+        renders ``FROM <table>`` in the FROM slot of every such SELECT the base composes.
+
+        A hook rather than a class constant because the answer can depend on the server:
+        an engine may accept a SELECT without FROM only from a certain version on.
+        """
+        return None
+
     def _build_from_sql_lines(self, select_elements: list) -> list[str]:
         sql_lines: list[str] = []
         # This method formats with newlines and indentation.
@@ -1158,6 +1249,18 @@ class SqlDialect:
         from_elements: list[FROM] = [
             select_element for select_element in select_elements if isinstance(select_element, FROM)
         ]
+
+        if not from_elements:
+            # A SELECT with no FROM element. On a dialect that rejects one, substitute its
+            # one-row table; the clause is rendered here, in the base composition, so it lands
+            # in the FROM slot whatever else the statement carries.
+            dummy_table: Optional[str] = self._get_dummy_table_for_select_without_from()
+            if dummy_table and any(isinstance(select_element, SELECT) for select_element in select_elements):
+                return [f"FROM {dummy_table}"]
+            # Otherwise no FROM element means no FROM line: a clause-only element list (the
+            # trailing pagination of `pagination_statements`) must render without a dangling
+            # "FROM ", and it is not a SELECT that needs a table to sit on either.
+            return []
 
         from_sql_line: str = "FROM "
         for from_element in from_elements:
@@ -1809,6 +1912,16 @@ class SqlDialect:
         override this to add their data source specific system schemas.
         """
         return schema_name.lower() == "information_schema"
+
+    def is_system_table_name(self, table_name: str) -> bool:
+        """Check if the object name marks a data source internal/system object.
+
+        Complements is_system_schema for internal objects that a data source creates
+        inside regular schemas (e.g. Databricks' ``__materialization_mat_*`` metric-view
+        materializations), where a schema-level rule cannot catch them. Such objects are
+        excluded from discovery, whatever their object type.
+        """
+        return False
 
     def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
         """Convert to a SQL representation of a timestamp with timezone.

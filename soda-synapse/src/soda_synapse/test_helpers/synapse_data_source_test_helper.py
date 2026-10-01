@@ -8,6 +8,7 @@ from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
 from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import SqlServerDataSourceTestHelper
+from soda_synapse.common.data_sources.synapse_data_source import SynapseDataSourceImpl
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,14 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
                 trust_server_certificate: true
                 driver: '{os.getenv("SYNAPSE_DRIVER", "ODBC Driver 18 for SQL Server")}'
         """
+
+    def test_method_ended(self) -> None:
+        super().test_method_ended()
+        # Same reason the base helper resets its table name cache: each test's snapshot must start
+        # with the metadata queries it recorded, whatever ran before it. The paginator's column
+        # cache lives on the impl, which lives as long as this helper, so drop it here.
+        impl: SynapseDataSourceImpl = self.data_source_impl
+        impl.clear_column_names_cache()
 
     def drop_schema_if_exists(self, schema: str) -> None:
         """Drop all objects in the schema first, then drop the schema.

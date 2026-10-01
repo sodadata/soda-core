@@ -141,8 +141,13 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
     def sql_expression(self) -> SqlExpression:
         return SqlExpressionStr(self.expression)
 
-    def convert_db_value(self, value) -> any:
-        return float(value) if value is not None else None
+    def convert_db_value(self, value) -> Optional[float]:
+        number: Optional[Number] = self._convert_db_value_to_number(
+            value,
+            source="Metric expression",
+            hint=f"Make the expression return a number: {self.expression}",
+        )
+        return float(number) if number is not None else None
 
 
 class MetricQueryMetricImpl(MetricImpl):
@@ -170,6 +175,16 @@ class MetricQueryMetricImpl(MetricImpl):
         id_properties["query"] = self.query
         return id_properties
 
+    def convert_db_value(self, value: any) -> Optional[Number]:
+        return self._convert_db_value_to_number(
+            value,
+            source="Metric query",
+            hint=(
+                "Make the query return a single numeric value in its first column, for example "
+                f"without a CAST to a string type.\nMetric query:\n{self.query}"
+            ),
+        )
+
 
 class MetricQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], sql: str):
@@ -185,11 +200,28 @@ class MetricQuery(Query):
             logger.error(msg=f"Could not execute metric query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
+        metric_impl: MetricImpl = self.metrics[0]
         if not query_result.rows:
             logger.warning(f"Metric query returned no rows:\n{self.sql}")
             metric_value = None
         else:
-            metric_value = query_result.rows[0][0]
+            self._warn_if_not_scalar(query_result)
+            metric_value = metric_impl.convert_db_value(query_result.rows[0][0])
 
-        metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
+
+    def _warn_if_not_scalar(self, query_result: QueryResult) -> None:
+        # Only the first cell of the first row is read. Extra rows and columns are dropped, so say so.
+        row_count: int = len(query_result.rows)
+        column_count: int = len(query_result.rows[0])
+        offenses: list[str] = []
+        if row_count > 1:
+            offenses.append(f"{row_count} rows, expected 1")
+        if column_count > 1:
+            offenses.append(f"{column_count} columns, expected 1")
+        if not offenses:
+            return
+        message: str = f"Metric query returned {' and '.join(offenses)}. Using the first column of the first row."
+        if row_count > 1:
+            message += " Which row comes first is nondeterministic without an ORDER BY."
+        logger.warning(f"{message}\nMetric query:\n{self.sql}")

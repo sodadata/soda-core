@@ -1,6 +1,8 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import CheckResult, ContractVerificationResult
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult, ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -12,6 +14,19 @@ test_table_specification = (
             (0, 10),
             (10, 20),
             (5, 15),
+        ]
+    )
+    .build()
+)
+
+text_test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("metric_text")
+    .column_varchar("country", 3)
+    .rows(
+        rows=[
+            ("BE",),
+            ("USA",),
         ]
     )
     .build()
@@ -65,3 +80,194 @@ def test_metric_query(data_source_test_helper: DataSourceTestHelper):
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert check_result.threshold_value == 10
+
+
+def test_metric_query_returning_numeric_text_is_read_as_a_number(data_source_test_helper: DataSourceTestHelper):
+    """A metric query whose number comes back as text, as from a CAST to a string type, still evaluates."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    {data_source_test_helper.select_literal_query("'12'")}
+                  threshold:
+                    must_be: 12
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.threshold_value == 12
+
+    check_json: dict = data_source_test_helper.soda_cloud.requests[1].json["checks"][0]
+    assert check_json["diagnostics"]["value"] == 12
+    assert check_json["outcome"] == "pass"
+
+
+def test_metric_query_returning_non_numeric_text_does_not_poison_the_upload(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    """A metric query returning a non-number must not take the whole scan down with it.
+
+    diagnostics.value is a double in the Soda Cloud API, so a text value there fails the parse of
+    the whole sodaCoreInsertScanResults body. The value must be dropped with an error naming the
+    fix, leaving the check not evaluated, while the other checks still reach Soda Cloud.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    {data_source_test_helper.select_literal_query("'not_a_number'")}
+                  threshold:
+                    must_be: 0
+              - row_count:
+        """,
+    ).contract_verification_results[0]
+
+    metric_check_result, row_count_check_result = contract_verification_result.check_results
+    assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert metric_check_result.threshold_value is None
+    assert row_count_check_result.outcome == CheckOutcome.PASSED
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    metric_check_json, row_count_check_json = soda_core_insert_scan_results_command["checks"]
+    assert metric_check_json["outcome"] == "unevaluated"
+    assert row_count_check_json["outcome"] == "pass"
+
+    error_messages = [
+        log["message"] for log in soda_core_insert_scan_results_command["logs"] if log["level"] == "error"
+    ]
+    assert any("Metric query returned str 'not_a_number', not a finite number" in m for m in error_messages)
+
+
+def test_metric_expression_returning_text_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
+    """A metric expression returning text is skipped instead of aborting the whole verification.
+
+    The expression's value went through float(), so text raised out of the aggregation query and
+    took down every other check sharing that query.
+    """
+    test_table = data_source_test_helper.ensure_test_table(text_test_table_specification)
+
+    country_quoted = data_source_test_helper.quote_column("country")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  expression: MAX({country_quoted})
+                  threshold:
+                    must_be: 0
+              - row_count:
+        """,
+    ).contract_verification_results[0]
+
+    metric_check_result, row_count_check_result = contract_verification_result.check_results
+    assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert metric_check_result.threshold_value is None
+    assert row_count_check_result.outcome == CheckOutcome.PASSED
+    assert "Metric expression returned str 'USA', not a finite number" in contract_verification_result.get_errors_str()
+
+
+def test_metric_query_returning_nan_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
+    """NaN is a float, but JSON cannot carry it and requests refuses to serialize it.
+
+    It used to pass as a number, fail the threshold and then lose the whole upload client-side,
+    before any request left.
+    """
+    if data_source_test_helper.data_source_impl.type_name not in ("duckdb", "postgres"):
+        pytest.skip("CAST('NaN' AS FLOAT8) is DuckDB and PostgreSQL syntax")
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    SELECT CAST('NaN' AS FLOAT8)
+                  threshold:
+                    must_be: 0
+              - row_count:
+        """,
+    ).contract_verification_results[0]
+
+    metric_check_result, row_count_check_result = contract_verification_result.check_results
+    assert metric_check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert metric_check_result.threshold_value is None
+    assert row_count_check_result.outcome == CheckOutcome.PASSED
+
+    metric_check_json, row_count_check_json = data_source_test_helper.soda_cloud.requests[1].json["checks"]
+    assert metric_check_json["outcome"] == "unevaluated"
+    assert row_count_check_json["outcome"] == "pass"
+    assert "Metric query returned float nan, not a finite number" in contract_verification_result.get_errors_str()
+
+
+@pytest.mark.parametrize(
+    "select_clause, order_by_clause, expected_offenses",
+    [
+        pytest.param("{start}", "ORDER BY {start}", "3 rows, expected 1.", id="multi_row"),
+        pytest.param("MIN({start}), MAX({end})", "", "2 columns, expected 1.", id="multi_column"),
+        pytest.param(
+            "{start}, {end}",
+            "ORDER BY {start}",
+            "3 rows, expected 1 and 2 columns, expected 1.",
+            id="multi_row_and_multi_column",
+        ),
+    ],
+)
+def test_metric_query_returning_a_non_scalar_result_warns_and_evaluates_the_first_cell(
+    data_source_test_helper: DataSourceTestHelper, select_clause: str, order_by_clause: str, expected_offenses: str
+):
+    """A metric query is read as the first column of the first row. Extra rows and columns are
+    dropped, so the check still evaluates, with a warning naming what was dropped."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    quoted_columns = {
+        "start": data_source_test_helper.quote_column("start"),
+        "end": data_source_test_helper.quote_column("end"),
+    }
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    SELECT {select_clause.format(**quoted_columns)}
+                    FROM {test_table.qualified_name}
+                    {order_by_clause.format(**quoted_columns)}
+                  threshold:
+                    must_be: 0
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.threshold_value == 0
+
+    logs_str: str = contract_verification_result.get_logs_str()
+    assert f"Metric query returned {expected_offenses} Using the first column of the first row." in logs_str
+    assert ("nondeterministic without an ORDER BY" in logs_str) == ("rows, expected" in expected_offenses)

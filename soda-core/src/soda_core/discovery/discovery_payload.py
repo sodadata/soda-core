@@ -1,25 +1,13 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from logging import LogRecord
 from typing import Optional
 
-from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
+from soda_core.common.datetime_conversions import convert_datetime_to_str, resolve_data_timestamp
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.soda_cloud import build_log_cloud_json_dict
 from soda_core.common.soda_cloud_dto import SodaCoreInsertScanResultsDTO
-
-
-def resolve_data_timestamp(default: datetime) -> datetime:
-    """The data timestamp for the scan: ``SODA_SCAN_DATA_TIMESTAMP`` (set by the
-    orchestrator for managed runs) when present and parseable, else ``default``."""
-    data_timestamp_str: Optional[str] = os.environ.get("SODA_SCAN_DATA_TIMESTAMP")
-    if data_timestamp_str:
-        parsed: Optional[datetime] = convert_str_to_datetime(data_timestamp_str)
-        if parsed is not None:
-            return parsed
-    return default
 
 
 def build_discovery_payload(

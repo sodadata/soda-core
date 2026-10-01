@@ -44,3 +44,17 @@ def convert_str_to_datetime(date_string: str) -> Optional[datetime]:
         return datetime.fromisoformat(date_string)
     except (Exception, AttributeError) as e:
         return None
+
+
+def resolve_data_timestamp(default: datetime) -> datetime:
+    """The data timestamp for the scan: ``SODA_SCAN_DATA_TIMESTAMP`` (set by the orchestrator for
+    managed runs) when present and parseable, else ``default``. Every results-publishing flow
+    resolves it here, so a run's start command and its payload always carry the same value."""
+    from soda_core.common.env_config_helper import EnvConfigHelper
+
+    data_timestamp_str: Optional[str] = EnvConfigHelper().soda_scan_data_timestamp
+    if data_timestamp_str:
+        parsed: Optional[datetime] = convert_str_to_datetime(data_timestamp_str)
+        if parsed is not None:
+            return parsed
+    return default

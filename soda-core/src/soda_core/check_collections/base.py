@@ -15,6 +15,7 @@ execute, upload to Soda Cloud, run post-processing handlers) is inherited.
 from __future__ import annotations
 
 import logging
+import reprlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
@@ -27,7 +28,8 @@ from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
-from soda_core.common.metadata_types import SamplerType
+from soda_core.common.metadata_types import ColumnMetadata, SamplerType
+from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
@@ -47,6 +49,39 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
+
+
+def _skip_non_numeric_threshold_value(check_result: CheckResult, relative_path: str) -> None:
+    """Report a check whose value is not a finite number as not evaluated, without the value.
+
+    Soda Cloud types the check value as a number, and a single value it cannot carry, text or NaN
+    or infinity, loses the results of the whole scan. Logged as an error, like an unsupported
+    check, so the contract lands on ERROR rather than silently under-asserting.
+    """
+    threshold_value = check_result.threshold_value
+    if threshold_value is None or is_finite_number(threshold_value):
+        return
+    logger.error(
+        f"Not evaluating check at path '{relative_path}': its value is "
+        f"{type(threshold_value).__name__} {reprlib.repr(threshold_value)}, not a finite number"
+    )
+    check_result.threshold_value = None
+    check_result.outcome = CheckOutcome.NOT_EVALUATED
+
+
+def _find_measured_dataset_columns(check_results: list[CheckResult]) -> Optional[list[ColumnMetadata]]:
+    """The dataset's actual columns, if a check in this collection already measured them.
+
+    Only the schema check reads the dataset's column list today. Without a schema check,
+    or when it errored before getting the columns, there is nothing to report here and no
+    query is run to go and find them.
+    """
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    for check_result in check_results:
+        if isinstance(check_result, SchemaCheckResult) and check_result.actual_columns:
+            return check_result.actual_columns
+    return None
 
 
 @dataclass
@@ -86,6 +121,11 @@ class CheckCollectionResult:
     # list[dict] rather than list[Measurement] so callers can attach pre-serialised
     # cloud-shape dicts without depending on the engine's internal Measurement class.
     measurement_dicts: list[dict] = field(default_factory=list)
+    # The dataset's actual columns, when this verification already measured them.
+    # Sent to Soda Cloud in the ``metadata`` bucket, which is where Cloud reads a
+    # dataset's column list from. None when nothing measured the columns: the engine
+    # never runs an extra query just to fill this in.
+    dataset_columns: Optional[list[ColumnMetadata]] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -805,10 +845,10 @@ class CheckCollectionImpl:
 
     def verify(self) -> CheckCollectionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationHandlerRegistry,
             DerivedMetricImpl,
             MeasurementValues,
             _get_contract_verification_status,
+            collect_post_processing_stages,
         )
 
         if not self.wire_source:
@@ -929,6 +969,7 @@ class CheckCollectionImpl:
                             )
                         else:
                             check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                            _skip_non_numeric_threshold_value(check_result, check_impl.relative_path)
                     check_results.append(check_result)
 
             verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
@@ -953,9 +994,7 @@ class CheckCollectionImpl:
                 yaml_source_str_original, file_label=self.display_name
             )
 
-        post_processing_stages: list[PostProcessingStage] = []
-        for handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
-            post_processing_stages += handler.provides_post_processing_stages()
+        post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
         verification_result: CheckCollectionResult = self.result_class(
             check_collection=Contract(
@@ -980,6 +1019,7 @@ class CheckCollectionImpl:
             status=verification_status,
             log_records=log_records,
             post_processing_stages=post_processing_stages,
+            dataset_columns=_find_measured_dataset_columns(check_results),
         )
 
         scan_id: Optional[str] = None
@@ -1065,10 +1105,10 @@ class CheckCollectionImpl:
         ``response_json=None`` to match this path's "run handlers regardless
         of upload success" semantics.
         """
-        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
+        from soda_core.contracts.impl.contract_verification_impl import post_processing_handlers_for_current_scan
 
         scan_id = verification_result.scan_id
-        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for handler in post_processing_handlers_for_current_scan():
             try:
                 handler.handle(
                     contract_impl=self,

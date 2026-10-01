@@ -3,7 +3,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
-from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report, run_with_failure_reporting
+from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
+from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
@@ -62,9 +63,9 @@ def test_handle_verify_contract_exit_codes(
 
 def _run_handle_verify_contract():
     # Mirrors the cli.py verify wiring: resolve the reporting channel first, then wrap
-    # the bare command in run_with_failure_reporting (the single Cloud-marking site).
+    # the bare command in run_scan (the single Cloud-marking site).
     soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
-    return run_with_failure_reporting(
+    return run_scan(
         soda_cloud,
         lambda logs: handle_verify_contract(
             contract_file_path="contract.yaml",

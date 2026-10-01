@@ -193,7 +193,7 @@ def execute_check_collections(
         except Exception as exc:
             if abort_on_first_error:
                 # Re-raise verbatim, without touching Cloud: the CLI failure boundary
-                # (``run_with_failure_reporting``) owns the single mark-scan-failed —
+                # (``scan.run_scan``) owns the single mark-scan-failed —
                 # a session-level mark here would duplicate it.
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
@@ -310,6 +310,9 @@ def execute_check_collections(
             # and pass it explicitly. Forward any stored exception too: executor placeholders
             # (build_error_result) carry result.error but log_records=None, so without this the
             # scan would be marked FAILED in Cloud with an empty, undiagnosable log payload.
+            # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
+            # REPLACES the scan's stored logs. Move to Logs.records_for_failure_report() before
+            # any combine-uploads flow opts into batched ingestion.
             errored_without_results_result.scan_id = soda_scan_id
             marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,
@@ -338,8 +341,8 @@ def execute_check_collections(
     # labelled as — the emitting file at emit time. A session-scoped override's
     # emissions span files and are not attributed to any single one.
     from soda_core.contracts.impl.contract_verification_impl import (
-        ContractVerificationHandlerRegistry,
         PostProcessingSessionItem,
+        post_processing_handlers_for_current_scan,
     )
 
     session_items_by_wire_source: dict[str, list[PostProcessingSessionItem]] = {}
@@ -361,7 +364,7 @@ def execute_check_collections(
 
     for wire_source, session_items in session_items_by_wire_source.items():
         group_response_json = response_json_by_wire_source.get(wire_source)
-        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for handler in post_processing_handlers_for_current_scan():
             try:
                 handler.handle_session(
                     items=session_items,

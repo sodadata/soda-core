@@ -504,7 +504,7 @@ class TIME_DELTA(SqlExpression):
     ``FLOOR(EXTRACT(EPOCH FROM {end} - {start}) / {seconds_per_bucket})``,
     valid on postgres/duckdb and correct because all supported units are
     fixed-length. Snowflake overrides with a TIMESTAMPDIFF-seconds form;
-    BigQuery with TIMESTAMP_DIFF.
+    BigQuery with a DATETIME_DIFF-microseconds form.
     """
 
     start: SqlExpression | str
@@ -527,7 +527,7 @@ class ADD_INTERVAL(SqlExpression):
     Base renderer emits the interval-multiply form
     ``{timestamp} + INTERVAL '1 {unit}' * {count_expression}``; the count
     expression parenthesizes itself (SqlExpressionStr renders ``(...)``).
-    Snowflake overrides with TIMESTAMPADD; BigQuery with TIMESTAMP_ADD.
+    Snowflake overrides with TIMESTAMPADD; BigQuery with DATETIME_ADD.
     """
 
     timestamp: SqlExpression | str
