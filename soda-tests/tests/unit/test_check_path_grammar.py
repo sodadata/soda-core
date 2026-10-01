@@ -52,7 +52,11 @@ def _check_scope(row: dict):
     return (check_body or {}).get("scope")
 
 
-def _build_contract_impl(contract: dict, check_selectors: Optional[list[CheckSelector]] = None) -> ContractImpl:
+def _build_contract_impl(
+    contract: dict,
+    check_selectors: Optional[list[CheckSelector]] = None,
+    contract_impl_class: type[ContractImpl] = ContractImpl,
+) -> ContractImpl:
     contract_yaml_text = StringIO()
     _round_trip_yaml().dump(contract, contract_yaml_text)
 
@@ -64,7 +68,7 @@ def _build_contract_impl(contract: dict, check_selectors: Optional[list[CheckSel
             yaml_source=ContractYamlSource.from_str(contract_yaml_text.getvalue()), provided_variable_values={}
         )
         now = datetime.now(tz=timezone.utc)
-        contract_impl = ContractImpl(
+        contract_impl = contract_impl_class(
             logs=logs,
             yaml=contract_yaml,
             only_validate_without_execute=True,
@@ -146,6 +150,36 @@ def test_each_unscoped_row_is_repeated_in_the_scope_eu():
     assert {_check_scope(row) for row in scoped_rows} == {"eu"}
     assert [_row_without_scope(row) for row in scoped_rows] == [_row_without_scope(row) for row in unscoped_rows]
     assert [row["checkPath"] for row in scoped_rows] == [f"scope.eu:{row['checkPath']}" for row in unscoped_rows]
+
+
+class _ContractWithoutScopeSupport(ContractImpl):
+    """The contract wire source on a kind without scope support. It declares no kind, so it never registers."""
+
+    supports_scopes = False
+
+
+@pytest.mark.parametrize(
+    "row_index", [index for index, row in enumerate(GRAMMAR["rows"]) if _check_scope(row) is not None]
+)
+def test_a_kind_without_scope_support_gives_a_scoped_check_the_unscoped_path_and_identity(row_index: int):
+    scoped_row: dict = GRAMMAR["rows"][row_index]
+    [unscoped_row] = [
+        row
+        for row in GRAMMAR["rows"]
+        if _check_scope(row) is None and _row_without_scope(row) == _row_without_scope(scoped_row)
+    ]
+    column_name = scoped_row.get("column")
+    contract: dict = {"dataset": GRAMMAR["dataset"], "scopes": GRAMMAR["scopes"]}
+    if column_name:
+        contract["columns"] = [{"name": column_name, "checks": [scoped_row["check"]]}]
+    else:
+        contract["columns"] = [{"name": "id"}]
+        contract["checks"] = [scoped_row["check"]]
+
+    [check_impl] = _build_contract_impl(contract, contract_impl_class=_ContractWithoutScopeSupport).all_check_impls
+
+    assert check_impl.check_path == unscoped_row["checkPath"]
+    assert check_impl.identity == unscoped_row["identity"]
 
 
 def test_identical_checks_in_two_scopes_get_their_own_path_and_identity():
