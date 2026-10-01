@@ -2,10 +2,9 @@
 
 Two wire sources in one session, a per-file contract rejected after its sibling went up,
 a session without a default subtype, and a collection that errored next to a rejected
-file upload. In each, every collection's outcome reaches Soda Cloud, or a managed scan is
-marked failed with the files' records and the run exits RESULTS_NOT_SENT_TO_CLOUD. An
-ad-hoc run has no scan to mark, so its errored collection goes up without the rejected
-file.
+file upload. In each, every upload that goes up carries the errors of what it leaves
+out, or, when nothing goes up, a managed scan is marked failed with the files' records.
+What did not reach Soda Cloud makes the run exit RESULTS_NOT_SENT_TO_CLOUD.
 """
 
 from __future__ import annotations
@@ -41,10 +40,11 @@ def _execute(monkeypatch, sources, managed: bool, default_impl_class, soda_cloud
     return session_result.results, session_result_to_exit_code(session_result), soda_cloud
 
 
-def test_errored_group_next_to_an_uploaded_group_of_another_wire_source_marks_the_scan_failed(monkeypatch):
-    """The other group's insert already reached the scan, so the errored group cannot be
-    reported as the scan's only outcome. The scan is marked failed once, with every file's
-    records, and the run exits RESULTS_NOT_SENT_TO_CLOUD."""
+def test_errored_group_next_to_an_uploaded_group_of_another_wire_source_rides_along_in_its_insert(monkeypatch):
+    """The errored group evaluated nothing, so alone it would mark the scan failed. The
+    other group's insert reaches the scan, though, and a mark after it would turn that
+    scan FAILED and replace its logs. So the errored group's records go up in that insert,
+    which then has errors, and the run exits RESULTS_NOT_SENT_TO_CLOUD for its results."""
     results, exit_code, soda_cloud = _execute(
         monkeypatch,
         [outcome._Source("healthy-a"), _OtherWireSource("unparseable-b")],
@@ -54,9 +54,11 @@ def test_errored_group_next_to_an_uploaded_group_of_another_wire_source_marks_th
 
     [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
     assert [check["checkPath"] for check in insert["checks"]] == ["checks.healthy-a"]
-    [mark] = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    assert "unparseable-b does not parse" in outcome._log_messages(mark, level="error")
-    assert "Built healthy-a" in outcome._log_messages(mark)
+    assert insert["hasErrors"] is True
+    errors = outcome._log_messages(insert, level="error")
+    assert "unparseable-b does not parse" in errors
+    assert any("unparseable-b.yml is not part of this upload" in message for message in errors)
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
     assert [result.sending_results_to_soda_cloud_failed for result in results] == [False, True]
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
@@ -80,6 +82,9 @@ def test_ad_hoc_file_that_never_became_a_collection_next_to_excluded_goes_up_wit
 def test_per_file_contract_rejected_after_an_uploaded_sibling_marks_the_scan_failed(
     data_source_test_helper: DataSourceTestHelper, monkeypatch
 ):
+    """Only the Python API runs several per-file contracts under one managed scan id: the
+    CLI and the launcher verify one. Each file decides alone in verify(), so the rejected
+    second file still marks a scan its sibling's insert completed."""
     session_result, exit_code, soda_cloud = outcome._verify_contracts(
         data_source_test_helper,
         monkeypatch,
@@ -145,7 +150,8 @@ def test_session_without_default_subtype_flags_a_file_of_unknown_kind_next_to_tw
     monkeypatch, managed: bool
 ):
     """With two combined uploads the file could belong to either, so neither upload can
-    claim every file: the file is flagged as not sent and a managed scan is marked failed."""
+    claim it: it is flagged as not sent. Its error goes up in both uploads, so neither
+    reads clean, and no scan is marked failed after them."""
     results, exit_code, soda_cloud = _execute(
         monkeypatch,
         [outcome._Source("broken-yaml"), outcome._Source("healthy-b"), _OtherWireSource("healthy-c")],
@@ -153,13 +159,12 @@ def test_session_without_default_subtype_flags_a_file_of_unknown_kind_next_to_tw
         default_impl_class=None,
     )
 
-    assert len(soda_cloud.requests_of_type("sodaCoreInsertScanResults")) == 2
-    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    if managed:
-        [mark] = marks
-        assert any("broken-yaml.yml is not valid YAML" in m for m in outcome._log_messages(mark, level="error"))
-    else:
-        assert marks == []
+    inserts = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
+    assert len(inserts) == 2
+    for insert in inserts:
+        assert insert["hasErrors"] is True
+        assert any("broken-yaml.yml is not valid YAML" in m for m in outcome._log_messages(insert, level="error"))
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
     assert [result.sending_results_to_soda_cloud_failed for result in results] == [True, False, False]
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
