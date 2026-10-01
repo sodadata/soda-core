@@ -209,8 +209,12 @@ def _describe_repeated_flags(repeated_flags: List[_RepeatedFlag]) -> str:
 
 def _describe_repeated_flag(flag: _RepeatedFlag) -> str:
     uses = f"{'/'.join(flag.action.option_strings)} {len(flag.uses)} times"
-    given_values = _given_values(flag)
-    return f"{uses}: {', '.join(given_values)}" if given_values else uses
+    if flag.action.nargs == 0:
+        # A switch like -v gives no value.
+        return uses
+    # One entry per use, so the list matches the count. A flag whose value is optional, like -dw,
+    # can be used without one.
+    return f"{uses}: {', '.join(_as_typed(values) or 'no value' for values in flag.uses)}"
 
 
 def _given_values(flag: _RepeatedFlag) -> List[str]:
