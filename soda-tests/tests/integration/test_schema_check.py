@@ -481,12 +481,10 @@ def test_schema_check_sends_the_dataset_columns_as_metadata(data_source_test_hel
     # they are spelled, is the source's to report.
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert source_data_types == {
-        column.column_name: column.sql_data_type.name for column in schema_check_result.actual_columns
+        column.column_name: column.source_data_type for column in schema_check_result.actual_columns
     }
     for column_name, source_data_type in source_data_types.items():
         assert source_data_type, f"Column {column_name} has no source data type"
-        assert source_data_type == source_data_type.lower()
-        assert "(" not in source_data_type
 
 
 def test_contract_without_schema_check_sends_no_metadata(data_source_test_helper: DataSourceTestHelper):
