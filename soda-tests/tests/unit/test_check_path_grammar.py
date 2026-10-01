@@ -13,13 +13,13 @@ the fixture diff before committing it.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 
 import duckdb
 import pytest
+from helpers.fixture_recording import RECORD_FIXTURES_ENV_VAR, recording_fixtures
 from ruamel.yaml import YAML
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
@@ -27,7 +27,6 @@ from soda_core.contracts.impl.contract_verification_impl import CheckImpl, Contr
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
-RECORD_FIXTURES_ENV_VAR = "SODA_TEST_RECORD_FIXTURES"
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "check_path_grammar.yml"
 
 
@@ -91,7 +90,7 @@ def _record_identity(row_index: int, identity: str) -> None:
 
 
 def test_grammar_identities_are_unique():
-    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+    if recording_fixtures():
         pytest.skip("Asserts the recorded identities, which a recording run is rewriting")
     identities: list[str] = [row["identity"] for row in GRAMMAR["rows"]]
     assert len(identities) == len(set(identities))
@@ -102,7 +101,7 @@ def test_check_path_and_identity_match_grammar(row_index: int):
     row: dict = GRAMMAR["rows"][row_index]
     check_impl: CheckImpl = _build_check_impl(row)
 
-    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+    if recording_fixtures():
         _record_identity(row_index, check_impl.identity)
         pytest.skip(f"Re-recorded {FIXTURE_PATH.name}; review the diff and rerun without {RECORD_FIXTURES_ENV_VAR}")
 
