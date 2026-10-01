@@ -321,7 +321,10 @@ def verify_contract(
     )
 
     # A contract that could not be fetched fails the run. An empty result has no errors, so the
-    # CLI would exit 0 on it.
+    # CLI would exit 0 on it. This stops the whole run on any one failed fetch. That is only right
+    # while a run has one dataset: verify_contract takes a single dataset_identifier, and the
+    # public API entry points refuse more than one. A run over several datasets would have to
+    # verify the ones it could fetch.
     if fetch_error_results:
         return ContractVerificationSessionResult(contract_verification_results=fetch_error_results)
 

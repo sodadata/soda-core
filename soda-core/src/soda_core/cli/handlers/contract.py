@@ -40,7 +40,8 @@ def handle_verify_contract(
     wiring wraps this command in ``scan.run_scan`` — the single
     Cloud-marking site for escaped exceptions (delivery-aware: exit 3 when
     Cloud has the failure or the run is ad-hoc, 4 when a managed run's failure
-    couldn't reach Cloud so the launcher's fallback reports).
+    couldn't reach Cloud). The contract launcher does not mark a verify scan
+    itself: on an exit above 3 it raises, and its job exits 1.
 
     A contract that could not be fetched for -d/--dataset comes back as an
     ERROR result instead of an exception, so ``run_scan`` never sees it. It is
