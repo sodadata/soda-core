@@ -6,8 +6,8 @@ constructing the collections and before any ``verify()``, so nothing is queried 
 is a pattern and is not checked. A collection that does not declare a known key needs nothing special: its checks
 fail the filter and go up as EXCLUDED.
 
-The stub impls skip the base ``__init__``, as several other test stubs do, so the check must read scope state with
-defaults.
+The stub impls skip the base ``__init__``, as several other test stubs do, so the check reads the class defaults
+``CheckCollectionImpl`` declares for ``scopes`` and ``supports_scopes``.
 """
 
 from __future__ import annotations
@@ -201,9 +201,21 @@ def test_wildcard_values_are_not_checked(check_filter: str):
 def test_a_key_declared_only_by_a_kind_without_scope_support_is_unknown():
     sources = [_StubSource("a", ["eu"]), _StubSource("standard", ["apac"], kind=_UNSCOPED_KIND)]
 
-    with pytest.raises(InvalidArgumentException, match="'apac'"):
+    with pytest.raises(InvalidArgumentException) as exc_info:
         _execute(sources, ["scope=apac"])
 
+    message = str(exc_info.value)
+    assert "'apac'" in message
+    assert f"Kind '{_UNSCOPED_KIND}' does not support scopes." in message
+    assert "No file in this session declares" not in message
+    assert _verified == []
+
+    # Next to a key nobody declares, the message says both.
+    with pytest.raises(InvalidArgumentException) as exc_info:
+        _execute(sources, ["scope=apac", "scope=zz"])
+
+    message = str(exc_info.value)
+    assert f"Kind '{_UNSCOPED_KIND}' does not support scopes. No file in this session declares 'zz'." in message
     assert _verified == []
 
 
