@@ -18,9 +18,6 @@ property on ``CheckImpl`` for both branches of the wire_source heuristic.
 
 from __future__ import annotations
 
-from typing import Optional
-from unittest.mock import MagicMock
-
 import pytest
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import _build_check_result_cloud_dict
@@ -105,9 +102,8 @@ class _StubCheckImpl:
     full ``ContractImpl`` (and the real ``relative_path`` property reads
     ``column_impl.column_yaml.name``). The property under test only reads
     ``self.relative_path``, ``self.scope``, ``self.contract_impl.wire_source``,
-    and ``self.contract_impl.collection_id``, so we mirror those exactly.
-    ``scope_key=None`` leaves ``scope`` unset, like a stub that skips
-    ``CheckImpl.__init__``.
+    ``self.contract_impl.collection_id`` and ``supports_scopes`` of the
+    collection's class, so we mirror those exactly.
     """
 
     # Borrow the production property verbatim so any future refactor that
@@ -116,11 +112,12 @@ class _StubCheckImpl:
 
     check_path = _RealCheckImpl.check_path
 
-    def __init__(self, *, wire_source: str, collection_id, path: str, scope_key: Optional[str] = BASE_SCOPE_KEY):
+    def __init__(
+        self, *, wire_source: str, collection_id, path: str, scope_key: str = BASE_SCOPE_KEY, supports_scopes=True
+    ):
         self.relative_path = path
-        if scope_key is not None:
-            self.scope = Scope(key=scope_key)
-        self.contract_impl = MagicMock()
+        self.scope = Scope(key=scope_key)
+        self.contract_impl = type("_StubCollection", (), {"supports_scopes": supports_scopes})()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
 
@@ -193,15 +190,22 @@ def test_check_path_for_contract_subtype_prefixes_a_declared_scope():
     assert stub.check_path == "scope.eu:columns.amount.checks.invalid"
 
 
-@pytest.mark.parametrize("scope_key", [BASE_SCOPE_KEY, None], ids=["base-scope", "no-scope-attribute"])
-def test_check_path_for_contract_subtype_without_a_declared_scope_is_bare(scope_key):
+def test_check_path_for_contract_subtype_without_a_declared_scope_is_bare():
+    stub = _StubCheckImpl(wire_source="soda-contract", collection_id=None, path="checks.row_count.2")
+    assert stub.check_path == "checks.row_count.2"
+
+
+def test_check_path_for_a_contract_wire_source_without_scope_support_is_bare():
+    """Gated on scope support like the attributes and the definition, so a kind without it never pairs a scoped
+    path with the top-level attributes and filter."""
     stub = _StubCheckImpl(
         wire_source="soda-contract",
         collection_id=None,
-        path="checks.row_count.2",
-        scope_key=scope_key,
+        path="columns.amount.checks.invalid",
+        scope_key="eu",
+        supports_scopes=False,
     )
-    assert stub.check_path == "checks.row_count.2"
+    assert stub.check_path == "columns.amount.checks.invalid"
 
 
 @pytest.mark.parametrize(
