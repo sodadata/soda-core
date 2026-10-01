@@ -526,6 +526,11 @@ REPEATED_FLAGS = [
         id="verify -btm, its default twice",
     ),
     pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "-dw", "-dw", "b.yml"],
+        "soda contract verify got -dw/--diagnostics-warehouse 2 times: no value, b.yml. Give each flag once.",
+        id="verify -dw, once without its optional value",
+    ),
+    pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-cp", "p.one", "-cp", "p.two"],
         "soda contract verify got -cp/--check-paths 2 times: p.one, p.two. Give each flag once, like -cp p.one p.two.",
         id="verify -cp",
