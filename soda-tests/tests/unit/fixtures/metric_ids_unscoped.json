@@ -169,6 +169,20 @@
       "id": "84c30396"
     },
     {
+      "metric": "MetricQueryMetricImpl",
+      "type": "metric",
+      "column": null,
+      "filter": null,
+      "id": "27ddf693"
+    },
+    {
+      "metric": "FailedRowsQueryMetricImpl",
+      "type": "failed_rows",
+      "column": null,
+      "filter": null,
+      "id": "f82615ef"
+    },
+    {
       "metric": "FailedRowsExpressionMetricImpl",
       "type": "failed_rows",
       "column": null,
