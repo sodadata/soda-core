@@ -119,7 +119,7 @@
                         "type": "string"
                     },
                     "filter": {
-                        "description": "The SQL filter clause applied to the checks of this scope (without the WHERE keyword).",
+                        "description": "The SQL filter clause for the checks of this scope, without the WHERE keyword. It replaces the top-level filter for these checks and is never combined with it.",
                         "type": "string"
                     },
                     "schedule": {
@@ -229,6 +229,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
@@ -291,6 +292,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
@@ -435,6 +437,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
@@ -482,6 +485,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
@@ -539,6 +543,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "threshold": {
@@ -640,6 +645,7 @@
                                                                     "type": "string"
                                                                 },
                                                                 "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                                     "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "threshold": {
@@ -707,6 +713,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
@@ -748,6 +755,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
@@ -800,6 +808,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
@@ -851,6 +860,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
@@ -914,6 +924,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "threshold": {
@@ -1021,6 +1032,7 @@
                                                 "type": "string"
                                             },
                                             "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
                                                 "$ref": "#/$defs/scope_key"
                                             },
                                             "threshold": {
@@ -1191,7 +1203,7 @@
             "type": "object"
         },
         "scope_key": {
-            "description": "The map key identifies the scope. 'base' is reserved, and so are the words that YAML reads as a boolean or null.",
+            "description": "A scope key: a lowercase letter, then at most 63 lowercase letters, digits, '_' or '-'. 'base' is reserved, and so are the words that YAML reads as a boolean or null.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_-]{0,63}$",
             "not": {
