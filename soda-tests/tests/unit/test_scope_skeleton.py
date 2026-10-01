@@ -353,9 +353,10 @@ def test_class_defaults_cover_yamls_and_impls_without_scopes():
     assert getattr(stub, "base_scope", None) is None
     assert getattr(type(stub), "supports_scopes", False) is True
 
-    # A yaml that is not a CheckCollectionYaml and has no 'scopes', like the data-standard test fake.
+    # A yaml that is not a CheckCollectionYaml, like the data-standard test fake, must carry 'scopes' itself.
     duck_typed_yaml = SimpleNamespace(
         dataset="ds/db/schema/table",
+        scopes={},
         filter=None,
         check_attributes={},
         columns=[],
