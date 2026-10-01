@@ -1,19 +1,23 @@
 """Pin the ``sodaCoreInsertScanResults`` payload of an unscoped contract, byte for byte.
 
-Recorded on origin/main ac8c7474, before any scope code existed, so the scope work can prove that an
-unscoped contract still uploads exactly what it uploaded before: check paths, identities, definitions,
-attributes, diagnostics, key order and the ordered log lines, which carry the full SQL of each query.
+Recorded before any scope code existed, so the scope work can prove that an unscoped contract still
+uploads exactly what it uploaded before: check paths, identities, definitions, attributes, diagnostics,
+key order and the ordered log lines, which carry the full SQL of each query.
 
-The fixture contract covers every core check type that runs on DuckDB without a warehouse, a top-level
-filter, a check-level filter, check attributes at both levels with one key set at both, and an empty
-qualifier. It runs on a private in-memory DuckDB against the mock Soda Cloud, whatever ``TEST_DATASOURCE``
-says, so the recording does not depend on the suite's data source or schema name. The contract comes from a
-string, which keeps ``contract.metadata.source.filePath`` stable, and the data timestamp is pinned, which
-keeps the freshness values stable. Only values that change between runs are masked: the scan id, the scan
-start and end timestamps, and each log's timestamp and file path.
+The fixture contract covers every core check type that runs on DuckDB without a warehouse, the ``query:``
+form of the metric and failed_rows checks, a check that warns, a top-level filter, a check-level filter,
+check attributes at both levels with one key set at both, and an empty qualifier. It runs on a private
+in-memory DuckDB against the mock Soda Cloud, whatever ``TEST_DATASOURCE`` says, so the recording does
+not depend on the suite's data source or schema name. The contract comes from a string, which keeps
+``contract.metadata.source.filePath`` stable, and the data timestamp is pinned, which keeps the
+freshness values stable. Only values that change between runs are masked: the scan id, the scan start
+and end timestamps, and each log's timestamp.
 
 The payload carries no metric ids, so the ids of the contract's resolved metrics are pinned next to it in
 ``fixtures/metric_ids_unscoped.json``, in resolution order.
+
+A run filtered by check path and one filtered by a check selector are pinned the same way, each in a
+recording of its own, so the payload of a partial run, EXCLUDED checks included, stays the same too.
 
 To re-record after an intended change, run with ``SODA_TEST_RECORD_FIXTURES=1`` and review the fixture
 diff before committing it.
@@ -25,11 +29,11 @@ import copy
 import difflib
 import json
 import logging
-import os
 from pathlib import Path
 
 import duckdb
 import pytest
+from helpers.fixture_recording import RECORD_FIXTURES_ENV_VAR, recording_fixtures
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import dedent_and_strip
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult
@@ -38,9 +42,9 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
-RECORD_FIXTURES_ENV_VAR = "SODA_TEST_RECORD_FIXTURES"
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "scan_results_payload_unscoped.json"
 METRIC_IDS_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "metric_ids_unscoped.json"
 MASK = "<masked>"
@@ -97,6 +101,11 @@ CONTRACT_YAML = """
           qualifier: 2
           threshold:
             must_be_greater_than: 1
+      - row_count:
+          qualifier: warn
+          threshold:
+            level: warn
+            must_be_greater_than: 10
       - freshness:
           column: updated_at
           threshold:
@@ -108,6 +117,16 @@ CONTRACT_YAML = """
           expression: sum(amount) / count(*)
           threshold:
             must_be_greater_than: 0
+      - metric:
+          qualifier: query
+          query: |
+            SELECT AVG(amount) FROM orders WHERE status <> 'cancelled'
+          threshold:
+            must_be_greater_than: 0
+      - failed_rows:
+          qualifier: query
+          query: |
+            SELECT * FROM orders WHERE amount < 0
       - failed_rows:
           expression: amount > 150
 """
@@ -137,7 +156,9 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
     return DuckDBDataSourceImpl.from_existing_cursor(connection, name="fixture_ds")
 
 
-def _verify_fixture_contract(monkeypatch, caplog) -> dict:
+def _verify_fixture_contract(
+    monkeypatch, caplog, check_paths: list[str] | None = None, check_selectors: list[CheckSelector] | None = None
+) -> dict:
     # The first use of this singleton logs a line and loads a .env, which may set runner env vars; keep the
     # line out of the recorded logs and clear the env vars after it.
     EnvConfigHelper()
@@ -160,6 +181,8 @@ def _verify_fixture_contract(monkeypatch, caplog) -> dict:
         soda_cloud_impl=soda_cloud,
         soda_cloud_publish_results=True,
         data_timestamp=DATA_TIMESTAMP,
+        check_paths=check_paths,
+        check_selectors=check_selectors,
     )
     payloads: list[dict] = [
         request.json
@@ -177,9 +200,6 @@ def _mask_run_varying_values(payload: dict) -> dict:
             masked[key] = MASK
     for log in masked.get("logs") or []:
         log["timestamp"] = MASK
-        location = log.get("location")
-        if isinstance(location, dict) and "file_path" in location:
-            location["file_path"] = MASK
     return masked
 
 
@@ -188,12 +208,12 @@ def _to_json_text(payload: dict) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
 
 
-def _load_recording(masked_payload: dict) -> str:
-    return _load_or_record(FIXTURE_PATH, _to_json_text(masked_payload))
+def _load_recording(masked_payload: dict, fixture_path: Path = FIXTURE_PATH) -> str:
+    return _load_or_record(fixture_path, _to_json_text(masked_payload))
 
 
 def _load_or_record(fixture_path: Path, actual_text: str) -> str:
-    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+    if recording_fixtures():
         fixture_path.parent.mkdir(parents=True, exist_ok=True)
         fixture_path.write_text(actual_text, encoding="utf-8")
         pytest.skip(f"Re-recorded {fixture_path.name}; review the diff and rerun without {RECORD_FIXTURES_ENV_VAR}")
@@ -274,7 +294,7 @@ def test_unscoped_metric_ids_match_recording(monkeypatch, caplog):
 
 
 def _assert_payload_matches_recording(masked_payload: dict) -> None:
-    if os.environ.get(RECORD_FIXTURES_ENV_VAR) == "1":
+    if recording_fixtures():
         pytest.skip(f"Records nothing; rerun without {RECORD_FIXTURES_ENV_VAR}")
     _assert_lines_match_recording(
         FIXTURE_PATH.read_text(encoding="utf-8").splitlines(), _to_json_text(masked_payload).splitlines(), "payload"
@@ -300,3 +320,32 @@ def test_runner_env_vars_in_a_dotenv_file_do_not_change_the_payload(monkeypatch,
     # A fresh singleton loads the .env on first use, as in a new process; the old one comes back afterwards.
     monkeypatch.setattr(EnvConfigHelper, "_EnvConfigHelper__instance", None)
     _assert_payload_matches_recording(_mask_run_varying_values(_verify_fixture_contract(monkeypatch, caplog)))
+
+
+FILTERED_RUNS = pytest.mark.parametrize(
+    "fixture_name, check_paths, check_selectors",
+    [
+        (
+            "scan_results_payload_unscoped_check_paths.json",
+            ["columns.amount.checks.invalid.strict", "checks.metric.query"],
+            None,
+        ),
+        ("scan_results_payload_unscoped_check_selector.json", None, ["type=row_count"]),
+    ],
+    ids=["check-paths", "check-selector"],
+)
+
+
+@FILTERED_RUNS
+def test_unscoped_filtered_payload_matches_recording(monkeypatch, caplog, fixture_name, check_paths, check_selectors):
+    masked_payload: dict = _mask_run_varying_values(
+        _verify_fixture_contract(
+            monkeypatch, caplog, check_paths=check_paths, check_selectors=CheckSelector.parse_all(check_selectors)
+        )
+    )
+    recorded_payload_text: str = _load_recording(masked_payload, Path(__file__).parent / "fixtures" / fixture_name)
+
+    assert any(check["outcome"] == "excluded" for check in masked_payload["checks"])
+    _assert_lines_match_recording(
+        recorded_payload_text.splitlines(), _to_json_text(masked_payload).splitlines(), "filtered payload"
+    )

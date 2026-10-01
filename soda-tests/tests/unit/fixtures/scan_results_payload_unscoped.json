@@ -504,6 +504,49 @@
     },
     {
       "identities": {
+        "vc1": "3de39c17"
+      },
+      "checkPath": "checks.row_count.warn",
+      "name": "Row count meets expected threshold",
+      "type": "generic",
+      "checkType": "row_count",
+      "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: warn\n  threshold:\n    level: warn\n    must_be_greater_than: 10\n",
+      "resourceAttributes": [
+        {
+          "name": "team",
+          "value": "data-eng"
+        },
+        {
+          "name": "priority",
+          "value": "2"
+        }
+      ],
+      "location": {
+        "filePath": "yamlstr.yml",
+        "line": 50,
+        "col": 6
+      },
+      "dataSource": "fixture_ds",
+      "table": "orders",
+      "datasetPrefix": [
+        "main"
+      ],
+      "outcome": "warn",
+      "source": "soda-contract",
+      "diagnostics": {
+        "value": 5,
+        "warn": {
+          "lessThanOrEqual": 10
+        },
+        "v4": {
+          "type": "row_count",
+          "checkRowsTested": 5,
+          "datasetRowsTested": 5
+        }
+      }
+    },
+    {
+      "identities": {
         "vc1": "be62cf4e"
       },
       "checkPath": "checks.freshness",
@@ -523,7 +566,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 50,
+        "line": 55,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -570,7 +613,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 55,
+        "line": 60,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -613,7 +656,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 57,
+        "line": 62,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -630,6 +673,89 @@
         },
         "v4": {
           "type": "metric",
+          "datasetRowsTested": 5
+        }
+      }
+    },
+    {
+      "identities": {
+        "vc1": "bbace44c"
+      },
+      "checkPath": "checks.metric.query",
+      "name": "Metric meets threshold",
+      "type": "generic",
+      "checkType": "metric",
+      "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: query\n  query: |\n    SELECT AVG(amount) FROM orders WHERE status <> 'cancelled'\n  threshold:\n    must_be_greater_than: 0\n",
+      "resourceAttributes": [
+        {
+          "name": "team",
+          "value": "data-eng"
+        },
+        {
+          "name": "priority",
+          "value": "2"
+        }
+      ],
+      "location": {
+        "filePath": "yamlstr.yml",
+        "line": 66,
+        "col": 6
+      },
+      "dataSource": "fixture_ds",
+      "table": "orders",
+      "datasetPrefix": [
+        "main"
+      ],
+      "outcome": "pass",
+      "source": "soda-contract",
+      "diagnostics": {
+        "value": 119.0,
+        "fail": {
+          "lessThanOrEqual": 0
+        },
+        "v4": {
+          "type": "metric",
+          "datasetRowsTested": 5
+        }
+      }
+    },
+    {
+      "identities": {
+        "vc1": "5da7cccd"
+      },
+      "checkPath": "checks.failed_rows.query",
+      "name": "No rows violating the condition",
+      "type": "generic",
+      "checkType": "failed_rows",
+      "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: query\n  query: |\n    SELECT * FROM orders WHERE amount < 0\n",
+      "resourceAttributes": [
+        {
+          "name": "team",
+          "value": "data-eng"
+        },
+        {
+          "name": "priority",
+          "value": "2"
+        }
+      ],
+      "location": {
+        "filePath": "yamlstr.yml",
+        "line": 72,
+        "col": 6
+      },
+      "dataSource": "fixture_ds",
+      "table": "orders",
+      "datasetPrefix": [
+        "main"
+      ],
+      "outcome": "fail",
+      "source": "soda-contract",
+      "diagnostics": {
+        "value": 1,
+        "fail": {},
+        "v4": {
+          "type": "failed_rows",
+          "failedRowsCount": 1,
           "datasetRowsTested": 5
         }
       }
@@ -655,7 +781,7 @@
       ],
       "location": {
         "filePath": "yamlstr.yml",
-        "line": 61,
+        "line": 76,
         "col": 6
       },
       "dataSource": "fixture_ds",
@@ -743,281 +869,281 @@
       "thread": "soda-contract"
     },
     {
-      "level": "info",
-      "message": "Evaluating schema check",
+      "level": "debug",
+      "message": "SQL query fetchall in datasource fixture_ds (first 100000 chars): \nSELECT AVG(amount) FROM orders WHERE status <> 'cancelled'",
       "timestamp": "<masked>",
       "index": 9,
       "thread": "soda-contract"
     },
     {
-      "level": "info",
-      "message": "Getting actual columns from measurement values.",
+      "level": "debug",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   avg(amount) |\n|---------------|\n|           119 |",
       "timestamp": "<masked>",
       "index": 10,
       "thread": "soda-contract"
     },
     {
-      "level": "info",
-      "message": "Found 6 actual columns.",
+      "level": "debug",
+      "message": "SQL query fetchall in datasource fixture_ds (first 100000 chars): \nWITH \n\"failed_rows\" AS (\nSELECT * FROM orders WHERE amount < 0\n)\nSELECT COUNT(*)\nFROM \"failed_rows\";",
       "timestamp": "<masked>",
       "index": 11,
       "thread": "soda-contract"
     },
     {
-      "level": "info",
-      "message": "Starting to check for missing columns.",
+      "level": "debug",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   count_star() |\n|----------------|\n|              1 |",
       "timestamp": "<masked>",
       "index": 12,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Found 0 missing columns.",
+      "message": "Evaluating schema check",
       "timestamp": "<masked>",
       "index": 13,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Starting to check for extra columns.",
+      "message": "Getting actual columns from measurement values.",
       "timestamp": "<masked>",
       "index": 14,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Found 0 extra columns.",
+      "message": "Found 6 actual columns.",
       "timestamp": "<masked>",
       "index": 15,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Starting to check for data type mismatches.",
+      "message": "Starting to check for missing columns.",
       "timestamp": "<masked>",
       "index": 16,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Found 0 data type mismatches.",
+      "message": "Found 0 missing columns.",
       "timestamp": "<masked>",
       "index": 17,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Starting to check for columns out of order.",
+      "message": "Starting to check for extra columns.",
       "timestamp": "<masked>",
       "index": 18,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Found False columns out of order.",
+      "message": "Found 0 extra columns.",
       "timestamp": "<masked>",
       "index": 19,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "Schema check outcome: CheckOutcome.PASSED",
+      "message": "Starting to check for data type mismatches.",
       "timestamp": "<masked>",
       "index": 20,
       "thread": "soda-contract"
     },
     {
-      "level": "debug",
-      "message": "Calculating freshness using '2026-09-28 11:00:00' as 'max' and '2026-09-28 12:00:00+00:00' as 'now' values",
+      "level": "info",
+      "message": "Found 0 data type mismatches.",
       "timestamp": "<masked>",
       "index": 21,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "",
+      "message": "Starting to check for columns out of order.",
       "timestamp": "<masked>",
       "index": 22,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "### Contract results for fixture_ds/main/orders",
+      "message": "Found False columns out of order.",
       "timestamp": "<masked>",
       "index": 23,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "Schema check outcome: CheckOutcome.PASSED",
       "timestamp": "<masked>",
       "index": 24,
       "thread": "soda-contract"
     },
     {
-      "level": "info",
-      "message": "| Column          | Check                              | Threshold                     | Outcome   | Check Type   | Identity   | Diagnostics                        |",
+      "level": "debug",
+      "message": "Calculating freshness using '2026-09-28 11:00:00' as 'max' and '2026-09-28 12:00:00+00:00' as 'now' values",
       "timestamp": "<masked>",
       "index": 25,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+=================+====================================+===============================+===========+==============+============+====================================+",
+      "message": "",
       "timestamp": "<masked>",
       "index": 26,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| [dataset-level] | Data is fresh                      | level: fail                   | ✅ PASSED | freshness    | be62cf4e   | dataset_rows_tested: 5             |",
+      "message": "### Contract results for fixture_ds/main/orders",
       "timestamp": "<masked>",
       "index": 27,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be less than: 24         |           |              |            | check_rows_tested: 5               |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 28,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | freshness_in_hours: 1.0            |",
+      "message": "| Column          | Check                              | Threshold                     | Outcome   | Check Type   | Identity   | Diagnostics                        |",
       "timestamp": "<masked>",
       "index": 29,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "+=================+====================================+===============================+===========+==============+============+====================================+",
       "timestamp": "<masked>",
       "index": 30,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | Metric meets threshold             | level: fail                   | ✅ PASSED | metric       | b186a3b7   | dataset_rows_tested: 5             |",
+      "message": "| [dataset-level] | Data is fresh                      | level: fail                   | ✅ PASSED | freshness    | be62cf4e   | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 31,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be greater than: 0       |           |              |            |                                    |",
+      "message": "|                 |                                    | must be less than: 24         |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 32,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | freshness_in_hours: 1.0            |",
       "timestamp": "<masked>",
       "index": 33,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | No duplicate values                | level: fail                   | ✅ PASSED | duplicate    | f5b49bfa   | duplicate_count: 0                 |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 34,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | duplicate_percent: 0.0             |",
+      "message": "|                 | Metric meets threshold             | level: fail                   | ✅ PASSED | metric       | b186a3b7   | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 35,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 |                                    | must be greater than: 0       |           |              |            |                                    |",
       "timestamp": "<masked>",
       "index": 36,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 37,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 | Metric meets threshold             | level: fail                   | ✅ PASSED | metric       | bbace44c   | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 38,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | No rows violating the condition    | level: fail                   | ❌ FAILED | failed_rows  | 87eed3b2   | failed_rows_count: 2               |",
+      "message": "|                 |                                    | must be greater than: 0       |           |              |            |                                    |",
       "timestamp": "<masked>",
       "index": 39,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | failed_rows_percent: 40.0          |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 40,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 | No duplicate values                | level: fail                   | ✅ PASSED | duplicate    | f5b49bfa   | duplicate_count: 0                 |",
       "timestamp": "<masked>",
       "index": 41,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | duplicate_percent: 0.0             |",
       "timestamp": "<masked>",
       "index": 42,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 43,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | Row count meets expected threshold | level: fail                   | ✅ PASSED | row_count    | 3a083c70   | check_rows_tested: 5               |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 44,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be greater than: 0       |           |              |            | dataset_rows_tested: 5             |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 45,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 | No rows violating the condition    | level: fail                   | ❌ FAILED | failed_rows  | 5da7cccd   | failed_rows_count: 1               |",
       "timestamp": "<masked>",
       "index": 46,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | Row count meets expected threshold | level: fail                   | ✅ PASSED | row_count    | 56b4b91d   | check_rows_tested: 5               |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 47,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be greater than: 1       |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: None            |",
       "timestamp": "<masked>",
       "index": 48,
       "thread": "soda-contract"
@@ -1031,49 +1157,49 @@
     },
     {
       "level": "info",
-      "message": "|                 | Schema matches expected structure  | level: fail                   | ✅ PASSED | schema       | 1002744d   | Actual schema:                     |",
+      "message": "|                 | No rows violating the condition    | level: fail                   | ❌ FAILED | failed_rows  | 87eed3b2   | failed_rows_count: 2               |",
       "timestamp": "<masked>",
       "index": 50,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be less than or equal: 0 |           |              |            | - id(integer)                      |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | failed_rows_percent: 40.0          |",
       "timestamp": "<masked>",
       "index": 51,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | - customer_id(varchar)             |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 52,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | - amount(integer)                  |",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 53,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | - country(varchar)                 |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 54,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | - status(varchar)                  |",
+      "message": "|                 | Row count meets expected threshold | level: warn                   | ⚠ WARN    | row_count    | 3de39c17   | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 55,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | - updated_at(timestamp)            |",
+      "message": "|                 |                                    | must be greater than: 10      |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 56,
       "thread": "soda-contract"
@@ -1087,359 +1213,457 @@
     },
     {
       "level": "info",
-      "message": "| amount          | Metric function meets threshold    | level: fail                   | ✅ PASSED | aggregate    | 0be11ccd   | dataset_rows_tested: 5             |",
+      "message": "|                 | Row count meets expected threshold | level: fail                   | ✅ PASSED | row_count    | 3a083c70   | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 58,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be greater than: 0       |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 |                                    | must be greater than: 0       |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 59,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be less than: 1000       |           |              |            | avg: 119.0                         |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 60,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 | Row count meets expected threshold | level: fail                   | ✅ PASSED | row_count    | 56b4b91d   | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 61,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | 8725d00a   | invalid_count: 1                   |",
+      "message": "|                 |                                    | must be greater than: 1       |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 62,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 20.0              |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 63,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 | Schema matches expected structure  | level: fail                   | ✅ PASSED | schema       | 1002744d   | Actual schema:                     |",
       "timestamp": "<masked>",
       "index": 64,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
+      "message": "|                 |                                    | must be less than or equal: 0 |           |              |            | - id(integer)                      |",
       "timestamp": "<masked>",
       "index": 65,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 |                                    |                               |           |              |            | - customer_id(varchar)             |",
       "timestamp": "<masked>",
       "index": 66,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | - amount(integer)                  |",
       "timestamp": "<masked>",
       "index": 67,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | a1716a97   | invalid_count: 2                   |",
+      "message": "|                 |                                    |                               |           |              |            | - country(varchar)                 |",
       "timestamp": "<masked>",
       "index": 68,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 66.66666666666667 |",
+      "message": "|                 |                                    |                               |           |              |            | - status(varchar)                  |",
       "timestamp": "<masked>",
       "index": 69,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 3               |",
+      "message": "|                 |                                    |                               |           |              |            | - updated_at(timestamp)            |",
       "timestamp": "<masked>",
       "index": 70,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 71,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "| amount          | Metric function meets threshold    | level: fail                   | ✅ PASSED | aggregate    | 0be11ccd   | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 72,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    | must be greater than: 0       |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 73,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| country         | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | 51bc20de   | invalid_count: 1                   |",
+      "message": "|                 |                                    | must be less than: 1000       |           |              |            | avg: 119.0                         |",
       "timestamp": "<masked>",
       "index": 74,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 20.0              |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 75,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | 8725d00a   | invalid_count: 1                   |",
       "timestamp": "<masked>",
       "index": 76,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 20.0              |",
       "timestamp": "<masked>",
       "index": 77,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 78,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
       "timestamp": "<masked>",
       "index": 79,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| customer_id     | No missing values                  | level: fail                   | ❌ FAILED | missing      | a066ec1c   | missing_count: 1                   |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 80,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | missing_percent: 20.0              |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 81,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "|                 | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | a1716a97   | invalid_count: 2                   |",
       "timestamp": "<masked>",
       "index": 82,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 66.66666666666667 |",
       "timestamp": "<masked>",
       "index": 83,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 3               |",
       "timestamp": "<masked>",
       "index": 84,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| id              | No duplicate values                | level: fail                   | ❌ FAILED | duplicate    | 1f20eeb5   | duplicate_count: 1                 |",
+      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
       "timestamp": "<masked>",
       "index": 85,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | duplicate_percent: 20.0            |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 86,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 87,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
+      "message": "| country         | No invalid values                  | level: fail                   | ❌ FAILED | invalid      | 51bc20de   | invalid_count: 1                   |",
       "timestamp": "<masked>",
       "index": 88,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | invalid_percent: 20.0              |",
       "timestamp": "<masked>",
       "index": 89,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 90,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 | No missing values                  | level: fail                   | ✅ PASSED | missing      | c51b4b5f   | missing_count: 0                   |",
+      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
       "timestamp": "<masked>",
       "index": 91,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    | must be: 0                    |           |              |            | missing_percent: 0.0               |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 92,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 93,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "message": "| customer_id     | No missing values                  | level: fail                   | ❌ FAILED | missing      | a066ec1c   | missing_count: 1                   |",
       "timestamp": "<masked>",
       "index": 94,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | missing_percent: 20.0              |",
       "timestamp": "<masked>",
       "index": 95,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "# Summary:",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 96,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "|----------------|----|----|",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 97,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Checks         | 14 |    |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 98,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Passed         |  8 | ✅ |",
+      "message": "| id              | No duplicate values                | level: fail                   | ❌ FAILED | duplicate    | 1f20eeb5   | duplicate_count: 1                 |",
       "timestamp": "<masked>",
       "index": 99,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Failed         |  6 | ❌ |",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | duplicate_percent: 20.0            |",
       "timestamp": "<masked>",
       "index": 100,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Warned         |  0 | ✅ |",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
       "timestamp": "<masked>",
       "index": 101,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Not Evaluated  |  0 | ✅ |",
+      "message": "|                 |                                    |                               |           |              |            | missing_count: 0                   |",
       "timestamp": "<masked>",
       "index": 102,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Excluded       |  0 | ✅ |",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
       "timestamp": "<masked>",
       "index": 103,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "| Runtime Errors |  0 | ✅ |",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
       "timestamp": "<masked>",
       "index": 104,
       "thread": "soda-contract"
     },
     {
       "level": "info",
-      "message": "",
+      "message": "|                 | No missing values                  | level: fail                   | ✅ PASSED | missing      | c51b4b5f   | missing_count: 0                   |",
       "timestamp": "<masked>",
       "index": 105,
       "thread": "soda-contract"
     },
     {
-      "level": "debug",
-      "message": "Sending command upload_contract_file to Soda Cloud with body: {\n  \"type\": \"sodaCoreUploadContractFile\",\n  \"contents\": \"dataset: fixture_ds/main/orders\\nfilter: |\\n  status <> 'cancelled'\\ncheck_attributes:\\n  team: data-eng\\n  priority: 2\\ncolumns:\\n  - name: id\\n    data_type: integer\\n    checks:\\n      - missing:\\n      - duplicate:\\n  - name: customer_id\\n    checks:\\n      - missing:\\n          qualifier: \\\"\\\"\\n  - name: amount\\n    checks:\\n      - invalid:\\n          valid_min: 0\\n      - invalid:\\n          qualifier: strict\\n          valid_min: 1\\n          valid_max: 200\\n          filter: country = 'BE'\\n      - aggregate:\\n          function: avg\\n          threshold:\\n            must_be_between:\\n              greater_than: 0\\n              less_than: 1000\\n  - name: country\\n    valid_reference_data:\\n      dataset: fixture_ds/main/countries\\n      column: code\\n    checks:\\n      - invalid:\\n          attributes:\\n            owner: geo\\n            priority: 1\\n  - name: status\\n  - name: updated_at\\nchecks:\\n  - schema:\\n  - row_count:\\n  - row_count:\\n      qualifier: 2\\n      threshold:\\n        must_be_greater_than: 1\\n  - freshness:\\n      column: updated_at\\n      threshold:\\n        unit: hour\\n        must_be_less_than: 24\\n  - duplicate:\\n      columns: [customer_id, country]\\n  - metric:\\n      expression: sum(amount) / count(*)\\n      threshold:\\n        must_be_greater_than: 0\\n  - failed_rows:\\n      expression: amount > 150\",\n  \"token\": \"****\"\n}",
+      "level": "info",
+      "message": "|                 |                                    | must be: 0                    |           |              |            | missing_percent: 0.0               |",
       "timestamp": "<masked>",
       "index": 106,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "|                 |                                    |                               |           |              |            | check_rows_tested: 5               |",
+      "timestamp": "<masked>",
+      "index": 107,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "|                 |                                    |                               |           |              |            | dataset_rows_tested: 5             |",
+      "timestamp": "<masked>",
+      "index": 108,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "+-----------------+------------------------------------+-------------------------------+-----------+--------------+------------+------------------------------------+",
+      "timestamp": "<masked>",
+      "index": 109,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "# Summary:",
+      "timestamp": "<masked>",
+      "index": 110,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "|----------------|----|----|",
+      "timestamp": "<masked>",
+      "index": 111,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Checks         | 17 |    |",
+      "timestamp": "<masked>",
+      "index": 112,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Passed         |  9 | ✅ |",
+      "timestamp": "<masked>",
+      "index": 113,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Failed         |  7 | ❌ |",
+      "timestamp": "<masked>",
+      "index": 114,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Warned         |  1 | ⚠  |",
+      "timestamp": "<masked>",
+      "index": 115,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Not Evaluated  |  0 | ✅ |",
+      "timestamp": "<masked>",
+      "index": 116,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Excluded       |  0 | ✅ |",
+      "timestamp": "<masked>",
+      "index": 117,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "| Runtime Errors |  0 | ✅ |",
+      "timestamp": "<masked>",
+      "index": 118,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "info",
+      "message": "",
+      "timestamp": "<masked>",
+      "index": 119,
+      "thread": "soda-contract"
+    },
+    {
+      "level": "debug",
+      "message": "Sending command upload_contract_file to Soda Cloud with body: {\n  \"type\": \"sodaCoreUploadContractFile\",\n  \"contents\": \"dataset: fixture_ds/main/orders\\nfilter: |\\n  status <> 'cancelled'\\ncheck_attributes:\\n  team: data-eng\\n  priority: 2\\ncolumns:\\n  - name: id\\n    data_type: integer\\n    checks:\\n      - missing:\\n      - duplicate:\\n  - name: customer_id\\n    checks:\\n      - missing:\\n          qualifier: \\\"\\\"\\n  - name: amount\\n    checks:\\n      - invalid:\\n          valid_min: 0\\n      - invalid:\\n          qualifier: strict\\n          valid_min: 1\\n          valid_max: 200\\n          filter: country = 'BE'\\n      - aggregate:\\n          function: avg\\n          threshold:\\n            must_be_between:\\n              greater_than: 0\\n              less_than: 1000\\n  - name: country\\n    valid_reference_data:\\n      dataset: fixture_ds/main/countries\\n      column: code\\n    checks:\\n      - invalid:\\n          attributes:\\n            owner: geo\\n            priority: 1\\n  - name: status\\n  - name: updated_at\\nchecks:\\n  - schema:\\n  - row_count:\\n  - row_count:\\n      qualifier: 2\\n      threshold:\\n        must_be_greater_than: 1\\n  - row_count:\\n      qualifier: warn\\n      threshold:\\n        level: warn\\n        must_be_greater_than: 10\\n  - freshness:\\n      column: updated_at\\n      threshold:\\n        unit: hour\\n        must_be_less_than: 24\\n  - duplicate:\\n      columns: [customer_id, country]\\n  - metric:\\n      expression: sum(amount) / count(*)\\n      threshold:\\n        must_be_greater_than: 0\\n  - metric:\\n      qualifier: query\\n      query: |\\n        SELECT AVG(amount) FROM orders WHERE status <> 'cancelled'\\n      threshold:\\n        must_be_greater_than: 0\\n  - failed_rows:\\n      qualifier: query\\n      query: |\\n        SELECT * FROM orders WHERE amount < 0\\n  - failed_rows:\\n      expression: amount > 150\",\n  \"token\": \"****\"\n}",
+      "timestamp": "<masked>",
+      "index": 120,
       "thread": "soda-contract"
     },
     {
       "level": "debug",
       "message": "MockSodaCloud responds to MockHttpMethod.POST https://mock.soda.io:9999/api/command with provided response",
       "timestamp": "<masked>",
-      "index": 107,
+      "index": 121,
       "thread": "soda-contract"
     },
     {
       "level": "debug",
       "message": "👌 Soda Cloud command upload_contract_file OK | X-Soda-Trace-Id:N/A",
       "timestamp": "<masked>",
-      "index": 108,
+      "index": 122,
       "thread": "soda-contract"
     }
   ],
