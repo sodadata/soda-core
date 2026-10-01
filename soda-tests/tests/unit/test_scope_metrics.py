@@ -305,6 +305,49 @@ def test_a_failing_activation_logs_an_error():
     assert "Error activating scopes with extension _FailingExtension: boom" in logs.get_errors()
 
 
+
+def _nudge_lines(logs: Logs) -> list[str]:
+    return [line for line in logs.get_logs() if "needs a Soda extension that runs scopes" in line]
+
+
+def test_no_nudge_after_an_extension_that_runs_scopes_failed_to_activate_them():
+    class _RaisingActivation(CheckCollectionImplExtension):
+        def __init__(self, contract_impl: CheckCollectionImpl):
+            self.contract_impl = contract_impl
+
+        def activate_scopes(self, contract_impl: CheckCollectionImpl) -> None:
+            raise RuntimeError("boom")
+
+    class _ActivatesNothing(_RaisingActivation):
+        def activate_scopes(self, contract_impl: CheckCollectionImpl) -> None:
+            return None
+
+    for extension_class in (_RaisingActivation, _ActivatesNothing):
+        ContractImpl.register_extension("scope_activation_that_activates_nothing", extension_class)
+        try:
+            impl, logs = _build_impl(SCOPED_YAML)
+        finally:
+            ContractImpl.impl_extensions.pop("scope_activation_that_activates_nothing", None)
+        assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, True, True, True, False, True]
+        assert _nudge_lines(logs) == [], extension_class.__name__
+
+
+def test_an_extension_that_does_not_run_scopes_keeps_the_nudge():
+    """It inherits the default activate_scopes, like an extension that only parses its own checks."""
+
+    class _ParsesChecksOnly(CheckCollectionImplExtension):
+        def __init__(self, contract_impl: CheckCollectionImpl):
+            self.contract_impl = contract_impl
+
+    ContractImpl.register_extension("extension_that_does_not_run_scopes", _ParsesChecksOnly)
+    try:
+        _, logs = _build_impl(SCOPED_YAML)
+    finally:
+        ContractImpl.impl_extensions.pop("extension_that_does_not_run_scopes", None)
+    assert _nudge_lines(logs) == [
+        "Excluded 4 checks whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
+    ]
+
 SAMPLING_YAML: str = """
     dataset: fx/main/orders
     filter: id > 0
