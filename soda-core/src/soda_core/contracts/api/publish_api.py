@@ -1,3 +1,4 @@
+from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_publication import ContractPublication, ContractPublicationResultList
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 
@@ -13,7 +14,10 @@ def publish_contract(contract_file_path: str, soda_cloud_file_path: str) -> Cont
     contract_publication: ContractPublication = contract_publication_builder.build()
     contract_publication_result = contract_publication.execute()
 
-    for contract_yaml in contract_publication.contract_publication_impl.contract_yamls:
-        soda_telemetry.ingest_contract_publication(contract_yaml)
+    # The publish already went through, so counting for telemetry must never fail it.
+    try:
+        soda_telemetry.ingest_contract_publication(contract_publication.contract_publication_impl.contract_yamls)
+    except Exception as e:
+        soda_logger.debug(f"Could not count the published contracts for telemetry: {e}")
 
     return contract_publication_result
