@@ -483,6 +483,52 @@ def test_contract_publication_uploads_nothing_for_check_and_variable_errors(cont
     assert errors[1] == f"Skipping publication of the contract because it has 1 error: {errors[0]}"
 
 
+@pytest.mark.parametrize(
+    "contract_yaml_str, expected_error",
+    [
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - row_count:\n"
+            "      threshold:\n        must_be_between:\n          greater_than: 10\n          less_than: 5\n",
+            "Invalid between threshold range: greater bound (10) < less bound (5)",
+            id="inverted_between_range",
+        ),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\n    checks:\n      - aggregate:\n"
+            "          function: avg\n",
+            "Threshold required, but not specified",
+            id="missing_threshold",
+        ),
+    ],
+)
+def test_contract_publication_uploads_nothing_when_a_check_is_invalid(contract_yaml_str, expected_error):
+    """Errors that only building the checks finds, the ones 'soda contract test' reports,
+    keep a contract from publishing too. Building them needs no data source."""
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result[0].contract is None
+    assert result.logs.get_errors() == [
+        expected_error,
+        f"Skipping publication of the contract because it has 1 error: {expected_error}",
+    ]
+
+
+def test_contract_publication_checks_a_contract_with_a_variable_without_value_only_as_it_parses():
+    """The variable reads as absent until the contract is verified, so building its checks
+    would report the bound it names as missing. Such a contract publishes, inverted range
+    or not, and verification reports the range once the variable has a value."""
+    mock_cloud = MockSodaCloud(publish_responses())
+    contract_yaml_str = BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML.replace("less_than: 100", "less_than: -1")
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert result.logs.get_errors() == []
+
+
 def test_contract_publication_skips_only_the_contract_with_errors():
     mock_cloud = MockSodaCloud(publish_responses())
 
