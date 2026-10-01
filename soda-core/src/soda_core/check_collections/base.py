@@ -681,6 +681,7 @@ class CheckCollectionImpl:
         self.base_scope: Scope = Scope(key=BASE_SCOPE_KEY, filter=self.filter, check_attributes=self.check_attributes)
         self.scopes: dict[str, Scope] = {
             key: Scope.from_yaml(scope_yaml)
+            # A yaml that is no CheckCollectionYaml, like a duck-typed test fake, has no class default to fall back on.
             for key, scope_yaml in (getattr(yaml, "scopes", None) or {}).items()
             if isinstance(key, str) and key != BASE_SCOPE_KEY
         }
@@ -848,10 +849,10 @@ class CheckCollectionImpl:
         value that names no declared scope gets an inactive placeholder that is not stored
         in ``self.scopes``, so the check is skipped.
         """
-        raw = getattr(check_yaml, "scope", None)
+        raw = check_yaml.scope
         # ContractYaml validates the checks it parses. This reports the checks an extension parsed itself.
-        if type(self).supports_scopes and not getattr(check_yaml, "scope_validated", False):
-            check_yaml_object = getattr(check_yaml, "check_yaml_object", None)
+        if type(self).supports_scopes and not check_yaml.scope_validated:
+            check_yaml_object = check_yaml.check_yaml_object
             error: Optional[str] = None
             if raw is not None:
                 error = check_scope_error(raw, self.scopes)
@@ -874,13 +875,19 @@ class CheckCollectionImpl:
     def _log_checks_excluded_for_their_scope(self) -> None:
         """One line for the selected checks that are skipped because their scope is not active.
 
-        Logs nothing when there are none, so a file without such a check logs exactly what it logged before.
+        Logs nothing when there are none, so a file without such a check logs exactly what it logged before. In a
+        kind that supports scopes, a check whose scope is not declared logged an error already, and no extension
+        would run it, so only the checks in a declared scope count.
         """
+        declared_scopes: list[Scope] = list(self.scopes.values())
         excluded: int = 0
         for check_impl in self.all_check_impls:
-            scope: Optional[Scope] = getattr(check_impl, "scope", None)
-            if scope is not None and not scope.is_active and check_impl.selected:
-                excluded += 1
+            scope: Scope = check_impl.scope
+            if scope.is_active or not check_impl.selected:
+                continue
+            if type(self).supports_scopes and not any(scope is declared for declared in declared_scopes):
+                continue
+            excluded += 1
         if not excluded:
             return
         checks: str = "1 check" if excluded == 1 else f"{excluded} checks"
