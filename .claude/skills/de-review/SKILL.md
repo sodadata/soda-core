@@ -5,19 +5,20 @@ description: Review a PR against this repository's engine review conventions —
 
 # DE review
 
-The engine review for the v4 Python stack. It has a shape: a small set of things worth
-blocking on, a larger set of notes that ship with the approval, and findings that name a
-mechanism rather than a preference. Reproduce the shape, not just the checklist.
+The engine review for `soda-core`, the open-source v4 engine. It has a shape: a small set
+of things worth blocking on, a larger set of notes that ship with the approval, and
+findings that name a mechanism rather than a preference. Reproduce the shape, not just the
+checklist.
 
 Do not summarise the code. Prove things about it.
 
 ## Public repositories
 
-`soda-core` is public and a review posted there is world-visible. When reviewing it:
+This repository is public and a review posted here is world-visible:
 
 - Never name private repositories, internal packages, customers, or internal ticket IDs.
 - Say "downstream consumers" rather than enumerating them.
-- Every finding must be provable from that repository alone. If a concern depends on code
+- Every finding must be provable from this repository alone. If a concern depends on code
   you cannot see, say so and stop there.
 - Do not introduce a reference to anything not already visible in the file under review.
 
@@ -67,7 +68,7 @@ Do not summarise the code. Prove things about it.
 *A base class or method that subclasses override.*
 
 - The change sits at the right altitude — base or dialect rather than copied into a leaf.
-  This is the most common substantive finding in these repos.
+  This is the most common substantive finding in this repository.
 - Every caller is identified. An override on a method with no caller changes nothing.
 - Downstream consumers cannot misread the result. Older readers ignore fields they do not
   know, which can turn a stricter check into a silently weaker one.
