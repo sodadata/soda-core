@@ -55,7 +55,8 @@ def filtered_cte_alias(key: Optional[str]) -> str:
     A key that sanitises to itself and fits the length cap is used as is. Any other key
     is replaced by a hash of the original, so ``eu-west`` and ``eu_west`` never share an
     alias. A plain alias has a letter right after the prefix and a hashed one has ``_``,
-    so the two forms never meet.
+    so the two forms never meet. The prefix leaves no room for part of the key next to the
+    digest under the cap, so a hashed alias carries the digest only.
     """
     if key is None:
         return SODA_FILTERED_CTE_NAME
@@ -64,7 +65,7 @@ def filtered_cte_alias(key: Optional[str]) -> str:
     if sanitized == key and len(alias) <= FILTERED_CTE_ALIAS_MAX_LENGTH:
         return alias
     digest = blake2b(key.encode("utf-8"), digest_size=4).hexdigest()
-    return f"{alias[:FILTERED_CTE_ALIAS_MAX_LENGTH - 9]}_{digest}"
+    return f"{FILTERED_SCOPE_CTE_PREFIX}_{digest}"
 
 
 def is_filtered_cte_alias(alias: str) -> bool:
