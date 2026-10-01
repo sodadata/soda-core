@@ -544,6 +544,9 @@ class SodaCloud:
                 return response_json
         # No response means the request failed or timed out. That, a 5xx and a 200 can each
         # follow an insert Soda Cloud stored. Only a 4xx says it did not store it.
+        # No response also covers a connection refused before anything was sent, which cannot
+        # have landed. _execute_command swallows the exception, so it reads the same here: no
+        # mark follows and a managed scan waits for the backend to time it out.
         rejected: bool = response is not None and 400 <= response.status_code < 500
         for r in results:
             r.sending_results_to_soda_cloud_failed = True
