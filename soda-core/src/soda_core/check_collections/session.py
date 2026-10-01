@@ -585,9 +585,9 @@ def _raise_if_unknown_scope_keys(
 
     known_keys: set[str] = {BASE_SCOPE_KEY}
     for impl, _impl_class, _construct_exc, _yaml_source in constructed:
-        if impl is None or not getattr(type(impl), "supports_scopes", False):
+        if impl is None or not type(impl).supports_scopes:
             continue
-        known_keys.update(getattr(impl, "scopes", None) or {})
+        known_keys.update(impl.scopes)
 
     unknown_keys: list[str] = list(
         dict.fromkeys(
@@ -606,8 +606,15 @@ def _raise_if_unknown_scope_keys(
             location = f", in {source_description}" if source_description and not locates_itself else ""
             logger.error(f"{message}{location}")
 
+    # A scope is no list, so '[eu,us]' is read as one key. Repeating the filter selects several scopes.
+    list_hint: str = (
+        " The [a,b] form matches list attributes only. To select several scopes, give one scope filter per key, "
+        "as in scope=eu and scope=us."
+        if any(key.startswith("[") and key.endswith("]") for key in unknown_keys)
+        else ""
+    )
     raise InvalidArgumentException(
         f"Unknown scope key(s) in the check filter: {', '.join(repr(key) for key in unknown_keys)}. "
         f"No file in this session declares them. "
-        f"Known scope keys: {', '.join(repr(key) for key in sorted(known_keys))}."
+        f"Known scope keys: {', '.join(repr(key) for key in sorted(known_keys))}.{list_hint}"
     )

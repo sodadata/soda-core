@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from typing import Optional
 from unittest.mock import MagicMock
 
@@ -234,23 +233,16 @@ def test_no_scope_filter_means_no_check(check_filters: Optional[list[str]]):
     assert _verified == ["a"]
 
 
-def test_stub_impls_without_scopes_are_tolerated():
+def test_stub_impls_without_scopes_keep_the_class_default():
     # The source declares nothing, so the stub keeps the class default.
     assert _execute([_StubSource("a")], ["scope=base"]).results
     with pytest.raises(InvalidArgumentException, match="'eu'"):
         _execute([_StubSource("a")], ["scope=eu"])
 
-    # Neither an impl without a 'scopes' attribute nor a class without 'supports_scopes' fails the check.
-    class _Bare:
-        supports_scopes = True
 
-    constructed = [
-        (SimpleNamespace(), None, None, _StubSource("namespace")),
-        (_Bare(), _Bare, None, _StubSource("bare")),
-    ]
-    _raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope=base"]))
-    with pytest.raises(InvalidArgumentException, match="'eu'"):
-        _raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope=eu"]))
+def test_list_syntax_for_a_scope_gets_a_hint():
+    with pytest.raises(InvalidArgumentException, match=r"'\[eu,us\]'.*one scope filter per key, as in scope=eu and"):
+        _execute([_StubSource("a")], ["scope=[eu,us]"])
 
 
 def test_one_file_can_be_checked_on_its_own():

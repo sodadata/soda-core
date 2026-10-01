@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -503,10 +502,6 @@ class TestCheckSelectorScope:
         assert selector.matches(_make_check_impl())
         assert not selector.matches(_make_check_impl(scope_key="eu"))
 
-    def test_check_without_a_scope_answers_base(self):
-        assert CheckSelector.parse("scope=base").matches(SimpleNamespace())
-        assert not CheckSelector.parse("scope=eu").matches(SimpleNamespace())
-
     def test_scope_wildcard(self):
         selector = CheckSelector.parse("scope=eu*")
         assert selector.matches(_make_check_impl(scope_key="eu-west"))
@@ -559,6 +554,11 @@ class TestCheckSelectorNegation:
     def test_negated_unknown_field_names_the_field_without_the_bang(self):
         with pytest.raises(CheckSelectorParseException, match="unknown field 'region'"):
             CheckSelector.parse("region!=eu")
+
+    @pytest.mark.parametrize("expression", ["name!=", "scope != ", "attributes.severity!="])
+    def test_negated_empty_value_raises(self, expression):
+        with pytest.raises(CheckSelectorParseException, match="empty value after '!='"):
+            CheckSelector.parse(expression)
 
     def test_constructor_defaults_to_positive(self):
         assert CheckSelector(field="scope", value="eu", raw="scope=eu").negated is False
