@@ -595,8 +595,7 @@ class CheckCollectionImpl:
         self.base_scope: Scope = Scope(key=BASE_SCOPE_KEY, filter=self.filter, check_attributes=self.check_attributes)
         self.scopes: dict[str, Scope] = {
             key: Scope.from_yaml(scope_yaml)
-            # A yaml that is no CheckCollectionYaml, like a duck-typed test fake, has no class default to fall back on.
-            for key, scope_yaml in (getattr(yaml, "scopes", None) or {}).items()
+            for key, scope_yaml in yaml.scopes.items()
             if isinstance(key, str) and key != BASE_SCOPE_KEY
         }
 
