@@ -858,7 +858,9 @@ class CheckCollectionImpl:
         for metric in self.metrics:
             # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
             if isinstance(metric, AggregationMetricImpl):
-                # A metric in a declared scope is queried by the extension that activated the scope.
+                # A metric in a declared scope is queried by the extension that activated the scope. A check puts a
+                # metric in its scope only when the metric holds the collection's own dataset_identifier object,
+                # see CheckImpl.apply_scope_to_metric; an equal identifier gets no scope and lands here.
                 if metric.scope is not None and not metric.scope.is_base:
                     continue
                 if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
@@ -980,12 +982,11 @@ class CheckCollectionImpl:
         """
         from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl
 
-        scope = getattr(check_impl, "scope", None)
-        if scope is None or scope.is_base or scope.row_count_metric is None:
+        scope: Scope = check_impl.scope
+        if scope.is_base or scope.row_count_metric is None:
             return
         if not any(
-            isinstance(metric, AggregationMetricImpl) and metric.scope is scope
-            for metric in getattr(check_impl, "metrics", [])
+            isinstance(metric, AggregationMetricImpl) and metric.scope is scope for metric in check_impl.metrics
         ):
             return
         values = check_result.diagnostic_metric_values

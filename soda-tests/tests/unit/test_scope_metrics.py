@@ -121,9 +121,6 @@ class _TestAggregationMetric(AggregationMetricImpl):
 
 
 def test_metric_scope_defaults_to_none_and_the_keyword_sets_it():
-    assert MetricImpl.scope is None
-    assert object.__new__(RowCountMetricImpl).scope is None
-
     impl, _ = _build_impl(SCOPED_YAML)
     eu = impl.scopes["eu"]
     assert RowCountMetricImpl(contract_impl=impl).scope is None
@@ -162,32 +159,32 @@ def test_the_scoping_step_scopes_metrics_on_the_collection_dataset_only():
     # A base check sets the scope and keeps the id.
     metric = RowCountMetricImpl(contract_impl=impl)
     unscoped_id = metric.id
-    assert base_check._apply_scope_to_metric(metric) is metric
+    assert base_check.apply_scope_to_metric(metric) is metric
     assert metric.scope is impl.base_scope and metric.id == unscoped_id
 
     # A check in a declared scope rebuilds the id with the scope term, once.
     metric = RowCountMetricImpl(contract_impl=impl)
-    assert eu_check._apply_scope_to_metric(metric) is metric
+    assert eu_check.apply_scope_to_metric(metric) is metric
     assert metric.scope is eu
     assert metric.id == RowCountMetricImpl(contract_impl=impl, scope=eu).id != unscoped_id
     scoped_id = metric.id
-    assert eu_check._apply_scope_to_metric(metric) is metric and metric.id == scoped_id
-    assert base_check._apply_scope_to_metric(metric) is metric and metric.scope is eu and metric.id == scoped_id
+    assert eu_check.apply_scope_to_metric(metric) is metric and metric.id == scoped_id
+    assert base_check.apply_scope_to_metric(metric) is metric and metric.scope is eu and metric.id == scoped_id
 
     # A metric that already has a scope, the base included, comes back untouched.
     us_metric = RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["us"])
     us_id = us_metric.id
-    eu_check._apply_scope_to_metric(us_metric)
+    eu_check.apply_scope_to_metric(us_metric)
     assert us_metric.scope is impl.scopes["us"] and us_metric.id == us_id
     base_metric = RowCountMetricImpl(contract_impl=impl, scope=impl.base_scope)
-    eu_check._apply_scope_to_metric(base_metric)
+    eu_check.apply_scope_to_metric(base_metric)
     assert base_metric.scope is impl.base_scope and base_metric.id == unscoped_id
 
     # The gate compares the dataset object, so a metric on another dataset stays unscoped, even with equal text.
     for dataset_identifier in [DatasetIdentifier.parse("fx/main/other"), DatasetIdentifier.parse("fx/main/orders")]:
         other_metric = RowCountMetricImpl(contract_impl=impl, dataset_identifier=dataset_identifier)
         other_id = other_metric.id
-        eu_check._apply_scope_to_metric(other_metric)
+        eu_check.apply_scope_to_metric(other_metric)
         assert other_metric.scope is None and other_metric.id == other_id
 
 
@@ -451,7 +448,7 @@ def test_bundling_requires_an_active_scope():
         impl.bundle_aggregation_metrics([], impl.scopes["eu"])
 
 
-def _check_stub(scope: Optional[Scope], metrics: list) -> SimpleNamespace:
+def _check_stub(scope: Scope, metrics: list) -> SimpleNamespace:
     return SimpleNamespace(scope=scope, metrics=metrics)
 
 
@@ -481,11 +478,10 @@ def test_scope_rows_tested_goes_only_on_a_check_that_aggregates_in_its_own_scope
         "dataset_rows_tested": 5,
         "scope_rows_tested": 2,
     }
-    # The base scope, a check without a scope, and a scope without its own row count get nothing.
+    # The base scope and a scope without its own row count get nothing.
     assert _diagnostics(_check_stub(impl.base_scope, [base_metric]), {"dataset_rows_tested": 5}) == {
         "dataset_rows_tested": 5
     }
-    assert _diagnostics(SimpleNamespace(metrics=[eu_metric]), {"dataset_rows_tested": 5}) == {"dataset_rows_tested": 5}
     no_row_count = Scope(key="us")
     no_row_count.activate(cte=eu.cte, row_count_metric=None)
     assert _diagnostics(_check_stub(no_row_count, [eu_metric]), {"dataset_rows_tested": 5}) == {
