@@ -1448,11 +1448,18 @@ class CheckImpl:
             return default_check_name
         return check_yaml.type_name
 
-    def _apply_scope_to_metric(self, metric_impl: MetricImpl) -> MetricImpl:
+    def apply_scope_to_metric(self, metric_impl: MetricImpl) -> MetricImpl:
         """Puts a metric on the collection's dataset in this check's scope, before it is resolved.
 
         A metric that already has a scope comes back untouched. Only a declared scope rebuilds the id, so a
-        base metric keeps its id, including any suffix a caller added before resolving it.
+        base metric keeps its id, including any suffix a caller added before resolving it. A check type that
+        resolves its metrics itself calls this before it changes their id.
+
+        The collection's dataset is its ``dataset_identifier`` object, not an equal one: a reconciliation
+        source on the same dataset builds an equal identifier and must stay out of the scope. ``_build_queries``
+        matches on equality, so a metric on an equal identifier that a check built itself gets no scope here and
+        is measured over the base CTE. For its own dataset, such a check passes no identifier or
+        ``contract_impl.dataset_identifier`` itself.
         """
         if metric_impl.scope is not None:
             return metric_impl
@@ -1464,7 +1471,7 @@ class CheckImpl:
         return metric_impl
 
     def _resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
-        self._apply_scope_to_metric(metric_impl)
+        self.apply_scope_to_metric(metric_impl)
         resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
         return resolved_metric_impl
@@ -1616,9 +1623,6 @@ class MissingAndValidityCheckImpl(CheckImpl):
 
 
 class MetricImpl:
-    # The scope the metric is measured in. None until a check puts it in one; stubs that skip __init__ read None.
-    scope: Optional[Scope] = None
-
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -1648,7 +1652,7 @@ class MetricImpl:
             self.data_source_impl = data_source_impl
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
-        # Set before the id, which reads it.
+        # The scope the metric is measured in, None until a check puts it in one. Set before the id, which reads it.
         self.scope: Optional[Scope] = scope
 
         self.id: str = self._build_id()
