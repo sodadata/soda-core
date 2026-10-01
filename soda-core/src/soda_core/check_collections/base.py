@@ -390,6 +390,8 @@ class CheckCollectionImpl:
     # ``type(impl).supports_scopes``. A kind without support skips the checks of
     # every declared scope as EXCLUDED; ``scope: base`` still runs unscoped.
     supports_scopes: bool = False
+    # Set in __init__ when an extension that runs scopes was called to activate them.
+    scopes_extension_ran: bool = False
     # Defaults for stubs that skip ``__init__``; real instances overwrite both.
     base_scope: Optional[Scope] = None
     scopes: Mapping[str, Scope] = MappingProxyType({})
@@ -680,10 +682,17 @@ class CheckCollectionImpl:
         # Before the columns are parsed: column checks are built there, and a check in an inactive scope is
         # skipped when it is built.
         if type(self).supports_scopes:
+            from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension
+
             for extension in self.extensions:
                 activate_scopes = getattr(extension, "activate_scopes", None)
                 if activate_scopes is None:
                     continue
+                # Every extension inherits a default activate_scopes that does nothing. Only one that
+                # overrides it runs scopes.
+                default_hook = CheckCollectionImplExtension.activate_scopes
+                if getattr(type(extension), "activate_scopes", None) is not default_hook:
+                    self.scopes_extension_ran = True
                 try:
                     activate_scopes(contract_impl=self)
                 except Exception as e:
@@ -805,8 +814,11 @@ class CheckCollectionImpl:
 
         Logs nothing when there are none, so a file without such a check logs exactly what it logged before. In a
         kind that supports scopes, a check whose scope is not declared logged an error already, and no extension
-        would run it, so only the checks in a declared scope count.
+        would run it, so only the checks in a declared scope count. With an extension that runs scopes, a scope
+        that is still inactive failed to activate and logged an error, so nothing is logged here.
         """
+        if self.scopes_extension_ran:
+            return
         declared_scopes: list[Scope] = list(self.scopes.values())
         excluded: int = 0
         for check_impl in self.all_check_impls:
