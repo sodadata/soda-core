@@ -1401,8 +1401,9 @@ class CheckImpl:
 
         - Contracts (``wire_source == "soda-contract"``): bare
           ``self.relative_path``, byte-identical to today's emission. A check
-          in a declared scope gets ``f"scope.{key}:{relative_path}"``, with
-          the same single ``:`` delimiter and the wire source unchanged.
+          in a declared scope of a kind with scope support gets
+          ``f"scope.{key}:{relative_path}"``, with the same single ``:``
+          delimiter and the wire source unchanged.
         - Non-contract subtypes (e.g. data standards): the full option-3
           prefix ``f"{wire_source}.{collection_id}:{relative_path}"``, with
           or without a scope.
@@ -1424,10 +1425,10 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
-            # Read defensively: stubs borrow this property without a scope.
-            scope: Optional[Scope] = getattr(self, "scope", None)
-            if scope is not None and not scope.is_base:
-                return f"scope.{scope.key}:{self.relative_path}"
+            # Gated like the attributes and the definition, see _definition_scope, so a kind without scope
+            # support never pairs a scoped path with the top-level attributes and filter.
+            if type(self.contract_impl).supports_scopes and not self.scope.is_base:
+                return f"scope.{self.scope.key}:{self.relative_path}"
             return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
         # Non-contract subtypes MUST declare collection_id: the
