@@ -577,17 +577,24 @@ def _raise_if_unknown_scope_keys(
     configuration, and before any query against a dataset or any upload. When it
     raises, phase 2 never builds the ERROR placeholders that log construct failures,
     so those are logged here first. A caller checking one file before handing its
-    filters to a runner passes a one-entry ``constructed`` list.
+    filters to a runner passes a one-entry ``constructed`` list. When a kind without
+    scope support declares the key, the message names that kind.
     """
     scope_values: list[str] = [selector.value for selector in check_selectors or [] if selector.field == "scope"]
     if not scope_values:
         return
 
     known_keys: set[str] = {BASE_SCOPE_KEY}
+    # The keys that collections of a kind without scope support declare, with those kinds, for the message.
+    kinds_without_support_by_key: dict[str, set[str]] = {}
     for impl, _impl_class, _construct_exc, _yaml_source in constructed:
-        if impl is None or not type(impl).supports_scopes:
+        if impl is None:
             continue
-        known_keys.update(impl.scopes)
+        if type(impl).supports_scopes:
+            known_keys.update(impl.scopes)
+        else:
+            for key in impl.scopes:
+                kinds_without_support_by_key.setdefault(key, set()).add(impl.kind)
 
     unknown_keys: list[str] = list(
         dict.fromkeys(
@@ -613,8 +620,17 @@ def _raise_if_unknown_scope_keys(
         if any(key.startswith("[") and key.endswith("]") for key in unknown_keys)
         else ""
     )
+    unsupported_kinds: list[str] = sorted(
+        {kind for key in unknown_keys for kind in kinds_without_support_by_key.get(key, ())}
+    )
+    undeclared_keys: list[str] = [key for key in unknown_keys if key not in kinds_without_support_by_key]
+    reason: str = "".join(f"Kind '{kind}' does not support scopes. " for kind in unsupported_kinds)
+    if undeclared_keys and unsupported_kinds:
+        reason += f"No file in this session declares {', '.join(repr(key) for key in undeclared_keys)}. "
+    elif undeclared_keys:
+        reason += "No file in this session declares them. "
     raise InvalidArgumentException(
         f"Unknown scope key(s) in the check filter: {', '.join(repr(key) for key in unknown_keys)}. "
-        f"No file in this session declares them. "
+        f"{reason}"
         f"Known scope keys: {', '.join(repr(key) for key in sorted(known_keys))}.{list_hint}"
     )
