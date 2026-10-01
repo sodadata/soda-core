@@ -1311,7 +1311,7 @@ class CheckImpl:
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
             extra_identity_properties=extra_identity_properties,
-            scope_key=None if self.scope.is_base else self.scope.key,
+            scope_key=None if self.scope.is_base or self._scope_left_out_of_identity() else self.scope.key,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1536,6 +1536,13 @@ class CheckImpl:
         ]
         parts = [p for p in parts if p is not None]
         return "/".join(parts)
+
+    def _scope_left_out_of_identity(self) -> bool:
+        """True on the contract wire source of a kind without scope support, where check_path leaves the scope
+        out too, so path and identity agree. Other wire sources keep the scope term: their path never carries
+        a scope, and the term is what tells a scoped check from its unscoped twin, which they skip.
+        """
+        return self.contract_impl.wire_source == "soda-contract" and not type(self.contract_impl).supports_scopes
 
     def _definition_scope(self) -> Scope:
         """The scope whose filter goes into this check's definition and whose check attributes go under its own.
