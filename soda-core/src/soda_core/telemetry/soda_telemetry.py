@@ -114,30 +114,37 @@ class SodaTelemetry:
             }
         )
 
-    def ingest_contract_publication(self, contract_yaml: "ContractYaml") -> None:
-        """Counts of the published contract's scopes and checks, under the names verify and test use.
+    def ingest_contract_publication(self, contract_yamls: list["ContractYaml"]) -> None:
+        """Counts of the published contracts' scopes and checks, summed, under the names verify and test use.
 
         Counts the checks core parses, under ``checks`` and under each column. A check that an extension parses
-        from a section of its own, such as ``reconciliation``, counts on verify and test but not here.
+        from a section of its own, such as ``reconciliation``, counts on verify and test but not here. Counts
+        nothing when telemetry is off.
         """
-        check_yamls: list = [check_yaml for check_yaml in contract_yaml.checks or [] if check_yaml is not None]
-        for column_yaml in contract_yaml.columns or []:
-            check_yamls.extend(check_yaml for check_yaml in column_yaml.check_yamls or [] if check_yaml is not None)
-        # Placed as verify places them: no scope and 'base' are the base scope, any other value is not.
-        scoped_checks_count: int = len(
-            [
-                check_yaml
-                for check_yaml in check_yamls
-                if check_yaml.scope is not None and scope_value_text(check_yaml.scope) != BASE_SCOPE_KEY
-            ]
-        )
+        if not self.__send:
+            return
+        scopes_count: int = 0
+        scoped_checks_count: int = 0
+        checks_count: int = 0
+        for contract_yaml in contract_yamls:
+            check_yamls: list = [check_yaml for check_yaml in contract_yaml.checks or [] if check_yaml is not None]
+            for column_yaml in contract_yaml.columns or []:
+                check_yamls.extend(check_yaml for check_yaml in column_yaml.check_yamls or [] if check_yaml is not None)
+            checks_count += len(check_yamls)
+            # Placed as verify places them: no scope and 'base' are the base scope, any other value is not.
+            scoped_checks_count += len(
+                [
+                    check_yaml
+                    for check_yaml in check_yamls
+                    if check_yaml.scope is not None and scope_value_text(check_yaml.scope) != BASE_SCOPE_KEY
+                ]
+            )
+            scopes_count += len([key for key in contract_yaml.scopes if isinstance(key, str) and key != BASE_SCOPE_KEY])
         self.set_attributes(
             {
-                "result__scopes_count": len(
-                    [key for key in contract_yaml.scopes if isinstance(key, str) and key != BASE_SCOPE_KEY]
-                ),
+                "result__scopes_count": scopes_count,
                 "result__scoped_checks_count": scoped_checks_count,
-                "result__unscoped_checks_count": len(check_yamls) - scoped_checks_count,
+                "result__unscoped_checks_count": checks_count - scoped_checks_count,
             }
         )
 

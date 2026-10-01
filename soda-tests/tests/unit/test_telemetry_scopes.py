@@ -15,13 +15,14 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import duckdb
 import pytest
 import soda_core
 from soda_core.check_collections.base import CheckCollectionResult
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api import test_api
+from soda_core.contracts.api import publish_api, test_api
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
@@ -438,9 +439,10 @@ def test_session_result_sums_the_counts_of_its_results():
     assert session_result.number_of_unscoped_checks == 6
 
 
-def _record_attributes(monkeypatch) -> list[dict]:
+def _record_attributes(monkeypatch, send: bool = True) -> list[dict]:
     recorded: list[dict] = []
     monkeypatch.setattr(test_api.soda_telemetry, "set_attributes", recorded.append)
+    monkeypatch.setattr(test_api.soda_telemetry, "_SodaTelemetry__send", send)
     return recorded
 
 
@@ -470,7 +472,7 @@ def test_publication_and_verification_count_invalid_scopes_alike(monkeypatch, co
     recorded = _record_attributes(monkeypatch)
     contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(contract))
 
-    test_api.soda_telemetry.ingest_contract_publication(contract_yaml)
+    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
     session_result = ContractVerificationSession.execute(
         contract_yaml_sources=[ContractYamlSource.from_str(contract)],
         only_validate_without_execute=True,
@@ -489,6 +491,55 @@ def test_publication_counts_a_contract_without_checks(monkeypatch):
         yaml_source=ContractYamlSource.from_str("dataset: ds/db/schema/table\ncolumns:\n  - name: id\n")
     )
 
-    test_api.soda_telemetry.ingest_contract_publication(contract_yaml)
+    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
 
     assert recorded == [_counts(scopes=0, scoped=0, unscoped=0)]
+
+
+def test_publication_sums_the_counts_of_its_contracts(monkeypatch):
+    recorded = _record_attributes(monkeypatch)
+    contract_yamls = [
+        ContractYaml.parse(yaml_source=ContractYamlSource.from_str(contract))
+        for contract in (INVALID_SCOPES_CONTRACT, TAGGED_BASE_SCOPE_CONTRACT)
+    ]
+
+    test_api.soda_telemetry.ingest_contract_publication(contract_yamls)
+
+    assert recorded == [_counts(scopes=2, scoped=3, unscoped=3)]
+
+
+def test_publication_counts_nothing_with_telemetry_off(monkeypatch):
+    recorded = _record_attributes(monkeypatch, send=False)
+    contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(INVALID_SCOPES_CONTRACT))
+
+    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
+
+    assert recorded == []
+
+
+def test_a_failing_count_never_fails_a_publish(monkeypatch):
+    publication_result = object()
+
+    class _Publication:
+        contract_publication_impl = SimpleNamespace(contract_yamls=[])
+
+        def execute(self):
+            return publication_result
+
+    class _Builder:
+        def with_contract_yaml_file(self, contract_file_path):
+            pass
+
+        def with_soda_cloud_yaml_file(self, soda_cloud_file_path):
+            pass
+
+        def build(self):
+            return _Publication()
+
+    def _raise(contract_yamls):
+        raise RuntimeError("counting failed")
+
+    monkeypatch.setattr(publish_api.ContractPublication, "builder", staticmethod(_Builder))
+    monkeypatch.setattr(publish_api.soda_telemetry, "ingest_contract_publication", _raise)
+
+    assert publish_api.publish_contract("contract.yml", "soda-cloud.yml") is publication_result
