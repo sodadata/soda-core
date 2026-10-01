@@ -13,6 +13,7 @@ metric monitoring renders "Check" as "Monitor"); row-dict keys stay internal.
 from __future__ import annotations
 
 from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.common import logging_configuration
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult
 from tabulate import tabulate
 
@@ -81,7 +82,7 @@ def test_default_hook_is_empty_and_keeps_the_table_unchanged():
             row["Column"] = ""
         else:
             previous_column_name = row["Column"]
-    expected = tabulate(expected_rows, headers="keys", tablefmt="grid")
+    expected = tabulate(expected_rows, headers="keys", tablefmt="grid", disable_numparse=True)
 
     assert impl.build_summary_table(check_results) == expected
     assert "Window" not in expected
@@ -161,3 +162,15 @@ def test_header_overrides_rename_the_rendered_header_only():
     # rows still sort chronologically on the extra column
     positions = [table.index(window) for window in ("2026-07-07", "2026-07-09")]
     assert positions == sorted(positions)
+
+
+def test_cells_that_read_as_numbers_print_as_written(monkeypatch):
+    # Identities are hex, so some read as numbers, like '941935e8', which tabulate would print as 9.41935e+13.
+    monkeypatch.setattr(logging_configuration, "verbose_mode", True)
+    impl = _instance(_PlainCollection)
+
+    table = impl.build_summary_table([_check_result("1e3", column_name="0042", identity="941935e8")])
+
+    row = next(line for line in table.splitlines() if "941935e8" in line)
+    assert [cell.strip() for cell in row.strip("|").split("|")][:2] == ["0042", "1e3"]
+    assert "e+" not in table
