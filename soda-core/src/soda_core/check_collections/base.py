@@ -184,6 +184,10 @@ class CheckCollectionResult:
     number_of_scopes: int = 0
     number_of_scoped_checks: int = 0
     number_of_unscoped_checks: int = 0
+    # Set when an upload of these results failed without ruling out that Soda Cloud stored
+    # them: a 5xx, a timeout or a 200 without a scan id. Marking the scan failed then could
+    # turn a scan that completed FAILED and replace its logs, so the engine does not.
+    results_may_have_reached_soda_cloud: bool = False
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -1372,6 +1376,7 @@ class CheckCollectionImpl:
 
         if (
             verification_result.sending_results_to_soda_cloud_failed
+            and not verification_result.results_may_have_reached_soda_cloud
             and not self.combine_uploads
             and not scan_marked_failed
             and self.soda_config.soda_scan_id
@@ -1380,6 +1385,8 @@ class CheckCollectionImpl:
             # that verify do not mark it on RESULTS_NOT_SENT_TO_CLOUD. Mark it failed once, with
             # this file's logs, so the reason reaches Soda Cloud. The flag stays: the run still
             # exits RESULTS_NOT_SENT_TO_CLOUD. A combined upload's session marks its own scan.
+            # After an insert that may have landed, a 5xx or a timeout, there is no mark: it
+            # would turn a completed scan FAILED and replace its logs.
             self.soda_cloud.mark_scan_as_failed(scan_id=self.soda_config.soda_scan_id, logs=log_records)
 
         # Post-processing handlers. For combine-upload subtypes, defer to

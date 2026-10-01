@@ -481,8 +481,12 @@ class SodaCloud:
 
         On 200, the shared ``scanId`` is stamped on every result and each
         result's ``dataset_id`` is resolved from the response by its
-        qualified dataset name. On non-200 (or missing ``scanId``), every
-        result is marked ``sending_results_to_soda_cloud_failed = True``.
+        qualified dataset name. On non-200, no response, or a missing
+        ``scanId``, every result is marked
+        ``sending_results_to_soda_cloud_failed = True``. Unless Soda Cloud
+        answered with a 4xx, which rejects the insert, it may still have
+        stored it, so every result is also marked
+        ``results_may_have_reached_soda_cloud = True``.
 
         Empty ``results`` is a no-op.
 
@@ -509,10 +513,10 @@ class SodaCloud:
             session_log_records=session_log_records,
         )
         payload["type"] = "sodaCoreInsertScanResults"
-        response: Response = self._execute_command(
+        response: Optional[Response] = self._execute_command(
             command_json_dict=payload, request_log_name="send_check_collection_results"
         )
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             file_count_label = "1 file" if len(results) == 1 else f"{len(results)} files"
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({file_count_label})")
             response_json: dict = response.json()
@@ -536,9 +540,15 @@ class SodaCloud:
                 else:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
+                        r.results_may_have_reached_soda_cloud = True
                 return response_json
+        # No response means the request failed or timed out. That, a 5xx and a 200 can each
+        # follow an insert Soda Cloud stored. Only a 4xx says it did not store it.
+        rejected: bool = response is not None and 400 <= response.status_code < 500
         for r in results:
             r.sending_results_to_soda_cloud_failed = True
+            if not rejected:
+                r.results_may_have_reached_soda_cloud = True
         return None
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
