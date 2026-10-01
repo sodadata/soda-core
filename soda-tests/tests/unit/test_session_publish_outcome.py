@@ -572,6 +572,25 @@ def test_group_with_errors_goes_up_without_its_rejected_file(
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
+@pytest.mark.parametrize("rejected_label", ["healthy-b", "excluded-b"], ids=["rejected_evaluated", "rejected_excluded"])
+def test_managed_group_left_with_only_excluded_checks_and_no_error_goes_up(monkeypatch, rejected_label: str):
+    """No file errored before its check results, so the group is not one that errored and
+    evaluated no check. The file that can go up holds only an excluded check, and goes up
+    with the stand-in that names the rejected file, instead of a mark."""
+    labels = ["excluded-a", rejected_label]
+    results, exit_code, soda_cloud = _verify(
+        monkeypatch, labels, managed=True, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
+    )
+
+    [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
+    assert insert["hasErrors"] is True
+    assert [check["checkPath"] for check in insert["checks"]] == ["checks.excluded-a"]
+    assert _not_sent_errors(insert, rejected_label)
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    assert [result.sending_results_to_soda_cloud_failed for result in results] == [False, True]
+    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
 def test_ad_hoc_group_left_with_only_a_file_that_never_became_a_collection_stays_held_back(monkeypatch):
     """Nothing is left to lead an upload, so nothing goes up and every result is flagged."""
     results, exit_code, soda_cloud = _verify(
