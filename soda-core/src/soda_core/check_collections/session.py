@@ -263,12 +263,23 @@ def execute_check_collections(
         # produced nothing to send, we report it as FAILED. Keep the first match so the logs
         # used are deterministic when several collections error.
         errored_without_results_result: Optional[CheckCollectionResult] = None
+        # First collection whose file upload was rejected, so it has no fileId and verify()
+        # flagged it. Held so that, if nothing else reached Cloud, the scan is marked FAILED
+        # with its logs instead of staying PENDING with no trace (ADO-373).
+        upload_failed_result: Optional[CheckCollectionResult] = None
         for (_, impl_class, _, _), result in zip(constructed, results):
             if impl_class is None or not impl_class.combine_uploads:
                 continue
-            # Per-file alignment guard or data-source-missing path already
-            # flagged this result; don't include it in the combined upload.
+            # Per-file alignment guard, data-source-missing or upload-failure path
+            # already flagged this result; don't include it in the combined upload.
             if result.sending_results_to_soda_cloud_failed:
+                if (
+                    upload_failed_result is None
+                    and result.check_collection
+                    and result.check_collection.source
+                    and result.check_collection.source.soda_cloud_file_id is None
+                ):
+                    upload_failed_result = result
                 continue
             if soda_scan_id and result.errored_without_results:
                 if errored_without_results_result is None:
@@ -324,6 +335,20 @@ def execute_check_collections(
                 # send failure so the exit code goes > 3 and the launcher fallback marks
                 # the scan failed itself.
                 errored_without_results_result.sending_results_to_soda_cloud_failed = True
+
+        # Same rule for a rejected file upload: mark FAILED only when nothing else reached
+        # Cloud, so a sibling's uploaded results are never overridden.
+        if (
+            soda_scan_id
+            and upload_failed_result is not None
+            and not combined_by_wire_source
+            and not any(r.scan_id for r in results)
+        ):
+            upload_failed_result.scan_id = soda_scan_id
+            if soda_cloud_impl.mark_scan_as_failed(scan_id=soda_scan_id, logs=upload_failed_result.log_records):
+                # The failure is visible in Cloud. Keeping the flag would push the exit code
+                # > 3 and the launcher fallback would mark the scan a second time.
+                upload_failed_result.sending_results_to_soda_cloud_failed = False
 
     # Post-processing handlers — combine-upload subtypes. The non-combine path
     # runs handlers inline per file inside ``verify()``; combine-upload results are
