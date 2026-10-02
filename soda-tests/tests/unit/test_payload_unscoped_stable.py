@@ -19,6 +19,13 @@ The payload carries no metric ids, so the ids of the contract's resolved metrics
 A run filtered by check path and one filtered by a check selector are pinned the same way, each in a
 recording of its own, so the payload of a partial run, EXCLUDED checks included, stays the same too.
 
+A scoped variant of the contract declares two scopes and adds scoped copies of three checks. Its unscoped checks must
+upload exactly what the recording holds, but for their line numbers, and its scoped checks carry the scope in their
+path, identity, attributes and definition.
+
+A file of a kind without scope support declares scopes too and never applies them. Its checks upload the top-level
+check attributes and filter whatever their scope, and no scope input fails the file.
+
 To re-record after an intended change, run with ``SODA_TEST_RECORD_FIXTURES=1`` and review the fixture
 diff before committing it.
 """
@@ -35,13 +42,15 @@ import duckdb
 import pytest
 from helpers.fixture_recording import RECORD_FIXTURES_ENV_VAR, recording_fixtures
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
+from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult
 from soda_core.common import env_config_helper, logging_configuration
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_verification import ContractVerificationSession
+from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
@@ -140,8 +149,7 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
         "CREATE TABLE orders (id INTEGER, customer_id VARCHAR, amount INTEGER, country VARCHAR, status VARCHAR, "
         "updated_at TIMESTAMP)"
     )
-    connection.execute(
-        """
+    connection.execute("""
         INSERT INTO orders VALUES
             (1, 'c1', 10, 'BE', 'open', TIMESTAMP '2026-09-28 10:00:00'),
             (2, 'c2', 250, 'NL', 'open', TIMESTAMP '2026-09-28 09:00:00'),
@@ -149,8 +157,7 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
             (4, 'c2', 40, 'XX', 'shipped', TIMESTAMP '2026-09-28 11:00:00'),
             (4, 'c3', 300, 'BE', 'open', TIMESTAMP '2026-09-26 08:00:00'),
             (5, 'c4', 20, 'DE', 'cancelled', TIMESTAMP '2026-09-20 08:00:00')
-        """
-    )
+        """)
     connection.execute("CREATE TABLE countries (code VARCHAR)")
     connection.execute("INSERT INTO countries VALUES ('BE'), ('NL'), ('DE')")
     return DuckDBDataSourceImpl.from_existing_cursor(connection, name="fixture_ds")
@@ -159,6 +166,33 @@ def _fixture_data_source() -> DuckDBDataSourceImpl:
 def _verify_fixture_contract(
     monkeypatch, caplog, check_paths: list[str] | None = None, check_selectors: list[CheckSelector] | None = None
 ) -> dict:
+    _, payload = _verify_contract(
+        monkeypatch, caplog, CONTRACT_YAML, check_paths=check_paths, check_selectors=check_selectors
+    )
+    return payload
+
+
+def _verify_contract(
+    monkeypatch,
+    caplog,
+    contract_yaml: str,
+    check_paths: list[str] | None = None,
+    check_selectors: list[CheckSelector] | None = None,
+) -> tuple[ContractVerificationSessionResult, dict]:
+    session_result, payloads = _verify_session(
+        monkeypatch, caplog, [contract_yaml], check_paths=check_paths, check_selectors=check_selectors
+    )
+    assert len(payloads) == 1
+    return session_result, payloads[0]
+
+
+def _verify_session(
+    monkeypatch,
+    caplog,
+    contract_yamls: list[str],
+    check_paths: list[str] | None = None,
+    check_selectors: list[CheckSelector] | None = None,
+) -> tuple[ContractVerificationSessionResult, list[dict]]:
     # The first use of this singleton logs a line and loads a .env, which may set runner env vars; keep the
     # line out of the recorded logs and clear the env vars after it.
     EnvConfigHelper()
@@ -174,9 +208,19 @@ def _verify_fixture_contract(
     monkeypatch.setattr(DataSourceConnection, "MAX_CHARS_PER_SQL", 100_000)
     caplog.set_level(logging.DEBUG)
 
-    soda_cloud = MockSodaCloud([MockResponse(status_code=200, json_object={"fileId": "fixture-file-id"})])
-    ContractVerificationSession.execute(
-        contract_yaml_sources=[ContractYamlSource.from_str(dedent_and_strip(CONTRACT_YAML))],
+    # The mock answers in request order. Each contract posts its file, which must get a file id back, and then its
+    # results, which get the mock's default empty 200.
+    soda_cloud = MockSodaCloud(
+        [
+            response
+            for _ in contract_yamls
+            for response in (MockResponse(status_code=200, json_object={"fileId": "fixture-file-id"}), None)
+        ]
+    )
+    session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+        contract_yaml_sources=[
+            ContractYamlSource.from_str(dedent_and_strip(contract_yaml)) for contract_yaml in contract_yamls
+        ],
         data_source_impls=[_fixture_data_source()],
         soda_cloud_impl=soda_cloud,
         soda_cloud_publish_results=True,
@@ -189,8 +233,7 @@ def _verify_fixture_contract(
         for request in soda_cloud.requests
         if isinstance(request.json, dict) and request.json.get("type") == "sodaCoreInsertScanResults"
     ]
-    assert len(payloads) == 1
-    return payloads[0]
+    return session_result, payloads
 
 
 def _mask_run_varying_values(payload: dict) -> dict:
@@ -349,3 +392,226 @@ def test_unscoped_filtered_payload_matches_recording(monkeypatch, caplog, fixtur
     _assert_lines_match_recording(
         recorded_payload_text.splitlines(), _to_json_text(masked_payload).splitlines(), "filtered payload"
     )
+
+
+# The fixture contract with two declared scopes and scoped copies of three of its checks, indented like it. The copy on
+# 'amount' goes after the column's own checks and the others after the last check, so the unscoped checks keep their
+# order. Core alone never activates a declared scope, so the scoped checks go up as EXCLUDED, with their path,
+# identity, attributes and definition.
+SCOPED_AMOUNT_CHECK = """\
+          - invalid:
+              scope: eu
+              valid_min: 0
+              attributes:
+                owner: finance
+                region: eu-west
+"""
+SCOPED_CHECKS_AND_SCOPES = """\
+      - row_count:
+          scope: eu
+          qualifier: 2
+          threshold:
+            must_be_greater_than: 1
+      - row_count:
+          scope: us
+    scopes:
+      eu:
+        name: EU
+        filter: country IN ('BE', 'NL', 'DE')
+        check_attributes:
+          team: data-eng-eu
+          region: eu
+      us:
+        name: US
+"""
+
+
+def _scoped_contract_yaml() -> str:
+    country_column: str = "      - name: country\n"
+    assert CONTRACT_YAML.count(country_column) == 1 and CONTRACT_YAML.endswith("amount > 150\n")
+    return CONTRACT_YAML.replace(country_column, SCOPED_AMOUNT_CHECK + country_column) + SCOPED_CHECKS_AND_SCOPES
+
+
+def _without_location(check: dict) -> dict:
+    return {key: value for key, value in check.items() if key != "location"}
+
+
+def _verify_scoped_contract(monkeypatch, caplog) -> tuple[ContractVerificationSessionResult, list[dict], list[dict]]:
+    """The session result, the uploaded checks with a recorded identity and the other uploaded checks."""
+    if recording_fixtures():
+        pytest.skip(f"Records nothing; rerun without {RECORD_FIXTURES_ENV_VAR}")
+    session_result, payload = _verify_contract(monkeypatch, caplog, _scoped_contract_yaml())
+    recorded_identities: set[str] = {check["identities"]["vc1"] for check in _recorded_checks()}
+    return (
+        session_result,
+        [check for check in payload["checks"] if check["identities"]["vc1"] in recorded_identities],
+        [check for check in payload["checks"] if check["identities"]["vc1"] not in recorded_identities],
+    )
+
+
+def _recorded_checks() -> list[dict]:
+    return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))["checks"]
+
+
+# Pins the EXCLUDED outcome of core alone, so it drops the soda-scopes extension wherever that is installed.
+@pytest.mark.usefixtures("without_scopes_extension")
+def test_declared_scopes_leave_the_unscoped_checks_as_recorded(monkeypatch, caplog):
+    session_result, unscoped_checks, scoped_checks = _verify_scoped_contract(monkeypatch, caplog)
+
+    # Every recorded check, unchanged but for its line number.
+    assert [_without_location(check) for check in unscoped_checks] == [
+        _without_location(check) for check in _recorded_checks()
+    ]
+    # The scoped copies get identities of their own, distinct from each other too.
+    assert len({check["identities"]["vc1"] for check in scoped_checks}) == 3
+    assert [(check["outcome"], check["source"]) for check in scoped_checks] == [("excluded", "soda-contract")] * 3
+    assert session_result.number_of_checks_excluded == 3
+
+
+def test_scoped_checks_carry_the_scope_prefix(monkeypatch, caplog):
+    _, _, scoped_checks = _verify_scoped_contract(monkeypatch, caplog)
+
+    assert [check["checkPath"] for check in scoped_checks] == [
+        "scope.eu:columns.amount.checks.invalid",
+        "scope.eu:checks.row_count.2",
+        "scope.us:checks.row_count",
+    ]
+
+
+def test_scoped_checks_carry_the_scope_check_attributes(monkeypatch, caplog):
+    _, _, scoped_checks = _verify_scoped_contract(monkeypatch, caplog)
+
+    # The scope's check attributes under the check's own, never the top-level ones.
+    assert [check["resourceAttributes"] for check in scoped_checks] == [
+        [
+            {"name": "team", "value": "data-eng-eu"},
+            {"name": "region", "value": "eu-west"},
+            {"name": "owner", "value": "finance"},
+        ],
+        [{"name": "team", "value": "data-eng-eu"}, {"name": "region", "value": "eu"}],
+        [],
+    ]
+
+
+def test_scoped_checks_carry_the_scope_filter_in_their_definition(monkeypatch, caplog):
+    _, _, scoped_checks = _verify_scoped_contract(monkeypatch, caplog)
+
+    # The scope filter in place of the top-level one; a scope without a filter shows none.
+    assert [check["definition"] for check in scoped_checks] == [
+        "filter: country IN ('BE', 'NL', 'DE')\n"
+        "columns:\n"
+        "- name: amount\n"
+        "  checks:\n"
+        "  - scope: eu\n"
+        "    valid_min: 0\n"
+        "    attributes:\n"
+        "      owner: finance\n"
+        "      region: eu-west\n",
+        "filter: country IN ('BE', 'NL', 'DE')\n"
+        "checks:\n"
+        "- scope: eu\n"
+        "  qualifier: 2\n"
+        "  threshold:\n"
+        "    must_be_greater_than: 1\n",
+        "checks:\n- scope: us\n",
+    ]
+
+
+# A file of a kind without scope support, which reads scope input as written and never applies it. Its checks carry
+# the top-level filter and check attributes whatever their scope, as before scopes existed, and its scope input never
+# fails the file.
+UNSUPPORTED_KIND_YAML = f"""
+    kind: {SCOPE_UNSUPPORTED_KIND}
+    dataset: fixture_ds/main/orders
+    filter: status <> 'cancelled'
+    check_attributes:
+      team: data-eng
+    columns: []
+    checks:
+      - row_count:
+      - row_count:
+          scope: eu
+          qualifier: declared
+      - row_count:
+          scope: undeclared
+          qualifier: undeclared
+    scopes:
+      eu:
+        name: EU
+        filter: country = 'BE'
+        check_attributes:
+          team: data-eng-eu
+          region: eu
+"""
+
+
+def test_kind_without_scope_support_keeps_the_top_level_attributes_and_filter(monkeypatch, caplog):
+    session_result, payload = _verify_contract(monkeypatch, caplog, UNSUPPORTED_KIND_YAML)
+
+    assert session_result.get_errors() == []
+    assert [(check["checkPath"], check["outcome"]) for check in payload["checks"]] == [
+        ("checks.row_count", "pass"),
+        ("checks.row_count.declared", "excluded"),
+        ("checks.row_count.undeclared", "excluded"),
+    ]
+    assert [check["resourceAttributes"] for check in payload["checks"]] == [[{"name": "team", "value": "data-eng"}]] * 3
+    assert [check["definition"].split("checks:")[0] for check in payload["checks"]] == [
+        "filter: status <> 'cancelled'\n"
+    ] * 3
+
+
+def _unsupported_kind_yaml_with_scope_check_attribute(attribute_line: str) -> str:
+    return f"""
+        kind: {SCOPE_UNSUPPORTED_KIND}
+        dataset: fixture_ds/main/orders
+        columns: []
+        checks:
+          - row_count:
+          - row_count:
+              scope: eu
+              qualifier: scoped
+        scopes:
+          eu:
+            name: EU
+            check_attributes:
+              {attribute_line}
+    """
+
+
+# Scope check attributes the payload cannot carry: a tagged value, a key that is not a string and a set.
+UNSENDABLE_SCOPE_CHECK_ATTRIBUTES = pytest.mark.parametrize(
+    "attribute_line",
+    ["owner: !custom x", "1: numeric-key", "labels: !!set {a, b}"],
+    ids=["tagged-value", "non-string-key", "set-value"],
+)
+
+
+@UNSENDABLE_SCOPE_CHECK_ATTRIBUTES
+def test_kind_without_scope_support_never_fails_on_scope_check_attributes(monkeypatch, caplog, attribute_line):
+    session_result, payload = _verify_contract(
+        monkeypatch, caplog, _unsupported_kind_yaml_with_scope_check_attribute(attribute_line)
+    )
+
+    assert session_result.get_errors() == []
+    assert [check["outcome"] for check in payload["checks"]] == ["pass", "excluded"]
+
+
+@UNSENDABLE_SCOPE_CHECK_ATTRIBUTES
+def test_kind_without_scope_support_uploads_next_to_a_contract_despite_scope_check_attributes(
+    monkeypatch, caplog, attribute_line
+):
+    contract_yaml: str = """
+        dataset: fixture_ds/main/orders
+        columns: []
+        checks:
+          - row_count:
+    """
+    session_result, payloads = _verify_session(
+        monkeypatch, caplog, [_unsupported_kind_yaml_with_scope_check_attribute(attribute_line), contract_yaml]
+    )
+
+    assert session_result.get_errors() == []
+    assert [[check["outcome"] for check in payload["checks"]] for payload in payloads] == [
+        ["pass", "excluded"],
+        ["pass"],
+    ]
