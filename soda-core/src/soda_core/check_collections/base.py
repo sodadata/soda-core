@@ -1073,6 +1073,28 @@ class CheckCollectionImpl:
                     wire_source=self.wire_source,
                     scan_definition_suffix=type(self).scan_definition_suffix,
                 )
+        elif self.soda_cloud and self.publish_results:
+            # The file upload was rejected or errored, so there is no fileId to send results
+            # against. Skipping the send without a trace left a runner scan PENDING with no
+            # results and no logs, and the run exited 0.
+            logger.error(
+                f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                f"The {self.display_name} file could not be uploaded."
+            )
+            # The status was settled before the upload. ERROR makes a delivered failure exit 3,
+            # the same as the errored-without-results branch above.
+            verification_result.status = CheckCollectionStatus.ERROR
+            verification_result.sending_results_to_soda_cloud_failed = True
+            # Combined uploads are reported by the session executor, which knows whether
+            # a sibling file reached Cloud.
+            if not self.combine_uploads and self.soda_config.soda_scan_id:
+                verification_result.scan_id = self.soda_config.soda_scan_id
+                if self.soda_cloud.mark_scan_as_failed(
+                    scan_id=verification_result.scan_id, logs=self.logs.records_for_failure_report()
+                ):
+                    # The failure is visible in Cloud. Keeping the flag would push the exit
+                    # code to 4 and the launcher fallback would mark the scan a second time.
+                    verification_result.sending_results_to_soda_cloud_failed = False
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
