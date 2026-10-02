@@ -1,0 +1,46 @@
+# Check path grammar: the wire checkPath and the identity of each check form in a contract.
+#
+# Asserted by soda-tests/tests/unit/test_check_path_grammar.py, which builds each row as a one-check
+# contract on the dataset below with a data source named like its first segment. checkPath is the grammar
+# and is written by hand. identity is recorded: SODA_TEST_RECORD_FIXTURES=1 rewrites it.
+#
+# Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scope work adds
+# each row again with the scope.eu: prefix. The Soda Cloud backend mirrors this list.
+#
+# The reconciliation path forms, such as reconciliation.checks.row_count_diff,
+# reconciliation.payments.checks.aggregate_diff and reconciliation.payments.checks.aggregate_diff.sum,
+# are pinned in soda-extensions, where the reconciliation check type lives.
+dataset: fixture_ds/main/orders
+rows:
+  - checkPath: checks.row_count
+    identity: 3a083c70
+    check:
+      row_count:
+  - checkPath: checks.row_count.2
+    identity: 56b4b91d
+    check:
+      row_count:
+        qualifier: 2
+  - checkPath: columns.amount.checks.invalid
+    identity: 8725d00a
+    column: amount
+    check:
+      invalid:
+        valid_min: 0
+  - checkPath: columns.amount.checks.invalid.strict
+    identity: a1716a97
+    column: amount
+    check:
+      invalid:
+        qualifier: strict
+        valid_min: 1
+  - checkPath: checks.schema
+    identity: 1002744d
+    check:
+      schema:
+  # An empty qualifier is dropped from the path but kept in the identity.
+  - checkPath: checks.row_count
+    identity: bd98ebd7
+    check:
+      row_count:
+        qualifier: ''
