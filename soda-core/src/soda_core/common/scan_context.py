@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Iterator, Optional
 from soda_core.common.exceptions import ScanExecutionFailedException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
+from soda_core.common.soda_cloud_dto import ReportOutcome
 
 if TYPE_CHECKING:
     from soda_core.common.soda_cloud import SodaCloud
@@ -33,7 +34,8 @@ if TYPE_CHECKING:
 class ScanContext(ABC):
     """What a results-publishing flow needs from the run around it.
 
-    ``end_scan`` only closes a scan whose every upload was acknowledged.
+    ``end_scan`` only closes a scan whose every upload was acknowledged, and never one Soda
+    Cloud has already finished.
     """
 
     # Whether the results insert hands back the Cloud-minted ids (scan, dataset, check) that
@@ -48,6 +50,9 @@ class ScanContext(ABC):
         self.scan_id: Optional[str] = scan_id
         self.results_delivered: bool = False
         self.results_rejected: bool = False
+        # Soda Cloud has finished with this scan, so it refuses everything the run sends. Neither
+        # delivered nor rejected: nothing was lost, and there is no point sending anything else.
+        self.scan_gone: bool = False
 
     def start_scan(
         self,
@@ -59,16 +64,23 @@ class ScanContext(ABC):
         batched context, where it must run before the engine work so that phase streams its logs."""
 
     def insert_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
-        """Send one results payload; returns True when Soda Cloud accepted it."""
-        accepted: bool = self._send_results(payload)
-        if accepted:
+        """Send one results payload; returns True when the results need no further reporting.
+
+        True covers both an accepted upload and one Soda Cloud refused because the scan is
+        finished — nothing is owed either way. Callers that need to tell those apart, to avoid
+        claiming results were sent, read ``scan_gone``.
+        """
+        outcome: ReportOutcome = self._send_results(payload)
+        if outcome is ReportOutcome.ACCEPTED:
             self.results_delivered = True
+        elif outcome is ReportOutcome.SCAN_GONE:
+            self.scan_gone = True
         else:
             self.results_rejected = True
-        return accepted
+        return outcome is not ReportOutcome.REFUSED
 
     @abstractmethod
-    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
+    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> ReportOutcome:
         pass
 
     def end_scan(self) -> bool:
@@ -80,7 +92,7 @@ class ScanContext(ABC):
 class AtomicScanContext(ScanContext):
     """One synchronous end-of-run upload — the ad-hoc behavior."""
 
-    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
+    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> ReportOutcome:
         assert self.soda_cloud is not None, (
             "insert_results needs a Soda Cloud client: run the flow under cli.handlers.scan.run_scan "
             "(or inside using_scan_context with a context that has one)."
@@ -137,7 +149,7 @@ class BatchedScanContext(ScanContext):
         # The backend accepts batchV4 uploads only after the start, so the stream begins here.
         self.logs.switch_gatherer(build_streaming_gatherer(self.soda_cloud, scan_id=self.scan_id))
 
-    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> bool:
+    def _send_results(self, payload: SodaCoreInsertScanResultsDTO) -> ReportOutcome:
         # Inserting before start_scan is a flow bug; a failed start already failed the run.
         assert self.scan_reference, "insert_results on a batched scan requires a successful start_scan first."
         return self.soda_cloud.insert_scan_data_batch(payload, self.scan_reference)
@@ -146,13 +158,15 @@ class BatchedScanContext(ScanContext):
         """Send ``sodaCoreScanEndAsync``; False means the run's results did not reach Soda Cloud
         (nothing ingests the uploaded batches without the end command)."""
         # End only a scan whose every upload was acknowledged; otherwise the terminal state
-        # belongs to the failure report / launcher fallback.
-        if self.scan_reference is None or not self.results_delivered or self.results_rejected:
+        # belongs to the failure report / launcher fallback. A scan Soda Cloud has already
+        # finished would refuse the end command too, so don't ask.
+        if self.scan_reference is None or self.scan_gone or not self.results_delivered or self.results_rejected:
             return True
         try:
             # Runs after the failure boundary has closed: a raise here would exit 1, which the
             # launcher reads as "checks failed" instead of "results never ingested".
-            if self.soda_cloud.scan_end_async(self.scan_reference):
+            # The scan can also finish between the last batch and this call.
+            if self.soda_cloud.scan_end_async(self.scan_reference) is not ReportOutcome.REFUSED:
                 return True
             reason = "was not accepted"
         except Exception as exc:
