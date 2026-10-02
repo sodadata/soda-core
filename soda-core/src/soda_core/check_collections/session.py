@@ -26,6 +26,7 @@ from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
 logger = soda_logger
 
@@ -217,11 +218,12 @@ def execute_check_collections(
             constructed.append((None, impl_class, exc, yaml_source))
 
     # ---- Session-wide invariants — raise before any verify() runs. ----
-    # Both checks are user-input errors at the session boundary, so they
+    # These checks are user-input errors at the session boundary, so they
     # ignore ``abort_on_first_error`` (which gates per-file engine errors).
     _raise_if_kind_offenders(kind_offenders, expected_kinds)
     _raise_if_duplicate_collection_ids(constructed)
     _raise_if_combined_session_spans_multiple_datasets(constructed)
+    _raise_if_unknown_scope_keys(constructed, check_selectors)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -545,3 +547,87 @@ def _raise_if_combined_session_spans_multiple_datasets(
             "Multiple datasets found in a single wire source:\n" + "\n".join(lines) + "\n"
             "Run one dataset per combined session."
         )
+
+
+def _raise_if_unknown_scope_keys(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+    check_selectors: Optional[list],
+) -> None:
+    """Raise ``InvalidArgumentException`` if a ``scope`` check filter names a key that
+    no collection in the session declares.
+
+    ``base`` is always known. The other known keys are the declared scopes of every
+    constructed impl whose kind supports scopes; a kind without support and a file
+    that failed construction declare none. Positive and negated values are checked
+    alike, and a value with a ``*`` or ``?`` wildcard is not checked. A collection
+    that does not declare a known key needs nothing here: its checks fail the filter
+    and go up as EXCLUDED, so one session-level error replaces an error per file.
+
+    Runs after phase 1, which may open connections and fetch the dataset
+    configuration, and before any query against a dataset or any upload. When it
+    raises, phase 2 never builds the ERROR placeholders that log construct failures,
+    so those are logged here first. A caller checking one file before handing its
+    filters to a runner passes a one-entry ``constructed`` list. When a kind without
+    scope support declares the key, the message names that kind.
+    """
+    scope_values: list[str] = [selector.value for selector in check_selectors or [] if selector.field == "scope"]
+    if not scope_values:
+        return
+
+    known_keys: set[str] = {BASE_SCOPE_KEY}
+    # The keys that collections of a kind without scope support declare, with those kinds, for the message.
+    kinds_without_support_by_key: dict[str, set[str]] = {}
+    for impl, _impl_class, _construct_exc, _yaml_source in constructed:
+        if impl is None:
+            continue
+        if type(impl).supports_scopes:
+            known_keys.update(impl.scopes)
+        else:
+            for key in impl.scopes:
+                kinds_without_support_by_key.setdefault(key, set()).add(impl.kind)
+
+    unknown_keys: list[str] = list(
+        dict.fromkeys(
+            value for value in scope_values if "*" not in value and "?" not in value and value not in known_keys
+        )
+    )
+    if not unknown_keys:
+        return
+
+    for impl, _impl_class, construct_exc, yaml_source in constructed:
+        if impl is None and construct_exc is not None:
+            # The same text ``build_error_result`` logs for a construct failure.
+            source_description = getattr(yaml_source, "file_path", None) or getattr(yaml_source, "description", None)
+            message = str(construct_exc) or type(construct_exc).__name__
+            locates_itself = bool(source_description) and str(source_description) in message
+            location = f", in {source_description}" if source_description and not locates_itself else ""
+            logger.error(f"{message}{location}")
+
+    # A scope is no list, so '[eu,us]' is read as one key. Repeating the filter selects several scopes.
+    list_hint: str = (
+        " The [a,b] form matches list attributes only. To select several scopes, give one scope filter per key, "
+        "as in scope=eu and scope=us."
+        if any(key.startswith("[") and key.endswith("]") for key in unknown_keys)
+        else ""
+    )
+    unsupported_kinds: list[str] = sorted(
+        {kind for key in unknown_keys for kind in kinds_without_support_by_key.get(key, ())}
+    )
+    undeclared_keys: list[str] = [key for key in unknown_keys if key not in kinds_without_support_by_key]
+    reason: str = "".join(f"Kind '{kind}' does not support scopes. " for kind in unsupported_kinds)
+    if undeclared_keys and unsupported_kinds:
+        reason += f"No file in this session declares {', '.join(repr(key) for key in undeclared_keys)}. "
+    elif undeclared_keys:
+        reason += "No file in this session declares them. "
+    raise InvalidArgumentException(
+        f"Unknown scope key(s) in the check filter: {', '.join(repr(key) for key in unknown_keys)}. "
+        f"{reason}"
+        f"Known scope keys: {', '.join(repr(key) for key in sorted(known_keys))}.{list_hint}"
+    )
