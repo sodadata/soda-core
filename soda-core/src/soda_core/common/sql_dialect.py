@@ -1905,6 +1905,15 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
+    def schema_name_to_dataset_prefixes(self, schema_name: str) -> list[str]:
+        """The DQN prefix segments for a schema name as the metadata queries report it.
+
+        One segment by default. A data source whose metadata reports a nested path as one
+        string (e.g. Dremio's dotted folder path) splits it, so that each level of the
+        hierarchy becomes its own DQN segment.
+        """
+        return [schema_name]
+
     def is_system_schema(self, schema_name: str) -> bool:
         """Check if the schema is a data source internal/system schema.
 
