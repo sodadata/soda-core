@@ -229,6 +229,8 @@ def verify_contract_on_runner(
     publish: bool = False,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
+    check_paths: Optional[list[str]] = None,
+    check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract on a Soda Runner (formerly Soda Agent).
@@ -244,6 +246,8 @@ def verify_contract_on_runner(
         verbose=verbose,
         use_runner=True,
         blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        check_paths=check_paths,
+        check_selectors=check_selectors,
     )
 
 

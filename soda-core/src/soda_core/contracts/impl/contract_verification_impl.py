@@ -217,6 +217,9 @@ class ContractVerificationSessionImpl:
     @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
     @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
     @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
+    @param check_paths: The check paths to run. A local run adds them to the check selectors, the runner gets them
+        as given.
+    @param check_selectors: The check selectors, without the check paths.
     @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
@@ -234,6 +237,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
+        check_paths: Optional[list[str]] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
@@ -317,6 +321,8 @@ class ContractVerificationSessionImpl:
                 soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 soda_cloud_verbose=soda_cloud_verbose,
+                check_paths=check_paths,
+                check_selectors=check_selectors,
             )
 
         else:
@@ -330,7 +336,8 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
-                check_selectors=check_selectors,
+                # A local run matches the check paths as check_path selectors, after the other selectors.
+                check_selectors=[*check_selectors, *CheckSelector.from_check_paths(check_paths)],
                 dwh_files=dwh_files,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
@@ -451,10 +458,18 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
-        contract_verification_results: list[ContractVerificationResult] = []
+        from soda_core.check_collections.session import raise_if_unknown_scope_keys
 
+        # Every file is built and its scope keys checked before the first request to Soda Cloud, so an unknown
+        # key in a later file never leaves an earlier file's run started on the runner. Building is local.
+        # Per file: the source, the built impl and its init log records, or the ERROR placeholder.
+        prepared: list[
+            tuple[ContractYamlSource, Optional[ContractImpl], list, Optional[ContractVerificationResult]]
+        ] = []
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -480,13 +495,38 @@ class ContractVerificationSessionImpl:
                 )
                 init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
+                prepared.append((contract_yaml_source, contract_impl, init_log_records, None))
+            except Exception as exc:
+                logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                # Same per-item isolation as the local path: keep an ERROR placeholder for the
+                # item. Dropping it left the session without a result, and an empty session
+                # reads as a pass.
+                prepared.append(
+                    (contract_yaml_source, None, [], ContractImpl.build_error_result(contract_yaml_source, exc))
+                )
 
+        # Soda Cloud refuses a scope key the file does not declare, file by file. Refuse it here as a local run
+        # does. Outside any try, so the error stops the session before anything is sent.
+        for contract_yaml_source, contract_impl, _init_log_records, _error_result in prepared:
+            if contract_impl is not None:
+                raise_if_unknown_scope_keys(
+                    [(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors
+                )
+
+        contract_verification_results: list[ContractVerificationResult] = []
+        for contract_yaml_source, contract_impl, init_log_records, error_result in prepared:
+            if contract_impl is None:
+                contract_verification_results.append(error_result)
+                continue
+            try:
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
+                    check_paths=check_paths,
+                    check_selectors=check_selectors,
                 )
                 if init_log_records:
                     contract_verification_result.log_records = init_log_records + (
@@ -495,9 +535,6 @@ class ContractVerificationSessionImpl:
                 contract_verification_results.append(contract_verification_result)
             except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
-                # Same per-item isolation as the local path: keep an ERROR placeholder for the
-                # item. Dropping it left the session without a result, and an empty session
-                # reads as a pass.
                 contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
         return contract_verification_results
 
@@ -633,6 +670,8 @@ class ContractImpl(CheckCollectionImpl):
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> ContractVerificationResult:
         return soda_cloud_impl.verify_contract_on_runner(
             contract_yaml=self.yaml,
@@ -640,6 +679,8 @@ class ContractImpl(CheckCollectionImpl):
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             publish_results=publish_results,
             verbose=verbose,
+            check_paths=check_paths,
+            check_selectors=check_selectors,
         )
 
     def verify_on_agent(self, *args, **kwargs) -> ContractVerificationResult:
