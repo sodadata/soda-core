@@ -353,8 +353,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 COLUMN("nspname", table_alias="n").AS("table_schema"),
                 COLUMN("relname", table_alias="c").AS("table_name"),
                 RAW_SQL(self.relkind_table_type_sql_expression()),
-                # With typmod -1, format_type leaves out type parameters and spells char as bpchar.
-                RAW_SQL('pg_catalog.format_type(a.atttypid, -1) AS "source_data_type"'),
+                # The column's typmod makes format_type keep type parameters, as in character(4) or numeric(10,2).
+                RAW_SQL('pg_catalog.format_type(a.atttypid, a.atttypmod) AS "source_data_type"'),
             ]
         )
 
