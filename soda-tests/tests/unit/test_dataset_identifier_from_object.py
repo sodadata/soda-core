@@ -4,9 +4,11 @@ from soda_core.common.statements.table_types import FullyQualifiedTableName
 
 
 class _FakeDialect:
-    """Stands in for a SqlDialect: the prefix-index hooks, and the real schema segmenting."""
+    """Stands in for a SqlDialect: the prefix-index hooks, and the real prefix mapping."""
 
-    schema_name_to_dataset_prefixes = SqlDialect.schema_name_to_dataset_prefixes
+    build_dataset_prefixes = SqlDialect.build_dataset_prefixes
+    extract_database_from_prefix = SqlDialect.extract_database_from_prefix
+    extract_schema_from_prefix = SqlDialect.extract_schema_from_prefix
 
     def __init__(self, database_prefix_index, schema_prefix_index):
         self._db = database_prefix_index
@@ -44,7 +46,7 @@ def test_from_object_keeps_a_dotted_schema_name_as_one_segment_by_default():
 
 
 class _PathSplittingDialect(_FakeDialect):
-    def schema_name_to_dataset_prefixes(self, schema_name):
+    def build_dataset_prefixes(self, database_name, schema_name):
         return schema_name.split(".")
 
 
@@ -52,3 +54,23 @@ def test_from_object_uses_the_dialect_segments_of_the_schema_name():
     obj = FullyQualifiedTableName(database_name=None, schema_name="$scratch.dev_autopilot", table_name="accounts")
     di = DatasetIdentifier.from_object("dremio", _PathSplittingDialect(None, 0), obj)
     assert di.to_string() == "dremio/$scratch/dev_autopilot/accounts"
+
+
+def test_from_object_dqn_resolves_back_to_the_same_database_and_schema():
+    dialect = _FakeDialect(0, 1)
+    obj = FullyQualifiedTableName(database_name="soda", schema_name="public", table_name="customers")
+
+    di = DatasetIdentifier.parse(DatasetIdentifier.from_object("postgres", dialect, obj).to_string())
+
+    assert dialect.extract_database_from_prefix(di.prefixes) == "soda"
+    assert dialect.extract_schema_from_prefix(di.prefixes) == "public"
+
+
+def test_from_object_dqn_resolves_back_to_the_same_schema_without_a_database_level():
+    dialect = _FakeDialect(None, 0)
+    obj = FullyQualifiedTableName(database_name="memory", schema_name="main", table_name="t")
+
+    di = DatasetIdentifier.parse(DatasetIdentifier.from_object("dd", dialect, obj).to_string())
+
+    assert dialect.extract_database_from_prefix(di.prefixes) is None
+    assert dialect.extract_schema_from_prefix(di.prefixes) == "main"

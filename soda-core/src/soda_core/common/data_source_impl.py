@@ -472,19 +472,12 @@ class DataSourceImpl(ABC):
             columns_by_table[table_name] = self.get_columns_metadata(dataset_prefixes=prefixes, dataset_name=table_name)
         return columns_by_table
 
+    # The dialect owns the prefix mapping. Override it there, next to build_dataset_prefixes.
     def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
-        if schema_index is None:
-            return None
-        schema_name: str = prefixes[schema_index] if schema_index < len(prefixes) else None
-        return schema_name
+        return self.sql_dialect.extract_schema_from_prefix(prefixes)
 
     def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        database_index: int | None = self.sql_dialect.get_database_prefix_index()
-        if database_index is None:
-            return None
-        database_name: str = prefixes[database_index] if database_index < len(prefixes) else None
-        return database_name
+        return self.sql_dialect.extract_database_from_prefix(prefixes)
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         """

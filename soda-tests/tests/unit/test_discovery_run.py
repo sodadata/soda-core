@@ -9,7 +9,7 @@ from soda_core.discovery.discovery_run import DiscoveryRun
 
 
 class _FakeDialect:
-    schema_name_to_dataset_prefixes = SqlDialect.schema_name_to_dataset_prefixes
+    build_dataset_prefixes = SqlDialect.build_dataset_prefixes
 
     def get_database_prefix_index(self):
         return 0
