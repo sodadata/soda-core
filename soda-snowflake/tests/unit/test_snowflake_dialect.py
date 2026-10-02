@@ -271,3 +271,9 @@ def test_primary_keys_show_parsing_locates_columns_by_name():
 def test_regex_like_escapes_pattern(regex_pattern, expected_sql):
     sql_dialect: SnowflakeSqlDialect = SnowflakeSqlDialect()
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), regex_pattern)) == expected_sql
+
+
+def test_source_data_type_keeps_the_raw_type_when_the_name_is_normalised():
+    metadatas = _build_metadatas([("note", "TEXT", 16777216, None, None, None)])
+    assert metadatas[0].sql_data_type.name == "text"
+    assert metadatas[0].source_data_type == "TEXT"

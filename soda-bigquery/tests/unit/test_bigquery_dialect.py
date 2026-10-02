@@ -1,5 +1,6 @@
 import pytest
 from soda_bigquery.common.data_sources.bigquery_data_source import BigQueryMetadataPrimaryKeysQuery, BigQuerySqlDialect
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
@@ -440,3 +441,16 @@ def test_regex_like_pattern_goes_through_literal_string():
         sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "REGEXP_CONTAINS(`c`, '''^1\\\\.5$''')"
     )
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "REGEXP_CONTAINS(`c`, '''^it\\'s$''')"
+
+
+@pytest.mark.parametrize(
+    "raw_type, expected_name",
+    [("INT64", "int64"), ("NUMERIC(20, 4)", "numeric")],
+)
+def test_column_metadata_keeps_the_raw_type_as_source_data_type(raw_type, expected_name):
+    column = BigQuerySqlDialect().build_column_metadatas_from_query_result(
+        QueryResult(rows=[("c", raw_type)], columns=[("column_name",), ("data_type",)])
+    )[0]
+
+    assert column.sql_data_type.name == expected_name
+    assert column.source_data_type == raw_type

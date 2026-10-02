@@ -2182,6 +2182,9 @@ class SqlDialect:
     def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
         return row[1]
 
+    def extract_source_data_type(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+        return row[1]
+
     def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         """Extract character maximum length from column metadata.  Typically this is just the value of a specific column."""
         data_type_name: str = self.extract_data_type_name(row, columns)
@@ -2245,6 +2248,7 @@ class SqlDialect:
                         numeric_scale=numeric_scale,
                         datetime_precision=datetime_precision,
                     ),
+                    source_data_type=self.extract_source_data_type(row, query_result.columns),
                 )
             )
         return column_metadatas

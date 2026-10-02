@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -95,6 +95,10 @@ class ColumnMetadata:
 
     # False both for non-key columns and for data sources that don't introspect primary keys.
     is_primary_key: bool = False
+
+    # The type as the data source's metadata spells it, before sql_data_type normalises its case,
+    # parameters and names. Only columns read from the data source's metadata carry it.
+    source_data_type: Optional[str] = field(default=None, compare=False)
 
 
 class SodaDataTypeName(str, enum.Enum):
