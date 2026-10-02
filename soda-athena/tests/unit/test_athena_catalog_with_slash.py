@@ -16,6 +16,7 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
 from soda_core.common.sql_ast import CTE, SELECT, STAR, WITH
 from soda_core.common.sql_dialect import FROM
+from soda_core.common.statements.table_types import FullyQualifiedTableName
 
 S3_TABLES_CATALOG = "s3tablescatalog/my_bucket"
 SCHEMA = "my_schema"
@@ -204,3 +205,18 @@ class TestBackwardCompatibilityRegularCatalog:
         sql = dialect.build_columns_metadata_query_str(table_namespace=namespace, table_name=identifier.dataset_name)
         assert '"awsdatacatalog"."information_schema"' in sql
         assert "'awsdatacatalog'" in sql
+
+
+class TestDiscoveredDqnWithSlashCatalog:
+    """A DQN built from discovered metadata resolves back to the same catalog and schema."""
+
+    def test_discovered_dqn_resolves_back_to_catalog_and_schema(self):
+        dialect = AthenaSqlDialect()
+        discovered = FullyQualifiedTableName(database_name=S3_TABLES_CATALOG, schema_name=SCHEMA, table_name=TABLE)
+
+        dqn = DatasetIdentifier.from_object("athena_ds", dialect, discovered).to_string()
+        identifier = DatasetIdentifier.parse(dqn)
+
+        assert dqn == DQN
+        assert dialect.extract_database_from_prefix(identifier.prefixes) == S3_TABLES_CATALOG
+        assert dialect.extract_schema_from_prefix(identifier.prefixes) == SCHEMA

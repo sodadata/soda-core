@@ -57,8 +57,6 @@ def _discover(sql_dialect, objects):
     fake_data_source_impl = SimpleNamespace(
         sql_dialect=sql_dialect,
         create_metadata_tables_query=lambda: _FakeMetadataTablesQuery(objects),
-        extract_database_from_prefix=lambda prefixes: None,
-        extract_schema_from_prefix=lambda prefixes: None,
     )
     return DataSourceImpl.discover_qualified_objects(fake_data_source_impl, prefixes=[])
 

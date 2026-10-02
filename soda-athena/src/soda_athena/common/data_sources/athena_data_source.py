@@ -163,18 +163,6 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         warnings.filterwarnings("ignore", category=DeprecationWarning, message="the imp module is deprecated")
         warnings.filterwarnings("ignore", category=DeprecationWarning, message="Using or importing the ABCs")
 
-    # The base impl uses sql_dialect.get_database_prefix_index() / get_schema_prefix_index() —
-    # fixed indices into prefixes. That seam doesn't work for Athena: a catalog containing '/'
-    # is over-split by DatasetIdentifier.parse() into an arbitrary number of prefix elements,
-    # so we bypass the index machinery and collapse the tail back into a single catalog name.
-    def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        catalog, _ = _collapse_athena_prefixes(prefixes)
-        return catalog
-
-    def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        _, schema = _collapse_athena_prefixes(prefixes)
-        return schema
-
     def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
         fully_qualified_table_names: list[FullyQualifiedTableName] = self._get_fully_qualified_table_names(
             prefixes=prefixes, table_name=table_name
@@ -219,6 +207,17 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         if schema is None:
             return [catalog] if catalog is not None else dataset_prefix
         return [catalog, schema]
+
+    # The base reads fixed indices into prefixes. That doesn't work for Athena: a catalog
+    # containing '/' is over-split by DatasetIdentifier.parse() into an arbitrary number of
+    # prefix elements, so the tail is collapsed back into a single catalog name.
+    def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
+        catalog, _ = _collapse_athena_prefixes(prefixes)
+        return catalog
+
+    def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
+        _, schema = _collapse_athena_prefixes(prefixes)
+        return schema
 
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
         return super()._build_qualified_quoted_dataset_name(dataset_name, self._normalize_prefix(dataset_prefix))
