@@ -10,6 +10,7 @@ from numbers import Number
 from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
+from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.error import MarkedYAMLError
 from soda_core.common.exceptions import InvalidDataSourceConfigurationException, YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -66,6 +67,11 @@ class YamlSource:
 
     __yaml_parser = YamlParser()
     __file_type = FileType.YAML.value
+
+    # Whether the kind of this file supports scopes. Reads of scope input from the file resolve variables only
+    # when it does, so a kind without support never logs or fails on its scope input. ContractYaml sets it before
+    # it reads any scope input; a file it never sets it for reads its scope input as written.
+    supports_scopes: bool = False
 
     @classmethod
     def from_str(cls, yaml_str: str, file_path: Optional[str] = None) -> YamlSource:
@@ -192,11 +198,18 @@ class YamlSource:
                 )
 
         except MarkedYAMLError as e:
+            message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
+            if isinstance(e, DuplicateKeyError) and e.problem_mark:
+                # The problem names the key, and its mark is the second occurrence of the key. The context mark
+                # is only where the mapping starts. The problem goes on to print both values, which can be a
+                # password in a data source file, so the message stops at the key.
+                message = f"YAML syntax error: {str(e.problem).split(' with value ', 1)[0]}"
+                mark = e.problem_mark
             line = mark.line + 1
             col = mark.column + 1
             location = Location(file_path=self.file_path, line=line, column=col)
-            raise YamlParserException(f"YAML syntax error", str(location))
+            raise YamlParserException(message, str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
@@ -594,6 +607,9 @@ class VariableResolver:
     # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
     RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
 
+    # A reference to a variable: its namespace and its name.
+    VARIABLE_PATTERN: str = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+
     @classmethod
     def resolve(
         cls,
@@ -605,7 +621,7 @@ class VariableResolver:
     ) -> str:
         if isinstance(source_text, str):
             # First pass: sometimes the value is just the variable with quotes. If so, we can just return the value directly, no casting to string needed.
-            pattern = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+            pattern = cls.VARIABLE_PATTERN
             match = re.fullmatch(pattern, source_text)
             if match:
                 if match.group(1).strip() == "soda" and match.group(2).strip() in cls.RESERVED_SODA_TEMPLATE_SLOTS:
@@ -696,6 +712,32 @@ class VariableResolver:
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
         return None
+
+    @classmethod
+    def logs_unresolved_reference(
+        cls,
+        source_text: str,
+        variable_values: Optional[dict[str, str]],
+        soda_variable_values: Optional[dict[str, str]],
+        use_env_vars: bool = True,
+    ) -> bool:
+        """Whether ``resolve`` logs an error when it resolves ``source_text``, a lone reference, to None.
+
+        ``get_variable`` logs for an undeclared ``var``, a ``soda`` variable that is not available and an ``env``
+        reference when environment variables are off. It returns None without an error for an unset environment
+        variable, a namespace it does not know and a declared variable whose value is None.
+        """
+        match = re.fullmatch(cls.VARIABLE_PATTERN, source_text) if isinstance(source_text, str) else None
+        if not match:
+            return False
+        namespace, variable = match.group(1), match.group(2)
+        if namespace == "var":
+            return not isinstance(variable_values, dict) or variable not in variable_values
+        if namespace == "soda":
+            return not isinstance(soda_variable_values, dict) or variable not in soda_variable_values
+        if namespace == "env":
+            return not use_env_vars
+        return False
 
 
 def yaml_to_string(yaml_value: dict) -> str:

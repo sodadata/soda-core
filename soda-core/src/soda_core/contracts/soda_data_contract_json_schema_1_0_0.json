@@ -97,6 +97,42 @@
                 }
             }
         },
+        "scopes": {
+            "description": "Named scopes of the contract. The map key identifies the scope. A check joins a scope with the 'scope' key.",
+            "type": "object",
+            "propertyNames": {
+                "$ref": "#/$defs/scope_key"
+            },
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "name": {
+                        "description": "The display name of the scope.",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "Description of the scope.",
+                        "type": "string"
+                    },
+                    "filter": {
+                        "description": "The SQL filter clause for the checks of this scope, without the WHERE keyword. It replaces the top-level filter for these checks and is never combined with it.",
+                        "type": "string"
+                    },
+                    "schedule": {
+                        "description": "The schedule of the scope's own scan definition. Without a schedule, the scope runs only on demand.",
+                        "$ref": "#/$defs/schedule"
+                    },
+                    "check_attributes": {
+                        "description": "Default attributes for all checks of this scope.",
+                        "$ref": "#/$defs/attributes"
+                    }
+                }
+            }
+        },
         "columns": {
             "description": "The list of columns, also known as 'the schema' of the dataset.",
             "type": "array",
@@ -192,6 +228,10 @@
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
                                                                 },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
+                                                                },
                                                                 "attributes": {
                                                                     "$ref": "#/$defs/attributes"
                                                                 },
@@ -250,6 +290,10 @@
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
+                                                                },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
                                                                     "$ref": "#/$defs/attributes"
@@ -392,6 +436,10 @@
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
                                                                 },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
+                                                                },
                                                                 "attributes": {
                                                                     "$ref": "#/$defs/attributes"
                                                                 },
@@ -435,6 +483,10 @@
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
+                                                                },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "attributes": {
                                                                     "$ref": "#/$defs/attributes"
@@ -489,6 +541,10 @@
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
+                                                                },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
                                                                 },
                                                                 "threshold": {
                                                                     "$ref": "#/$defs/threshold"
@@ -588,6 +644,10 @@
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
                                                                 },
+                                                                "scope": {
+                                                                    "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                                    "$ref": "#/$defs/scope_key"
+                                                                },
                                                                 "threshold": {
                                                                     "$ref": "#/$defs/threshold"
                                                                 }
@@ -652,6 +712,10 @@
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
                                             },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
+                                            },
                                             "attributes": {
                                                 "$ref": "#/$defs/attributes"
                                             },
@@ -689,6 +753,10 @@
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
+                                            },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
                                                 "$ref": "#/$defs/attributes"
@@ -739,6 +807,10 @@
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
                                             },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
+                                            },
                                             "attributes": {
                                                 "$ref": "#/$defs/attributes"
                                             },
@@ -786,6 +858,10 @@
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
+                                            },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
                                             },
                                             "attributes": {
                                                 "$ref": "#/$defs/attributes"
@@ -846,6 +922,10 @@
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
+                                            },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
                                             },
                                             "threshold": {
                                                 "$ref": "#/$defs/threshold"
@@ -950,6 +1030,10 @@
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
                                                 "type": "string"
+                                            },
+                                            "scope": {
+                                                "description": "The key of the declared scope this check runs in. Without it, the check runs on the dataset under the top-level filter.",
+                                                "$ref": "#/$defs/scope_key"
                                             },
                                             "threshold": {
                                                 "$ref": "#/$defs/threshold"
@@ -1117,6 +1201,53 @@
         },
         "attributes": {
             "type": "object"
+        },
+        "scope_key": {
+            "description": "A scope key: a lowercase letter, then at most 63 lowercase letters, digits, '_' or '-'. 'base' is reserved, and so are the words that YAML reads as a boolean or null.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "not": {
+                "enum": [
+                    "base",
+                    "true",
+                    "false",
+                    "null",
+                    "yes",
+                    "no",
+                    "on",
+                    "off",
+                    "y",
+                    "n"
+                ]
+            }
+        },
+        "schedule": {
+            "type": "object",
+            "description": "A schedule for a scope's own scan definition. A scope schedule needs a cron expression.",
+            "additionalProperties": false,
+            "required": [
+                "cron"
+            ],
+            "properties": {
+                "cron": {
+                    "type": "string",
+                    "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "The timezone to be used for the scheduled scope verification."
+                },
+                "variables": {
+                    "type": "object",
+                    "description": "The variables to be used for the scheduled scope verification.",
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "number"
+                        ]
+                    }
+                }
+            }
         },
         "threshold": {
             "type": "object",
