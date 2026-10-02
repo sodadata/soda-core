@@ -143,3 +143,7 @@ def test_regex_like_pattern_goes_through_literal_string():
     sql_dialect = RedshiftSqlDialect()
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), r"^1\.5$")) == "\"c\" ~ '^1\\\\.5$'"
     assert sql_dialect.build_expression_sql(REGEX_LIKE(COLUMN("c"), "^it's$")) == "\"c\" ~ '^it''s$'"
+
+
+def test_get_large_numeric_cast_type_name_is_double_precision():
+    assert RedshiftSqlDialect().get_large_numeric_cast_type_name() == "double precision"

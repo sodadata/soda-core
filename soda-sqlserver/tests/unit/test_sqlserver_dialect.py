@@ -402,3 +402,7 @@ def test_pagination_clause_sql_renders_in_tsql_order():
     clause = SqlServerSqlDialect().pagination_clause_sql(order_by=["id"], limit=100, offset=200)
 
     assert clause == "ORDER BY [id] ASC\nOFFSET 200 ROWS\nFETCH NEXT 100 ROWS ONLY"
+
+
+def test_get_large_numeric_cast_type_name_is_float():
+    assert SqlServerSqlDialect().get_large_numeric_cast_type_name() == "float"

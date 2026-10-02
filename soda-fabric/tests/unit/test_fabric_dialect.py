@@ -125,3 +125,7 @@ def test_literal_timestamp_typed_inherits_datetime2_cast():
         FabricSqlDialect().literal_timestamp_typed(datetime(2020, 6, 20, 1, 2, 3))
         == "CAST('2020-06-20 01:02:03' AS DATETIME2)"
     )
+
+
+def test_get_large_numeric_cast_type_name_is_inherited_float():
+    assert FabricSqlDialect().get_large_numeric_cast_type_name() == "float"

@@ -76,6 +76,11 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """CAST aggregate args to double precision: Redshift's AVG over an integer column
+        returns a BIGINT, dropping the fraction."""
+        return REDSHIFT_DOUBLE_PRECISION
+
     def is_system_schema(self, schema_name: str) -> bool:
         if schema_name.lower().startswith("pg_"):
             return True
