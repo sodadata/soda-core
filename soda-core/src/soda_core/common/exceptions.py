@@ -93,34 +93,83 @@ class SodaCloudException(SodaCoreException):
     """Base class for all SodaCloud related exceptions."""
 
 
-class ContractNotFoundException(SodaCloudException):
+class DatasetQueryException(SodaCloudException):
+    """A dataset-scoped Soda Cloud query failed.
+
+    The message names the dataset. ``reason`` says why the query failed without naming it, for a
+    caller that names the dataset itself.
+    """
+
+    def __init__(self, message: str, reason: str):
+        super().__init__(message)
+        self.reason: str = reason
+
+    def __reduce__(self):
+        # Pickle calls the class again with args, which holds only the message, so pass the
+        # constructor arguments instead. Each subclass passes its own.
+        return type(self), (self.message, self.reason), self.__dict__
+
+
+class ContractNotFoundException(DatasetQueryException):
     """Indicates the contract was not found in Soda Cloud."""
 
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
-            f"No data contract found for dataset '{str(dataset_identifier)}' in Soda Cloud. "
-            "Please publish a contract for this dataset in Soda Cloud before proceeding."
+            f"No data contract found for dataset '{dataset_identifier.to_string()}' in Soda Cloud. "
+            "Please publish a contract for this dataset in Soda Cloud before proceeding.",
+            reason="the dataset has no published contract in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
 
 
-class DataSourceNotFoundException(SodaCloudException):
+class DataSourceNotFoundException(DatasetQueryException):
     """Indicates the data source was not found in Soda Cloud."""
 
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
             f"Data source '{dataset_identifier.data_source_name}' is unknown in Soda Cloud. "
-            "Please verify the data source name or configure it in Soda Cloud."
+            "Please verify the data source name or configure it in Soda Cloud.",
+            reason=f"data source '{dataset_identifier.data_source_name}' is unknown in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
 
 
-class DatasetNotFoundException(SodaCloudException):
+class DatasetNotFoundException(DatasetQueryException):
     """Indicates the dataset was not found in Soda Cloud."""
 
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
             f"Dataset '{dataset_identifier.dataset_name}' is unknown in Soda Cloud. "
-            "Please verify the dataset name or configure it in Soda Cloud."
+            "Please verify the dataset name or configure it in Soda Cloud.",
+            reason="the dataset is unknown in Soda Cloud",
         )
+        self.dataset_identifier: DatasetIdentifier = dataset_identifier
+
+    def __reduce__(self):
+        return type(self), (self.dataset_identifier,), self.__dict__
+
+
+class ContractFetchFailedException(SodaCloudException):
+    """The contract for a dataset could not be fetched from Soda Cloud, or Soda Cloud returned none.
+
+    The message names the dataset once, as it was given, with the reason. The exception that made
+    the fetch fail, if any, is chained as ``__cause__``.
+    """
+
+    def __init__(self, dataset_identifier: str, reason: str):
+        super().__init__(f"Could not fetch the contract for dataset '{dataset_identifier}': {reason}")
+        self.dataset_identifier: str = dataset_identifier
+        self.reason: str = reason
+
+    def __reduce__(self):
+        # Pickle calls the class again with args, which holds only the message.
+        return type(self), (self.dataset_identifier, self.reason), self.__dict__
 
 
 def get_exception_stacktrace(exception) -> Optional[str]:

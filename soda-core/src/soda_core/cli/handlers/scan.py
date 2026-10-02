@@ -37,8 +37,8 @@ def run_scan(
     failure to Soda Cloud exactly once, and ends the scan's ingestion after a clean run.
 
     Returns the command's own exit code on a clean run; ``LOG_ERRORS`` when a failure was
-    reported to Soda Cloud; ``RESULTS_NOT_SENT_TO_CLOUD`` when it could not be — the
-    launcher then marks the scan failed itself.
+    reported to Soda Cloud; ``RESULTS_NOT_SENT_TO_CLOUD`` when it could not be. For a
+    dataset scan the launcher then marks the scan failed itself; for verify it does not.
 
     @param soda_cloud: The failure-reporting channel; None when the command can run
         without Cloud.
