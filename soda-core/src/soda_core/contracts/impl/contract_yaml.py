@@ -76,6 +76,7 @@ class ContractYaml(CheckCollectionYaml):
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         yaml_object: Optional[YamlObject] = None,
+        leave_variables_without_value_unresolved: bool = False,
     ):
         # ``yaml_source``, ``yaml_object``, ``kind``, ``execution_timestamp``,
         # and ``data_timestamp`` are first-class fields on the base
@@ -113,6 +114,7 @@ class ContractYaml(CheckCollectionYaml):
             variable_yamls=self.variables,
             provided_variable_values=provided_variable_values,
             soda_variable_values=soda_variable_values,
+            leave_variables_without_value_unresolved=leave_variables_without_value_unresolved,
         )
 
         if "NOW" in self.resolved_variable_values:
@@ -120,8 +122,19 @@ class ContractYaml(CheckCollectionYaml):
             if f_convert_str_to_datetime(now_value) is None:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
+        references_without_value: frozenset[str] = frozenset()
+        if leave_variables_without_value_unresolved:
+            # _resolve_variable_values resolved each variable without a value to its own reference.
+            references_without_value = frozenset(
+                f"${{var.{name}}}"
+                for name, value in self.resolved_variable_values.items()
+                if value == f"${{var.{name}}}"
+            )
         self.yaml_source.resolve_on_read_value(
-            resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
+            resolved_variable_values=self.resolved_variable_values,
+            soda_values=soda_variable_values,
+            use_env_vars=True,
+            references_without_value=references_without_value,
         )
 
         self.dataset = self.yaml_object.read_dataset_identifier("dataset")
@@ -170,6 +183,7 @@ class ContractYaml(CheckCollectionYaml):
         variable_yamls: list[VariableYaml],
         provided_variable_values: Optional[dict[str, str]],
         soda_variable_values: Optional[dict[str, str]],
+        leave_variables_without_value_unresolved: bool = False,
     ) -> dict[str, str]:
         variable_values: dict[str, str] = {}
 
@@ -184,7 +198,12 @@ class ContractYaml(CheckCollectionYaml):
 
         for variable_yaml in variable_yamls:
             if variable_values.get(variable_yaml.name) is None:
-                logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
+                if leave_variables_without_value_unresolved:
+                    # Publishing needs no variable values. A variable without one gets its value when the contract is
+                    # verified, so until then it resolves to its own reference and is not an error.
+                    variable_values[variable_yaml.name] = f"${{var.{variable_yaml.name}}}"
+                else:
+                    logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
 
         if isinstance(provided_variable_values, dict) and "NOW" in provided_variable_values:
             now_str: str = provided_variable_values["NOW"]
@@ -769,6 +788,8 @@ THRESHOLD_COMPARISON_KEYS: set = {
     "must_be_not_between",
 }
 
+THRESHOLD_BETWEEN_KEYS: set = {"must_be_between", "must_be_not_between"}
+
 # An 'additional' threshold is one more comparison with its own level. It carries no
 # 'metric'/'unit' (those are the enclosing threshold's) and no nested 'additional'.
 ADDITIONAL_THRESHOLD_ALLOWED_KEYS: set = THRESHOLD_COMPARISON_KEYS | {"level"}
@@ -851,6 +872,11 @@ class ThresholdYaml:
             threshold_yaml_object, "must_be_not_between"
         )
         self.level: str = threshold_yaml_object.read_string_opt("level", default_value=THRESHOLD_LEVEL_FAIL)
+        # Publishing reads a comparison whose variable has no value as absent. The variable gets its value when the
+        # contract is verified, so the arity checks still count the comparison.
+        self._comparison_keys_without_value: set[str] = {
+            key for key in THRESHOLD_COMPARISON_KEYS if threshold_yaml_object.holds_variable_without_value(key)
+        }
 
         self.additional: Optional[ThresholdYaml] = None
         if not is_additional:
@@ -927,7 +953,7 @@ class ThresholdYaml:
                 ("must_be_between", self.must_be_between),
                 ("must_be_not_between", self.must_be_not_between),
             )
-            if value is not None
+            if value is not None or key in self._comparison_keys_without_value
         ]
         return f": {', '.join(comparison_keys)}" if comparison_keys else ""
 
@@ -950,7 +976,7 @@ class ThresholdYaml:
                 ]
             )
             > 0
-        )
+        ) or len(self._comparison_keys_without_value) > 0
 
     def __comparator_count(self) -> int:
         return self.__config_count(
@@ -962,10 +988,12 @@ class ThresholdYaml:
                 self.must_be,
                 self.must_not_be,
             ]
-        )
+        ) + len(self._comparison_keys_without_value - THRESHOLD_BETWEEN_KEYS)
 
     def __between_count(self) -> int:
-        return self.__config_count([self.must_be_between, self.must_be_not_between])
+        return self.__config_count([self.must_be_between, self.must_be_not_between]) + len(
+            self._comparison_keys_without_value & THRESHOLD_BETWEEN_KEYS
+        )
 
     def has_exactly_one_comparison(self) -> bool:
         """Exactly one single-value comparator (must_be_*) and no between range."""

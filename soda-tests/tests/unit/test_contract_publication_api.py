@@ -1,6 +1,8 @@
 import pytest
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.common.exceptions import YamlParserException
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
@@ -120,6 +122,454 @@ def test_contract_publication_returns_result_for_each_added_contract():
 
     assert contract_publication_result[0].contract.data_source_name == "test"
     assert contract_publication_result[1].contract.data_source_name == "test2"
+
+
+VALID_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+columns:
+  - name: id
+"""
+
+# Parses as YAML, but 'filter' must be a string.
+YAML_ERROR_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+filter: [id, name]
+columns:
+  - name: id
+"""
+
+DUPLICATE_COLUMNS_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+columns:
+  - name: id
+  - name: id
+"""
+
+# Publish needs no variable values. A variable without a default gets its value when the contract
+# is verified, and publish uploads the contract text with the variable reference unresolved.
+REQUIRED_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  START_DATE:
+filter: "created_at >= '${var.START_DATE}'"
+columns:
+  - name: id
+"""
+
+METRIC_QUERY_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  QUERY:
+columns:
+  - name: id
+checks:
+  - metric:
+      query: ${var.QUERY}
+      threshold:
+        must_be_greater_than: 0
+"""
+
+FAILED_ROWS_QUERY_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  QUERY:
+columns:
+  - name: id
+checks:
+  - failed_rows:
+      query: ${var.QUERY}
+"""
+
+FAILED_ROWS_EXPRESSION_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  CONDITION:
+columns:
+  - name: id
+checks:
+  - failed_rows:
+      expression: ${var.CONDITION}
+"""
+
+
+def publish_responses(file_id: str = "fake_file_id") -> list[MockResponse]:
+    return [
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": True}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": file_id}),
+        MockResponse(
+            method=MockHttpMethod.POST,
+            status_code=200,
+            json_object={
+                "publishedContract": {"checksum": "check", "fileId": file_id},
+                "metadata": {"source": {"filePath": None, "type": "local"}},
+            },
+        ),
+    ]
+
+
+def publish_request_jsons(contract_yaml_str: str, file_id: str = "fake_file_id") -> list[dict]:
+    return [
+        {
+            "type": "sodaCoreCanManageContracts",
+            "dataset": {"datasource": "ds", "prefixes": ["db", "sch"], "name": "CUSTOMERS"},
+            "token": "mock-token",
+        },
+        {"type": "sodaCoreUploadContractFile", "contents": contract_yaml_str, "token": "mock-token"},
+        {
+            "type": "sodaCorePublishContract",
+            "contract": {"fileId": file_id, "metadata": {"source": {"type": "local"}}},
+            "token": "mock-token",
+        },
+    ]
+
+
+def publish_contract_yaml_strs(mock_cloud: MockSodaCloud, *contract_yaml_strs: str) -> ContractPublicationResultList:
+    builder = ContractPublication.builder()
+    for contract_yaml_str in contract_yaml_strs:
+        builder.with_contract_yaml_str(contract_yaml_str)
+    return builder.with_soda_cloud(mock_cloud).build().execute()
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str, expected_error",
+    [
+        pytest.param(
+            YAML_ERROR_CONTRACT_YAML,
+            "YAML key 'filter' expected one of ['str'], but was YAML list",
+            id="yaml_error",
+        ),
+        pytest.param(
+            DUPLICATE_COLUMNS_CONTRACT_YAML,
+            "Duplicate columns with name 'id': At file locations: [2,4], [3,4]",
+            id="contract_validation_error",
+        ),
+    ],
+)
+def test_contract_publication_uploads_nothing_when_the_contract_has_errors(contract_yaml_str, expected_error):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert len(result) == 1
+    assert result[0].contract is None
+    assert result.logs.get_errors() == [
+        expected_error,
+        f"Skipping publication of the contract because it has 1 error: {expected_error}",
+    ]
+
+
+def test_contract_publication_names_every_error_of_the_contract():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(
+        mock_cloud,
+        """dataset: ds/db/sch/CUSTOMERS
+filter: [id, name]
+columns:
+  - name: id
+  - name: id
+""",
+    )
+
+    assert mock_cloud.requests == []
+    assert result.logs.get_errors()[-1] == (
+        "Skipping publication of the contract because it has 2 errors: "
+        "YAML key 'filter' expected one of ['str'], but was YAML list; "
+        "Duplicate columns with name 'id': At file locations: [3,4], [4,4]"
+    )
+
+
+def test_contract_publication_uploads_a_valid_contract_unchanged():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, VALID_CONTRACT_YAML)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(VALID_CONTRACT_YAML)
+    assert not result.has_errors
+    assert len(result) == 1
+    assert result[0].contract.soda_qualified_dataset_name == "ds/db/sch/CUSTOMERS"
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        pytest.param(REQUIRED_VARIABLE_CONTRACT_YAML, id="filter"),
+        pytest.param(METRIC_QUERY_VARIABLE_CONTRACT_YAML, id="metric_query"),
+        pytest.param(FAILED_ROWS_QUERY_VARIABLE_CONTRACT_YAML, id="failed_rows_query"),
+        pytest.param(FAILED_ROWS_EXPRESSION_VARIABLE_CONTRACT_YAML, id="failed_rows_expression"),
+    ],
+)
+def test_contract_publication_uploads_a_contract_with_a_variable_without_value_unchanged(contract_yaml_str):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert not result.has_errors
+    assert result.logs.get_errors() == []
+    assert result[0].contract is not None
+
+
+THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: ${var.MAX}
+"""
+
+BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MIN:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_between:
+          greater_than: ${var.MIN}
+          less_than: 100
+"""
+
+VALID_MIN_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MIN:
+columns:
+  - name: id
+    valid_min: ${var.MIN}
+    checks:
+      - invalid:
+"""
+
+QUOTED_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: "${var.MAX}"
+"""
+
+FRESHNESS_THRESHOLD_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - freshness:
+      column: updated_at
+      threshold:
+        must_be_less_than: ${var.MAX}
+        unit: hour
+"""
+
+ADDITIONAL_THRESHOLD_OUTER_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: ${var.MAX}
+        additional:
+          must_be_less_than: 1000
+          level: warn
+"""
+
+ADDITIONAL_THRESHOLD_INNER_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  MAX:
+columns:
+  - name: id
+checks:
+  - row_count:
+      threshold:
+        must_be_less_than: 100
+        additional:
+          must_be_less_than: ${var.MAX}
+          level: warn
+"""
+
+BOOLEAN_VARIABLE_CONTRACT_YAML = """dataset: ds/db/sch/CUSTOMERS
+variables:
+  STORE:
+columns:
+  - name: id
+    checks:
+      - missing:
+          store_failed_rows: ${var.STORE}
+"""
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        pytest.param(THRESHOLD_VARIABLE_CONTRACT_YAML, id="threshold"),
+        pytest.param(QUOTED_THRESHOLD_VARIABLE_CONTRACT_YAML, id="quoted_threshold"),
+        pytest.param(BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML, id="between_threshold"),
+        pytest.param(FRESHNESS_THRESHOLD_VARIABLE_CONTRACT_YAML, id="freshness_threshold"),
+        pytest.param(ADDITIONAL_THRESHOLD_OUTER_VARIABLE_CONTRACT_YAML, id="additional_threshold_outer"),
+        pytest.param(ADDITIONAL_THRESHOLD_INNER_VARIABLE_CONTRACT_YAML, id="additional_threshold_inner"),
+        pytest.param(VALID_MIN_VARIABLE_CONTRACT_YAML, id="valid_min"),
+        pytest.param(BOOLEAN_VARIABLE_CONTRACT_YAML, id="boolean"),
+    ],
+)
+def test_contract_publication_uploads_a_contract_with_a_non_string_variable_without_value_unchanged(
+    contract_yaml_str,
+):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert not result.has_errors
+    assert result.logs.get_errors() == []
+    assert result[0].contract is not None
+
+
+def test_contract_publication_uploads_nothing_when_a_contract_with_a_variable_without_value_has_another_error():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, REQUIRED_VARIABLE_CONTRACT_YAML + "  - name: id\n")
+
+    assert mock_cloud.requests == []
+    assert result[0].contract is None
+    assert result.logs.get_errors() == [
+        "Duplicate columns with name 'id': At file locations: [5,4], [6,4]",
+        "Skipping publication of the contract because it has 1 error: "
+        "Duplicate columns with name 'id': At file locations: [5,4], [6,4]",
+    ]
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str, expected_error",
+    [
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - not_a_check:\n",
+            "Invalid check type 'not_a_check'. Existing check types: ",
+            id="invalid_check_type",
+        ),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - row_count:\n"
+            "      threshold:\n        must_be_between: 5\n",
+            "YAML key 'must_be_between' expected one of ['dict'], but was int",
+            id="invalid_threshold",
+        ),
+        pytest.param(
+            'dataset: ds/db/sch/CUSTOMERS\nfilter: "id > ${var.UNDECLARED}"\ncolumns:\n  - name: id\n',
+            "Variable 'UNDECLARED' was used and not declared",
+            id="undeclared_variable",
+        ),
+        pytest.param(
+            'dataset: ds/db/sch/CUSTOMERS\nfilter: "ts > ${soda.UNKNOWN}"\ncolumns:\n  - name: id\n',
+            "Variable 'UNKNOWN' was used and not available in the 'soda' namespace",
+            id="unknown_soda_variable",
+        ),
+    ],
+)
+def test_contract_publication_uploads_nothing_for_check_and_variable_errors(contract_yaml_str, expected_error):
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result[0].contract is None
+    errors = result.logs.get_errors()
+    assert len(errors) == 2
+    # The list of existing check types depends on the check types registered in this process.
+    assert errors[0].startswith(expected_error)
+    assert errors[1] == f"Skipping publication of the contract because it has 1 error: {errors[0]}"
+
+
+@pytest.mark.parametrize(
+    "contract_yaml_str, expected_error",
+    [
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\nchecks:\n  - row_count:\n"
+            "      threshold:\n        must_be_between:\n          greater_than: 10\n          less_than: 5\n",
+            "Invalid between threshold range: greater bound (10) < less bound (5)",
+            id="inverted_between_range",
+        ),
+        pytest.param(
+            "dataset: ds/db/sch/CUSTOMERS\ncolumns:\n  - name: id\n    checks:\n      - aggregate:\n"
+            "          function: avg\n",
+            "Threshold required, but not specified",
+            id="missing_threshold",
+        ),
+    ],
+)
+def test_contract_publication_uploads_nothing_when_a_check_is_invalid(contract_yaml_str, expected_error):
+    """Errors that only building the checks finds, the ones 'soda contract test' reports,
+    keep a contract from publishing too. Building them needs no data source."""
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result[0].contract is None
+    assert result.logs.get_errors() == [
+        expected_error,
+        f"Skipping publication of the contract because it has 1 error: {expected_error}",
+    ]
+
+
+def test_contract_publication_checks_a_contract_with_a_variable_without_value_only_as_it_parses():
+    """The variable reads as absent until the contract is verified, so building its checks
+    would report the bound it names as missing. Such a contract publishes, inverted range
+    or not, and verification reports the range once the variable has a value."""
+    mock_cloud = MockSodaCloud(publish_responses())
+    contract_yaml_str = BETWEEN_THRESHOLD_VARIABLE_CONTRACT_YAML.replace("less_than: 100", "less_than: -1")
+
+    result = publish_contract_yaml_strs(mock_cloud, contract_yaml_str)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(contract_yaml_str)
+    assert result.logs.get_errors() == []
+
+
+def test_contract_publication_skips_only_the_contract_with_errors():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    result = publish_contract_yaml_strs(mock_cloud, DUPLICATE_COLUMNS_CONTRACT_YAML, VALID_CONTRACT_YAML)
+
+    assert [request.json for request in mock_cloud.requests] == publish_request_jsons(VALID_CONTRACT_YAML)
+    assert result.has_errors
+    assert len(result) == 2
+    assert result[0].contract is None
+    assert result[1].contract.soda_qualified_dataset_name == "ds/db/sch/CUSTOMERS"
+
+
+def test_contract_publication_keeps_its_errors_when_another_logs_is_active():
+    mock_cloud = MockSodaCloud(publish_responses())
+    caller_logs = Logs()
+    builder = ContractPublication.builder(logs=caller_logs).with_contract_yaml_str(DUPLICATE_COLUMNS_CONTRACT_YAML)
+    # Constructing a Logs makes it the active capture target, so the caller's Logs is no longer active at build.
+    other_logs = Logs()
+
+    result = builder.with_soda_cloud(mock_cloud).build().execute()
+
+    assert mock_cloud.requests == []
+    assert result.has_errors
+    assert result.logs is caller_logs
+    assert caller_logs.get_errors() == [
+        "Duplicate columns with name 'id': At file locations: [2,4], [3,4]",
+        "Skipping publication of the contract because it has 1 error: "
+        "Duplicate columns with name 'id': At file locations: [2,4], [3,4]",
+    ]
+    assert other_logs.get_errors() == []
+    soda_logger.error("logged after the publication")
+    assert other_logs.get_errors() == ["logged after the publication"]
+
+
+def test_contract_publication_raises_on_a_yaml_syntax_error():
+    mock_cloud = MockSodaCloud(publish_responses())
+
+    with pytest.raises(YamlParserException, match="YAML syntax error"):
+        publish_contract_yaml_strs(mock_cloud, "dataset: ds/db/sch/CUSTOMERS\ncolumns: [\n")
+
+    assert mock_cloud.requests == []
 
 
 # TODO @Niels: To be evaluated if still needed refactored after rework

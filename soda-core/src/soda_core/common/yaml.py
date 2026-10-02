@@ -100,6 +100,8 @@ class YamlSource:
         self.resolve_on_read_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_soda_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
+        # References like '${var.START_DATE}' to the variables that publishing leaves without a value.
+        self.resolve_on_read_references_without_value: frozenset[str] = frozenset()
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -174,11 +176,13 @@ class YamlSource:
         resolved_variable_values: Optional[dict[str, str]],
         soda_values: Optional[dict[str, str]],
         use_env_vars: bool,
+        references_without_value: frozenset[str] = frozenset(),
     ):
         self.resolve_on_read = True
         self.resolve_on_read_variable_values = resolved_variable_values
         self.resolve_on_read_soda_variable_values = soda_values
         self.resolve_on_read_use_env_vars = use_env_vars
+        self.resolve_on_read_references_without_value = references_without_value
 
     def parse(self) -> YamlObject:
         self._ensure_yaml_str()
@@ -312,6 +316,10 @@ class YamlValue:
             use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
             location=location,
         )
+
+    def _is_reference_without_value(self, value: any) -> bool:
+        # A quoted YAML value stays a ruamel string subclass after resolution, so compare by value.
+        return isinstance(value, str) and value in self.yaml_source.resolve_on_read_references_without_value
 
     @classmethod
     def yaml_unwrap(cls, o) -> Optional[object]:
@@ -514,6 +522,11 @@ class YamlObject(YamlValue):
         elif isinstance(expected_type, list):
             expected_types = expected_type
 
+        if expected_types and str not in expected_types and self._is_reference_without_value(value):
+            # A variable that publishing leaves without a value gets one when the contract is verified. Until then
+            # a key that does not take a string reads the variable's reference as absent, not as a type error.
+            value = default_value
+
         if expected_types and not any(isinstance(value, t) for t in expected_types) and value != default_value:
             actual_type_str: str = type(value).__name__
             if value is None:
@@ -532,6 +545,10 @@ class YamlObject(YamlValue):
             value = None
 
         return self._yaml_wrap(value, location=location)
+
+    def holds_variable_without_value(self, key: str) -> bool:
+        """True when the value of the key is the reference to a variable that publishing leaves without a value."""
+        return self._is_reference_without_value(self.yaml_dict.get(key))
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
