@@ -327,6 +327,9 @@ class DataSourceConnection(ABC):
                     truncated_rows,
                     headers=headers,
                     tablefmt="github",
+                    # Print the values as the database returned them. With number parsing, tabulate shows the
+                    # string '941935e8' as 9.41935e+13, a float 1234567.891 as 1.23457e+06, and Decimal 12.50 as 12.5.
+                    disable_numparse=True,
                 )
             except UnicodeDecodeError as e:
                 logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
