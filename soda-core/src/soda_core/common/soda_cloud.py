@@ -1957,10 +1957,10 @@ def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]
     dataset's columns contribute one entry each (see ``CheckCollectionResult.dataset_columns``);
     the same dataset twice in one batch is sent once.
 
-    A column without a type name is sent by name only and logged as an error. No data
-    source produces one (every column-metadata query builds a ``SqlDataType``), so it signals
-    a broken invariant. Cloud marks any column absent from ``schema`` as deleted, whereas a
-    missing ``sourceDataType`` leaves the column's stored type as it is, so the column survives.
+    A column without a source data type is sent by name only and logged as an error. Every
+    data source fills ``ColumnMetadata.source_data_type`` when it reads the columns, so it
+    signals a broken invariant. Cloud marks any column absent from ``schema`` as deleted, whereas
+    a missing ``sourceDataType`` leaves the column's stored type as it is, so the column survives.
     """
     dataset_metadata: list[dict] = []
     seen_dataset_qualified_names: set[str] = set()
@@ -1975,16 +1975,15 @@ def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]
         schema: list[dict] = []
         for column in result.dataset_columns:
             schema_element: dict = {"columnName": column.column_name}
-            if column.sql_data_type and column.sql_data_type.name:
-                # The bare type name, already lowercased by SqlDataType, without the
-                # precision/length parameters: the same columnName / sourceDataType spelling
-                # capture-schema uses. The primary-key flag it also sends is left out here on
-                # purpose — contract verification has no reason to restate it.
-                schema_element["sourceDataType"] = column.sql_data_type.name
+            if column.source_data_type:
+                # The type as the data source's metadata spells it, not the normalised
+                # sql_data_type name: Cloud's stored column types are in that spelling. No
+                # primary-key flag on purpose: contract verification has no reason to restate it.
+                schema_element["sourceDataType"] = column.source_data_type
             else:
                 logger.error(
-                    f"Column '{column.column_name}' of dataset '{dataset_qualified_name}' has no data type "
-                    f"name. It is sent to Soda Cloud by name only, so its type there stays as it was."
+                    f"Column '{column.column_name}' of dataset '{dataset_qualified_name}' has no source data "
+                    f"type. It is sent to Soda Cloud by name only, so its type there stays as it was."
                 )
             schema.append(schema_element)
         seen_dataset_qualified_names.add(dataset_qualified_name)
