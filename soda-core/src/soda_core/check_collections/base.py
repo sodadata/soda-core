@@ -138,6 +138,12 @@ class CheckCollectionResult:
     # dataset's column list from. None when nothing measured the columns: the engine
     # never runs an extra query just to fill this in.
     dataset_columns: Optional[list[ColumnMetadata]] = None
+    # How many scopes the file declares, and how many of its checks sit outside the base scope and in it. A check
+    # whose scope names no declared scope sits outside. Counted from the parsed checks, so a run that builds no
+    # check results, such as 'soda contract test', reports them too.
+    scopes_count: int = 0
+    scoped_checks_count: int = 0
+    unscoped_checks_count: int = 0
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -1172,6 +1178,10 @@ class CheckCollectionImpl:
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
+        scoped_checks_count: int = len(
+            [check_impl for check_impl in self.all_check_impls if not check_impl.scope.is_base]
+        )
+
         verification_result: CheckCollectionResult = self.result_class(
             check_collection=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
@@ -1196,6 +1206,9 @@ class CheckCollectionImpl:
             log_records=log_records,
             post_processing_stages=post_processing_stages,
             dataset_columns=_find_measured_dataset_columns(check_results),
+            scopes_count=len(self.scopes),
+            scoped_checks_count=scoped_checks_count,
+            unscoped_checks_count=len(self.all_check_impls) - scoped_checks_count,
         )
 
         scan_id: Optional[str] = None
