@@ -3,9 +3,20 @@ import os
 import tempfile
 from unittest.mock import patch
 
+import pytest
 from soda_core.common.exceptions import get_exception_stacktrace
 from soda_core.common.logging_configuration import _masked_values, _prepare_masked_file
 from soda_core.common.logs import Logs
+
+
+@pytest.fixture(autouse=True)
+def restore_masked_values():
+    # _prepare_masked_file fills the module-wide set in place, so a value masked here would
+    # otherwise stay masked in every test that runs later in the same process.
+    masked_values_before = set(_masked_values)
+    yield
+    _masked_values.clear()
+    _masked_values.update(masked_values_before)
 
 
 def test_catch_args_in_logs_messages():

@@ -13,6 +13,7 @@ with a 1-element ``contract_yaml_sources`` list) sets
 from __future__ import annotations
 
 from datetime import datetime
+from logging import LogRecord
 from typing import Optional, Union
 
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
@@ -100,6 +101,15 @@ def execute_check_collections(
     and the typed return stays honest. Defaults to ``CheckCollectionImpl``
     for callers that genuinely don't know a sensible subtype default.
 
+    ``logs`` is the caller's capture target, e.g. the CLI failure boundary's.
+    With more than one yaml, each file gets a child of it (``Logs.child()``)
+    with its own records, thread label and error count, so one file's errors
+    never set another file's status or reach its upload; the caller's ``logs``
+    still sees every record once. Each child starts with what ``logs`` held
+    before the session, so those records reach every file's upload and an
+    error among them errors every file. A single yaml uses ``logs`` itself,
+    which comes to the same. Without ``logs``, each impl builds its own.
+
     ``expected_kinds`` is an opt-in set of permitted top-level ``kind:``
     values. When set, the executor reads each yaml's ``kind:`` in phase 1
     and — if a yaml declares a kind outside the set — collects it and
@@ -145,8 +155,16 @@ def execute_check_collections(
     # phase 1 kind-dispatch read and raised eagerly after the loop so we
     # never run any verify() for a wrong-kind session.
     kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]] = []
+    # Siblings sharing the caller's Logs would share its error count, so each file
+    # of a multi-file session gets a child of it instead. The child is built before
+    # the parse, so the file's parse records land in it too. What the caller logged
+    # before the session belongs to no one file, so every child starts with it, as a
+    # lone file would: an error logged there still errors every file.
+    fork_logs: bool = logs is not None and len(yaml_sources) > 1
+    pre_session_records: list[LogRecord] = list(logs.get_log_records()) if fork_logs else []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
+        impl_logs: Optional[Logs] = logs.child(inherited_records=pre_session_records) if fork_logs else logs
         try:
             # Parse the YAML once for kind dispatch; reuse the parsed
             # object inside the subtype's ``yaml_class.parse(...)`` so the
@@ -182,7 +200,7 @@ def execute_check_collections(
                 check_selectors=check_selectors,
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
-                logs=logs,
+                logs=impl_logs,
                 # ``data_timestamp`` and ``execution_timestamp`` are
                 # first-class fields on ``CheckCollectionYaml``: every
                 # subtype yaml has them after construction.
