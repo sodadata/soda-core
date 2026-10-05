@@ -1073,11 +1073,10 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic measurements for the given metric identities.
 
-        At least one of ``date_time_range`` or ``limit`` must be provided. With both,
-        the result holds the newest ``limit`` entries per identity inside the range.
+        At least one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
-        per identity, newest first.
+        per identity, newest first, taken from inside the range when both are given.
 
         Returns measurements grouped by metric identity (default), or the flat
         result list when ``group_by_identity`` is False. Measurements without a
@@ -1123,11 +1122,10 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic check results for the given check identities.
 
-        At least one of ``date_time_range`` or ``limit`` must be provided. With both,
-        the result holds the newest ``limit`` entries per identity inside the range.
+        At least one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
-        per identity, newest first.
+        per identity, newest first, taken from inside the range when both are given.
 
         Returns check results grouped by ``measurementId`` (default), or the flat
         result list when ``group_by_measurement_id`` is False.
