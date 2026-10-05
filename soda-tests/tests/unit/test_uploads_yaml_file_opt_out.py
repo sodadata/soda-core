@@ -76,3 +76,41 @@ def test_publish_sends_results_without_uploading_the_yaml_file(
     assert session_result.results[0].check_collection.source.soda_cloud_file_id is None
     assert session_result.results[0].sending_results_to_soda_cloud_failed is False
     assert session_result_to_exit_code(session_result) == ExitCode.OK
+
+
+def test_a_file_whose_verify_raised_is_not_sent(monkeypatch, data_source_impl, subtype_without_file_upload):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    verify = ContractImpl.verify
+
+    def verify_or_raise(self):
+        if "# broken" in self.yaml.yaml_source.yaml_str_original:
+            raise RuntimeError("verify blew up")
+        return verify(self)
+
+    monkeypatch.setattr(ContractImpl, "verify", verify_or_raise)
+    mock_cloud = MockSodaCloud(
+        responses=[MockResponse(status_code=200, json_object={"scanId": "scan-1", "datasetId": "dataset-1"})]
+    )
+    sent_results = []
+    send_check_collection_results = mock_cloud.send_check_collection_results
+
+    def recording_send(results, **kwargs):
+        sent_results.extend(results)
+        return send_check_collection_results(results, **kwargs)
+
+    mock_cloud.send_check_collection_results = recording_send
+
+    session_result = execute_check_collections(
+        yaml_sources=[
+            ContractYamlSource.from_str(_CONTRACT_YAML),
+            ContractYamlSource.from_str(_CONTRACT_YAML + "# broken"),
+        ],
+        data_source_impl=None,
+        soda_cloud_impl=mock_cloud,
+        publish_results=True,
+        all_data_source_impls={data_source_impl.name: data_source_impl},
+        default_impl_class=ContractImpl,
+    )
+
+    assert session_result.results[1].error is not None
+    assert sent_results == [session_result.results[0]]

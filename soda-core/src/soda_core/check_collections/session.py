@@ -290,7 +290,8 @@ def execute_check_collections(
                 if result.check_collection and result.check_collection.source
                 else None
             )
-            if file_id is None and impl_class.uploads_yaml_file:
+            # A placeholder for a file that failed before producing output has nothing to send.
+            if result.error is not None or (file_id is None and impl_class.uploads_yaml_file):
                 continue
             combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
             combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
