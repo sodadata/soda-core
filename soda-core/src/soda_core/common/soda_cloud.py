@@ -1073,8 +1073,8 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic measurements for the given metric identities.
 
-        Exactly one of ``date_time_range`` or ``limit`` must be provided (the
-        ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
+        At least one of ``date_time_range`` or ``limit`` must be provided. With both,
+        the result holds the newest ``limit`` entries per identity inside the range.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
         per identity, newest first.
@@ -1123,7 +1123,8 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic check results for the given check identities.
 
-        Exactly one of ``date_time_range`` or ``limit`` must be provided.
+        At least one of ``date_time_range`` or ``limit`` must be provided. With both,
+        the result holds the newest ``limit`` entries per identity inside the range.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
         per identity, newest first.
@@ -1153,17 +1154,14 @@ class SodaCloud:
         request_log_name: str,
     ) -> list[dict]:
         """Shared query execution for the two historic-data endpoints: builds the
-        date-range XOR limit query args, batches identities, merges ``results``."""
-        if (date_time_range is None) == (limit is None):
-            raise SodaCloudException(
-                f"'{query_type}' requires exactly one of date_time_range or limit "
-                f"(got date_time_range={date_time_range}, limit={limit})"
-            )
+        date-range and/or limit query args, batches identities, merges ``results``."""
+        if date_time_range is None and limit is None:
+            raise SodaCloudException(f"'{query_type}' requires a date_time_range, a limit or both")
         query_args: dict = {}
         if date_time_range is not None:
             query_args["minScanTime"] = _convert_scan_time_to_str(date_time_range.from_date_time)
             query_args["maxScanTime"] = _convert_scan_time_to_str(date_time_range.to_date_time)
-        else:
+        if limit is not None:
             query_args["limit"] = limit
 
         all_results: list[dict] = []

@@ -1,7 +1,7 @@
 """Unit tests for the historic-data fetch methods on SodaCloud.
 
 Request/response contract: POST types ``sodaCoreHistoricMeasurements2`` /
-``sodaCoreHistoricCheckResults2``, minScanTime/maxScanTime XOR limit,
+``sodaCoreHistoricCheckResults2``, minScanTime/maxScanTime and/or limit,
 millisecond-UTC scan-time strings, and the 500-identities-per-request
 backend constraint (batch + merge).
 """
@@ -86,6 +86,18 @@ def test_get_historic_measurements_request_shape_with_limit():
     assert "maxScanTime" not in request
 
 
+def test_get_historic_measurements_request_shape_with_date_time_range_and_limit():
+    mock = MockSodaCloud()
+    mock.add_historic_measurements("m1", [_measurement("m1")])
+
+    mock.get_historic_measurements(["m1"], date_time_range=DATE_TIME_RANGE, limit=1)
+
+    request = mock.requests[-1].json
+    assert request["minScanTime"] == "2025-03-01T10:20:30.123+00:00"
+    assert request["maxScanTime"] == "2025-03-08T10:20:30.123+00:00"
+    assert request["limit"] == 1
+
+
 def test_get_historic_measurements_groups_by_identity_by_default():
     mock = MockSodaCloud()
     mock.add_historic_measurements("m1", [_measurement("m1", value=1), _measurement("m1", value=2)])
@@ -142,12 +154,10 @@ def test_get_historic_measurements_batches_above_500_identities_and_merges():
     assert set(grouped.keys()) == set(identities)
 
 
-def test_get_historic_measurements_requires_date_time_range_xor_limit():
+def test_get_historic_measurements_requires_date_time_range_or_limit():
     mock = MockSodaCloud()
-    with pytest.raises(SodaCloudException, match="exactly one"):
+    with pytest.raises(SodaCloudException, match="requires a date_time_range, a limit or both"):
         mock.get_historic_measurements(["m1"])
-    with pytest.raises(SodaCloudException, match="exactly one"):
-        mock.get_historic_measurements(["m1"], date_time_range=DATE_TIME_RANGE, limit=10)
     assert mock.requests == []
 
 
@@ -207,12 +217,22 @@ def test_get_historic_check_results_batches_above_500_identities_and_merges():
     assert len(grouped) == len(identities)
 
 
-def test_get_historic_check_results_requires_date_time_range_xor_limit():
+def test_get_historic_check_results_request_shape_with_date_time_range_and_limit():
     mock = MockSodaCloud()
-    with pytest.raises(SodaCloudException, match="exactly one"):
+    mock.add_historic_check_results("c1", [_check_result("c1", "meas-1")])
+
+    mock.get_historic_check_results(["c1"], date_time_range=DATE_TIME_RANGE, limit=1)
+
+    request = mock.requests[-1].json
+    assert request["minScanTime"] == "2025-03-01T10:20:30.123+00:00"
+    assert request["maxScanTime"] == "2025-03-08T10:20:30.123+00:00"
+    assert request["limit"] == 1
+
+
+def test_get_historic_check_results_requires_date_time_range_or_limit():
+    mock = MockSodaCloud()
+    with pytest.raises(SodaCloudException, match="requires a date_time_range, a limit or both"):
         mock.get_historic_check_results(["c1"])
-    with pytest.raises(SodaCloudException, match="exactly one"):
-        mock.get_historic_check_results(["c1"], date_time_range=DATE_TIME_RANGE, limit=10)
 
 
 # ---------------------------------------------------------------------------
