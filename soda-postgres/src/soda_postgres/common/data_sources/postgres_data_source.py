@@ -353,8 +353,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 COLUMN("nspname", table_alias="n").AS("table_schema"),
                 COLUMN("relname", table_alias="c").AS("table_name"),
                 RAW_SQL(self.relkind_table_type_sql_expression()),
-                # The column's typmod makes format_type keep type parameters, as in character(4) or numeric(10,2).
-                RAW_SQL('pg_catalog.format_type(a.atttypid, a.atttypmod) AS "source_data_type"'),
+                # A typmod of -1 drops type parameters, as Soda Library does: character(4) is spelled bpchar and
+                # numeric(10,2) is spelled numeric. Schema history written by Soda Library compares equal.
+                RAW_SQL('pg_catalog.format_type(a.atttypid, -1) AS "source_data_type"'),
             ]
         )
 

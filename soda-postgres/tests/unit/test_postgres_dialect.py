@@ -231,7 +231,7 @@ def test_columns_metadata_query_selects_the_type_as_format_type_spells_it():
         SchemaDataSourceNamespace(schema="public"), table_name="orders"
     )
 
-    assert 'pg_catalog.format_type(a.atttypid, a.atttypmod) AS "source_data_type"' in sql
+    assert 'pg_catalog.format_type(a.atttypid, -1) AS "source_data_type"' in sql
 
 
 def test_column_metadata_takes_source_data_type_from_its_own_column():
@@ -248,10 +248,10 @@ def test_column_metadata_takes_source_data_type_from_its_own_column():
         ("table_type",),
         ("source_data_type",),
     ]
-    row = ("code", "character", 1, None, None, None, "db", "public", "orders", "BASE TABLE", "character(1)")
+    row = ("code", "character", 1, None, None, None, "db", "public", "orders", "BASE TABLE", "bpchar")
 
     column = PostgresSqlDialect().build_column_metadatas_from_query_result(QueryResult(rows=[row], columns=columns))[0]
 
     assert column.sql_data_type.name == "character"
     assert column.sql_data_type.character_maximum_length == 1
-    assert column.source_data_type == "character(1)"
+    assert column.source_data_type == "bpchar"
