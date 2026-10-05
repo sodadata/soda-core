@@ -43,11 +43,21 @@ class DatasetIdentifier:
         sql_dialect: "SqlDialect",
         fully_qualified_object_name: "FullyQualifiedObjectName",
     ) -> "DatasetIdentifier":
-        """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName."""
-        prefixes: list[str] = sql_dialect.build_dataset_prefixes(
-            database_name=fully_qualified_object_name.database_name,
-            schema_name=fully_qualified_object_name.schema_name,
-        )
+        """Build a dialect-correct DQN from a discovered FullyQualifiedObjectName.
+
+        A prefix component is included only when the dialect has that tier
+        (prefix-index hook not None) and the object carries a value;
+        database precedes schema, as in extract_database_from_prefix.
+        The dialect decides how many segments the schema name spans.
+        """
+        prefixes: list[str] = []
+        if (
+            sql_dialect.get_database_prefix_index() is not None
+            and fully_qualified_object_name.database_name is not None
+        ):
+            prefixes.append(fully_qualified_object_name.database_name)
+        if sql_dialect.get_schema_prefix_index() is not None and fully_qualified_object_name.schema_name is not None:
+            prefixes.extend(sql_dialect.schema_name_to_dataset_prefixes(fully_qualified_object_name.schema_name))
         return cls(
             data_source_name=data_source_name,
             prefixes=prefixes,

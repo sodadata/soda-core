@@ -6,7 +6,7 @@ from soda_core.common.statements.table_types import FullyQualifiedTableName
 class _FakeDialect:
     """Stands in for a SqlDialect: the prefix-index hooks, and the real prefix mapping."""
 
-    build_dataset_prefixes = SqlDialect.build_dataset_prefixes
+    schema_name_to_dataset_prefixes = SqlDialect.schema_name_to_dataset_prefixes
     extract_database_from_prefix = SqlDialect.extract_database_from_prefix
     extract_schema_from_prefix = SqlDialect.extract_schema_from_prefix
 
@@ -46,7 +46,7 @@ def test_from_object_keeps_a_dotted_schema_name_as_one_segment_by_default():
 
 
 class _PathSplittingDialect(_FakeDialect):
-    def build_dataset_prefixes(self, database_name, schema_name):
+    def schema_name_to_dataset_prefixes(self, schema_name):
         return schema_name.split(".")
 
 

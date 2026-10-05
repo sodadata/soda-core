@@ -1905,20 +1905,17 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
-    def build_dataset_prefixes(self, database_name: str | None, schema_name: str | None) -> list[str]:
-        """The DQN prefix segments for a database and schema as the metadata queries report them.
+    def schema_name_to_dataset_prefixes(self, schema_name: str) -> list[str]:
+        """The DQN prefix segments for a schema name as the metadata queries report it.
 
-        The inverse of extract_database_from_prefix and extract_schema_from_prefix: a dialect
-        that overrides one direction overrides the other, so a discovered DQN resolves back to
-        the same database and schema. A level is left out when the dialect does not have it or
-        the value is None.
+        One segment by default. A data source whose metadata reports a nested path as one
+        string (e.g. Dremio's dotted folder path) splits it, so that each level of the
+        hierarchy becomes its own DQN segment.
+
+        A DQN that discovery builds with this must resolve back to the same schema through extract_schema_from_prefix,
+        so a dialect that changes how the schema is split also changes how it is read back.
         """
-        prefixes: list[str] = []
-        if self.get_database_prefix_index() is not None and database_name is not None:
-            prefixes.append(database_name)
-        if self.get_schema_prefix_index() is not None and schema_name is not None:
-            prefixes.append(schema_name)
-        return prefixes
+        return [schema_name]
 
     def extract_database_from_prefix(self, prefixes: list[str]) -> str | None:
         database_index: int | None = self.get_database_prefix_index()
