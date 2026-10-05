@@ -362,6 +362,11 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
+    # Whether publishing first uploads the YAML file to Soda Cloud for a fileId. Contracts
+    # need it: the results carry the fileId and Cloud versions the contract from it. A
+    # subtype whose results never reference the file sets False, so its results are sent
+    # without an upload.
+    uploads_yaml_file: bool = True
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -989,7 +994,7 @@ class CheckCollectionImpl:
         yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
         soda_cloud_response_json: Optional[dict] = None
 
-        if self.soda_cloud and self.publish_results:
+        if self.soda_cloud and self.publish_results and self.uploads_yaml_file:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
                 yaml_source_str_original, file_label=self.display_name
             )
@@ -1023,7 +1028,7 @@ class CheckCollectionImpl:
         )
 
         scan_id: Optional[str] = None
-        if soda_cloud_file_id:
+        if self.soda_cloud and self.publish_results and (soda_cloud_file_id or not self.uploads_yaml_file):
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
