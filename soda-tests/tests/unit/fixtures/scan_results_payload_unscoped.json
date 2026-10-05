@@ -835,7 +835,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n| column_name   | data_type   |   numeric_precision |   numeric_scale |\n|---------------|-------------|---------------------|-----------------|\n| id            | INTEGER     |                  32 |               0 |\n| customer_id   | VARCHAR     |                     |                 |\n| amount        | INTEGER     |                  32 |               0 |\n| country       | VARCHAR     |                     |                 |\n| status        | VARCHAR     |                     |                 |\n| updated_at    | TIMESTAMP   |                     |                 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| column_name   | data_type   | numeric_precision   | numeric_scale   |\n|---------------|-------------|---------------------|-----------------|\n| id            | INTEGER     | 32                  | 0               |\n| customer_id   | VARCHAR     |                     |                 |\n| amount        | INTEGER     | 32                  | 0               |\n| country       | VARCHAR     |                     |                 |\n| status        | VARCHAR     |                     |                 |\n| updated_at    | TIMESTAMP   |                     |                 |",
       "timestamp": "<masked>",
       "index": 4,
       "thread": "soda-contract"
@@ -849,7 +849,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   m_0 | m_1   |   m_2 |   m_3 | m_4   |   m_5 | m_6   |   m_7 |   m_8 |   m_9 | m_10   | m_11                |   m_12 |   m_13 |   m_14 |\n|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|--------|---------------------|--------|--------|--------|\n|     5 |       |     4 |     1 |       |     1 |       |     2 |     3 |   119 |        | 2026-09-28 11:00:00 |      5 |    119 |      2 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| m_0   | m_1   | m_2   | m_3   | m_4   | m_5   | m_6   | m_7   | m_8   | m_9   | m_10   | m_11                | m_12   | m_13   | m_14   |\n|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|--------|---------------------|--------|--------|--------|\n| 5     |       | 4     | 1     |       | 1     |       | 2     | 3     | 119.0 |        | 2026-09-28 11:00:00 | 5      | 119.0  | 2      |",
       "timestamp": "<masked>",
       "index": 6,
       "thread": "soda-contract"
@@ -863,7 +863,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   count_star() |\n|----------------|\n|              1 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| count_star()   |\n|----------------|\n| 1              |",
       "timestamp": "<masked>",
       "index": 8,
       "thread": "soda-contract"
@@ -877,7 +877,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   avg(amount) |\n|---------------|\n|           119 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| avg(amount)   |\n|---------------|\n| 119.0         |",
       "timestamp": "<masked>",
       "index": 10,
       "thread": "soda-contract"
@@ -891,7 +891,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   count_star() |\n|----------------|\n|              1 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| count_star()   |\n|----------------|\n| 1              |",
       "timestamp": "<masked>",
       "index": 12,
       "thread": "soda-contract"
@@ -1686,27 +1686,27 @@
       "schema": [
         {
           "columnName": "id",
-          "sourceDataType": "integer"
+          "sourceDataType": "INTEGER"
         },
         {
           "columnName": "customer_id",
-          "sourceDataType": "varchar"
+          "sourceDataType": "VARCHAR"
         },
         {
           "columnName": "amount",
-          "sourceDataType": "integer"
+          "sourceDataType": "INTEGER"
         },
         {
           "columnName": "country",
-          "sourceDataType": "varchar"
+          "sourceDataType": "VARCHAR"
         },
         {
           "columnName": "status",
-          "sourceDataType": "varchar"
+          "sourceDataType": "VARCHAR"
         },
         {
           "columnName": "updated_at",
-          "sourceDataType": "timestamp"
+          "sourceDataType": "TIMESTAMP"
         }
       ]
     }

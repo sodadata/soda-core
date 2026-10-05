@@ -695,7 +695,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   m_0 | m_1   |   m_2 |   m_3 |\n|-------|-------|-------|-------|\n|     5 |       |     2 |     3 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| m_0   | m_1   | m_2   | m_3   |\n|-------|-------|-------|-------|\n| 5     |       | 2     | 3     |",
       "timestamp": "<masked>",
       "index": 4,
       "thread": "soda-contract"
@@ -709,7 +709,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   avg(amount) |\n|---------------|\n|           119 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| avg(amount)   |\n|---------------|\n| 119.0         |",
       "timestamp": "<masked>",
       "index": 6,
       "thread": "soda-contract"
