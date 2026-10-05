@@ -90,8 +90,12 @@ def test_metadata_carries_the_dataset_columns():
     column names and their source data types."""
     result = _make_result(
         dataset_columns=[
-            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="VARCHAR", character_maximum_length=255)),
-            ColumnMetadata(column_name="size", sql_data_type=SqlDataType(name="integer")),
+            ColumnMetadata(
+                column_name="id",
+                sql_data_type=SqlDataType(name="character varying", character_maximum_length=255),
+                source_data_type="character varying",
+            ),
+            ColumnMetadata(column_name="size", sql_data_type=SqlDataType(name="integer"), source_data_type="integer"),
         ]
     )
     payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
@@ -99,7 +103,7 @@ def test_metadata_carries_the_dataset_columns():
         {
             "datasetQualifiedName": "test_ds/s/t",
             "schema": [
-                {"columnName": "id", "sourceDataType": "varchar"},
+                {"columnName": "id", "sourceDataType": "character varying"},
                 {"columnName": "size", "sourceDataType": "integer"},
             ],
         }
@@ -121,7 +125,9 @@ def test_dataset_qualified_name_matches_the_dataset_of_the_checks():
     identifier, so the qualified name must be the checks' dataset spelled out."""
     result = _make_result(
         dataset_qualified_name="test_ds/db/schema/CUSTOMERS",
-        dataset_columns=[ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"))],
+        dataset_columns=[
+            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"), source_data_type="varchar")
+        ],
     )
     payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
 
@@ -130,27 +136,34 @@ def test_dataset_qualified_name_matches_the_dataset_of_the_checks():
     assert payload["metadata"][0]["datasetQualifiedName"] == checks_dataset == "test_ds/db/schema/CUSTOMERS"
 
 
-def test_source_data_type_drops_the_type_parameters():
-    """Cloud stores the bare type name: ``numeric(10,2)`` goes out as ``numeric``."""
+def test_source_data_type_is_sent_as_the_metadata_spells_it():
     result = _make_result(
         dataset_columns=[
+            ColumnMetadata(column_name="code", sql_data_type=SqlDataType(name="character"), source_data_type="bpchar"),
+            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="bigint"), source_data_type="BIGINT"),
             ColumnMetadata(
-                column_name="score", sql_data_type=SqlDataType(name="NUMERIC", numeric_precision=10, numeric_scale=2)
+                column_name="score",
+                sql_data_type=SqlDataType(name="decimal", numeric_precision=10, numeric_scale=0),
+                source_data_type="decimal(10,0)",
             ),
         ]
     )
     payload = _build_check_collection_results_json_dict([result], wire_source="soda-contract")
-    assert payload["metadata"][0]["schema"] == [{"columnName": "score", "sourceDataType": "numeric"}]
+    assert payload["metadata"][0]["schema"] == [
+        {"columnName": "code", "sourceDataType": "bpchar"},
+        {"columnName": "id", "sourceDataType": "BIGINT"},
+        {"columnName": "score", "sourceDataType": "decimal(10,0)"},
+    ]
 
 
-def test_column_without_a_data_type_is_sent_by_name_only_and_logged_as_an_error(caplog):
+def test_column_without_a_source_data_type_is_sent_by_name_only_and_logged_as_an_error(caplog):
     """Cloud marks any column missing from ``schema`` as deleted, whereas a missing
     ``sourceDataType`` leaves the stored type alone, so the column goes out by name. No data
-    source produces a typeless column, so the error line makes the broken invariant visible."""
+    source leaves the source data type out, so the error line makes the broken invariant visible."""
     result = _make_result(
         dataset_columns=[
-            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar")),
-            ColumnMetadata(column_name="mystery", sql_data_type=None),
+            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"), source_data_type="varchar"),
+            ColumnMetadata(column_name="mystery", sql_data_type=SqlDataType(name="varchar")),
         ]
     )
     with caplog.at_level(logging.ERROR, logger="soda"):
@@ -172,12 +185,18 @@ def test_one_metadata_entry_per_dataset_in_a_batch():
     results = [
         _make_result(
             dataset_qualified_name="test_ds/s/a",
-            dataset_columns=[ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"))],
+            dataset_columns=[
+                ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"), source_data_type="varchar")
+            ],
         ),
         _make_result(dataset_qualified_name="test_ds/s/b"),
         _make_result(
             dataset_qualified_name="test_ds/s/c",
-            dataset_columns=[ColumnMetadata(column_name="code", sql_data_type=SqlDataType(name="integer"))],
+            dataset_columns=[
+                ColumnMetadata(
+                    column_name="code", sql_data_type=SqlDataType(name="integer"), source_data_type="integer"
+                )
+            ],
         ),
     ]
     payload = _build_check_collection_results_json_dict(results, wire_source="data-standard")
@@ -189,11 +208,17 @@ def test_repeated_dataset_in_a_batch_is_deduplicated():
     results = [
         _make_result(
             dataset_qualified_name="test_ds/s/a",
-            dataset_columns=[ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"))],
+            dataset_columns=[
+                ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"), source_data_type="varchar")
+            ],
         ),
         _make_result(
             dataset_qualified_name="test_ds/s/a",
-            dataset_columns=[ColumnMetadata(column_name="other", sql_data_type=SqlDataType(name="integer"))],
+            dataset_columns=[
+                ColumnMetadata(
+                    column_name="other", sql_data_type=SqlDataType(name="integer"), source_data_type="integer"
+                )
+            ],
         ),
     ]
     payload = _build_check_collection_results_json_dict(results, wire_source="data-standard")
@@ -205,12 +230,12 @@ def test_repeated_dataset_in_a_batch_is_deduplicated():
     ]
 
 
-def test_column_with_an_empty_data_type_name_is_sent_by_name_only_and_logged_as_an_error(caplog):
-    """A type name that is blank rather than absent is treated the same way."""
+def test_column_with_an_empty_source_data_type_is_sent_by_name_only_and_logged_as_an_error(caplog):
+    """A source data type that is blank rather than absent is treated the same way."""
     result = _make_result(
         dataset_columns=[
-            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar")),
-            ColumnMetadata(column_name="blank", sql_data_type=SqlDataType(name="")),
+            ColumnMetadata(column_name="id", sql_data_type=SqlDataType(name="varchar"), source_data_type="varchar"),
+            ColumnMetadata(column_name="blank", sql_data_type=SqlDataType(name="varchar"), source_data_type=""),
         ]
     )
     with caplog.at_level(logging.ERROR, logger="soda"):
