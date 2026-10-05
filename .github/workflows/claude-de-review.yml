@@ -1,0 +1,207 @@
+---
+name: Claude DE Review
+
+# Engine review pass for soda-core. Applies the de-review skill
+# (.claude/skills/de-review/SKILL.md) — the invariants, per-change-type checks and
+# agent failure shapes distilled from this repo's review history.
+#
+# Advisory: it does NOT gate merge. Same shape as sodadata/soda's claude-be-review.yml.
+#
+# THIS REPOSITORY IS PUBLIC. Two consequences:
+#
+#  1. The review output is world-visible. The skill carries explicit rules against
+#     naming private repositories, internal packages, customers or internal ticket
+#     IDs. Keep those rules when editing it.
+#
+#  2. Roughly half of the pull requests here come from forks, and GitHub does not
+#     expose secrets to `pull_request` runs from a fork, so the label path is
+#     skipped for fork PRs (it would only fail red on the auth step). The
+#     `@claude-de` comment trigger is the path that works for fork PRs, because
+#     `issue_comment` runs in the base repo with secrets available. That comment
+#     is a deliberate maintainer action on untrusted code: this job only reads
+#     the diff and never executes repository code, and it must stay that way.
+#     Do not add a build, install or test step, and keep the tool allow-list
+#     below free of package and test commands. The git commands on it only read
+#     history (log, diff, show, blame, merge-base); never add one that writes,
+#     fetches or checks out.
+
+on:
+  pull_request:
+    # Works for branches on this repo. For fork PRs use the @claude-de comment.
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  de-review:
+    # Comment "@claude-de" on the PR to run it. Restricted to org members so an
+    # outside contributor cannot trigger a secret-bearing run on their own code.
+    if: |
+      (github.event_name == 'pull_request' && github.event.label.name == 'agent-review' &&
+       github.event.pull_request.head.repo.fork == false) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '@claude-de') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+
+    runs-on: ubuntu-latest
+    # A full fan-out review takes 10–30 minutes. Without a limit, a stuck run keeps
+    # billing the shared Claude seat for GitHub's 6-hour default.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Enough history for `git log`, `git blame` and `git diff main...HEAD`, which
+          # all fail at depth 1. A PR that branches further back still has `gh pr diff`.
+          fetch-depth: 50
+          # This job never pushes; don't leave GITHUB_TOKEN in git config for a
+          # third-party action to read.
+          persist-credentials: false
+
+      - name: Record the review start time
+        id: start
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Run DE review
+        id: de-review
+        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231 (Claude Code 2.1.278)
+        # Subagents run in the background by default. The action stops at the first
+        # result message, so a run whose main agent ends its turn to wait for them
+        # finishes "success" before any review is written. Forcing them into the
+        # foreground keeps the whole fan-out inside that first turn.
+        env:
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Review this pull request following the de-review skill
+            (.claude/skills/de-review/SKILL.md). Read that file first, then apply
+            it: its lenses and passes, its invariants, its finding format, and its
+            output format.
+
+            This repository is PUBLIC and your review is world-visible. Obey the
+            "Public repositories" section of the skill without exception: no
+            private repository or package names, no customers, no internal ticket
+            IDs, and no findings that depend on code outside this repository. Pass
+            this paragraph to every subagent too.
+
+            CI constraints:
+            - You can read the checkout and the PR; you cannot build, install, or
+              run anything. Every changed path you could not exercise is a gap:
+              list it under "what I did not check".
+            - A human decides the verdict. Phrase yours as a suggested verdict and
+              submit the review with event COMMENT, never APPROVE or
+              REQUEST_CHANGES.
+
+            CI environment. Subagents do not see this prompt, so copy this block word
+            for word into the task of every subagent you dispatch:
+            - Explore the code with the Read, Grep and Glob tools. Shell commands such
+              as cd, ls, find, cat, sed and python are refused.
+            - Bash runs only the read-only gh and git commands, plus head, tail, wc and
+              jq to filter their output. Anything else is refused, and so is
+              redirecting output to a file.
+            - There is no Python environment: no uv, pip, pytest or python. Judge a
+              dependency change from the pyproject files and uv.lock, and list any
+              test you would have run under "what I did not check".
+            - There is no warehouse access. A finding that depends on how a warehouse
+              behaves cites vendor docs or the code, or goes under "what I did not
+              check".
+
+            Fan out, then verify, then submit:
+            1. Classify the change by nature and by area as the skill says. Dispatch
+               one subagent per area pass that applies — at most 4 at once. Give each
+               the PR number and its pass, and tell it to open the changed files in
+               full and follow the code they call into; the evidence that something
+               is wrong usually sits in a file the diff never touched.
+            2. Dispatch a verification subagent per candidate finding, whose job is to
+               DISPROVE it by reading the code. Drop everything it cannot confirm.
+               Three findings that are all real beat ten a human has to triage.
+            3. Compose the single review yourself from what survives.
+            The subagents cost tokens against a shared Claude seat, so keep the fan-out
+            proportional: a two-line config change does not need four reviewers.
+
+            Submit findings the way a human reviewer does: ONE pull-request review
+            with inline comments, never an issue comment.
+            1. Read earlier reviews first:
+               `gh api repos/${{ github.repository }}/pulls/<PR>/reviews` and
+               `gh api repos/${{ github.repository }}/pulls/<PR>/comments`. Do not
+               re-raise a finding that already has a thread, resolved or not; say
+               in the review body which earlier findings now look resolved.
+            2. `gh pr diff <PR>` and `gh pr view <PR>` for the diff and the
+               description. Findings are about the diff, not about pre-existing code.
+            3. Anchor each finding as an inline comment on the changed line it is
+               about (`path` + `line` from the diff, `side` "RIGHT"). Findings that
+               do not anchor to a diff line go in the review body. Keep each comment
+               to the claim, the evidence and the fix; no preamble, no restating the
+               code.
+            4. The review body follows the skill's output format: it starts with
+               `## DE review`, then the suggested verdict, the earlier findings
+               that now look resolved, the blocking findings that could not be
+               anchored, and "what I did not check". Keep it short. Findings only;
+               do not list what the PR does well.
+            5. Write the payload to a JSON file and submit everything as one
+               review:
+               `gh api repos/${{ github.repository }}/pulls/<PR>/reviews --input review.json`
+               with shape
+               `{"event": "COMMENT", "body": "...", "comments": [{"path": "...", "line": N, "side": "RIGHT", "body": "..."}]}`.
+               If the API rejects the payload because a comment fails to anchor
+               (HTTP 422), move that finding into the body and submit again.
+            If the diff is clean, submit the review with a one-line body and no
+            inline comments.
+
+          # Read/Glob/Grep read the checkout (SKILL.md is not in `gh pr diff` on PRs
+          # that don't touch it), Write composes the review JSON payload, `gh api`
+          # submits it. Agent/Task is the subagent tool; both names are listed
+          # because it was renamed across Claude Code versions. head, tail, wc and jq
+          # let a gh or git command be piped through a filter: every part of a
+          # pipeline has to be on this list, or the call is refused. Nothing here
+          # executes repository code.
+          # gh search is left out on purpose: its results can include private
+          # repositories, and anything a subagent finds can end up in a public review.
+          # The model is pinned rather than left to the action's default, which was a
+          # generation behind and made sodadata/soda's reviews shallow. Move it to
+          # claude-opus-5-5 together with the action pin once a tagged release ships
+          # Claude Code 2.1.280 or later; 2.1.278 rejects that id. Effort is explicit
+          # so review depth does not move when a CLI default changes.
+          claude_args: '--model claude-opus-5 --effort high --allowed-tools "Agent,Task,Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr checks:*),Bash(gh run view:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git merge-base:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(jq:*)"'
+
+      # The action prints only a few fields of the result event. The file it writes
+      # holds every message, including the error text that says why a run stopped.
+      - name: Upload the Claude execution log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: claude-de-review-execution-log
+          path: ${{ runner.temp }}/claude-execution-output.json
+          retention-days: 7
+          if-no-files-found: warn
+
+      # A run that posts no review looks like a clean PR, and the step's conclusion
+      # does not catch it: a run can end "success" without ever submitting.
+      - name: Fail the job if no review was posted
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+          STARTED: ${{ steps.start.outputs.at }}
+          CONCLUSION: ${{ steps.de-review.outputs.conclusion }}
+        run: |
+          posted=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --paginate \
+            --jq ".[] | select(.submitted_at >= \"$STARTED\" and (.body | startswith(\"## DE review\"))) | .id" | wc -l)
+          if [ "$posted" -gt 0 ]; then
+            exit 0
+          fi
+          echo "::error::No DE review was posted (conclusion=${CONCLUSION})."
+          echo "Download the claude-de-review-execution-log artifact from this run and read the last messages to see why the run stopped."
+          echo "total_cost_usd 0 with an empty modelUsage means no request was ever billed — a rejected model id or bad credentials, not throttling."
+          echo "A nonzero cost with a partial run points at the Claude subscription seat that CLAUDE_CODE_OAUTH_TOKEN bills hitting its rate limit."
+          exit 1

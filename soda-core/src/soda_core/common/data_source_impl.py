@@ -369,8 +369,8 @@ class DataSourceImpl(ABC):
 
     def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
         """Builds the table namespace for column metadata queries. Override for custom namespace logic."""
-        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
-        database_name: Optional[str] = self.extract_database_from_prefix(prefixes)
+        schema_name: Optional[str] = self.sql_dialect.extract_schema_from_prefix(prefixes)
+        database_name: Optional[str] = self.sql_dialect.extract_database_from_prefix(prefixes)
         return (
             SchemaDataSourceNamespace(schema=schema_name)
             if database_name is None
@@ -472,27 +472,13 @@ class DataSourceImpl(ABC):
             columns_by_table[table_name] = self.get_columns_metadata(dataset_prefixes=prefixes, dataset_name=table_name)
         return columns_by_table
 
-    def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
-        if schema_index is None:
-            return None
-        schema_name: str = prefixes[schema_index] if schema_index < len(prefixes) else None
-        return schema_name
-
-    def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        database_index: int | None = self.sql_dialect.get_database_prefix_index()
-        if database_index is None:
-            return None
-        database_name: str = prefixes[database_index] if database_index < len(prefixes) else None
-        return database_name
-
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         """
         Builds the table namespace for the schema query.
         Returns the table namespace and the schema name.
         """
-        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
-        database_name: str | None = self.extract_database_from_prefix(prefixes)
+        schema_name: Optional[str] = self.sql_dialect.extract_schema_from_prefix(prefixes)
+        database_name: str | None = self.sql_dialect.extract_database_from_prefix(prefixes)
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
 
@@ -536,8 +522,8 @@ class DataSourceImpl(ABC):
 
     def _get_fully_qualified_table_names(self, prefixes: list[str], table_name: str) -> list[FullyQualifiedObjectName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
-        database_name = self.extract_database_from_prefix(prefixes)
-        schema_name = self.extract_schema_from_prefix(prefixes)
+        database_name = self.sql_dialect.extract_database_from_prefix(prefixes)
+        schema_name = self.sql_dialect.extract_schema_from_prefix(prefixes)
 
         fully_qualified_object_names: list[FullyQualifiedObjectName] = metadata_tables_query.execute(
             database_name=database_name,
@@ -554,8 +540,8 @@ class DataSourceImpl(ABC):
         exclude_table_name_like_filters: Optional[list[str]] = None,
     ) -> list[FullyQualifiedObjectName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
-        database_name = self.extract_database_from_prefix(prefixes)
-        schema_name = self.extract_schema_from_prefix(prefixes)
+        database_name = self.sql_dialect.extract_database_from_prefix(prefixes)
+        schema_name = self.sql_dialect.extract_schema_from_prefix(prefixes)
 
         fully_qualified_object_names: list[FullyQualifiedObjectName] = metadata_tables_query.execute(
             database_name=database_name,

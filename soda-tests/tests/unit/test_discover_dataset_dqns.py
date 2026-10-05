@@ -1,3 +1,4 @@
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.table_types import (
     FullyQualifiedMaterializedViewName,
     FullyQualifiedTableName,
@@ -8,6 +9,8 @@ from soda_core.discovery.discovery import discover_dataset_dqns
 
 
 class _FakeDialect:
+    schema_name_to_dataset_prefixes = SqlDialect.schema_name_to_dataset_prefixes
+
     def get_database_prefix_index(self):
         return 0
 

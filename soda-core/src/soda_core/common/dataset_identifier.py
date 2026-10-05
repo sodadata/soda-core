@@ -48,6 +48,7 @@ class DatasetIdentifier:
         A prefix component is included only when the dialect has that tier
         (prefix-index hook not None) and the object carries a value;
         database precedes schema, as in extract_database_from_prefix.
+        The dialect decides how many segments the schema name spans.
         """
         prefixes: list[str] = []
         if (
@@ -56,7 +57,7 @@ class DatasetIdentifier:
         ):
             prefixes.append(fully_qualified_object_name.database_name)
         if sql_dialect.get_schema_prefix_index() is not None and fully_qualified_object_name.schema_name is not None:
-            prefixes.append(fully_qualified_object_name.schema_name)
+            prefixes.extend(sql_dialect.schema_name_to_dataset_prefixes(fully_qualified_object_name.schema_name))
         return cls(
             data_source_name=data_source_name,
             prefixes=prefixes,

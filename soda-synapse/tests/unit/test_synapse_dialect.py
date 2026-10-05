@@ -272,3 +272,7 @@ def test_pagination_statements_declares_no_trailing_clause():
     (soda-reconciliation's ${soda.PAGINATION} marker) reads as "cannot serve"."""
     assert SynapseSqlDialect().pagination_statements(limit=100, offset=200) is None
     assert SynapseSqlDialect().pagination_clause_sql(order_by=["id"], limit=100, offset=200) is None
+
+
+def test_get_large_numeric_cast_type_name_is_inherited_float():
+    assert SynapseSqlDialect().get_large_numeric_cast_type_name() == "float"

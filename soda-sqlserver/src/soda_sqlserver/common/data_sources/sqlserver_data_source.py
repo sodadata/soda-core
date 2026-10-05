@@ -117,6 +117,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         # information_schema constraint views, with the standard PRIMARY KEY (...) DDL.
         return True
 
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """CAST aggregate args to float: T-SQL's AVG over an integer column returns an
+        integer, dropping the fraction."""
+        return "float"
+
     def _build_stddev_samp_sql(self, stddev_samp) -> str:
         # T-SQL names the sample standard deviation aggregate STDEV.
         return f"STDEV({self.build_expression_sql(stddev_samp.expression)})"

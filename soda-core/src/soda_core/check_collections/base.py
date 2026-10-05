@@ -1363,7 +1363,9 @@ class CheckCollectionImpl:
                 {header_overrides.get(key, key): value for key, value in row.items()} for row in overview_table_data
             ]
 
-        return tabulate(overview_table_data, headers="keys", tablefmt="grid")
+        # Every cell is text. Without disable_numparse, tabulate reformats a cell that reads as a number, so an
+        # identity like '941935e8' would print as 9.41935e+13.
+        return tabulate(overview_table_data, headers="keys", tablefmt="grid", disable_numparse=True)
 
     @classmethod
     def _verify_duplicate_identities(cls, all_check_impls: list):

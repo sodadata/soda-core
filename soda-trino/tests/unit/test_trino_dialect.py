@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import pytest
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_trino.common.data_sources.trino_data_source import TrinoSqlDialect
 
@@ -74,3 +76,20 @@ def test_percentile_within_group_renders_approx_percentile():
 
 def test_supports_percentile_within_group_is_true():
     assert TrinoSqlDialect().supports_percentile_within_group() is True
+
+
+@pytest.mark.parametrize(
+    "raw_type, expected_name",
+    [
+        ("char(100)", "char"),
+        ("decimal(10,2)", "decimal"),
+        ("timestamp(3) with time zone", "timestamp with time zone"),
+    ],
+)
+def test_column_metadata_keeps_the_raw_type_as_source_data_type(raw_type, expected_name):
+    column = TrinoSqlDialect().build_column_metadatas_from_query_result(
+        QueryResult(rows=[("c", raw_type)], columns=[("column_name",), ("data_type",)])
+    )[0]
+
+    assert column.sql_data_type.name == expected_name
+    assert column.source_data_type == raw_type

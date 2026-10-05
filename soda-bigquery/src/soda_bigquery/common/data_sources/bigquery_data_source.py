@@ -193,7 +193,7 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             project_id=prefixes[0],
             dataset=None,  # Schema existence queries need project-level INFORMATION_SCHEMA
         )
-        schema_name = self.extract_schema_from_prefix(prefixes)
+        schema_name = self.sql_dialect.extract_schema_from_prefix(prefixes)
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
 

@@ -1905,6 +1905,30 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
+    def schema_name_to_dataset_prefixes(self, schema_name: str) -> list[str]:
+        """The DQN prefix segments for a schema name as the metadata queries report it.
+
+        One segment by default. A data source whose metadata reports a nested path as one
+        string (e.g. Dremio's dotted folder path) splits it, so that each level of the
+        hierarchy becomes its own DQN segment.
+
+        A DQN that discovery builds with this must resolve back to the same schema through extract_schema_from_prefix,
+        so a dialect that changes how the schema is split also changes how it is read back.
+        """
+        return [schema_name]
+
+    def extract_database_from_prefix(self, prefixes: list[str]) -> str | None:
+        database_index: int | None = self.get_database_prefix_index()
+        if database_index is None:
+            return None
+        return prefixes[database_index] if database_index < len(prefixes) else None
+
+    def extract_schema_from_prefix(self, prefixes: list[str]) -> str | None:
+        schema_index: int | None = self.get_schema_prefix_index()
+        if schema_index is None:
+            return None
+        return prefixes[schema_index] if schema_index < len(prefixes) else None
+
     def is_system_schema(self, schema_name: str) -> bool:
         """Check if the schema is a data source internal/system schema.
 
@@ -2182,6 +2206,9 @@ class SqlDialect:
     def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
         return row[1]
 
+    def extract_source_data_type(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+        return row[1]
+
     def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         """Extract character maximum length from column metadata.  Typically this is just the value of a specific column."""
         data_type_name: str = self.extract_data_type_name(row, columns)
@@ -2245,6 +2272,7 @@ class SqlDialect:
                         numeric_scale=numeric_scale,
                         datetime_precision=datetime_precision,
                     ),
+                    source_data_type=self.extract_source_data_type(row, query_result.columns),
                 )
             )
         return column_metadatas
