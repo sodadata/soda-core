@@ -305,7 +305,6 @@ def test_a_failing_activation_logs_an_error():
     assert "Error activating scopes with extension _FailingExtension: boom" in logs.get_errors()
 
 
-
 def _nudge_lines(logs: Logs) -> list[str]:
     return [line for line in logs.get_logs() if "needs a Soda extension that runs scopes" in line]
 
@@ -347,6 +346,7 @@ def test_an_extension_that_does_not_run_scopes_keeps_the_nudge():
     assert _nudge_lines(logs) == [
         "Excluded 4 checks whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
     ]
+
 
 SAMPLING_YAML: str = """
     dataset: fx/main/orders
