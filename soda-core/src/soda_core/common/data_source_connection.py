@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
+from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -287,7 +288,13 @@ class DataSourceConnection(ABC):
                 logger.debug(f"'{self.name}' connection properties: {self.connection_properties}")
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
+                # Do NOT swallow the connect failure: leaving self.connection as None here surfaces later as
+                # an inscrutable ``AttributeError: 'NoneType' object has no attribute 'cursor'`` in
+                # execute_query, hiding the real reason (bad credentials, unreachable host, dropped role,
+                # statement timeout, ...). Raise a typed error that carries the cause, so callers see why the
+                # connection could not be opened. Mirrors DataSourceImpl.open_connection, which already raises.
                 logger.error(msg=f"Could not connect to '{self.name}': {e}", exc_info=True)
+                raise DataSourceConnectionException(f"Could not connect to '{self.name}': {e}") from e
 
     def close_connection(self) -> None:
         """
