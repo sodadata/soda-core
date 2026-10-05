@@ -192,3 +192,32 @@ def test_postgres_schema_pass_materialized_view(data_source_test_helper: DataSou
                 data_type: time without time zone
         """,
     )
+
+
+def test_postgres_source_data_types_are_spelled_by_format_type(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    columns = data_source_test_helper.data_source_impl.get_columns_metadata(
+        dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
+    )
+
+    assert {column.column_name: column.source_data_type for column in columns} == {
+        "id": "character varying",
+        "size": "character varying",
+        "created": "character varying",
+        "destroyed": "character varying",
+        "bigint": "bigint",
+        "char_4": "character(4)",
+        "char_8": "character(8)",
+        "smallint": "smallint",
+        "integer": "integer",
+        "flag": "boolean",
+        "decimal_10_2": "numeric(10,2)",
+        "numeric_15_5": "numeric(15,5)",
+        "float": "double precision",
+        "double": "double precision",
+        "ts": "timestamp without time zone",
+        "ts_tz": "timestamp with time zone",
+        "date": "date",
+        "time": "time without time zone",
+    }

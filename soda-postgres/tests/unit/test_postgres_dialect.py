@@ -1,5 +1,7 @@
 import pytest
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.metadata_types import SchemaDataSourceNamespace
 from soda_core.common.sql_ast import EQ, LIMIT, LITERAL, OFFSET, WHERE
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
@@ -222,3 +224,34 @@ def test_a_clause_only_element_list_gets_no_table_on_a_declaring_dialect():
     elements = sql_dialect.pagination_statements(limit=100, offset=200)
 
     assert sql_dialect.build_select_sql(elements, add_semicolon=False) == "LIMIT 100\nOFFSET 200"
+
+
+def test_columns_metadata_query_selects_the_type_as_format_type_spells_it():
+    sql = PostgresSqlDialect().build_columns_metadata_query_str(
+        SchemaDataSourceNamespace(schema="public"), table_name="orders"
+    )
+
+    assert 'pg_catalog.format_type(a.atttypid, a.atttypmod) AS "source_data_type"' in sql
+
+
+def test_column_metadata_takes_source_data_type_from_its_own_column():
+    columns = [
+        ("column_name",),
+        ("data_type",),
+        ("character_maximum_length",),
+        ("numeric_precision",),
+        ("numeric_scale",),
+        ("datetime_precision",),
+        ("table_catalog",),
+        ("table_schema",),
+        ("table_name",),
+        ("table_type",),
+        ("source_data_type",),
+    ]
+    row = ("code", "character", 1, None, None, None, "db", "public", "orders", "BASE TABLE", "character(1)")
+
+    column = PostgresSqlDialect().build_column_metadatas_from_query_result(QueryResult(rows=[row], columns=columns))[0]
+
+    assert column.sql_data_type.name == "character"
+    assert column.sql_data_type.character_maximum_length == 1
+    assert column.source_data_type == "character(1)"

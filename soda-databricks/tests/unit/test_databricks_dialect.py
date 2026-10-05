@@ -1,6 +1,7 @@
 from datetime import date
 
 import pytest
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import CREATE_TABLE_AS_SELECT, CREATE_TABLE_COLUMN, CREATE_TABLE_IF_NOT_EXISTS
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
@@ -238,3 +239,15 @@ def test_create_table_as_select_enables_delta_column_mapping():
         "SELECT *\n"
         "FROM `customers`);"
     )
+
+
+def test_column_metadata_keeps_the_described_type_as_source_data_type():
+    column = DatabricksSqlDialect().build_column_metadatas_from_query_result(
+        QueryResult(
+            rows=[("amount", "decimal(10,0)", None)],
+            columns=[("col_name",), ("data_type",), ("comment",)],
+        )
+    )[0]
+
+    assert column.sql_data_type.name == "decimal"
+    assert column.source_data_type == "decimal(10,0)"

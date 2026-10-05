@@ -1,4 +1,6 @@
+import pytest
 from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect, _collapse_athena_prefixes
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR
 
 
@@ -226,3 +228,16 @@ def test_lenient_timestamp_converter_accepts_both_precisions():
     assert convert("2026-07-04 00:00:00.123000") == datetime(2026, 7, 4, 0, 0, 0, 123000)
     assert convert("2026-07-04 00:00:00") == datetime(2026, 7, 4)
     assert convert(None) is None
+
+
+@pytest.mark.parametrize(
+    "raw_type, expected_name",
+    [("char(1)", "char"), ("decimal(10,0)", "decimal"), ("timestamp(3)", "timestamp")],
+)
+def test_column_metadata_keeps_the_raw_type_as_source_data_type(raw_type, expected_name):
+    column = AthenaSqlDialect().build_column_metadatas_from_query_result(
+        QueryResult(rows=[("c", raw_type)], columns=[("column_name",), ("data_type",)])
+    )[0]
+
+    assert column.sql_data_type.name == expected_name
+    assert column.source_data_type == raw_type
