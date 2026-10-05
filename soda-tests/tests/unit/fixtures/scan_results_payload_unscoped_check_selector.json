@@ -698,7 +698,7 @@
     },
     {
       "level": "debug",
-      "message": "SQL query result (max 20 rows, 256 chars per string):\n|   m_0 |\n|-------|\n|     5 |",
+      "message": "SQL query result (max 20 rows, 256 chars per string):\n| m_0   |\n|-------|\n| 5     |",
       "timestamp": "<masked>",
       "index": 4,
       "thread": "soda-contract"
