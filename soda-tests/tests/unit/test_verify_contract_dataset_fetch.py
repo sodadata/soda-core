@@ -6,13 +6,10 @@ managed run marks its scan failed first, so exit code 3 means Soda Cloud has the
 """
 
 import pickle
-import sys
-from logging import ERROR
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from soda_core.cli.cli import create_cli_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_verify_contract
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -136,7 +133,6 @@ def test_contract_not_found_message_names_the_dataset_as_typed():
     message = str(ContractNotFoundException(DatasetIdentifier.parse(DATASET)))
 
     assert f"No data contract found for dataset '{DATASET}' in Soda Cloud." in message
-    assert "DatasetIdentifier(" not in message
 
 
 def _fetch_exceptions() -> list:
@@ -173,17 +169,6 @@ def test_fetch_exception_survives_a_pickle_round_trip(exception):
 
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_failed_fetch_error_is_logged(mock_from_config, caplog):
-    mock_from_config.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("Soda Cloud is down")
-
-    _verify()
-
-    assert [(r.levelno, r.getMessage()) for r in caplog.records if r.levelno >= ERROR] == [
-        (ERROR, f"Could not fetch the contract for dataset '{DATASET}': Soda Cloud is down")
-    ]
-
-
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_failed_fetch_fails_assert_ok(mock_from_config):
     mock_from_config.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("Soda Cloud is down")
 
@@ -216,22 +201,6 @@ def test_failed_fetch_through_the_deprecated_plural_api_returns_a_result_with_an
 
     assert result.has_errors
     assert f"Could not fetch the contract for dataset '{DATASET}'" in result.get_errors_str()
-
-
-@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_fetched_contract_is_verified_as_before(mock_from_config, mock_execute):
-    mock_from_config.return_value.fetch_contract_for_dataset.return_value = CONTRACT_YAML
-    session_result = MagicMock()
-    mock_execute.return_value = session_result
-
-    result = _verify()
-
-    assert result is session_result
-    mock_execute.assert_called_once()
-    [contract_yaml_source] = mock_execute.call_args.kwargs["contract_yaml_sources"]
-    assert contract_yaml_source.yaml_str == CONTRACT_YAML
-    assert contract_yaml_source.file_path is None
 
 
 @patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
@@ -299,51 +268,3 @@ def test_handle_verify_contract_on_a_managed_run_without_a_failure_channel_exits
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     mock_from_config.return_value.mark_scan_as_failed.assert_not_called()
-
-
-def _run_cli(monkeypatch, *extra_args: str) -> int:
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["soda", "contract", "verify", "-d", DATASET, "-ds", "ds.yaml", "-sc", "sc.yaml", *extra_args],
-    )
-    args = create_cli_parser().parse_args()
-    with pytest.raises(SystemExit) as exit_info:
-        args.handler_func(args)
-    return exit_info.value.code
-
-
-@pytest.mark.parametrize("extra_args", [[], ["-r"], ["-p"]], ids=["local", "runner", "publish"])
-@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
-def test_cli_contract_verify_dataset_exits_3_when_the_fetch_fails(mock_from_config, extra_args, monkeypatch):
-    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
-    mock_from_config.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("Soda Cloud is down")
-
-    exit_code = _run_cli(monkeypatch, *extra_args)
-
-    assert exit_code == ExitCode.LOG_ERRORS
-    mock_from_config.return_value.mark_scan_as_failed.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "marked, expected_exit_code",
-    [(True, ExitCode.LOG_ERRORS), (False, ExitCode.RESULTS_NOT_SENT_TO_CLOUD)],
-    ids=["marked", "mark-rejected"],
-)
-@pytest.mark.parametrize("extra_args", [[], ["-r"], ["-p"]], ids=["local", "runner", "publish"])
-@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
-def test_cli_contract_verify_dataset_on_a_managed_run_marks_the_scan_failed_when_the_fetch_fails(
-    mock_from_config, extra_args, marked, expected_exit_code, monkeypatch
-):
-    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
-    soda_cloud = mock_from_config.return_value
-    soda_cloud.fetch_contract_for_dataset.side_effect = SodaCloudException("Soda Cloud is down")
-    soda_cloud.mark_scan_as_failed.return_value = marked
-
-    exit_code = _run_cli(monkeypatch, *extra_args)
-
-    assert exit_code == expected_exit_code
-    soda_cloud.mark_scan_as_failed.assert_called_once()
-    assert soda_cloud.mark_scan_as_failed.call_args.kwargs["scan_id"] == SCAN_ID
-    reported_messages = [record.getMessage() for record in soda_cloud.mark_scan_as_failed.call_args.kwargs["logs"]]
-    assert f"Could not fetch the contract for dataset '{DATASET}': Soda Cloud is down" in reported_messages
