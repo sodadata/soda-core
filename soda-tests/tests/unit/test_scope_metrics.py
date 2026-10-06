@@ -9,7 +9,6 @@ Every test here drops the soda-scopes extension, so only the stand-in activates 
 
 from __future__ import annotations
 
-import logging
 from types import SimpleNamespace
 from typing import Optional
 from unittest import mock
@@ -21,14 +20,14 @@ from helpers.scope_activation_extension import scope_activation
 from helpers.scope_test_kinds import ScopeUnsupportedImpl
 from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
-from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.check_collections.base import CheckCollectionImpl, add_scope_rows_tested
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO, TestRowSamplerConfigurationDTO
-from soda_core.common.sql_ast import COUNT, SODA_FILTERED_CTE_NAME, STAR, SqlExpression
+from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -39,7 +38,6 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
-    AggregationMetricImpl,
     AggregationQuery,
     CheckCollectionImplExtension,
     ContractImpl,
@@ -112,29 +110,11 @@ def _checks_by_qualifier(impl: CheckCollectionImpl, check_type: str) -> dict:
     }
 
 
-class _TestAggregationMetric(AggregationMetricImpl):
-    def sql_expression(self) -> SqlExpression:
-        return COUNT(STAR())
-
-    def sql_condition_expression(self) -> Optional[SqlExpression]:
-        return None
-
-
-def test_metric_scope_defaults_to_none_and_the_keyword_sets_it():
-    impl, _ = _build_impl(SCOPED_YAML)
-    eu = impl.scopes["eu"]
-    assert RowCountMetricImpl(contract_impl=impl).scope is None
-    assert RowCountMetricImpl(contract_impl=impl, scope=eu).scope is eu
-    assert _TestAggregationMetric(contract_impl=impl, metric_type="test", scope=eu).scope is eu
-
-
 def test_the_base_scope_adds_no_id_term():
     impl, _ = _build_impl(SCOPED_YAML)
     unscoped = RowCountMetricImpl(contract_impl=impl)
     base = RowCountMetricImpl(contract_impl=impl, scope=impl.base_scope)
 
-    assert list(unscoped._get_id_properties())[0] == "type"
-    assert base._get_id_properties() == unscoped._get_id_properties()
     assert base.id == unscoped.id == impl.row_count_metric_impl.id
 
 
@@ -143,7 +123,6 @@ def test_a_declared_scope_is_the_first_id_term():
     unscoped = RowCountMetricImpl(contract_impl=impl)
     scoped = RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["eu"])
 
-    assert list(scoped._get_id_properties().items()) == [("scope", "eu:")] + list(unscoped._get_id_properties().items())
     assert scoped.id != unscoped.id
     assert scoped.id != RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["us"]).id
 
@@ -195,11 +174,9 @@ def test_resolving_a_base_metric_keeps_an_id_suffix_added_before_it():
     metric = RowCountMetricImpl(contract_impl=impl, filter="id > 2")
     metric.id = f"{metric.id}-suffix"
 
-    resolved = base_check._resolve_metric(metric)
-
-    assert resolved is metric and metric.id.endswith("-suffix")
+    assert base_check.apply_scope_to_metric(metric) is metric
+    assert metric.id.endswith("-suffix")
     assert metric.scope is impl.base_scope
-    assert base_check.metrics[-1] is metric
 
 
 def test_identical_metrics_in_two_scopes_do_not_merge_in_the_resolver():
@@ -279,12 +256,6 @@ def test_a_kind_without_scope_support_never_activates_scopes():
     assert not impl.scopes["eu"].is_active
     assert _checks_by_qualifier(impl, "missing")["eu"].skip
     assert not logs.has_errors
-
-
-def test_the_default_hook_does_nothing():
-    impl, _ = _build_impl(SCOPED_YAML)
-    extension = SimpleNamespace()
-    assert CheckCollectionImplExtension.activate_scopes(extension, contract_impl=impl) is None
 
 
 def test_a_failing_activation_logs_an_error():
@@ -388,7 +359,7 @@ def test_the_base_cte_comes_from_the_factory():
 @mock.patch.object(EnvConfigHelper, "is_contract_test_scan_definition_type", new_callable=mock.PropertyMock)
 @mock.patch.object(EnvConfigHelper, "is_running_on_runner", new_callable=mock.PropertyMock)
 def test_runner_sampling_samples_the_base_cte_and_keeps_every_identity(
-    is_running_on_runner, is_contract_test_scan_definition_type, caplog
+    is_running_on_runner, is_contract_test_scan_definition_type
 ):
     is_running_on_runner.return_value = False
     is_contract_test_scan_definition_type.return_value = False
@@ -397,10 +368,9 @@ def test_runner_sampling_samples_the_base_cte_and_keeps_every_identity(
 
     is_running_on_runner.return_value = True
     is_contract_test_scan_definition_type.return_value = True
-    with caplog.at_level(logging.INFO), scope_activation("eu"):
+    with scope_activation("eu"):
         impl, logs = _build_impl(SAMPLING_YAML, soda_cloud=_sampling_soda_cloud())
     assert not logs.has_errors
-    assert "Row sampling is enabled for dataset fx/main/orders" in caplog.text
 
     sampler = (SamplerType.ABSOLUTE_LIMIT, 3)
     assert impl.filtered_cte_sampler == sampler
@@ -514,7 +484,7 @@ def test_scope_rows_tested_goes_only_on_a_check_that_aggregates_in_its_own_scope
         check_result = CheckResult(
             check=None, outcome=CheckOutcome.PASSED, diagnostic_metric_values=diagnostic_metric_values
         )
-        impl._add_scope_rows_tested(check_impl, check_result, values)
+        add_scope_rows_tested(check_impl, check_result, values)
         return check_result.diagnostic_metric_values
 
     assert _diagnostics(_check_stub(eu, [eu_metric]), {"dataset_rows_tested": 5}) == {

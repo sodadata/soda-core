@@ -95,6 +95,26 @@ def _find_measured_dataset_columns(check_results: list[CheckResult]) -> Optional
     return None
 
 
+def add_scope_rows_tested(check_impl, check_result: CheckResult, measurement_values: MeasurementValues) -> None:
+    """Adds ``scope_rows_tested`` next to ``dataset_rows_tested`` for a check in a declared scope.
+
+    Only a check that aggregates in its own scope gets it: a query-form check reads no filtered CTE, so a
+    scope count would not describe its rows. Diagnostics without ``dataset_rows_tested``, empty ones
+    included, stay as they are.
+    """
+    from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl
+
+    scope: Scope = check_impl.scope
+    if scope.is_base or scope.row_count_metric is None:
+        return
+    if not any(isinstance(metric, AggregationMetricImpl) and metric.scope is scope for metric in check_impl.metrics):
+        return
+    values = check_result.diagnostic_metric_values
+    if not isinstance(values, dict) or "dataset_rows_tested" not in values:
+        return
+    values["scope_rows_tested"] = measurement_values.get_value(scope.row_count_metric)
+
+
 def count_check_outcomes(check_results: list[CheckResult]) -> dict[CheckOutcome, int]:
     """Counts the check results per outcome, for the summary table of a run.
 
@@ -1046,29 +1066,6 @@ class CheckCollectionImpl:
                 logger.error(f"Query execution failed, continuing with remaining checks: {e}")
         return measurements
 
-    def _add_scope_rows_tested(
-        self, check_impl, check_result: CheckResult, measurement_values: MeasurementValues
-    ) -> None:
-        """Adds ``scope_rows_tested`` next to ``dataset_rows_tested`` for a check in a declared scope.
-
-        Only a check that aggregates in its own scope gets it: a query-form check reads no filtered CTE, so a
-        scope count would not describe its rows. Diagnostics without ``dataset_rows_tested``, empty ones
-        included, stay as they are.
-        """
-        from soda_core.contracts.impl.contract_verification_impl import AggregationMetricImpl
-
-        scope: Scope = check_impl.scope
-        if scope.is_base or scope.row_count_metric is None:
-            return
-        if not any(
-            isinstance(metric, AggregationMetricImpl) and metric.scope is scope for metric in check_impl.metrics
-        ):
-            return
-        values = check_result.diagnostic_metric_values
-        if not isinstance(values, dict) or "dataset_rows_tested" not in values:
-            return
-        values["scope_rows_tested"] = measurement_values.get_value(scope.row_count_metric)
-
     def _log_sampling_refusal(self) -> None:
         # Leaving every metric unmeasured, so each check reports NOT_EVALUATED. Running the queries
         # anyway would silently return full-scan numbers as though they were sampled, which is a wrong
@@ -1204,10 +1201,10 @@ class CheckCollectionImpl:
                                     "dataset_rows_tested": self.dataset_rows_tested,
                                 },
                             )
-                            self._add_scope_rows_tested(check_impl, check_result, measurement_values)
+                            add_scope_rows_tested(check_impl, check_result, measurement_values)
                         else:
                             check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
-                            self._add_scope_rows_tested(check_impl, check_result, measurement_values)
+                            add_scope_rows_tested(check_impl, check_result, measurement_values)
                             _skip_non_numeric_threshold_value(check_result, check_impl.relative_path)
                     check_results.append(check_result)
 
