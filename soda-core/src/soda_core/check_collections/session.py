@@ -343,9 +343,11 @@ def execute_check_collections(
                         result.sending_results_to_soda_cloud_failed = True
                 continue
             uploads_by_wire_source[wire_source] = upload
-            suffix_by_wire_source[wire_source] = [
-                member_class.scan_definition_suffix for member_class, _, result in members if result.error is None
-            ][-1]
+            suffix_by_wire_source[wire_source] = next(
+                member_class.scan_definition_suffix
+                for member_class, _, result in reversed(members)
+                if result.error is None
+            )
 
         if uploads_by_wire_source and results_to_mark_failed:
             # Another group goes up, so a mark for this one would land on a scan that insert
