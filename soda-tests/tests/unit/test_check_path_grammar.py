@@ -1,14 +1,14 @@
 """Pin the wire ``checkPath`` and the identity of each unscoped check form.
 
-The rows live in ``fixtures/check_path_grammar.yml``, the list the Soda Cloud backend mirrors. Each row is
-built as a one-check contract on the fixture's dataset and parsed without executing, so no table is
+The rows live in ``snapshots/check_path_grammar.yml``, the list the Soda Cloud backend mirrors. Each row is
+built as a one-check contract on the snapshot's dataset and parsed without executing, so no table is
 needed. The data source is named like the dataset's first segment, because its name is part of the
-identity. The ``checkPath`` of a row is the grammar and is written by hand; the identity is recorded.
-Recorded on origin/main ac8c7474, before any scope code existed; the scope work adds each row again with
-the ``scope.eu:`` prefix.
+identity. The ``checkPath`` of a row is the grammar and is written by hand; the identity is a snapshot,
+taken on origin/main ac8c7474 before any scope code existed. The scope work adds each row again with the
+``scope.eu:`` prefix.
 
-To re-record the identities after an intended change, run with ``SODA_TEST_RECORD_FIXTURES=1`` and review
-the fixture diff before committing it.
+To update the identities after an intended change, run with ``SODA_TEST_UPDATE_SNAPSHOTS=1`` and review
+the snapshot diff before committing it.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from helpers.fixture_recording import RECORD_FIXTURES_ENV_VAR, recording_fixtures
+from helpers.snapshot_updates import UPDATE_SNAPSHOTS_ENV_VAR, updating_snapshots
 from ruamel.yaml import YAML
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
@@ -27,7 +27,7 @@ from soda_core.contracts.impl.contract_verification_impl import CheckImpl, Contr
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
-FIXTURE_PATH = Path(__file__).parent / "fixtures" / "check_path_grammar.yml"
+SNAPSHOT_PATH = Path(__file__).parent / "snapshots" / "check_path_grammar.yml"
 
 
 def _round_trip_yaml() -> YAML:
@@ -38,7 +38,7 @@ def _round_trip_yaml() -> YAML:
 
 
 def _load_grammar() -> dict:
-    return _round_trip_yaml().load(FIXTURE_PATH.read_text(encoding="utf-8"))
+    return _round_trip_yaml().load(SNAPSHOT_PATH.read_text(encoding="utf-8"))
 
 
 GRAMMAR: dict = _load_grammar()
@@ -82,16 +82,16 @@ def _build_check_impl(row: dict) -> CheckImpl:
     return contract_impl.all_check_impls[0]
 
 
-def _record_identity(row_index: int, identity: str) -> None:
+def _update_identity(row_index: int, identity: str) -> None:
     grammar: dict = _load_grammar()
     grammar["rows"][row_index]["identity"] = identity
-    with FIXTURE_PATH.open("w", encoding="utf-8") as fixture_file:
-        _round_trip_yaml().dump(grammar, fixture_file)
+    with SNAPSHOT_PATH.open("w", encoding="utf-8") as snapshot_file:
+        _round_trip_yaml().dump(grammar, snapshot_file)
 
 
 def test_grammar_identities_are_unique():
-    if recording_fixtures():
-        pytest.skip("Asserts the recorded identities, which a recording run is rewriting")
+    if updating_snapshots():
+        pytest.skip("Asserts the snapshot identities, which this run is updating")
     identities: list[str] = [row["identity"] for row in GRAMMAR["rows"]]
     assert len(identities) == len(set(identities))
 
@@ -101,12 +101,12 @@ def test_check_path_and_identity_match_grammar(row_index: int):
     row: dict = GRAMMAR["rows"][row_index]
     check_impl: CheckImpl = _build_check_impl(row)
 
-    if recording_fixtures():
-        _record_identity(row_index, check_impl.identity)
-        pytest.skip(f"Re-recorded {FIXTURE_PATH.name}; review the diff and rerun without {RECORD_FIXTURES_ENV_VAR}")
+    if updating_snapshots():
+        _update_identity(row_index, check_impl.identity)
+        pytest.skip(f"Updated {SNAPSHOT_PATH.name}; review the diff and rerun without {UPDATE_SNAPSHOTS_ENV_VAR}")
 
     assert check_impl.check_path == row["checkPath"]
     assert check_impl.identity == row["identity"], (
         f"Identity of '{row['checkPath']}' changed from {row['identity']} to {check_impl.identity}. "
-        f"If that is intended, re-record with {RECORD_FIXTURES_ENV_VAR}=1."
+        f"If that is intended, update the snapshot with {UPDATE_SNAPSHOTS_ENV_VAR}=1."
     )
