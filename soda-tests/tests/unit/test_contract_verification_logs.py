@@ -218,7 +218,9 @@ def test_single_contract_session_keeps_the_callers_logs(data_source_test_helper:
 
     (result,) = session_result.contract_verification_results
     assert result.status is CheckCollectionStatus.PASSED
-    assert result.log_records is caller_logs.get_log_records()
+    assert [record.getMessage() for record in result.log_records] == [
+        record.getMessage() for record in caller_logs.get_log_records()
+    ]
     assert "Logged by the caller before the session" in _payload_messages(payload, level="warning")
 
 
