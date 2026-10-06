@@ -358,6 +358,19 @@ def test_class_defaults_cover_yamls_and_impls_without_scopes():
     assert not logs.has_errors
 
 
+def test_a_kind_with_its_own_yaml_class_rejects_scopes():
+    class _NeverReadsScopesYaml(CheckCollectionYaml):
+        """Runs the base ``__init__`` only, like the metric-monitoring yamls."""
+
+    logs = Logs()
+    yaml = _NeverReadsScopesYaml(
+        yaml_source=ContractYamlSource.from_str(f"{UNSUPPORTED_KIND_LINE}dataset: ds/db/schema/table\nscopes: {{}}\n")
+    )
+    logs.close()
+    assert dict(yaml.scopes) == {}
+    assert logs.get_errors() == [UNSUPPORTED]
+
+
 # Two checks in the base scope, then a mix of one check in a declared scope and six that get a placeholder. A tagged
 # value is not a string, so neither '!tag base' nor '!tag eu' names a scope.
 SCOPE_FOR_YAML: str = """

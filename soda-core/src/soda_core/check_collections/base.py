@@ -58,6 +58,8 @@ from soda_core.contracts.impl.scope import (
     check_scope_location,
     log_scope_error,
     scope_key_error,
+    scope_key_location,
+    unsupported_scopes_error,
 )
 
 logger: logging.Logger = soda_logger
@@ -324,6 +326,14 @@ class CheckCollectionYaml:
         # never ``None``.
         self.yaml_object: YamlObject = yaml_object if yaml_object is not None else yaml_source.parse()
         self.kind: Optional[str] = self.yaml_object.read_string_opt("kind")
+        # A kind without scope support fails a file that declares scopes.
+        self.supports_scopes: bool = _kind_supports_scopes(self.kind)
+        if (
+            not self.supports_scopes
+            and isinstance(self.yaml_object, YamlObject)
+            and "scopes" in self.yaml_object.yaml_dict
+        ):
+            log_scope_error(unsupported_scopes_error(self.kind), scope_key_location(self.yaml_object, "scopes"))
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 
@@ -343,6 +353,16 @@ class CheckCollectionYaml:
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
+
+
+def _kind_supports_scopes(kind: Optional[str]) -> bool:
+    """``supports_scopes`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
+    as ``contract`` when the file names no kind. A kind nobody registered supports no scopes."""
+    try:
+        impl_class = CheckCollectionImpl.for_kind(kind or "contract")
+    except ValueError:
+        return False
+    return impl_class.supports_scopes
 
 
 def _resolve_data_timestamp_str(
