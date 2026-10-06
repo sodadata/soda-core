@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
-from soda_core.check_collections.session import _raise_if_unknown_scope_keys, execute_check_collections
+from soda_core.check_collections.session import execute_check_collections, raise_if_unknown_scope_keys
 from soda_core.common.exceptions import InvalidArgumentException, YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -257,7 +257,7 @@ def test_list_syntax_for_a_scope_gets_a_hint():
 
 
 def test_one_file_can_be_checked_on_its_own():
-    # The shape of a call for a single file, before its checks are sent to a runner.
+    # One file checked on its own, outside a session.
     class _OneFileImpl:
         supports_scopes = True
 
@@ -266,9 +266,9 @@ def test_one_file_can_be_checked_on_its_own():
 
     constructed = [(_OneFileImpl(), _OneFileImpl, None, _StubSource("one"))]
 
-    _raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope!=eu", "scope=base"]))
+    raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope!=eu", "scope=base"]))
     with pytest.raises(InvalidArgumentException, match="'us'"):
-        _raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope=us"]))
+        raise_if_unknown_scope_keys(constructed, CheckSelector.parse_all(["scope=us"]))
 
 
 def test_a_key_declared_only_by_a_file_that_failed_to_parse_is_unknown(caplog):
