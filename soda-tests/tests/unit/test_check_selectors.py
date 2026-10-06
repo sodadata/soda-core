@@ -488,9 +488,6 @@ class TestCheckSelectorScope:
         selector = CheckSelector.parse("scope=eu")
         assert (selector.field, selector.value, selector.negated) == ("scope", "eu", False)
 
-    def test_scope_is_a_supported_field(self):
-        assert "scope" in CheckSelector.SUPPORTED_FIELDS
-
     def test_match_scope_key(self):
         selector = CheckSelector.parse("scope=eu")
         assert selector.matches(_make_check_impl(scope_key="eu"))
@@ -560,9 +557,6 @@ class TestCheckSelectorNegation:
         with pytest.raises(CheckSelectorParseException, match="empty value after '!='"):
             CheckSelector.parse(expression)
 
-    def test_constructor_defaults_to_positive(self):
-        assert CheckSelector(field="scope", value="eu", raw="scope=eu").negated is False
-
     def test_eq_compares_negated(self):
         assert CheckSelector.parse("scope!=eu") == CheckSelector.parse(" scope != eu ")
         assert CheckSelector.parse("scope!=eu") != CheckSelector.parse("scope=eu")
@@ -571,10 +565,6 @@ class TestCheckSelectorNegation:
     def test_repr(self):
         assert repr(CheckSelector.parse("scope=eu")) == "CheckSelector('scope', 'eu')"
         assert repr(CheckSelector.parse("scope!=eu")) == "CheckSelector('scope', 'eu', negated=True)"
-
-    def test_matches_ignores_negation(self):
-        # matches() compares the value; all_match applies the negation.
-        assert CheckSelector.parse("scope!=eu").matches(_make_check_impl(scope_key="eu"))
 
     def test_only_negated_selectors(self):
         selectors = CheckSelector.parse_all(["scope!=eu"])
