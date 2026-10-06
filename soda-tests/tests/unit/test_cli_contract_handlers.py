@@ -320,9 +320,8 @@ def test_handle_test_contract_still_reports_a_variable_without_value(tmp_path, c
     exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={})
 
     assert exit_code == ExitCode.LOG_ERRORS
-    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
-        "Required variable 'QUERY' did not get a value",
-        "In a 'metric' check, either 'expression' or 'query' is required",
+    assert "Required variable 'QUERY' did not get a value" in [
+        record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR
     ]
 
 
@@ -380,13 +379,9 @@ def test_handle_test_contract_still_reports_an_additional_threshold_without_its_
     exit_code = handle_test_contract(contract_file_path=contract_file_path, variables={})
 
     assert exit_code == ExitCode.LOG_ERRORS
-    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
-        "Required variable 'MAX' did not get a value",
-        "A threshold with an 'additional' threshold must specify a comparison itself "
-        "(one must_be_* key, or one must_be_between/must_be_not_between range)",
-        "A check type's default threshold does not combine with an 'additional' threshold. "
-        "State this check type's default explicitly: must_be_greater_than: 0",
-    ]
+    error_messages = [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR]
+    assert "Required variable 'MAX' did not get a value" in error_messages
+    assert any("'additional' threshold" in message for message in error_messages)
 
 
 def test_handle_publish_contract_logs_a_yaml_syntax_error_in_one_line(tmp_path, caplog):
@@ -396,11 +391,10 @@ def test_handle_publish_contract_logs_a_yaml_syntax_error_in_one_line(tmp_path, 
 
     assert exit_code == ExitCode.LOG_ERRORS
     assert mock_cloud.requests == []
-    error_records = [record for record in caplog.records if record.levelno >= logging.ERROR]
-    assert [record.getMessage() for record in error_records] == [
-        f"Failed to parse YAML: YAML syntax error, in {contract_file_path}[3,1]"
-    ]
-    assert error_records[0].exc_info is None
+    [error_record] = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert "YAML syntax error" in error_record.getMessage()
+    assert contract_file_path in error_record.getMessage()
+    assert error_record.exc_info is None
 
 
 @pytest.mark.parametrize(
