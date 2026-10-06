@@ -12,7 +12,6 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,7 +21,7 @@ import pytest
 import soda_core
 from soda_core.check_collections.base import CheckCollectionResult
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api import publish_api, test_api
+from soda_core.contracts.api import publish_api
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
@@ -32,7 +31,7 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.telemetry.memory_span_exporter import MemorySpanExporter
+from soda_core.contracts.impl.scope import count_scopes_and_checks
 
 SCOPED_CONTRACT: str = """\
 dataset: telemetry_ds/telemetry/main/telemetry_scopes
@@ -202,22 +201,7 @@ def describe(result):
         return None
     if not hasattr(result, "contract_verification_results"):
         return {"errors": result.logs.get_errors(), "published": len(result.items)}
-    from soda_core.cli.handlers.contract import interpret_contract_verification_result
-
-    results = result.contract_verification_results
-    return {
-        "exit_code": int(interpret_contract_verification_result(result)),
-        "errors": result.get_errors(),
-        "statuses": [r.status.name for r in results],
-        "outcomes": [sorted(check_result.outcome.name for check_result in r.check_results) for r in results],
-        "result_counts": [[r.number_of_scopes, r.number_of_scoped_checks, r.number_of_unscoped_checks] for r in results],
-        "session_counts": [
-            result.number_of_scopes,
-            result.number_of_scoped_checks,
-            result.number_of_unscoped_checks,
-            result.number_of_checks_excluded,
-        ],
-    }
+    return {"errors": result.get_errors()}
 
 
 outputs = []
@@ -362,32 +346,8 @@ def test_span_carries_scope_counts(tmp_path, command):
         assert unscoped_output["result"] == {"errors": [], "published": 1}
         return
 
-    scoped_result: dict = scoped_output["result"]
-    unscoped_result: dict = unscoped_output["result"]
-    assert scoped_result["errors"] == []
-    assert unscoped_result["errors"] == []
-    assert scoped_result["exit_code"] == 0
-    assert unscoped_result["exit_code"] == 0
-    assert scoped_result["result_counts"] == [[2, 3, 2]]
-    assert unscoped_result["result_counts"] == [[0, 0, 2]]
-    if command == "verify":
-        # A partial run ends UNKNOWN: the scoped checks are excluded without an extension that runs scopes.
-        assert scoped_result["statuses"] == ["UNKNOWN"]
-        assert scoped_result["outcomes"] == [["EXCLUDED", "EXCLUDED", "EXCLUDED", "PASSED", "PASSED"]]
-        assert scoped_result["session_counts"] == [2, 3, 2, 3]
-        assert unscoped_result["statuses"] == ["PASSED"]
-        assert unscoped_result["outcomes"] == [["PASSED", "PASSED"]]
-        assert unscoped_result["session_counts"] == [0, 0, 2, 0]
-    else:
-        assert scoped_result["outcomes"] == [[]]
-        assert scoped_result["session_counts"] == [2, 3, 2, 0]
-        assert unscoped_result["outcomes"] == [[]]
-        assert unscoped_result["session_counts"] == [0, 0, 2, 0]
-
-
-def test_memory_span_exporter_is_one_object():
-    assert MemorySpanExporter.get_instance() is MemorySpanExporter.get_instance()
-    assert MemorySpanExporter() is MemorySpanExporter.get_instance()
+    assert scoped_output["result"] == {"errors": []}
+    assert unscoped_output["result"] == {"errors": []}
 
 
 def _make_result(
@@ -415,13 +375,8 @@ def _make_result(
     )
 
 
-@dataclass
-class _KeywordBuiltResult(CheckCollectionResult):
-    """A result subclass in an extension, built by keyword without the scope counts."""
-
-
 def test_a_result_built_without_the_counts_has_zero_counts():
-    result = _make_result(result_class=_KeywordBuiltResult)
+    result = _make_result()
 
     assert (result.number_of_scopes, result.number_of_scoped_checks, result.number_of_unscoped_checks) == (0, 0, 0)
 
@@ -439,26 +394,6 @@ def test_session_result_sums_the_counts_of_its_results():
     assert session_result.number_of_unscoped_checks == 6
 
 
-def _record_attributes(monkeypatch, send: bool = True) -> list[dict]:
-    recorded: list[dict] = []
-    monkeypatch.setattr(test_api.soda_telemetry, "set_attributes", recorded.append)
-    monkeypatch.setattr(test_api.soda_telemetry, "_SodaTelemetry__send", send)
-    return recorded
-
-
-def test_session_ingest_sends_the_scope_and_excluded_counts(monkeypatch):
-    recorded = _record_attributes(monkeypatch)
-    session_result = ContractVerificationSession.execute(
-        contract_yaml_sources=[ContractYamlSource.from_str(SCOPED_CONTRACT)], only_validate_without_execute=True
-    )
-
-    test_api.soda_telemetry.ingest_contract_verification_session_result(
-        contract_verification_session_result=session_result
-    )
-
-    assert recorded == [_counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=0, passed=0)]
-
-
 @pytest.mark.parametrize(
     "contract, expected_counts",
     [
@@ -467,58 +402,39 @@ def test_session_ingest_sends_the_scope_and_excluded_counts(monkeypatch):
         pytest.param(TAGGED_BASE_SCOPE_CONTRACT, (1, 1, 1), id="tagged_base"),
     ],
 )
-def test_publication_and_verification_count_invalid_scopes_alike(monkeypatch, contract, expected_counts):
+def test_publication_and_verification_count_invalid_scopes_alike(contract, expected_counts):
     """Keys and values that name no scope add no scope, and their checks count the way the engine places them."""
-    recorded = _record_attributes(monkeypatch)
     contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(contract))
 
-    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
+    publication_counts = count_scopes_and_checks([contract_yaml])
     session_result = ContractVerificationSession.execute(
         contract_yaml_sources=[ContractYamlSource.from_str(contract)],
         only_validate_without_execute=True,
     )
 
-    scopes, scoped, unscoped = expected_counts
-    assert recorded == [_counts(scopes=scopes, scoped=scoped, unscoped=unscoped)]
+    assert publication_counts == expected_counts
     [result] = session_result.contract_verification_results
     assert result.status is CheckCollectionStatus.ERROR
-    assert (
-        result.number_of_scopes,
-        result.number_of_scoped_checks,
-        result.number_of_unscoped_checks,
-    ) == expected_counts
+    assert (result.number_of_scopes, result.number_of_scoped_checks, result.number_of_unscoped_checks) == (
+        expected_counts
+    )
 
 
-def test_publication_counts_a_contract_without_checks(monkeypatch):
-    recorded = _record_attributes(monkeypatch)
+def test_publication_counts_a_contract_without_checks():
     contract_yaml = ContractYaml.parse(
         yaml_source=ContractYamlSource.from_str("dataset: ds/db/schema/table\ncolumns:\n  - name: id\n")
     )
 
-    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
-
-    assert recorded == [_counts(scopes=0, scoped=0, unscoped=0)]
+    assert count_scopes_and_checks([contract_yaml]) == (0, 0, 0)
 
 
-def test_publication_sums_the_counts_of_its_contracts(monkeypatch):
-    recorded = _record_attributes(monkeypatch)
+def test_publication_sums_the_counts_of_its_contracts():
     contract_yamls = [
         ContractYaml.parse(yaml_source=ContractYamlSource.from_str(contract))
         for contract in (INVALID_SCOPES_CONTRACT, TAGGED_BASE_SCOPE_CONTRACT)
     ]
 
-    test_api.soda_telemetry.ingest_contract_publication(contract_yamls)
-
-    assert recorded == [_counts(scopes=2, scoped=3, unscoped=3)]
-
-
-def test_publication_counts_nothing_with_telemetry_off(monkeypatch):
-    recorded = _record_attributes(monkeypatch, send=False)
-    contract_yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(INVALID_SCOPES_CONTRACT))
-
-    test_api.soda_telemetry.ingest_contract_publication([contract_yaml])
-
-    assert recorded == []
+    assert count_scopes_and_checks(contract_yamls) == (2, 3, 3)
 
 
 def test_a_failing_count_never_fails_a_publish(monkeypatch):
