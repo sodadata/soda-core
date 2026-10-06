@@ -79,19 +79,19 @@ class ContractPublicationImpl:
                 return ContractPublicationResultList(items=[], logs=self.logs)
             return ContractPublicationResultList(
                 items=[
-                    self._publish_contract(contract_yaml, parse_errors)
-                    for contract_yaml, parse_errors in zip(self.contract_yamls, self.contract_yaml_errors)
+                    self._publish_contract(contract_yaml, contract_errors)
+                    for contract_yaml, contract_errors in zip(self.contract_yamls, self.contract_yaml_errors)
                 ],
                 logs=self.logs,
             )
 
-    def _publish_contract(self, contract_yaml: ContractYaml, parse_errors: list[str]) -> ContractPublicationResult:
-        if parse_errors:
+    def _publish_contract(self, contract_yaml: ContractYaml, contract_errors: list[str]) -> ContractPublicationResult:
+        if contract_errors:
             file_path: Optional[str] = contract_yaml.yaml_source.file_path
             contract_name: str = f"contract '{file_path}'" if file_path else "the contract"
-            error_count: str = "1 error" if len(parse_errors) == 1 else f"{len(parse_errors)} errors"
+            error_count: str = "1 error" if len(contract_errors) == 1 else f"{len(contract_errors)} errors"
             logger.error(
-                f"Skipping publication of {contract_name} because it has {error_count}: {'; '.join(parse_errors)}"
+                f"Skipping publication of {contract_name} because it has {error_count}: {'; '.join(contract_errors)}"
             )
             return ContractPublicationResult(contract=None)
         return self.soda_cloud.publish_contract(contract_yaml)
