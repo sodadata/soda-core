@@ -1311,7 +1311,7 @@ class CheckImpl:
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
             extra_identity_properties=extra_identity_properties,
-            scope_key=None if self.scope.is_base or self._scope_left_out_of_identity() else self.scope.key,
+            scope_key=None if self.scope.is_base else self.scope.key,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1327,8 +1327,8 @@ class CheckImpl:
         self.queries: list[Query] = []
 
         # Merge attributes before filtering (selectors may query them). The check's own attributes go over the
-        # check attributes of its definition scope, see _definition_scope.
-        self.attributes: dict[str, any] = {**self._definition_scope().check_attributes, **check_yaml.attributes}
+        # check attributes of its scope. The base scope holds the top-level ones; a declared scope holds its own.
+        self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
         # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
@@ -1425,9 +1425,7 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
-            # Gated like the attributes and the definition, see _definition_scope, so a kind without scope
-            # support never pairs a scoped path with the top-level attributes and filter.
-            if type(self.contract_impl).supports_scopes and not self.scope.is_base:
+            if not self.scope.is_base:
                 return f"scope.{self.scope.key}:{self.relative_path}"
             return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
@@ -1537,30 +1535,10 @@ class CheckImpl:
         parts = [p for p in parts if p is not None]
         return "/".join(parts)
 
-    def _scope_left_out_of_identity(self) -> bool:
-        """True on the contract wire source of a kind without scope support, where check_path leaves the scope
-        out too, so path and identity agree. Other wire sources keep the scope term: their path never carries
-        a scope, and the term is what tells a scoped check from its unscoped twin, which they skip.
-        """
-        return self.contract_impl.wire_source == "soda-contract" and not type(self.contract_impl).supports_scopes
-
-    def _definition_scope(self) -> Scope:
-        """The scope whose filter goes into this check's definition and whose check attributes go under its own.
-
-        On a kind with scope support that is the check's own scope. The base scope holds the top-level filter
-        and check attributes; a declared scope holds its own and never sees the top-level ones. A kind without
-        support never applies a declared scope and reads scope input as written, so its checks carry the base
-        scope whatever their scope, as before scopes existed.
-        """
-        return self.scope if type(self.contract_impl).supports_scopes else self.contract_impl.base_scope
-
     def _build_definition(self) -> str:
         contract_dict: dict = {}
         # A scope filter replaces the top-level filter; the base scope keeps the top-level filter as written.
-        definition_scope: Scope = self._definition_scope()
-        dataset_filter: Optional[str] = (
-            self.contract_impl.yaml.filter if definition_scope.is_base else definition_scope.filter
-        )
+        dataset_filter: Optional[str] = self.contract_impl.yaml.filter if self.scope.is_base else self.scope.filter
         if dataset_filter:
             contract_dict["filter"] = dataset_filter
 
