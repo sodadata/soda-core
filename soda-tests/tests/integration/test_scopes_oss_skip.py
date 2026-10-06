@@ -61,9 +61,6 @@ SCOPED_CONTRACT: str = """
           threshold:
             must_be_greater_than: 0
 """
-NUDGE: str = (
-    "Excluded 4 checks whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-)
 QUERY_METHODS: tuple[str, ...] = (
     "execute_query",
     "execute_query_one_by_one",
@@ -112,7 +109,9 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
     assert result.status == CheckCollectionStatus.UNKNOWN
     assert interpret_contract_verification_result(session_result) == ExitCode.OK
 
-    assert [line for line in result.get_logs() if line.startswith("Excluded ")] == [NUDGE]
+    # One nudge line, and the upload below carries it. The unit tests pin its text.
+    nudges: list[str] = [line for line in result.get_logs() if line.startswith("Excluded ")]
+    assert len(nudges) == 1
 
     # The unscoped checks ran, and nothing queried a scoped check.
     assert executed_sql
@@ -128,7 +127,7 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
         check_result.check.identity: ("excluded" if check_result.check.scope else "pass")
         for check_result in result.check_results
     }
-    assert [log["message"] for log in upload["logs"] if log["message"].startswith("Excluded ")] == [NUDGE]
+    assert [log["message"] for log in upload["logs"] if log["message"].startswith("Excluded ")] == nudges
 
 
 def test_a_check_scope_from_an_unset_environment_variable_fails_without_queries(
