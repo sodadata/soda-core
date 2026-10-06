@@ -1,7 +1,7 @@
 """Corners next to the publish-outcome cases in ``test_session_publish_outcome``.
 
-Two wire sources in one session, a per-file contract rejected after its sibling went up,
-a session without a default subtype, and a collection that errored next to a rejected
+Two wire sources in one session, a per-file contract that cannot go up after its sibling
+did, a session without a default subtype, and a collection that errored next to a rejected
 file upload. In each, every upload that goes up carries the errors of what it leaves
 out, or, when nothing goes up, a managed scan is marked failed with the files' records.
 What did not reach Soda Cloud makes the run exit RESULTS_NOT_SENT_TO_CLOUD.
@@ -79,27 +79,34 @@ def test_ad_hoc_file_that_never_became_a_collection_next_to_excluded_goes_up_wit
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-def test_per_file_contract_rejected_after_an_uploaded_sibling_marks_the_scan_failed(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
+@pytest.mark.parametrize(
+    "second_contract, second_error",
+    [
+        (outcome._REJECTED_HEALTHY_CONTRACT, "did not upload to Soda Cloud"),
+        (outcome._UNPARSEABLE_CONTRACT, "not_a_check_type"),
+    ],
+    ids=["file_rejected", "errored_before_results"],
+)
+def test_per_file_contract_after_an_uploaded_sibling_is_flagged_without_marking_the_scan(
+    data_source_test_helper: DataSourceTestHelper, monkeypatch, second_contract: str, second_error: str
 ):
     """Only the Python API runs several per-file contracts under one managed scan id: the
-    CLI and the launcher verify one. Each file decides alone in verify(), so the rejected
-    second file still marks a scan its sibling's insert completed."""
+    CLI and the launcher verify one. The first file's insert completed the scan, so a mark
+    from the second would turn it FAILED and replace its logs. The second file is flagged
+    as not sent instead, and the run exits RESULTS_NOT_SENT_TO_CLOUD."""
     session_result, exit_code, soda_cloud = outcome._verify_contracts(
         data_source_test_helper,
         monkeypatch,
-        [outcome._HEALTHY_CONTRACT, outcome._REJECTED_HEALTHY_CONTRACT],
+        [outcome._HEALTHY_CONTRACT, second_contract],
         managed=True,
         soda_cloud=outcome._SodaCloud(reject_file_upload_containing=outcome._REJECTED_UPLOAD_MARKER),
     )
 
     assert len(soda_cloud.requests_of_type("sodaCoreInsertScanResults")) == 1
-    [mark] = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    assert any("did not upload to Soda Cloud" in m for m in outcome._log_messages(mark, level="error"))
-    assert [r.sending_results_to_soda_cloud_failed for r in session_result.contract_verification_results] == [
-        False,
-        True,
-    ]
+    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
+    first, second = session_result.contract_verification_results
+    assert [first.sending_results_to_soda_cloud_failed, second.sending_results_to_soda_cloud_failed] == [False, True]
+    assert any(second_error in message for message in second.get_errors())
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
