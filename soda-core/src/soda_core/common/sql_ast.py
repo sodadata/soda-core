@@ -560,6 +560,171 @@ class CAST(SqlExpression):
         self.handle_parent_node_update(self.expression)
 
 
+# ANSI expressions: the base dialect renders them, so every dialect does.
+
+
+@dataclass
+class CURRENT_TIMESTAMP(SqlExpression):
+    """The current instant, with time zone; dialects whose CURRENT_TIMESTAMP lacks a zone render an
+    equivalent that has one."""
+
+
+@dataclass
+class NULLIF(SqlExpression):
+    """NULL when ``left`` equals ``right``, ``left`` otherwise."""
+
+    left: SqlExpression | str
+    right: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.left)
+        self.handle_parent_node_update(self.right)
+
+
+@dataclass
+class ABS(SqlExpression):
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+ArithmeticOperator = Literal["+", "-", "*", "/"]
+ARITHMETIC_OPERATORS: tuple[str, ...] = ("+", "-", "*", "/")
+
+
+@dataclass
+class ARITHMETIC(SqlExpression):
+    """``(<left> <operator> <right>)``, parenthesized so it nests without precedence surprises.
+    ``/`` follows the data source's own division semantics: integer operands truncate on Postgres."""
+
+    operator: ArithmeticOperator
+    left: SqlExpression | str
+    right: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.operator not in ARITHMETIC_OPERATORS:
+            raise ValueError(f"Invalid arithmetic operator {self.operator!r}; must be one of {ARITHMETIC_OPERATORS}")
+        self.handle_parent_node_update(self.left)
+        self.handle_parent_node_update(self.right)
+
+
+@dataclass
+class PLACEHOLDER(SqlExpression):
+    """A positional parameter marker, ``?`` on every dialect whatever its driver binds with: for an
+    application that records a statement's shape without its values."""
+
+
+# Expressions whose SQL differs per data source. The base dialect raises
+# UnsupportedSqlStatementError; a dialect with SqlDialect.SUPPORTS_DATA_PLANE_STATEMENTS renders its
+# own form.
+
+
+@dataclass
+class REGEXP_REPLACE(SqlExpression):
+    """``expression`` with every match of ``pattern`` replaced by ``replacement``.
+
+    Both are written in the data source's own regex flavour, backreferences included, and render as
+    string literals.
+    """
+
+    expression: SqlExpression | str
+    pattern: str
+    replacement: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+DateTruncUnit = Literal["second", "minute", "hour", "day", "month", "year"]
+DATE_TRUNC_UNITS: tuple[str, ...] = ("second", "minute", "hour", "day", "month", "year")
+
+
+@dataclass
+class DATE_TRUNC(SqlExpression):
+    """A timestamp rounded down to the start of its ``unit``."""
+
+    unit: DateTruncUnit
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.unit not in DATE_TRUNC_UNITS:
+            raise ValueError(f"Invalid date_trunc unit {self.unit!r}; must be one of {DATE_TRUNC_UNITS}")
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class TO_TIMEZONE(SqlExpression):
+    """The instant of a timestamp with time zone as the wall-clock time in ``timezone``: a timestamp
+    without time zone. ``"UTC"`` is guaranteed on every implementing dialect; other zone names are the
+    dialect's own vocabulary (IANA on Postgres)."""
+
+    expression: SqlExpression | str
+    timezone: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class EPOCH_SECONDS(SqlExpression):
+    """The seconds of an interval-typed value, fractions included. Only dialects with an interval type
+    implement it; a timestamp difference is its input only where the dialect types that difference as
+    an interval, as Postgres does."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class TIMESTAMP_ISO_TEXT(SqlExpression):
+    """A timestamp without time zone as text, ``YYYY-MM-DDTHH:MM:SS``, followed by six-digit
+    microseconds ``.ffffff`` when ``fractional_seconds``, then by the offset ``+00:00`` when
+    ``utc_suffix``: for a timestamp the caller has already expressed in UTC, e.g. with TO_TIMEZONE."""
+
+    expression: SqlExpression | str
+    fractional_seconds: bool = True
+    utc_suffix: bool = False
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class DATE_ISO_TEXT(SqlExpression):
+    """A date as text, ``YYYY-MM-DD``."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class JSON_MERGE(SqlExpression):
+    """The JSON object ``left`` with the top-level keys of the JSON object ``right`` set over it.
+    NULL when either is NULL."""
+
+    left: SqlExpression | str
+    right: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.left)
+        self.handle_parent_node_update(self.right)
+
+
 @dataclass
 class AVERAGE(SqlExpression):
     expression: SqlExpression | str
@@ -702,6 +867,10 @@ class REGEX_LIKE(SqlExpression):
 
 @dataclass
 class LIKE(Operator):
+    # The character that makes the next `%`, `_` or itself literal in the pattern; renders
+    # `ESCAPE '<char>'`. None renders no ESCAPE clause.
+    escape: Optional[str] = None
+
     def __post_init__(self):
         super().__post_init__()
 
@@ -816,6 +985,9 @@ class CREATE_TABLE(BaseSqlExpression):
     columns: list[CREATE_TABLE_COLUMN]
     # Column names forming the table's PRIMARY KEY; None means no primary key.
     primary_key_column_names: Optional[list[str]] = None
+    # The table's rows are updated in place often. A storage hint: a dialect with a knob for it
+    # renders it (Postgres: a lower fillfactor), every other dialect ignores it.
+    update_heavy: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -896,6 +1068,151 @@ class VALUES_ROW(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.values)
+
+
+# Statements for an application that maintains its own tables through a dialect. Only a dialect
+# with SqlDialect.SUPPORTS_DATA_PLANE_STATEMENTS renders them; any other raises
+# UnsupportedSqlStatementError, except for CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE,
+# optimisations, which render None.
+
+
+@dataclass
+class ASSIGNMENT(BaseSqlExpression):
+    """One ``SET`` item, ``<column> = <value>``.
+
+    The column belongs to the statement's target table and renders unqualified: a qualified SET
+    target is an error on Postgres.
+    """
+
+    column: COLUMN | str
+    value: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        if isinstance(self.column, COLUMN) and self.column.table_alias:
+            raise ValueError(
+                f"An ASSIGNMENT target is a column of the updated table and cannot be qualified, "
+                f"got table_alias {self.column.table_alias!r}"
+            )
+        self.handle_parent_node_update(self.column)
+        self.handle_parent_node_update(self.value)
+
+
+@dataclass
+class SOURCE_COLUMN(SqlExpression):
+    """The incoming row's value of a column, inside an upsert's update assignments."""
+
+    name: str
+
+
+@dataclass
+class UPDATE(BaseSqlExpression):
+    fully_qualified_table_name: str
+    assignments: list[ASSIGNMENT]
+    alias: Optional[str] = None
+    # Further tables the assignments and the condition read from (FROM and JOIN elements).
+    from_elements: list[FROM | JOIN] | None = None
+    where: Optional[WHERE] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.assignments)
+        self.handle_parent_node_update(self.from_elements)
+        self.handle_parent_node_update(self.where)
+
+
+@dataclass
+class DELETE(BaseSqlExpression):
+    fully_qualified_table_name: str
+    alias: Optional[str] = None
+    # Further tables the condition reads from (FROM and JOIN elements).
+    using_elements: list[FROM | JOIN] | None = None
+    where: Optional[WHERE] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.using_elements)
+        self.handle_parent_node_update(self.where)
+
+
+@dataclass
+class UPSERT(BaseSqlExpression):
+    """Insert rows; a row whose ``key_columns`` match an existing row applies ``update_assignments``
+    to that row instead, or is skipped when there are none.
+
+    Source rows must be unique on ``key_columns``: a MERGE-based dialect rejects duplicates, and so
+    does Postgres when there are update assignments. An assignment that reads the existing row must
+    qualify the column with ``alias``; ``SOURCE_COLUMN`` is the incoming row.
+    """
+
+    fully_qualified_table_name: str
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
+    values: list[VALUES_ROW]
+    key_columns: list[COLUMN]
+    update_assignments: list[ASSIGNMENT] | None = None
+    alias: Optional[str] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.columns)
+        self.handle_parent_node_update(self.values)
+        self.handle_parent_node_update(self.key_columns)
+        self.handle_parent_node_update(self.update_assignments)
+
+
+@dataclass
+class UPSERT_VIA_SELECT(BaseSqlExpression):
+    """UPSERT whose rows come from a SELECT, on the same terms: the selected rows must be unique on
+    ``key_columns``, ``alias`` names the existing row and ``SOURCE_COLUMN`` the incoming one."""
+
+    fully_qualified_table_name: str
+    select_elements: list[Any]
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
+    key_columns: list[COLUMN]
+    update_assignments: list[ASSIGNMENT] | None = None
+    alias: Optional[str] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
+        self.handle_parent_node_update(self.columns)
+        self.handle_parent_node_update(self.key_columns)
+        self.handle_parent_node_update(self.update_assignments)
+
+
+@dataclass
+class CREATE_INDEX_IF_NOT_EXISTS(BaseSqlExpression):
+    index_name: str  # Unqualified and unquoted; the dialect quotes it.
+    fully_qualified_table_name: str
+    columns: list[COLUMN | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.columns)
+
+
+@dataclass
+class ANALYZE_TABLE(BaseSqlExpression):
+    """Refresh the planner statistics of a table."""
+
+    fully_qualified_table_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class CREATE_SCHEMA_IF_NOT_EXISTS(BaseSqlExpression):
+    """Node form of ``SqlDialect.create_schema_if_not_exists_sql``."""
+
+    prefixes: list[str]
+
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
