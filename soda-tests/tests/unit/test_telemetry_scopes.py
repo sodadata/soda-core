@@ -113,7 +113,7 @@ checks:
   - row_count:
 """
 
-# The engine reads a tagged 'base' as the base scope, so its check counts as unscoped.
+# A tagged 'base' is not the string 'base', so the engine places its check in a placeholder scope and counts it as scoped.
 TAGGED_BASE_SCOPE_CONTRACT: str = """\
 dataset: telemetry_ds/telemetry/main/telemetry_scopes
 scopes:
@@ -399,7 +399,7 @@ def test_session_result_sums_the_counts_of_its_results():
     [
         pytest.param(INVALID_SCOPES_CONTRACT, (1, 2, 2), id="invalid_keys"),
         pytest.param(NON_STRING_SCOPES_CONTRACT, (1, 2, 1), id="non_string_values"),
-        pytest.param(TAGGED_BASE_SCOPE_CONTRACT, (1, 1, 1), id="tagged_base"),
+        pytest.param(TAGGED_BASE_SCOPE_CONTRACT, (1, 2, 0), id="tagged_base"),
     ],
 )
 def test_publication_and_verification_count_invalid_scopes_alike(contract, expected_counts):
@@ -434,7 +434,7 @@ def test_publication_sums_the_counts_of_its_contracts():
         for contract in (INVALID_SCOPES_CONTRACT, TAGGED_BASE_SCOPE_CONTRACT)
     ]
 
-    assert count_scopes_and_checks(contract_yamls) == (2, 3, 3)
+    assert count_scopes_and_checks(contract_yamls) == (2, 4, 2)
 
 
 def test_a_failing_count_never_fails_a_publish(monkeypatch):
