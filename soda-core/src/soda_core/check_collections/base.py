@@ -50,13 +50,14 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.scope import (
     BASE_SCOPE_KEY,
+    INVALID_SCOPE_KEY,
+    SCOPE_KEY_PATTERN,
     Scope,
     ScopeYaml,
-    check_scope_error,
+    check_scope_input_error,
     check_scope_location,
     log_scope_error,
-    null_check_scope_error,
-    scope_value_text,
+    scope_key_error,
 )
 
 logger: logging.Logger = soda_logger
@@ -411,8 +412,8 @@ class CheckCollectionImpl:
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
     # Whether this kind runs declared scopes. Read it from the class, as
-    # ``type(impl).supports_scopes``. A kind without support skips the checks of
-    # every declared scope as EXCLUDED; ``scope: base`` still runs unscoped.
+    # ``type(impl).supports_scopes``. In a kind without support, ``scopes`` and
+    # a check's ``scope`` are parse errors.
     supports_scopes: bool = False
     # Defaults for stubs that skip ``__init__``; real instances overwrite both.
     base_scope: Optional[Scope] = None
@@ -616,12 +617,10 @@ class CheckCollectionImpl:
         self.check_attributes: dict[str, Any] = yaml.check_attributes
 
         # The base scope shares the collection's own filter and check attributes. The declared
-        # scopes start inactive; non-string keys and the key 'base' are never scopes.
+        # scopes start inactive; a key that is not a valid scope key logged an error and is never a scope.
         self.base_scope: Scope = Scope(key=BASE_SCOPE_KEY, filter=self.filter, check_attributes=self.check_attributes)
         self.scopes: dict[str, Scope] = {
-            key: Scope.from_yaml(scope_yaml)
-            for key, scope_yaml in yaml.scopes.items()
-            if isinstance(key, str) and key != BASE_SCOPE_KEY
+            key: Scope.from_yaml(scope_yaml) for key, scope_yaml in yaml.scopes.items() if scope_key_error(key) is None
         }
 
         self.dataset_identifier = DatasetIdentifier.parse(yaml.dataset)
@@ -783,49 +782,37 @@ class CheckCollectionImpl:
     def scope_for(self, check_yaml) -> Scope:
         """The scope a check runs in, never None.
 
-        A check without ``scope``, or with ``scope: base``, runs in the base scope. Any
-        value that names no declared scope gets an inactive placeholder that is not stored
-        in ``self.scopes``, so the check is skipped.
+        A check without ``scope`` runs in the base scope. A value that names no declared scope logged an error,
+        and gets an inactive placeholder that is not stored in ``self.scopes``, so the check is skipped.
         """
         raw = check_yaml.scope
         # ContractYaml validates the checks it parses. This reports the checks an extension parsed itself.
-        if type(self).supports_scopes and not check_yaml.scope_validated:
-            check_yaml_object = check_yaml.check_yaml_object
-            error: Optional[str] = None
-            if raw is not None:
-                error = check_scope_error(raw, self.scopes)
-            elif isinstance(check_yaml_object, YamlObject):
-                error = null_check_scope_error(check_yaml_object.yaml_dict, check_yaml_object.yaml_source)
+        check_yaml_object = check_yaml.check_yaml_object
+        if not check_yaml.scope_validated and isinstance(check_yaml_object, YamlObject):
+            error: Optional[str] = check_scope_input_error(
+                check_yaml_object.yaml_dict,
+                check_yaml_object.yaml_source,
+                raw,
+                self.scopes,
+                self.kind,
+                type(self).supports_scopes,
+            )
             if error:
                 log_scope_error(error, check_scope_location(check_yaml_object))
-        if raw is None:
-            return self.base_scope
-        # str() of the value, or its type name when printing it would fail or run long.
-        key = scope_value_text(raw)
-        # Compared as str, so a tagged '!x base' is the base scope too and no placeholder
-        # carries the base key.
-        if key == BASE_SCOPE_KEY:
+        if raw is None or raw == BASE_SCOPE_KEY:
             return self.base_scope
         if isinstance(raw, str) and raw in self.scopes:
             return self.scopes[raw]
-        return Scope(key=key)
+        return Scope(key=raw if isinstance(raw, str) and SCOPE_KEY_PATTERN.fullmatch(raw) else INVALID_SCOPE_KEY)
 
     def count_checks_excluded_for_their_scope(self) -> int:
-        """The selected checks that are skipped because their scope is not active.
-
-        In a kind that supports scopes, a check whose scope is not declared logged an error already, and no
-        extension would run it, so only the checks in a declared scope count.
-        """
+        """The checks in a declared scope that is not active. They are skipped and report EXCLUDED."""
         declared_scopes: list[Scope] = list(self.scopes.values())
-        excluded: int = 0
-        for check_impl in self.all_check_impls:
-            scope: Scope = check_impl.scope
-            if scope.is_active or not check_impl.selected:
-                continue
-            if type(self).supports_scopes and not any(scope is declared for declared in declared_scopes):
-                continue
-            excluded += 1
-        return excluded
+        return sum(
+            1
+            for check_impl in self.all_check_impls
+            if not check_impl.scope.is_active and any(check_impl.scope is declared for declared in declared_scopes)
+        )
 
     def _log_checks_excluded_for_their_scope(self) -> None:
         """One line for the checks ``count_checks_excluded_for_their_scope`` counts.
@@ -836,13 +823,10 @@ class CheckCollectionImpl:
         if not excluded:
             return
         checks: str = "1 check" if excluded == 1 else f"{excluded} checks"
-        if type(self).supports_scopes:
-            logger.info(
-                f"Excluded {checks} whose scope is not active. "
-                f"Running checks in a scope needs a Soda extension that runs scopes."
-            )
-        else:
-            logger.info(f"Excluded {checks} with a scope: kind '{self.kind}' does not support scopes.")
+        logger.info(
+            f"Excluded {checks} whose scope is not active. "
+            f"Running checks in a scope needs a Soda extension that runs scopes."
+        )
 
     def _parse_checks(self, yaml: CheckCollectionYaml) -> list:
         from soda_core.contracts.impl.contract_verification_impl import CheckImpl

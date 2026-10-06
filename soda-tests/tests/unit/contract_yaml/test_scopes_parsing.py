@@ -2,7 +2,7 @@
 
 A contract checks its scope input while the YAML is parsed, so ``soda contract test`` and publication report
 the same errors. Each error names the key it is about, carries its location and ends the file with errors, which
-``soda contract test`` reports with exit code 3. A kind without scope support never validates scope input.
+``soda contract test`` reports with exit code 3. A kind without scope support rejects any scope input.
 
 Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
@@ -31,13 +31,14 @@ from soda_core.contracts.api import test_api
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckImpl, ContractImpl
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ContractYaml
-from soda_core.contracts.impl.scope import RESERVED_SCOPE_KEYS, scope_key_error
+from soda_core.contracts.impl.scope import RESERVED_SCOPE_KEYS, scope_key_error, unsupported_scopes_error
 
 pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
 SCOPE_KEYS_FIXTURE_PATH: Path = Path(__file__).parent.parent / "fixtures" / "scope_keys.yml"
 
 KIND_LINE_WITHOUT_SCOPE_SUPPORT: str = f"kind: {SCOPE_UNSUPPORTED_KIND}\n"
+UNSUPPORTED: str = unsupported_scopes_error(SCOPE_UNSUPPORTED_KIND)
 
 KEY_PATTERN_REASON: str = (
     "a scope key starts with a lowercase letter, followed by at most 63 lowercase letters, digits, '_' or '-'"
@@ -336,9 +337,9 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
 }
 
 
-def _invalid_contract(case: str, kind_line: str = "") -> str:
+def _invalid_contract(case: str) -> str:
     scopes_block, check_body, _ = INVALID_SCOPE_INPUT[case]
-    return _contract(scopes_block, check_body, kind_line)
+    return _contract(scopes_block, check_body)
 
 
 @pytest.mark.parametrize("case", list(INVALID_SCOPE_INPUT))
@@ -357,14 +358,23 @@ def test_invalid_scope_input_fails_soda_contract_test(monkeypatch, tmp_path, cas
     assert errors == INVALID_SCOPE_INPUT[case][2]
 
 
-@pytest.mark.parametrize("case", list(INVALID_SCOPE_INPUT))
-def test_a_kind_without_scope_support_reads_invalid_scope_input_as_written(monkeypatch, tmp_path, case: str):
-    yaml_str = _invalid_contract(case, KIND_LINE_WITHOUT_SCOPE_SUPPORT)
+@pytest.mark.parametrize(
+    "scopes_block, check_body, errors",
+    [
+        ("scopes:\n  eu: {name: EU}\n", "", [UNSUPPORTED]),
+        ("scopes: {}\n", "", [UNSUPPORTED]),
+        ("", "      scope: eu\n", [UNSUPPORTED]),
+        ("", "      scope: null\n", [UNSUPPORTED]),
+        ("scopes:\n  eu: {name: EU}\n", "      scope: eu\n", [UNSUPPORTED] * 2),
+    ],
+    ids=["scopes", "empty-scopes", "check-scope", "null-check-scope", "both"],
+)
+def test_a_kind_without_scope_support_fails_on_scope_input(monkeypatch, tmp_path, scopes_block, check_body, errors):
+    yaml_str = _contract(scopes_block, check_body, KIND_LINE_WITHOUT_SCOPE_SUPPORT)
     _, logs = _parse(yaml_str)
-    assert logs.get_logs() == []
-    _, logs = _build_contract_impl(yaml_str, impl_class=ScopeUnsupportedImpl)
-    assert logs.get_errors() == []
-    assert _soda_contract_test(monkeypatch, tmp_path, yaml_str) == (ExitCode.OK, [])
+    assert logs.get_errors() == errors
+    assert all(record.location is not None for record in logs.gatherer.get_error_logs())
+    assert _soda_contract_test(monkeypatch, tmp_path, yaml_str) == (ExitCode.LOG_ERRORS, errors)
 
 
 VALID_SCOPE_INPUT: dict[str, tuple[str, str]] = {
@@ -431,11 +441,6 @@ def test_a_check_scope_from_an_unset_environment_variable_is_an_error(monkeypatc
     [record] = logs.gatherer.get_error_logs()
     assert getattr(record, ExtraKeys.LOCATION).line is not None
     assert _soda_contract_test(monkeypatch, tmp_path, _environment_scope_contract()) == (ExitCode.LOG_ERRORS, errors)
-
-    unsupported: str = _environment_scope_contract(KIND_LINE_WITHOUT_SCOPE_SUPPORT)
-    _, logs = _build_contract_impl(unsupported, impl_class=ScopeUnsupportedImpl)
-    assert logs.get_errors() == []
-    assert _soda_contract_test(monkeypatch, tmp_path, unsupported) == (ExitCode.OK, [])
 
 
 def test_a_check_scope_from_a_set_environment_variable_is_validated(monkeypatch):
@@ -734,7 +739,8 @@ def test_checks_an_extension_parses_are_checked_where_their_scope_is_resolved(im
         "null-scope",
     ]
     if impl_class is ScopeUnsupportedImpl:
-        assert logs.get_errors() == []
+        # 'scopes', the check ContractYaml parsed and the five the extension parsed.
+        assert logs.get_errors() == [UNSUPPORTED] * 7
         return
     # The check ContractYaml parsed is reported once, while the YAML is parsed. The checks the extension parsed are
     # reported where their scope is resolved.
@@ -788,19 +794,17 @@ def test_the_nudge_counts_one_check():
     ]
 
 
-def test_no_nudge_without_a_selected_check_in_an_inactive_scope():
-    # No scoped check at all.
+def test_no_nudge_without_a_scoped_check():
     impl, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n"))
     assert impl.count_checks_excluded_for_their_scope() == 0
     assert _nudge_lines(logs) == []
-    # Scoped checks that no selector selects are excluded as deselected checks, so they do not count.
-    impl, _ = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("type=missing")])
-    assert impl.count_checks_excluded_for_their_scope() == 1
-    impl, logs = _build_contract_impl(
-        dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("qualifier=none")]
-    )
-    assert impl.count_checks_excluded_for_their_scope() == 0
-    assert _nudge_lines(logs) == []
+
+
+def test_the_nudge_counts_scoped_checks_whatever_the_selectors_pick():
+    for selector in ["type=missing", "qualifier=none"]:
+        impl, logs = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse(selector)])
+        assert impl.count_checks_excluded_for_their_scope() == 3, selector
+        assert _nudge_lines(logs) == [CONTRACT_NUDGE], selector
 
 
 def test_no_nudge_for_a_check_whose_scope_is_not_declared():
@@ -813,14 +817,3 @@ def test_no_nudge_for_a_check_whose_scope_is_not_declared():
     yaml_str = _contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n") + "  - row_count:\n      scope: eu\n"
     impl, _ = _build_contract_impl(yaml_str)
     assert impl.count_checks_excluded_for_their_scope() == 1
-
-
-def test_a_kind_without_scope_support_names_itself_in_the_nudge():
-    impl, logs = _build_contract_impl(
-        KIND_LINE_WITHOUT_SCOPE_SUPPORT + dedent_and_strip(NUDGE_YAML), impl_class=ScopeUnsupportedImpl
-    )
-    assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, True, False, True, True]
-    assert _nudge_lines(logs) == [
-        f"Excluded 3 checks with a scope: kind '{SCOPE_UNSUPPORTED_KIND}' does not support scopes."
-    ]
-    assert logs.get_errors() == []

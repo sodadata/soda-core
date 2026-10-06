@@ -4,7 +4,6 @@ import reprlib
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from hashlib import blake2b
 from io import StringIO
 from typing import Protocol
 
@@ -46,7 +45,7 @@ from soda_core.contracts.impl.contract_yaml import (
     normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
-from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, SCOPE_KEY_PATTERN, Scope
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope
 
 logger: logging.Logger = soda_logger
 
@@ -1327,9 +1326,8 @@ class CheckImpl:
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
-        self.selected: bool = CheckSelector.all_match(contract_impl.check_selectors, self)
         # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
-        self.skip: bool = not self.selected or not self.scope.is_active
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self) or not self.scope.is_active
         # Set when the data source declares a supported set this check's type is not in. Distinct from
         # `skip`, which means the check is deselected or in an inactive scope and reports EXCLUDED.
         self.unsupported_by_data_source: Optional[str] = None
@@ -1485,20 +1483,11 @@ class CheckImpl:
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
 
-        # The scope term goes first. The builder feeds keys and values into one stream without
-        # separators, so the term must mark its own end, or after the free-text qualifier, or after
-        # 'ds', a scoped identity could equal an unscoped one or one in another scope. A valid scope
-        # key feeds the key and ':', which no valid scope key contains. Any other value feeds '#',
-        # which no scope key starts with, and a fixed-length digest; 'surrogatepass' lets a lone
-        # surrogate encode.
-        # Every unscoped stream starts with '__cc_', 'dso' or 'pr'. The base scope adds nothing, so
-        # unscoped identities stay byte-identical.
+        # The scope term goes first and ends in ':', which no scope key contains, so a scoped identity never
+        # equals an unscoped one or one in another scope. The base scope adds nothing, so unscoped identities
+        # stay byte-identical.
         if scope_key is not None and scope_key != BASE_SCOPE_KEY:
-            if SCOPE_KEY_PATTERN.fullmatch(scope_key):
-                scope_term = f"{scope_key}:"
-            else:
-                scope_term = "#" + blake2b(scope_key.encode("utf-8", "surrogatepass"), digest_size=8).hexdigest()
-            identity_hash_builder.add_property("scope", scope_term)
+            identity_hash_builder.add_property("scope", f"{scope_key}:")
 
         # Identity-prefix mix-in: contracts inherit ``identity_prefix() == ()``
         # so the loop is a no-op and the hash stays byte-identical to every
