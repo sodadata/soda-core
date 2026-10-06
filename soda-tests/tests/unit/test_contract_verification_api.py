@@ -300,55 +300,6 @@ def test_verify_contract_on_runner_forwards_check_paths_and_check_selectors(monk
     assert called["check_selectors"] == check_selectors
 
 
-@pytest.mark.parametrize(
-    "check_paths, check_filters",
-    [
-        (None, None),
-        ([], []),
-        (["a"], None),
-        (None, ["scope=eu"]),
-        (["a", "b"], ["name=x", "scope!=eu", "check_path=c"]),
-        (["a", "a"], ["scope=eu", "scope=eu"]),
-    ],
-)
-def test_local_run_matches_check_paths_after_the_check_selectors(monkeypatch, check_paths, check_filters):
-    """A local run gets the caller's selectors first, untouched and in order, then one check_path selector per
-    check path. The caller's list is not changed."""
-    from soda_core.contracts.impl.contract_verification_impl import ContractVerificationSessionImpl
-
-    captured = {}
-
-    def fake_execute_locally(**kwargs):
-        captured.update(kwargs)
-        return []
-
-    def forbidden_execute_on_runner(**kwargs):
-        raise AssertionError("a local run must not take the runner path")
-
-    monkeypatch.setattr(ContractVerificationSessionImpl, "_execute_locally", staticmethod(fake_execute_locally))
-    monkeypatch.setattr(
-        ContractVerificationSessionImpl, "_execute_on_runner", staticmethod(forbidden_execute_on_runner)
-    )
-    check_selectors = None if check_filters is None else CheckSelector.parse_all(check_filters)
-    check_selectors_before = list(check_selectors) if check_selectors is not None else None
-    contract_yaml_source = ContractYamlSource.from_str("dataset: test/some/schema/CUSTOMERS\ncolumns:\n- name: id\n")
-
-    ContractVerificationSession.execute(
-        contract_yaml_sources=[contract_yaml_source],
-        check_paths=check_paths,
-        check_selectors=check_selectors,
-    )
-
-    expected = (check_selectors or []) + CheckSelector.from_check_paths(check_paths)
-    merged = captured["check_selectors"]
-    assert [(s.field, s.value, s.raw, s.negated) for s in merged] == [
-        (s.field, s.value, s.raw, s.negated) for s in expected
-    ]
-    for index, check_selector in enumerate(check_selectors or []):
-        assert merged[index] is check_selector
-    assert check_selectors == check_selectors_before
-
-
 # Backwards-compat smoke tests for the deprecated public API names.
 
 

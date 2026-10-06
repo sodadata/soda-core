@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
@@ -204,6 +205,31 @@ def test_backward_compat_check_paths(data_source_test_helper: DataSourceTestHelp
         non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
+
+
+@pytest.mark.parametrize(
+    "check_filter, expected_types",
+    [("column=id", ["aggregate"]), ("type=missing", [])],
+    ids=["filter-agrees", "filter-excludes"],
+)
+def test_check_paths_and_check_filters_combine(
+    data_source_test_helper: DataSourceTestHelper, check_filter: str, expected_types: list[str]
+):
+    """A check runs only when it matches a check path and every check filter."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    data_source_test_helper.enable_soda_cloud_mock(
+        [MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"})]
+    )
+
+    with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
+        result = data_source_test_helper.verify_contract(
+            test_table=test_table,
+            check_paths=["columns.id.checks.aggregate"],
+            check_selectors=[CheckSelector.parse(check_filter)],
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
+        )
+    cvr: ContractVerificationResult = result.contract_verification_results[0]
+    assert [cr.check.type for cr in cvr.check_results if not cr.is_excluded] == expected_types
 
 
 def test_no_selectors_runs_all(data_source_test_helper: DataSourceTestHelper):
