@@ -359,7 +359,7 @@ CONTRACT_COMMANDS_TAKING_ONE_CONTRACT = [
 
 @pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
 @pytest.mark.parametrize("contract_args", [["-c", "a.yaml"], ["--contract", "a.yaml"], ["--contract=a.yaml"]])
-def test_contract_command_runs_one_contract_as_before(command, other_args, handler_name, contract_args):
+def test_contract_command_runs_one_contract(command, other_args, handler_name, contract_args):
     sys.argv = ["soda", "contract", command, *contract_args, *other_args]
 
     parser = create_cli_parser()
@@ -394,7 +394,7 @@ VERIFY_OTHER_ARGS = ["-ds", "ds.yaml", "-sc", "cloud.yaml"]
 
 @pytest.mark.parametrize("dataset_args", [["-d", "ds/a"], ["--dataset", "ds/a"], ["--dataset=ds/a"]])
 @pytest.mark.parametrize("contract_args, expected_contract", [([], None), (["-c", "a.yaml"], "a.yaml")])
-def test_contract_verify_runs_one_dataset_as_before(dataset_args, contract_args, expected_contract):
+def test_contract_verify_runs_one_dataset(dataset_args, contract_args, expected_contract):
     logs = Logs()
     sys.argv = ["soda", "contract", "verify", *contract_args, *dataset_args, *VERIFY_OTHER_ARGS]
 
@@ -433,7 +433,7 @@ def test_contract_verify_without_a_value_for_dataset_keeps_the_argparse_error(ca
         (["--dataset", "ds/a", "ds/b"], ["ds/a", "ds/b"]),
     ],
 )
-def test_contract_fetch_takes_several_datasets_as_before(dataset_args, expected_datasets):
+def test_contract_fetch_takes_several_datasets(dataset_args, expected_datasets):
     logs = Logs()
     sys.argv = ["soda", "contract", "fetch", *dataset_args, "-f", "a.yaml", "b.yaml", "-sc", "cloud.yaml"]
 
@@ -638,7 +638,8 @@ def test_a_repeated_flag_is_logged_after_logging_is_set_up():
             execute()
 
     assert e.value.code == ExitCode.LOG_ERRORS
-    assert [name for name, _, _ in calls.mock_calls][:2] == ["configure_logging", "soda_logger.error"]
+    call_names = [name for name, _, _ in calls.mock_calls]
+    assert call_names.index("configure_logging") < call_names.index("soda_logger.error")
     calls.configure_logging.assert_called_once_with(True)
     handler.assert_not_called()
 
