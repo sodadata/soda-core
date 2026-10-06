@@ -41,7 +41,7 @@ SCHEDULE_YAML_KEYS: tuple[str, ...] = ("cron", "timezone", "variables")
 
 
 def _wrap_scope_value(yaml_object: YamlObject, value: Any, location: Optional[Location]) -> Any:
-    """``yaml_object._yaml_wrap(value, location)`` in a file whose kind supports scopes, which resolves variables
+    """``yaml_object.yaml_wrap(value, location)`` in a file whose kind supports scopes, which resolves variables
     one level deep. In any other file the same copy and wrapper without resolving them.
 
     Both copy a mapping or a list, as every read of one does on origin. A chain of mappings that each merge and
@@ -49,7 +49,7 @@ def _wrap_scope_value(yaml_object: YamlObject, value: Any, location: Optional[Lo
     bounds it.
     """
     if yaml_object.yaml_source.supports_scopes:
-        return yaml_object._yaml_wrap(value, location=location)
+        return yaml_object.yaml_wrap(value, location=location)
     if isinstance(value, dict):
         return YamlObject(yaml_source=yaml_object.yaml_source, yaml_dict=copy.deepcopy(value))
     if isinstance(value, list):

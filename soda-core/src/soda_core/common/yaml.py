@@ -264,7 +264,7 @@ class YamlValue:
     def __init__(self, yaml_source: YamlSource) -> None:
         self.yaml_source: YamlSource = yaml_source
 
-    def _yaml_wrap(self, value: any, location: Optional[Location] = None):
+    def yaml_wrap(self, value: any, location: Optional[Location] = None):
         # Resolve variables on read if configured to do so.
         # Only resolve one level deep in dicts and lists, we are not building a full template engine here.
 
@@ -334,7 +334,7 @@ class YamlObject(YamlValue):
         self.location: Optional[Location] = get_location(self.yaml_dict, yaml_source.file_path)
 
     def items(self) -> list[tuple]:
-        return [(k, self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
+        return [(k, self.yaml_wrap(v)) for k, v in self.yaml_dict.items()]
 
     def keys(self) -> list[str]:
         return list(self.yaml_dict.keys())
@@ -531,7 +531,7 @@ class YamlObject(YamlValue):
             )
             value = None
 
-        return self._yaml_wrap(value, location=location)
+        return self.yaml_wrap(value, location=location)
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
@@ -552,7 +552,7 @@ class YamlList(YamlValue, Iterable):
         self.location: Optional[Location] = get_location(yaml_list, yaml_source.file_path)
 
     def __iter__(self) -> iter:
-        return iter([self._yaml_wrap(element) for element in self.yaml_list])
+        return iter([self.yaml_wrap(element) for element in self.yaml_list])
 
     def to_list(self) -> list:
         return self.yaml_list
