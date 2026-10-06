@@ -42,6 +42,28 @@ SCOPE_YAML_KEYS: tuple[str, ...] = ("name", "description", "filter", "schedule",
 SCHEDULE_YAML_KEYS: tuple[str, ...] = ("cron", "timezone", "variables")
 
 
+def count_scopes_and_checks(contract_yamls: list) -> tuple[int, int, int]:
+    """The scopes, scoped checks and unscoped checks of the parsed contracts, summed.
+
+    Counts the checks core parses, under ``checks`` and under each column. A check that an extension parses from a
+    section of its own, such as ``reconciliation``, is not counted. Checks are placed as verify places them: no scope
+    and 'base' are the base scope, any other value is not.
+    """
+    scopes_count: int = 0
+    scoped_checks_count: int = 0
+    checks_count: int = 0
+    for contract_yaml in contract_yamls:
+        check_yamls: list = [check_yaml for check_yaml in contract_yaml.checks or [] if check_yaml is not None]
+        for column_yaml in contract_yaml.columns or []:
+            check_yamls.extend(check_yaml for check_yaml in column_yaml.check_yamls or [] if check_yaml is not None)
+        checks_count += len(check_yamls)
+        scoped_checks_count += sum(
+            1 for check_yaml in check_yamls if check_yaml.scope is not None and check_yaml.scope != BASE_SCOPE_KEY
+        )
+        scopes_count += sum(1 for key in contract_yaml.scopes if isinstance(key, str) and key != BASE_SCOPE_KEY)
+    return scopes_count, scoped_checks_count, checks_count - scoped_checks_count
+
+
 class ScheduleYaml:
     """A scope's ``schedule`` mapping. The readers log a value of the wrong type at its key and read it as None."""
 
