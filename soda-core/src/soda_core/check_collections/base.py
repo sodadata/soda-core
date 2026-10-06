@@ -505,7 +505,7 @@ class CheckCollectionImpl:
     # How this kind handles scopes. By default ``scopes`` and a check's ``scope`` are parse errors.
     scope_support: ScopeHandling = NoScopeSupport()
     # Set in __init__ when an extension that runs scopes was called to activate them.
-    scopes_extension_ran: bool = False
+    scopes_extension_called: bool = False
     # Defaults for stubs that skip ``__init__``; real instances overwrite both.
     base_scope: Optional[Scope] = None
     scopes: Mapping[str, Scope] = MappingProxyType({})
@@ -804,7 +804,7 @@ class CheckCollectionImpl:
                 # overrides it runs scopes.
                 default_hook = CheckCollectionImplExtension.activate_scopes
                 if getattr(type(extension), "activate_scopes", None) is not default_hook:
-                    self.scopes_extension_ran = True
+                    self.scopes_extension_called = True
                 try:
                     activate_scopes(contract_impl=self)
                 except Exception as e:
@@ -911,7 +911,7 @@ class CheckCollectionImpl:
         extension that runs scopes, a scope that is still inactive failed to activate and logged an error, so nothing
         is logged here.
         """
-        if self.scopes_extension_ran:
+        if self.scopes_extension_called:
             return
         excluded: int = self.count_checks_excluded_for_their_scope()
         if not excluded:
