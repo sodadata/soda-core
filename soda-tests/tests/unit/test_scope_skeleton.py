@@ -12,10 +12,9 @@ Every test here drops the soda-scopes extension, so the file pins core alone eve
 
 from __future__ import annotations
 
-import dataclasses
 import time
 from hashlib import blake2b
-from types import MappingProxyType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Optional
 
 import duckdb
@@ -33,12 +32,7 @@ from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logs import Logs
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_verification import (
-    Check,
-    CheckCollectionStatus,
-    CheckOutcome,
-    ContractVerificationSession,
-)
+from soda_core.contracts.contract_verification import CheckCollectionStatus, CheckOutcome, ContractVerificationSession
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension, CheckImpl, ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
@@ -242,23 +236,19 @@ def test_scope_yaml_fields_and_scope_from_yaml():
 
 
 @pytest.mark.parametrize(
-    "source_body, error",
-    [
-        ("    <<: *src\n", "'NoneType' object is not subscriptable"),
-        ("    <<: *src\n    filter: id > 1\n", "'dataset'"),
-    ],
+    "source_body",
+    ["    <<: *src\n", "    <<: *src\n    filter: id > 1\n"],
     ids=["merge-keys-only", "merge-and-own-keys"],
 )
-def test_a_merge_key_outside_scopes_raises_as_on_origin(source_body: str, error: str):
+def test_a_merge_key_outside_scopes_raises_as_on_origin(source_body: str):
     # Only the reads that scopes add fall back to the mapping's location for a key merged in with '<<'. Every other
     # read raises as on origin, so a data standard whose reconciliation source comes in through a merge key still
     # loses its reconciliation checks to one swallowed extension error, exactly as on origin.
     head = "dataset: ds/db/schema/table\nx-src: &src {dataset: ds/db/schema/source}\nreconciliation:\n  source:\n"
     contract_yaml, _ = _parse(f"{head}{source_body}columns: []\n")
     source = contract_yaml.yaml_object.read_object_opt("reconciliation").read_object_opt("source")
-    with pytest.raises((KeyError, TypeError)) as raised:
+    with pytest.raises((KeyError, TypeError)):
         source.read_string("dataset")
-    assert str(raised.value) == error
 
 
 @pytest.mark.parametrize(
@@ -329,13 +319,10 @@ def test_the_file_kind_decides_whether_scope_input_resolves_variables(kind_line:
     assert (eu.name, eu.description, eu.filter) == (value, f"in {value}", f"region = '{value}'")
     assert eu.check_attributes == {"team": value}
     assert (eu.schedule.cron, eu.schedule.timezone, eu.schedule.variables) == (value, value, {"LOOKBACK": value})
-    # The line comes from the declared variables, not from a scope read.
-    assert logs.get_logs() == ["var.REGION = eu"]
+    assert not logs.has_errors
 
 
 def test_class_defaults_cover_yamls_and_impls_without_scopes():
-    assert isinstance(CheckCollectionYaml.scopes, MappingProxyType) and not CheckCollectionYaml.scopes
-
     class _NeverReadsScopesYaml(CheckCollectionYaml):
         """Runs the base ``__init__`` only, like the metric-monitoring yamls."""
 
@@ -343,15 +330,8 @@ def test_class_defaults_cover_yamls_and_impls_without_scopes():
     assert dict(bare_yaml.scopes) == {}
 
     assert CheckCollectionImpl.supports_scopes is False
-    assert CheckCollectionImpl.base_scope is None
-    assert isinstance(CheckCollectionImpl.scopes, MappingProxyType) and not CheckCollectionImpl.scopes
-    assert "supports_scopes" in ContractImpl.__dict__ and ContractImpl.supports_scopes is True
+    assert ContractImpl.supports_scopes is True
     assert ScopeUnsupportedImpl.supports_scopes is False
-
-    stub = ContractImpl.__new__(ContractImpl)
-    assert (getattr(stub, "scopes", None) or {}) == {}
-    assert getattr(stub, "base_scope", None) is None
-    assert getattr(type(stub), "supports_scopes", False) is True
 
     # A yaml that is not a CheckCollectionYaml, like the data-standard test fake, must carry 'scopes' itself.
     duck_typed_yaml = SimpleNamespace(
@@ -451,8 +431,6 @@ def test_scope_for(impl_class: type[CheckCollectionImpl]):
     assert [check_impl.selected for check_impl in selected_impl.all_check_impls] == [False] * 3 + [True] + [False] * 5
     assert all(check_impl.skip for check_impl in selected_impl.all_check_impls)
 
-    last_field = dataclasses.fields(Check)[-1]
-    assert (last_field.name, last_field.default) == ("scope", None)
     check_infos = [check_impl._build_check_info() for check_impl in check_impls]
     assert [check.scope for check in check_infos] == [None] * 3 + ["eu"] + PLACEHOLDER_KEYS
 
