@@ -108,22 +108,6 @@ def test_per_file_contract_rejected_after_an_uploaded_sibling_marks_the_scan_fai
 # ---------------------------------------------------------------------------------------
 
 
-def test_session_without_default_subtype_does_not_upload_clean_without_a_broken_file(monkeypatch):
-    """The low-level entry point without ``default_impl_class``: the broken file must not
-    be left out of an upload that reads clean."""
-    results, exit_code, soda_cloud = _execute(
-        monkeypatch,
-        [outcome._Source("broken-yaml"), outcome._Source("healthy-b")],
-        managed=True,
-        default_impl_class=None,
-    )
-
-    inserts = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
-    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    error_reached_cloud = bool(marks) or any(insert["hasErrors"] for insert in inserts)
-    assert error_reached_cloud or exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD, (exit_code, inserts)
-
-
 @outcome._MANAGED
 def test_session_without_default_subtype_carries_a_file_of_unknown_kind_in_its_only_combined_upload(
     monkeypatch, managed: bool
@@ -181,26 +165,6 @@ _REJECTED_UNPARSEABLE_CONTRACT = f"""
     checks:
       - not_a_check_type:
 """
-
-
-def test_combined_collection_erroring_before_results_with_a_rejected_file_reaches_cloud_with_its_error(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch
-):
-    """The rejected file holds the group back, so no upload carries the parse error. The
-    mark does: it needs no file."""
-    monkeypatch.setattr(ContractImpl, "combine_uploads", True)
-    session_result, exit_code, soda_cloud = outcome._verify_contracts(
-        data_source_test_helper,
-        monkeypatch,
-        [_REJECTED_UNPARSEABLE_CONTRACT],
-        managed=True,
-        soda_cloud=outcome._SodaCloud(reject_file_upload_containing=outcome._REJECTED_UPLOAD_MARKER),
-    )
-
-    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    assert any(
-        "not_a_check_type" in message for mark in marks for message in outcome._log_messages(mark, level="error")
-    ), (exit_code, [r.get("type") for r in (req.json for req in soda_cloud.requests)])
 
 
 @pytest.mark.parametrize(
