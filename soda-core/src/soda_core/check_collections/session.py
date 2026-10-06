@@ -104,9 +104,10 @@ def execute_check_collections(
     scan after an insert that reached it, or may have: a 5xx or a timeout can
     follow an insert Soda Cloud stored, and a mark would turn that scan FAILED
     and replace its logs. Per-file collections decide in their own
-    ``verify()``, so in a session of several of them under one scan id, a file
-    that cannot be sent still marks the scan a sibling's insert completed. A
-    session where every file succeeds uploads exactly as before.
+    ``verify()`` and follow the same rule: in a session of several of them under
+    one scan id, a file that cannot go up after an earlier file reached the scan
+    is flagged as not sent and marks nothing. A session where every file
+    succeeds uploads exactly as before.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -276,6 +277,11 @@ def execute_check_collections(
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
+        # A per-file collection marks its own scan in verify(), so it needs to know whether an
+        # earlier file already reached it.
+        impl.scan_reached_by_an_earlier_file = any(
+            result.scan_id or result.results_may_have_reached_soda_cloud for result in results
+        )
         # Capture this verify()'s records into this collection's gatherer.
         with impl.logs.activate(impl.thread_label):
             try:

@@ -536,6 +536,11 @@ class CheckCollectionImpl:
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
     session_log_records: tuple[LogRecord, ...] = ()
+    # Set by the session executor before verify() when an earlier file of the session reached
+    # the managed scan: its insert or mark stamped the scan id, or its insert may have landed.
+    # A per-file collection then never marks that scan failed, which would turn a completed
+    # scan FAILED and replace its logs. It flags its result as not sent instead.
+    scan_reached_by_an_earlier_file: bool = False
     # How this kind handles scopes. By default ``scopes`` and a check's ``scope`` are parse errors.
     scope_support: ScopeHandling = NoScopeSupport()
     # Set in __init__ when an extension that runs scopes was called to activate them.
@@ -1328,6 +1333,21 @@ class CheckCollectionImpl:
                 # a managed scan failed there instead when its results could not be sent or its
                 # session errored and evaluated no check.
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
+            elif (
+                verification_result.errored_without_results
+                and self.soda_config.soda_scan_id
+                and self.scan_reached_by_an_earlier_file
+            ):
+                # An earlier file of the session reached this scan, so a mark would turn it FAILED
+                # and replace its logs. Nothing goes up for this file: flag it as not sent, so the
+                # run exits RESULTS_NOT_SENT_TO_CLOUD.
+                logger.error(
+                    f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                    f"The {self.display_name} errored before it had check results, and an earlier file "
+                    f"of this session already reported to the scan."
+                )
+                sending_results_to_soda_cloud_failed = True
+                verification_result.sending_results_to_soda_cloud_failed = True
             elif verification_result.errored_without_results and self.soda_config.soda_scan_id:
                 # A runner-created Cloud scan errored before producing any check results. Report
                 # it as FAILED with this file's logs instead of sending an errored batch with no
@@ -1379,14 +1399,16 @@ class CheckCollectionImpl:
             and not verification_result.results_may_have_reached_soda_cloud
             and not self.combine_uploads
             and not scan_marked_failed
+            and not self.scan_reached_by_an_earlier_file
             and self.soda_config.soda_scan_id
         ):
             # This file's results did not reach a runner-created scan, and the launcher commands
             # that verify do not mark it on RESULTS_NOT_SENT_TO_CLOUD. Mark it failed once, with
             # this file's logs, so the reason reaches Soda Cloud. The flag stays: the run still
             # exits RESULTS_NOT_SENT_TO_CLOUD. A combined upload's session marks its own scan.
-            # After an insert that may have landed, a 5xx or a timeout, there is no mark: it
-            # would turn a completed scan FAILED and replace its logs.
+            # After an insert that may have landed, a 5xx or a timeout, or after an earlier file
+            # of the session reached the scan, there is no mark: it would turn a completed scan
+            # FAILED and replace its logs.
             self.soda_cloud.mark_scan_as_failed(scan_id=self.soda_config.soda_scan_id, logs=log_records)
 
         # Post-processing handlers. For combine-upload subtypes, defer to
