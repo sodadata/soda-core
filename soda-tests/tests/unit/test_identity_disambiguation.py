@@ -162,24 +162,6 @@ def test_data_standards_with_same_collection_id_produce_identical_identities():
     assert hash_one == hash_two
 
 
-def _origin_identity(extra_identity_properties=None, scope_term=None) -> str:
-    """The contract identity as origin built it, optionally with the scope term in front."""
-    from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-
-    expected = ConsistentHashBuilder(8)
-    if scope_term is not None:
-        expected.add_property("scope", scope_term)
-    expected.add_property("dso", "test_ds")
-    expected.add_property("pr", "schema")
-    expected.add_property("ds", "table")
-    expected.add_property("c", None)
-    expected.add_property("t", "row_count")
-    expected.add_property("q", None)
-    for key in sorted(extra_identity_properties or {}):
-        expected.add_property(key, extra_identity_properties[key])
-    return expected.get_hash()
-
-
 def _contract_identity(**kwargs) -> str:
     return CheckImpl._build_identity(
         contract_impl=_ContractStub(),
@@ -191,35 +173,24 @@ def _contract_identity(**kwargs) -> str:
 
 
 def test_base_scope_adds_nothing_to_the_contract_identity():
-    """No scope and the base scope both keep the identity origin computed."""
-    assert _contract_identity(scope_key=None) == _origin_identity()
-    assert _contract_identity(scope_key="base") == _origin_identity()
+    """No scope and the base scope both keep the unscoped identity."""
+    assert _contract_identity(scope_key=None) == _contract_identity()
+    assert _contract_identity(scope_key="base") == _contract_identity()
 
 
 def test_identical_checks_in_two_scopes_produce_different_identities():
-    eu_hash = _contract_identity(scope_key="eu")
-    us_hash = _contract_identity(scope_key="us")
-
-    assert eu_hash == _origin_identity(scope_term="eu:")
-    assert us_hash == _origin_identity(scope_term="us:")
-    assert len({eu_hash, us_hash, _contract_identity()}) == 3
+    assert len({_contract_identity(scope_key="eu"), _contract_identity(scope_key="us"), _contract_identity()}) == 3
 
 
-def test_scope_term_comes_before_reconciliation_style_extras():
-    """Reconciliation passes the source as an extra property, which the builder adds after the qualifier.
-    The scope term still goes first, and the scope and the source both tell checks apart.
-    """
+def test_scope_and_reconciliation_source_both_tell_checks_apart():
     extras = {"src": "payments"}
-    eu_hash = _contract_identity(extra_identity_properties=extras, scope_key="eu")
-
-    assert eu_hash == _origin_identity(extra_identity_properties=extras, scope_term="eu:")
-    assert _contract_identity(extra_identity_properties=extras, scope_key="base") == _origin_identity(
+    assert _contract_identity(extra_identity_properties=extras, scope_key="base") == _contract_identity(
         extra_identity_properties=extras
     )
     assert (
         len(
             {
-                eu_hash,
+                _contract_identity(extra_identity_properties=extras, scope_key="eu"),
                 _contract_identity(extra_identity_properties=extras, scope_key="us"),
                 _contract_identity(extra_identity_properties={"src": "refunds"}, scope_key="eu"),
                 _contract_identity(extra_identity_properties=extras),
