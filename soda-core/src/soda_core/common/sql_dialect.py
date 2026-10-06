@@ -12,6 +12,7 @@ from typing import Any, ClassVar, Optional, Tuple, final
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
+from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -21,12 +22,16 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ABS,
     ADD_INTERVAL,
     ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
+    ANALYZE_TABLE,
     AND,
+    ARITHMETIC,
+    ASSIGNMENT,
     AVERAGE,
     CASE_WHEN,
     CAST,
@@ -36,13 +41,19 @@ from soda_core.common.sql_ast import (
     CONCAT,
     CONCAT_WS,
     COUNT,
+    CREATE_INDEX_IF_NOT_EXISTS,
     CREATE_MATERIALIZED_VIEW,
+    CREATE_SCHEMA_IF_NOT_EXISTS,
     CREATE_TABLE,
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     CREATE_VIEW,
     CTE,
+    CURRENT_TIMESTAMP,
+    DATE_ISO_TEXT,
+    DATE_TRUNC,
+    DELETE,
     DISTINCT,
     DROP_MATERIALIZED_VIEW,
     DROP_MATERIALIZED_VIEW_IF_EXISTS,
@@ -50,6 +61,7 @@ from soda_core.common.sql_ast import (
     DROP_TABLE_IF_EXISTS,
     DROP_VIEW,
     DROP_VIEW_IF_EXISTS,
+    EPOCH_SECONDS,
     EQ,
     EXISTS,
     FROM,
@@ -65,6 +77,7 @@ from soda_core.common.sql_ast import (
     IS_NOT_NULL,
     IS_NULL,
     JOIN,
+    JSON_MERGE,
     LEFT_INNER_JOIN,
     LENGTH,
     LIKE,
@@ -78,24 +91,33 @@ from soda_core.common.sql_ast import (
     NEQ,
     NOT,
     NOT_LIKE,
+    NULLIF,
     OFFSET,
     OR,
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
     PERCENTILE_WITHIN_GROUP,
+    PLACEHOLDER,
     RANDOM,
     RAW_SQL,
     REGEX_LIKE,
+    REGEXP_REPLACE,
     SELECT,
+    SOURCE_COLUMN,
     STAR,
     STDDEV_SAMP,
     STRING_HASH,
     SUM,
     TIME_DELTA,
+    TIMESTAMP_ISO_TEXT,
+    TO_TIMEZONE,
     TUPLE,
     UNION,
     UNION_ALL,
+    UPDATE,
+    UPSERT,
+    UPSERT_VIA_SELECT,
     VALUES,
     VALUES_ROW,
     VAR_SAMP,
@@ -132,6 +154,12 @@ class SqlDialect:
     # (T-SQL, Trino, Athena, Oracle) set True instead of copying `build_select_sql` wholesale.
     OFFSET_BEFORE_LIMIT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
+    # Whether the dialect renders the data-plane statements and the dialect-specific expressions of
+    # sql_ast. Off, each raises UnsupportedSqlStatementError or, where it is optional, renders
+    # nothing, so no dialect emits SQL that was never run against it. Not inherited: True only on a
+    # dialect class that sets it in its own body (see __init_subclass__), so a dialect derived from
+    # a verified one stays off until it is verified and opts in itself.
+    SUPPORTS_DATA_PLANE_STATEMENTS: bool = False
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
@@ -144,6 +172,7 @@ class SqlDialect:
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
         cls.SQLGLOT_DIALECT = sqlglot_dialect
+        cls.SUPPORTS_DATA_PLANE_STATEMENTS = cls.__dict__.get("SUPPORTS_DATA_PLANE_STATEMENTS", False)
 
     # Data type handling
 
@@ -358,6 +387,8 @@ class SqlDialect:
             return self.literal_boolean(o)
         elif isinstance(o, LITERAL):  # If someone passes a LITERAL object, we want to use the value
             return self.literal(o.value)
+        elif isinstance(o, SqlExpression):  # A value the data source computes, e.g. CURRENT_TIMESTAMP()
+            return self.build_expression_sql(o)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
 
     def literal_number(self, value: Number):
@@ -720,11 +751,22 @@ class SqlDialect:
         table_properties_sql: str = self._build_create_table_properties_sql()
         if table_properties_sql:
             create_table_sql = f"{create_table_sql} {table_properties_sql}"
+        table_storage_sql: str = (
+            self._build_create_table_storage_sql(create_table) if self.SUPPORTS_DATA_PLANE_STATEMENTS else ""
+        )
+        if table_storage_sql:
+            create_table_sql = f"{create_table_sql} {table_storage_sql}"
         return create_table_sql + (";" if add_semicolon else "")
 
     def _build_create_table_properties_sql(self) -> str:
         """Dialect-specific table-level clauses, rendered after the column list in a CREATE TABLE
         and before AS in a CTAS. Empty for every dialect that needs none."""
+        return ""
+
+    def _build_create_table_storage_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        """Storage clause for one table, from its hints (``update_heavy``), rendered after the table
+        properties when SUPPORTS_DATA_PLANE_STATEMENTS is set. Empty for every dialect that has no such
+        knob."""
         return ""
 
     def _create_table_with_primary_key_columns_not_null(
@@ -987,6 +1029,174 @@ class SqlDialect:
         )
 
     #########################################################
+    # DATA PLANE STATEMENTS
+    #########################################################
+    # For an application that maintains its own tables through the dialect. Each builder renders
+    # only when SUPPORTS_DATA_PLANE_STATEMENTS is set, and raises otherwise; the optional ones
+    # (index, statistics, read-only transaction) render None instead. The UPDATE and DELETE bodies
+    # below are the form Postgres renders; the vendor-specific statements raise or render None here
+    # and are overridden per dialect.
+
+    def build_update_sql(self, update: UPDATE, add_semicolon: Optional[bool] = None) -> str:
+        self._require_data_plane_statement_support("UPDATE")
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return self._build_update_sql(update) + (";" if add_semicolon else "")
+
+    def build_delete_sql(self, delete: DELETE, add_semicolon: Optional[bool] = None) -> str:
+        self._require_data_plane_statement_support("DELETE")
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return self._build_delete_sql(delete) + (";" if add_semicolon else "")
+
+    def build_upsert_sql(self, upsert: UPSERT, add_semicolon: Optional[bool] = None) -> str:
+        self._require_data_plane_statement_support("UPSERT")
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return self._build_upsert_sql(upsert) + (";" if add_semicolon else "")
+
+    def build_upsert_via_select_sql(
+        self, upsert_via_select: UPSERT_VIA_SELECT, add_semicolon: Optional[bool] = None
+    ) -> str:
+        self._require_data_plane_statement_support("UPSERT_VIA_SELECT")
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return self._build_upsert_via_select_sql(upsert_via_select) + (";" if add_semicolon else "")
+
+    def build_create_index_sql(
+        self, create_index: CREATE_INDEX_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> Optional[str]:
+        """The statement creating the index, or None when the dialect has no secondary indexes to
+        create. An index is an optimisation, so a caller skips None instead of failing on it."""
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return None
+        create_index_sql: Optional[str] = self._build_create_index_sql(create_index)
+        if create_index_sql is None:
+            return None
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return create_index_sql + (";" if add_semicolon else "")
+
+    def build_analyze_table_sql(
+        self, analyze_table: ANALYZE_TABLE, add_semicolon: Optional[bool] = None
+    ) -> Optional[str]:
+        """The statement refreshing the table's planner statistics, or None when the dialect has none
+        to run. Statistics are an optimisation, never needed for a correct result, so a caller skips
+        None instead of failing on it."""
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return None
+        analyze_table_sql: Optional[str] = self._build_analyze_table_sql(analyze_table)
+        if analyze_table_sql is None:
+            return None
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return analyze_table_sql + (";" if add_semicolon else "")
+
+    def build_create_schema_sql(
+        self, create_schema: CREATE_SCHEMA_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
+        self._require_data_plane_statement_support("CREATE_SCHEMA_IF_NOT_EXISTS")
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        return self._build_create_schema_sql(create_schema) + (";" if add_semicolon else "")
+
+    def begin_read_only_transaction_sql(self) -> Optional[str]:
+        """Statement opening a transaction in which the data source refuses writes, or None when the
+        dialect offers none. For an application running user-authored reads; ``rollback_sql`` ends it.
+        """
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return None
+        return self._begin_read_only_transaction_sql()
+
+    def rollback_sql(self) -> Optional[str]:
+        """Statement ending the current transaction without committing it, or None."""
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return None
+        return self._rollback_sql()
+
+    def _begin_read_only_transaction_sql(self) -> Optional[str]:
+        return None
+
+    def _rollback_sql(self) -> Optional[str]:
+        return None
+
+    def _require_data_plane_statement_support(self, node_name: str) -> None:
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            raise self._unsupported_sql_statement_error(node_name)
+
+    def _unsupported_sql_statement_error(self, node_name: str) -> UnsupportedSqlStatementError:
+        return UnsupportedSqlStatementError(f"{type(self).__name__} does not support {node_name}")
+
+    def _build_update_sql(self, update: UPDATE) -> str:
+        lines: list[str] = [
+            f"UPDATE {self._build_statement_target_sql(update.fully_qualified_table_name, update.alias)}",
+            f"SET {self._build_assignments_sql(update.assignments)}",
+        ]
+        if update.from_elements:
+            lines.extend(self._build_statement_sources_sql_lines("FROM", update.from_elements))
+        if update.where is not None:
+            lines.extend(self._build_where_sql_lines([update.where]))
+        return "\n".join(lines)
+
+    def _build_delete_sql(self, delete: DELETE) -> str:
+        lines: list[str] = [
+            f"DELETE FROM {self._build_statement_target_sql(delete.fully_qualified_table_name, delete.alias)}"
+        ]
+        if delete.using_elements:
+            lines.extend(self._build_statement_sources_sql_lines("USING", delete.using_elements))
+        if delete.where is not None:
+            lines.extend(self._build_where_sql_lines([delete.where]))
+        return "\n".join(lines)
+
+    def _build_upsert_sql(self, upsert: UPSERT) -> str:
+        raise self._unsupported_sql_statement_error("UPSERT")
+
+    def _build_upsert_via_select_sql(self, upsert_via_select: UPSERT_VIA_SELECT) -> str:
+        raise self._unsupported_sql_statement_error("UPSERT_VIA_SELECT")
+
+    def _build_create_index_sql(self, create_index: CREATE_INDEX_IF_NOT_EXISTS) -> Optional[str]:
+        return None
+
+    def _build_analyze_table_sql(self, analyze_table: ANALYZE_TABLE) -> Optional[str]:
+        return None
+
+    def _build_create_schema_sql(self, create_schema: CREATE_SCHEMA_IF_NOT_EXISTS) -> str:
+        return self.create_schema_if_not_exists_sql(create_schema.prefixes, add_semicolon=False)
+
+    def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
+        raise self._unsupported_sql_statement_error("SOURCE_COLUMN")
+
+    def _build_statement_target_sql(self, fully_qualified_table_name: str, alias: Optional[str]) -> str:
+        return f"{fully_qualified_table_name} {self._alias_format(alias)}" if alias else fully_qualified_table_name
+
+    def _build_statement_sources_sql_lines(self, keyword: str, elements: list[FROM]) -> list[str]:
+        """The further tables of an UPDATE (``FROM``) or a DELETE (``USING``), laid out as a SELECT's
+        FROM clause: plain FROM elements comma-separated, each JOIN on its own line."""
+        lines: list[str] = []
+        line: str = f"{keyword} "
+        continuation: str = " " * len(line)
+        for index, element in enumerate(elements):
+            if isinstance(element, (LEFT_INNER_JOIN, JOIN)):
+                lines.append(line)
+                line = f"{continuation}{self._build_join_part(element)}"
+            else:
+                if index > 0:
+                    lines.append(f"{line},")
+                    line = continuation
+                line += self._build_from_part(element)
+        lines.append(line)
+        return lines
+
+    def _build_assignments_sql(self, assignments: list[ASSIGNMENT]) -> str:
+        return ", ".join(self._build_assignment_sql(assignment) for assignment in assignments)
+
+    def _build_assignment_sql(self, assignment: ASSIGNMENT) -> str:
+        column_name = assignment.column.name if isinstance(assignment.column, COLUMN) else assignment.column
+        return f"{self.build_expression_sql(column_name)} = {self.build_expression_sql(assignment.value)}"
+
+    def _build_index_columns_sql(self, columns: list[COLUMN | str]) -> str:
+        column_names: list[str] = []
+        for column in columns:
+            column_name = column.name if isinstance(column, COLUMN) else column
+            if not isinstance(column_name, str):
+                raise ValueError(f"An index column must be named, got {column_name!r}")
+            column_names.append(self._quote_column_for_create_table(column_name))
+        return "(" + ", ".join(column_names) + ")"
+
+    #########################################################
     # UNION
     #########################################################
     @deprecated(
@@ -1125,6 +1335,9 @@ class SqlDialect:
             return self._build_and_sql(expression)
         elif isinstance(expression, NOT):
             return self._build_not_sql(expression)
+        elif isinstance(expression, LIKE) and expression.escape is not None:
+            self._require_data_plane_statement_support("LIKE ESCAPE")
+            return self._build_like_escape_sql(expression)
         elif isinstance(expression, Operator):
             return self._build_operator_sql(expression)
         elif isinstance(expression, COUNT):
@@ -1199,6 +1412,43 @@ class SqlDialect:
             return self._build_exists_sql(expression)
         elif isinstance(expression, RANDOM):
             return self._build_random_sql(expression)
+        elif isinstance(expression, ASSIGNMENT):
+            self._require_data_plane_statement_support("ASSIGNMENT")
+            return self._build_assignment_sql(expression)
+        elif isinstance(expression, SOURCE_COLUMN):
+            self._require_data_plane_statement_support("SOURCE_COLUMN")
+            return self._build_source_column_sql(expression)
+        elif isinstance(expression, CURRENT_TIMESTAMP):
+            return self._build_current_timestamp_sql(expression)
+        elif isinstance(expression, NULLIF):
+            return self._build_nullif_sql(expression)
+        elif isinstance(expression, ABS):
+            return self._build_abs_sql(expression)
+        elif isinstance(expression, ARITHMETIC):
+            return self._build_arithmetic_sql(expression)
+        elif isinstance(expression, PLACEHOLDER):
+            return self._build_placeholder_sql(expression)
+        elif isinstance(expression, REGEXP_REPLACE):
+            self._require_data_plane_statement_support("REGEXP_REPLACE")
+            return self._build_regexp_replace_sql(expression)
+        elif isinstance(expression, DATE_TRUNC):
+            self._require_data_plane_statement_support("DATE_TRUNC")
+            return self._build_date_trunc_sql(expression)
+        elif isinstance(expression, TO_TIMEZONE):
+            self._require_data_plane_statement_support("TO_TIMEZONE")
+            return self._build_to_timezone_sql(expression)
+        elif isinstance(expression, EPOCH_SECONDS):
+            self._require_data_plane_statement_support("EPOCH_SECONDS")
+            return self._build_epoch_seconds_sql(expression)
+        elif isinstance(expression, TIMESTAMP_ISO_TEXT):
+            self._require_data_plane_statement_support("TIMESTAMP_ISO_TEXT")
+            return self._build_timestamp_iso_text_sql(expression)
+        elif isinstance(expression, DATE_ISO_TEXT):
+            self._require_data_plane_statement_support("DATE_ISO_TEXT")
+            return self._build_date_iso_text_sql(expression)
+        elif isinstance(expression, JSON_MERGE):
+            self._require_data_plane_statement_support("JSON_MERGE")
+            return self._build_json_merge_sql(expression)
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
 
     def _build_column_sql(self, column: COLUMN) -> str:
@@ -1499,6 +1749,9 @@ class SqlDialect:
     def _build_like_sql(self, like: LIKE) -> str:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"
 
+    def _build_like_escape_sql(self, like: LIKE) -> str:
+        return f"{self._build_operator_sql(like)} ESCAPE {self.literal_string(like.escape)}"
+
     def _build_exists_sql(self, exists: EXISTS) -> str:
         nested_select: str = self.build_select_sql(select_elements=exists.nested_select_elements, add_semicolon=False)
         nested_select: str = indent(nested_select, "    ")
@@ -1591,6 +1844,46 @@ class SqlDialect:
             + (f"ELSE {self.build_expression_sql(case_when.else_expression)} " if case_when.else_expression else "")
             + "END"
         )
+
+    def _build_current_timestamp_sql(self, current_timestamp: CURRENT_TIMESTAMP) -> str:
+        return "CURRENT_TIMESTAMP"
+
+    def _build_nullif_sql(self, nullif: NULLIF) -> str:
+        return f"NULLIF({self.build_expression_sql(nullif.left)}, {self.build_expression_sql(nullif.right)})"
+
+    def _build_abs_sql(self, abs_: ABS) -> str:
+        return f"ABS({self.build_expression_sql(abs_.expression)})"
+
+    def _build_arithmetic_sql(self, arithmetic: ARITHMETIC) -> str:
+        left_sql: str = self.build_expression_sql(arithmetic.left)
+        right_sql: str = self.build_expression_sql(arithmetic.right)
+        return f"({left_sql} {arithmetic.operator} {right_sql})"
+
+    def _build_placeholder_sql(self, placeholder: PLACEHOLDER) -> str:
+        return "?"
+
+    # The dialect-specific expressions: a data source that supports one overrides its hook.
+
+    def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
+        raise self._unsupported_sql_statement_error("REGEXP_REPLACE")
+
+    def _build_date_trunc_sql(self, date_trunc: DATE_TRUNC) -> str:
+        raise self._unsupported_sql_statement_error("DATE_TRUNC")
+
+    def _build_to_timezone_sql(self, to_timezone: TO_TIMEZONE) -> str:
+        raise self._unsupported_sql_statement_error("TO_TIMEZONE")
+
+    def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
+        raise self._unsupported_sql_statement_error("EPOCH_SECONDS")
+
+    def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
+        raise self._unsupported_sql_statement_error("TIMESTAMP_ISO_TEXT")
+
+    def _build_date_iso_text_sql(self, date_iso_text: DATE_ISO_TEXT) -> str:
+        raise self._unsupported_sql_statement_error("DATE_ISO_TEXT")
+
+    def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
+        raise self._unsupported_sql_statement_error("JSON_MERGE")
 
     def _build_order_by_lines(self, select_elements: list) -> list[str]:
         order_by_clauses: list[str] = []
