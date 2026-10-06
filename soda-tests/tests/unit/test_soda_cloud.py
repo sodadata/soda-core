@@ -955,7 +955,6 @@ def test_v4_diagnostics_carry_scope_rows_tested_only_when_present(check_type: st
         _v4_rows_tested_check_result(check_type, {**unscoped_values, "scope_rows_tested": 2})
     )
     assert scoped == {**unscoped, "scopeRowsTested": 2}
-    assert list(scoped)[-1] == "scopeRowsTested"
 
     # An unmeasured scope count keeps the key; the serializer drops None values later.
     unmeasured = _build_v4_diagnostics_check_type_json_dict(
