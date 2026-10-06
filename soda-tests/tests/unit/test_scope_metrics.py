@@ -314,9 +314,8 @@ def test_an_extension_that_does_not_run_scopes_keeps_the_nudge():
         _, logs = _build_impl(SCOPED_YAML)
     finally:
         ContractImpl.impl_extensions.pop("extension_that_does_not_run_scopes", None)
-    assert _nudge_lines(logs) == [
-        "Excluded 4 checks whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-    ]
+    # The parsing tests pin the text of the line.
+    assert len(_nudge_lines(logs)) == 1
 
 
 SAMPLING_YAML: str = """
