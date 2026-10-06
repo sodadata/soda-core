@@ -160,11 +160,11 @@ def execute_check_collections(
     # the parse, so the file's parse records land in it too. What the caller logged
     # before the session belongs to no one file, so every child starts with it, as a
     # lone file would: an error logged there still errors every file.
-    fork_logs: bool = logs is not None and len(yaml_sources) > 1
-    pre_session_records: list[LogRecord] = list(logs.get_log_records()) if fork_logs else []
+    child_logs_per_file: bool = logs is not None and len(yaml_sources) > 1
+    pre_session_records: list[LogRecord] = list(logs.get_log_records()) if child_logs_per_file else []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
-        impl_logs: Optional[Logs] = logs.child(inherited_records=pre_session_records) if fork_logs else logs
+        impl_logs: Optional[Logs] = logs.child(inherited_records=pre_session_records) if child_logs_per_file else logs
         try:
             # Parse the YAML once for kind dispatch; reuse the parsed
             # object inside the subtype's ``yaml_class.parse(...)`` so the
