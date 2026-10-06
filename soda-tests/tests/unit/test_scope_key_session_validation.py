@@ -1,13 +1,13 @@
 """The session check on ``scope`` check filters.
 
-Every ``scope`` value in the check filters must be ``base`` or a key that a collection of a kind with scope support
-declares somewhere in the session. Otherwise ``execute_check_collections`` raises ``InvalidArgumentException`` after
+Every ``scope`` value in the check filters must be ``base`` or a key that a collection declares somewhere in the
+session. Otherwise ``execute_check_collections`` raises ``InvalidArgumentException`` after
 constructing the collections and before any ``verify()``, so nothing is queried or uploaded. A value with a wildcard
 is a pattern and is not checked. A collection that does not declare a known key needs nothing special: its checks
 fail the filter and go up as EXCLUDED.
 
 The stub impls skip the base ``__init__``, as several other test stubs do, so the check reads the class defaults
-``CheckCollectionImpl`` declares for ``scopes`` and ``supports_scopes``.
+``CheckCollectionImpl`` declares for ``scopes``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,6 @@ from soda_core.contracts.impl.scope import Scope
 
 # Unique kinds, so the stubs never collide with other test modules or the real kinds.
 _SCOPED_KIND = "scope-key-validation-scoped-stub"
-_UNSCOPED_KIND = "scope-key-validation-unscoped-stub"
 
 # Labels of the sources whose collection ran verify(), in order.
 _verified: list[str] = []
@@ -76,10 +75,6 @@ class _StubResult(CheckCollectionResult):
     pass
 
 
-class _UnscopedStubResult(CheckCollectionResult):
-    pass
-
-
 class _ScopedStubImpl(CheckCollectionImpl):
     kind = _SCOPED_KIND
     wire_source = "scope-key-stub"
@@ -87,7 +82,6 @@ class _ScopedStubImpl(CheckCollectionImpl):
     result_class = _StubResult
     requires_collection_id = False
     combine_uploads = True
-    supports_scopes = True
 
     def __init__(self, yaml, **kwargs):
         # Skips the base ``__init__``.
@@ -120,15 +114,6 @@ class _ScopedStubImpl(CheckCollectionImpl):
             log_records=[],
             post_processing_stages=[],
         )
-
-
-class _UnscopedStubImpl(_ScopedStubImpl):
-    """A kind without scope support that still holds declared scopes, as a data standard would."""
-
-    kind = _UNSCOPED_KIND
-    wire_source = "scope-key-unscoped-stub"
-    result_class = _UnscopedStubResult
-    supports_scopes = False
 
 
 @pytest.fixture(autouse=True)
@@ -198,35 +183,14 @@ def test_wildcard_values_are_not_checked(check_filter: str):
     assert _verified == ["a"]
 
 
-def test_a_key_declared_only_by_a_kind_without_scope_support_is_unknown():
-    sources = [_StubSource("a", ["eu"]), _StubSource("standard", ["apac"], kind=_UNSCOPED_KIND)]
-
-    with pytest.raises(InvalidArgumentException) as exc_info:
-        _execute(sources, ["scope=apac"])
-
-    message = str(exc_info.value)
-    assert "'apac'" in message
-    assert f"Kind '{_UNSCOPED_KIND}' does not support scopes." in message
-    assert "No file in this session declares" not in message
-    assert _verified == []
-
-    # Next to a key nobody declares, the message says both.
-    with pytest.raises(InvalidArgumentException) as exc_info:
-        _execute(sources, ["scope=apac", "scope=zz"])
-
-    message = str(exc_info.value)
-    assert f"Kind '{_UNSCOPED_KIND}' does not support scopes. No file in this session declares 'zz'." in message
-    assert _verified == []
-
-
 def test_a_collection_that_does_not_declare_a_known_key_still_runs():
     session_result = _execute(
-        [_StubSource("a", ["eu"]), _StubSource("b", []), _StubSource("standard", [], kind=_UNSCOPED_KIND)],
+        [_StubSource("a", ["eu"]), _StubSource("b", [])],
         ["scope=eu"],
     )
 
-    assert len(session_result.results) == 3
-    assert _verified == ["a", "b", "standard"]
+    assert len(session_result.results) == 2
+    assert _verified == ["a", "b"]
 
 
 class _ScopesNeverRead(_ScopedStubImpl):
@@ -259,8 +223,6 @@ def test_list_syntax_for_a_scope_gets_a_hint():
 def test_one_file_can_be_checked_on_its_own():
     # One file checked on its own, outside a session.
     class _OneFileImpl:
-        supports_scopes = True
-
         def __init__(self):
             self.scopes = {"eu": Scope(key="eu")}
 
