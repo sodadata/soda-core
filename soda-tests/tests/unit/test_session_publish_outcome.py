@@ -46,7 +46,6 @@ from soda_core.cli.handlers.scan import run_scan
 from soda_core.common import logs as logs_module
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     Check,
@@ -312,22 +311,13 @@ _INSERT_FAILURES = pytest.mark.parametrize(
     ids=["one", "two", "one_excluded", "all_excluded"],
 )
 def test_every_collection_succeeding_sends_all_of_them_in_one_insert(monkeypatch, managed: bool, labels: list[str]):
-    """The session hands every result to one insert, in session order, and nothing else
-    reaches Soda Cloud: the payload is what it was before any of this."""
-    sent: list[tuple[list[CheckCollectionResult], dict]] = []
-    send = SodaCloud.send_check_collection_results
-
-    def spy(self, results, **kwargs):
-        sent.append((list(results), kwargs))
-        return send(self, results, **kwargs)
-
-    monkeypatch.setattr(SodaCloud, "send_check_collection_results", spy)
+    """Every result goes up in one insert, in session order, and nothing else reaches Soda Cloud."""
     results, exit_code, soda_cloud = _verify(monkeypatch, labels, managed)
 
-    [(sent_results, sent_kwargs)] = sent
-    assert [id(result) for result in sent_results] == [id(result) for result in results]
-    assert sent_kwargs == {"wire_source": _WIRE_SOURCE, "scan_definition_suffix": None}
     [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
+    assert [check["checkPath"] for check in insert["checks"]] == [f"checks.{label}" for label in labels]
+    assert {check["source"] for check in insert["checks"]} == {_WIRE_SOURCE}
+    assert insert["definitionName"] == "fake_ds/main/customers"
     assert insert["hasErrors"] is False
     assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
     assert exit_code == ExitCode.OK
