@@ -629,7 +629,11 @@ def _mark_scan_failed(
         return
     if not results_to_mark_failed:
         return
-    first_errored: CheckCollectionResult = next(r for r in results_to_mark_failed if r.errored_without_results)
+    # Every group here holds a result that errored without results. Should that ever change,
+    # the default marks with the first result instead of raising StopIteration.
+    first_errored: CheckCollectionResult = next(
+        (r for r in results_to_mark_failed if r.errored_without_results), results_to_mark_failed[0]
+    )
     # Stamp the known scan id, so post-processing failure reporting can update Cloud, and
     # pass it explicitly. Forward the first stored exception too, which a file that never
     # became a collection carries on result.error.
