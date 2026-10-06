@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Any, Optional
 
-from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
+from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.exceptions import ContractParserException
@@ -21,24 +21,12 @@ from soda_core.contracts.impl.scope import (
     check_scope_location,
     log_scope_error,
     read_check_scope,
-    scope_key_location,
-    unsupported_scopes_error,
     validate_scopes,
 )
 
 logger: logging.Logger = soda_logger
 
 from typing import Protocol
-
-
-def _kind_supports_scopes(kind: Optional[str]) -> bool:
-    """``supports_scopes`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
-    as ``contract`` when the file names no kind. A kind nobody registered supports no scopes."""
-    try:
-        impl_class = CheckCollectionImpl.for_kind(kind or "contract")
-    except ValueError:
-        return False
-    return impl_class.supports_scopes
 
 
 class ContractYamlExtension(Protocol):
@@ -134,14 +122,11 @@ class ContractYaml(CheckCollectionYaml):
             self.filter = self.filter.strip()
 
         # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope
-        # support declares none, and ``scopes`` in its file is an error.
-        self.supports_scopes: bool = _kind_supports_scopes(self.kind)
+        # support declares none; the base __init__ logged an error for its ``scopes``.
         self.scopes: dict[Any, ScopeYaml] = {}
         if self.supports_scopes:
             self.scopes = ScopeYaml.parse_scopes(self.yaml_object)
             validate_scopes(self.yaml_object)
-        elif "scopes" in self.yaml_object.yaml_dict:
-            log_scope_error(unsupported_scopes_error(self.kind), scope_key_location(self.yaml_object, "scopes"))
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
