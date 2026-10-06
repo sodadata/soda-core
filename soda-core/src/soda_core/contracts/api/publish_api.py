@@ -14,7 +14,7 @@ def publish_contract(contract_file_path: str, soda_cloud_file_path: str) -> Cont
     contract_publication: ContractPublication = contract_publication_builder.build()
     contract_publication_result = contract_publication.execute()
 
-    # The publish already went through, so counting for telemetry must never fail it.
+    # Counts go out whether or not the publish uploaded anything, and counting must never fail it.
     try:
         soda_telemetry.ingest_contract_publication(contract_publication.contract_publication_impl.contract_yamls)
     except Exception as e:
