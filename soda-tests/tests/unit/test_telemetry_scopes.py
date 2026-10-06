@@ -210,7 +210,7 @@ def describe(result):
         "errors": result.get_errors(),
         "statuses": [r.status.name for r in results],
         "outcomes": [sorted(check_result.outcome.name for check_result in r.check_results) for r in results],
-        "result_counts": [[r.scopes_count, r.scoped_checks_count, r.unscoped_checks_count] for r in results],
+        "result_counts": [[r.number_of_scopes, r.number_of_scoped_checks, r.number_of_unscoped_checks] for r in results],
         "session_counts": [
             result.number_of_scopes,
             result.number_of_scoped_checks,
@@ -423,14 +423,14 @@ class _KeywordBuiltResult(CheckCollectionResult):
 def test_a_result_built_without_the_counts_has_zero_counts():
     result = _make_result(result_class=_KeywordBuiltResult)
 
-    assert (result.scopes_count, result.scoped_checks_count, result.unscoped_checks_count) == (0, 0, 0)
+    assert (result.number_of_scopes, result.number_of_scoped_checks, result.number_of_unscoped_checks) == (0, 0, 0)
 
 
 def test_session_result_sums_the_counts_of_its_results():
     session_result = ContractVerificationSessionResult(
         contract_verification_results=[
-            _make_result(scopes_count=2, scoped_checks_count=3, unscoped_checks_count=2),
-            _make_result(scopes_count=1, scoped_checks_count=1, unscoped_checks_count=4),
+            _make_result(number_of_scopes=2, number_of_scoped_checks=3, number_of_unscoped_checks=2),
+            _make_result(number_of_scopes=1, number_of_scoped_checks=1, number_of_unscoped_checks=4),
         ]
     )
 
@@ -482,7 +482,11 @@ def test_publication_and_verification_count_invalid_scopes_alike(monkeypatch, co
     assert recorded == [_counts(scopes=scopes, scoped=scoped, unscoped=unscoped)]
     [result] = session_result.contract_verification_results
     assert result.status is CheckCollectionStatus.ERROR
-    assert (result.scopes_count, result.scoped_checks_count, result.unscoped_checks_count) == expected_counts
+    assert (
+        result.number_of_scopes,
+        result.number_of_scoped_checks,
+        result.number_of_unscoped_checks,
+    ) == expected_counts
 
 
 def test_publication_counts_a_contract_without_checks(monkeypatch):

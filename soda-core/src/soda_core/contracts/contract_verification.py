@@ -157,21 +157,21 @@ class ContractVerificationSessionResult:
     @property
     def number_of_scopes(self) -> int:
         return sum(
-            contract_verification_result.scopes_count
+            contract_verification_result.number_of_scopes
             for contract_verification_result in self.contract_verification_results
         )
 
     @property
     def number_of_scoped_checks(self) -> int:
         return sum(
-            contract_verification_result.scoped_checks_count
+            contract_verification_result.number_of_scoped_checks
             for contract_verification_result in self.contract_verification_results
         )
 
     @property
     def number_of_unscoped_checks(self) -> int:
         return sum(
-            contract_verification_result.unscoped_checks_count
+            contract_verification_result.number_of_unscoped_checks
             for contract_verification_result in self.contract_verification_results
         )
 
