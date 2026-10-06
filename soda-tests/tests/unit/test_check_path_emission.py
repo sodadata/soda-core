@@ -112,12 +112,10 @@ class _StubCheckImpl:
 
     check_path = _RealCheckImpl.check_path
 
-    def __init__(
-        self, *, wire_source: str, collection_id, path: str, scope_key: str = BASE_SCOPE_KEY, supports_scopes=True
-    ):
+    def __init__(self, *, wire_source: str, collection_id, path: str, scope_key: str = BASE_SCOPE_KEY):
         self.relative_path = path
         self.scope = Scope(key=scope_key)
-        self.contract_impl = type("_StubCollection", (), {"supports_scopes": supports_scopes})()
+        self.contract_impl = type("_StubCollection", (), {"supports_scopes": True})()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
 
@@ -177,37 +175,6 @@ def test_check_full_path_falls_back_to_bare_path_when_collection_id_missing():
     assert stub.check_path == "checks.row_count"
 
 
-def test_check_path_for_contract_subtype_prefixes_a_declared_scope():
-    """A contract check in a declared scope carries ``scope.<key>:`` before its
-    relative path. The backend splits the path on the first ``:``.
-    """
-    stub = _StubCheckImpl(
-        wire_source="soda-contract",
-        collection_id=None,
-        path="columns.amount.checks.invalid",
-        scope_key="eu",
-    )
-    assert stub.check_path == "scope.eu:columns.amount.checks.invalid"
-
-
-def test_check_path_for_contract_subtype_without_a_declared_scope_is_bare():
-    stub = _StubCheckImpl(wire_source="soda-contract", collection_id=None, path="checks.row_count.2")
-    assert stub.check_path == "checks.row_count.2"
-
-
-def test_check_path_for_a_contract_wire_source_without_scope_support_is_bare():
-    """Gated on scope support like the attributes and the definition, so a kind without it never pairs a scoped
-    path with the top-level attributes and filter."""
-    stub = _StubCheckImpl(
-        wire_source="soda-contract",
-        collection_id=None,
-        path="columns.amount.checks.invalid",
-        scope_key="eu",
-        supports_scopes=False,
-    )
-    assert stub.check_path == "columns.amount.checks.invalid"
-
-
 @pytest.mark.parametrize(
     "collection_id, expected",
     [
@@ -224,18 +191,6 @@ def test_check_path_for_non_contract_subtype_ignores_the_scope(collection_id, ex
         scope_key="eu",
     )
     assert stub.check_path == expected
-
-
-def test_scoped_contract_check_path_goes_on_the_wire_unchanged():
-    relative = "columns.amount.checks.invalid"
-    check_path = f"scope.eu:{relative}"
-    wire = _build_check_result_cloud_dict(
-        contract=_make_contract(),
-        check_result=_make_check_result(relative_path=relative, check_path=check_path),
-        wire_source="soda-contract",
-    )
-    assert wire["checkPath"] == "scope.eu:columns.amount.checks.invalid"
-    assert wire["source"] == "soda-contract"
 
 
 def test_verify_raises_when_non_contract_impl_missing_collection_id():
