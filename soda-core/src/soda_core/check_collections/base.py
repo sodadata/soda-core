@@ -810,12 +810,11 @@ class CheckCollectionImpl:
             return self.scopes[raw]
         return Scope(key=key)
 
-    def _log_checks_excluded_for_their_scope(self) -> None:
-        """One line for the selected checks that are skipped because their scope is not active.
+    def count_checks_excluded_for_their_scope(self) -> int:
+        """The selected checks that are skipped because their scope is not active.
 
-        Logs nothing when there are none, so a file without such a check logs exactly what it logged before. In a
-        kind that supports scopes, a check whose scope is not declared logged an error already, and no extension
-        would run it, so only the checks in a declared scope count.
+        In a kind that supports scopes, a check whose scope is not declared logged an error already, and no
+        extension would run it, so only the checks in a declared scope count.
         """
         declared_scopes: list[Scope] = list(self.scopes.values())
         excluded: int = 0
@@ -826,6 +825,14 @@ class CheckCollectionImpl:
             if type(self).supports_scopes and not any(scope is declared for declared in declared_scopes):
                 continue
             excluded += 1
+        return excluded
+
+    def _log_checks_excluded_for_their_scope(self) -> None:
+        """One line for the checks ``count_checks_excluded_for_their_scope`` counts.
+
+        Logs nothing when there are none, so a file without such a check logs exactly what it logged before.
+        """
+        excluded: int = self.count_checks_excluded_for_their_scope()
         if not excluded:
             return
         checks: str = "1 check" if excluded == 1 else f"{excluded} checks"

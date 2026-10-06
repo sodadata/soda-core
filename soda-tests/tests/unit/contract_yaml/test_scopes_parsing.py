@@ -790,30 +790,29 @@ def test_the_nudge_counts_one_check():
 
 def test_no_nudge_without_a_selected_check_in_an_inactive_scope():
     # No scoped check at all.
-    _, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n"))
+    impl, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n"))
+    assert impl.count_checks_excluded_for_their_scope() == 0
     assert _nudge_lines(logs) == []
-    # Scoped checks that no selector selects are excluded as deselected checks, without the nudge.
-    _, logs = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("type=missing")])
-    assert _nudge_lines(logs) == [
-        "Excluded 1 check whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-    ]
-    _, logs = _build_contract_impl(
+    # Scoped checks that no selector selects are excluded as deselected checks, so they do not count.
+    impl, _ = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("type=missing")])
+    assert impl.count_checks_excluded_for_their_scope() == 1
+    impl, logs = _build_contract_impl(
         dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse("qualifier=none")]
     )
+    assert impl.count_checks_excluded_for_their_scope() == 0
     assert _nudge_lines(logs) == []
 
 
 def test_no_nudge_for_a_check_whose_scope_is_not_declared():
     # The check already logs an error, and no extension would run a scope nobody declared.
-    _, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n"))
+    impl, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n"))
     assert logs.get_errors() == ["Check references unknown scope 'nope'. Declared scopes: ['eu']"]
+    assert impl.count_checks_excluded_for_their_scope() == 0
     assert _nudge_lines(logs) == []
     # Next to a check in a declared scope, only that one counts.
     yaml_str = _contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n") + "  - row_count:\n      scope: eu\n"
-    _, logs = _build_contract_impl(yaml_str)
-    assert _nudge_lines(logs) == [
-        "Excluded 1 check whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-    ]
+    impl, _ = _build_contract_impl(yaml_str)
+    assert impl.count_checks_excluded_for_their_scope() == 1
 
 
 def test_a_kind_without_scope_support_names_itself_in_the_nudge():
