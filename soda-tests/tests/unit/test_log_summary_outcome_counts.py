@@ -1,33 +1,17 @@
-"""``CheckCollectionImpl.build_log_summary`` counts each check outcome in one
-row of the summary table, and ``CheckResult.is_excluded`` is a property like
-``is_passed``, ``is_warned``, ``is_failed`` and ``is_not_evaluated``.
-
-The summary's last branch reads ``elif check_result.is_excluded:``. Every
-``CheckOutcome`` other than EXCLUDED is claimed by an earlier branch, so only
-an outcome outside the enum tells a property from a method: a bound method is
-always truthy and would count it as excluded.
-"""
+"""``count_check_outcomes`` counts the check results of a run per outcome for the summary table, and
+``CheckResult.is_excluded`` reads the outcome like the other outcome predicates."""
 
 from __future__ import annotations
 
 from enum import Enum
 
 import pytest
-from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.check_collections.base import count_check_outcomes
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult
 
 
 class _OutcomeOutsideTheEnum(Enum):
     SKIPPED = "SKIPPED"
-
-
-class _NoErrorsLogs:
-    def get_errors(self) -> list:
-        return []
-
-
-class _SummaryCollection(CheckCollectionImpl):
-    """No override; empty ``kind`` keeps it out of the registry."""
 
 
 def _check_result(name: str, outcome) -> CheckResult:
@@ -49,48 +33,37 @@ def _check_result(name: str, outcome) -> CheckResult:
     return CheckResult(check=check, outcome=outcome)
 
 
-def _summary_counts(check_results: list[CheckResult]) -> dict[str, int]:
-    impl = object.__new__(_SummaryCollection)
-    impl.logs = _NoErrorsLogs()
-    lines = impl.build_log_summary("ds/schema/table", check_results)
+def test_counts_every_outcome():
+    # Fails when a new CheckOutcome is added and the counting is not updated for it.
+    check_results = [_check_result(f"check {outcome.name}", outcome) for outcome in CheckOutcome]
 
-    counts: dict[str, int] = {}
-    for line in lines[lines.index("# Summary:") + 1 :]:
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and cells[1].isdigit():
-            counts[cells[0]] = int(cells[1])
-    return counts
+    assert count_check_outcomes(check_results) == {outcome: 1 for outcome in CheckOutcome}
 
 
-_OUTCOME_ROWS = ["Passed", "Failed", "Warned", "Not Evaluated", "Excluded"]
+def test_counts_each_result_under_its_own_outcome():
+    outcomes = [CheckOutcome.PASSED, CheckOutcome.PASSED, CheckOutcome.FAILED, CheckOutcome.EXCLUDED]
 
-
-def test_summary_counts_each_outcome_once():
-    counts = _summary_counts([_check_result(f"check {outcome.name}", outcome) for outcome in CheckOutcome])
+    counts = count_check_outcomes([_check_result(f"check {index}", outcome) for index, outcome in enumerate(outcomes)])
 
     assert counts == {
-        "Checks": 5,
-        "Passed": 1,
-        "Failed": 1,
-        "Warned": 1,
-        "Not Evaluated": 1,
-        "Excluded": 1,
-        "Runtime Errors": 0,
+        CheckOutcome.PASSED: 2,
+        CheckOutcome.FAILED: 1,
+        CheckOutcome.WARN: 0,
+        CheckOutcome.NOT_EVALUATED: 0,
+        CheckOutcome.EXCLUDED: 1,
     }
 
 
-def test_outcome_outside_the_enum_is_not_counted_as_excluded():
-    check_results = [_check_result(f"check {outcome.name}", outcome) for outcome in CheckOutcome]
-    check_results.append(_check_result("check SKIPPED", _OutcomeOutsideTheEnum.SKIPPED))
-
-    counts = _summary_counts(check_results)
-
-    assert {row: counts[row] for row in _OUTCOME_ROWS} == {row: 1 for row in _OUTCOME_ROWS}
+def test_counts_nothing_without_results():
+    assert count_check_outcomes([]) == {outcome: 0 for outcome in CheckOutcome}
 
 
-@pytest.mark.parametrize("name", ["is_passed", "is_warned", "is_failed", "is_not_evaluated", "is_excluded"])
-def test_outcome_predicates_are_properties(name: str):
-    assert isinstance(CheckResult.__dict__[name], property)
+@pytest.mark.parametrize("outcome", [_OutcomeOutsideTheEnum.SKIPPED, "PASSED", None], ids=["other-enum", "str", "none"])
+def test_an_outcome_it_cannot_count_raises(outcome):
+    check_results = [_check_result("passed", CheckOutcome.PASSED), _check_result("unknown", outcome)]
+
+    with pytest.raises(ValueError, match="Cannot count check outcome .* of 'unknown'"):
+        count_check_outcomes(check_results)
 
 
 def test_is_excluded_reads_the_outcome():
