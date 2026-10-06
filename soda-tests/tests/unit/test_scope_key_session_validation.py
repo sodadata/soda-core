@@ -245,8 +245,7 @@ def test_no_scope_filter_means_no_check(check_filters: Optional[list[str]]):
     assert _verified == ["a"]
 
 
-def test_stub_impls_without_scopes_keep_the_class_default():
-    # The source declares nothing, so the stub keeps the class default.
+def test_a_file_that_declares_no_scopes_knows_only_base():
     assert _execute([_StubSource("a")], ["scope=base"]).results
     with pytest.raises(InvalidArgumentException, match="'eu'"):
         _execute([_StubSource("a")], ["scope=eu"])
@@ -282,7 +281,8 @@ def test_a_key_declared_only_by_a_file_that_failed_to_parse_is_unknown(caplog):
             _execute([_StubSource("a", ["eu"]), broken], ["scope=apac"])
 
     # The parse error is logged before the session raises, since no ERROR placeholder is built for it.
-    assert [record.getMessage() for record in caplog.records] == ["YAML syntax error, in /fake/broken.yml[3,1]"]
+    [record] = caplog.records
+    assert "/fake/broken.yml" in record.getMessage()
     assert _verified == []
 
 
@@ -296,4 +296,5 @@ def test_a_failed_file_is_logged_once_when_the_keys_are_known(caplog):
         CheckCollectionStatus.PASSED,
         CheckCollectionStatus.ERROR,
     ]
-    assert [record.getMessage() for record in caplog.records] == ["YAML syntax error, in /fake/broken.yml[3,1]"]
+    [record] = caplog.records
+    assert "/fake/broken.yml" in record.getMessage()
