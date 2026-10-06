@@ -68,11 +68,6 @@ class YamlSource:
     __yaml_parser = YamlParser()
     __file_type = FileType.YAML.value
 
-    # Whether the kind of this file supports scopes. Reads of scope input from the file resolve variables only
-    # when it does, so a kind without support never logs or fails on its scope input. ContractYaml sets it before
-    # it reads any scope input; a file it never sets it for reads its scope input as written.
-    supports_scopes: bool = False
-
     @classmethod
     def from_str(cls, yaml_str: str, file_path: Optional[str] = None) -> YamlSource:
         """

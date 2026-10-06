@@ -1,18 +1,16 @@
-"""The scope skeleton: the ``Scope`` model, the unvalidated parse of ``scopes`` and
-``scope``, ``scope_for``, the inactive skip and the unscoped identity.
+"""The scope skeleton: the ``Scope`` model, the parse of ``scopes`` and ``scope``,
+``scope_for``, the inactive skip and the unscoped identity.
 
 A declared scope stays inactive in core, so its checks go up as EXCLUDED, and a file
-without ``scopes`` and ``scope`` behaves exactly as before. Origin never reads ``scopes``
-or ``scope``, so a kind without scope support must run every file here that origin runs.
-A contract validates its scope input, see ``contract_yaml/test_scopes_parsing.py``, and
-reports what these files get wrong.
+without ``scopes`` and ``scope`` behaves exactly as before. A kind without scope support
+fails a file that sets either. A contract validates its scope input, see
+``contract_yaml/test_scopes_parsing.py``, and reports what the odd files here get wrong.
 
 Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
 
 from __future__ import annotations
 
-from hashlib import blake2b
 from types import SimpleNamespace
 from typing import Optional
 
@@ -30,18 +28,26 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logs import Logs
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.yaml import ContractYamlSource, YamlObject
 from soda_core.contracts.contract_verification import CheckCollectionStatus, CheckOutcome, ContractVerificationSession
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension, CheckImpl, ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, RESERVED_SCOPE_KEYS, SCOPE_KEY_PATTERN, Scope, ScopeYaml
+from soda_core.contracts.impl.scope import (
+    BASE_SCOPE_KEY,
+    INVALID_SCOPE_KEY,
+    RESERVED_SCOPE_KEYS,
+    SCOPE_KEY_PATTERN,
+    Scope,
+    ScopeYaml,
+    unsupported_scopes_error,
+)
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
 pytestmark = pytest.mark.usefixtures("without_scopes_extension")
 
-KINDS: list[type[CheckCollectionImpl]] = [ContractImpl, ScopeUnsupportedImpl]
-KIND_LINES: dict[type, str] = {ContractImpl: "", ScopeUnsupportedImpl: f"kind: {SCOPE_UNSUPPORTED_KIND}\n"}
+UNSUPPORTED_KIND_LINE: str = f"kind: {SCOPE_UNSUPPORTED_KIND}\n"
+UNSUPPORTED: str = unsupported_scopes_error(SCOPE_UNSUPPORTED_KIND)
 
 
 def _parse(yaml_str: str) -> tuple[ContractYaml, Logs]:
@@ -157,18 +163,22 @@ SCOPES_NOT_A_MAPPING: str = "'scopes' must be an object that maps scope keys to 
     ],
 )
 def test_contract_yaml_scopes_without_entries_read_as_no_scopes(scopes_yaml: str, contract_error: Optional[str]):
-    # Only a contract validates 'scopes'; a kind without scope support reads it and logs nothing.
-    for kind_line, errors in [("", [contract_error] if contract_error else []), (KIND_LINES[ScopeUnsupportedImpl], [])]:
+    # A kind without scope support rejects any 'scopes' key, even an empty one.
+    unsupported_errors = [UNSUPPORTED] if scopes_yaml else []
+    for kind_line, errors in [
+        ("", [contract_error] if contract_error else []),
+        (UNSUPPORTED_KIND_LINE, unsupported_errors),
+    ]:
         contract_yaml, logs = _parse(f"{kind_line}dataset: ds/db/schema/table\n{scopes_yaml}columns: []\n")
         assert type(contract_yaml.scopes) is dict and contract_yaml.scopes == {}
         assert logs.get_logs() == errors
 
 
 def test_scope_yaml_fields_and_scope_from_yaml():
-    # Parsed as a kind without scope support, which reads scope input without validating it.
-    contract_yaml, logs = _parse(
-        KIND_LINES[ScopeUnsupportedImpl]
-        + dedent_and_strip(
+    # Read with ScopeYaml alone, which does not validate.
+    logs = Logs()
+    yaml_object: YamlObject = ContractYamlSource.from_str(
+        dedent_and_strip(
             """
         dataset: ds/db/schema/table
         scopes:
@@ -192,37 +202,37 @@ def test_scope_yaml_fields_and_scope_from_yaml():
         columns: []
         """
         )
-    )
+    ).parse()
+    scopes = ScopeYaml.parse_scopes(yaml_object)
+    logs.close()
     # Reading scopes logs nothing, not even for a key or a value of the wrong type.
     assert logs.get_logs() == []
-    assert type(contract_yaml.scopes) is dict
-    assert all(isinstance(scope_yaml, ScopeYaml) for scope_yaml in contract_yaml.scopes.values())
-    keys = list(contract_yaml.scopes)
+    assert type(scopes) is dict
+    assert all(isinstance(scope_yaml, ScopeYaml) for scope_yaml in scopes.values())
+    keys = list(scopes)
     assert keys[:5] == ["eu", "bare", "text", "wrong_types", "wrong_schedule"]
     # Each key is kept exactly as ruamel returned it.
     assert keys[5:10] == [True, None, 0, "yes", "base"]
     assert type(keys[5]) is bool and isinstance(keys[7], int)
-    assert not isinstance(keys[10], str) and contract_yaml.scopes[keys[10]].name == "US"
-    assert [scope_yaml.key for scope_yaml in contract_yaml.scopes.values()] == keys
+    assert not isinstance(keys[10], str) and scopes[keys[10]].name == "US"
+    assert [scope_yaml.key for scope_yaml in scopes.values()] == keys
 
-    eu = contract_yaml.scopes["eu"]
+    eu = scopes["eu"]
     assert (eu.key, eu.name, eu.description, eu.filter) == ("eu", "Europe", "EU orders", "region = 'eu'")
     assert eu.check_attributes == {"team": "finance"}
     assert (eu.schedule.cron, eu.schedule.timezone) == ("0 6 * * *", "Europe/Brussels")
     assert eu.schedule.variables == {"LOOKBACK": 7}
     assert eu.schedule.location is not None
     assert eu.location.line is not None
-    assert str(eu.location) == str(
-        contract_yaml.yaml_object.read_value("scopes").create_location_from_yaml_dict_key("eu")
-    )
+    assert str(eu.location) == str(yaml_object.read_value("scopes").create_location_from_yaml_dict_key("eu"))
 
     # A value of the wrong type reads as None, or {} for check_attributes. A body that is not a mapping has no object.
     for key, name in [("bare", "Bare"), ("text", None), ("wrong_types", None)]:
-        scope_yaml = contract_yaml.scopes[key]
+        scope_yaml = scopes[key]
         assert (scope_yaml.name, scope_yaml.description, scope_yaml.filter) == (name, None, None), key
         assert (scope_yaml.check_attributes, scope_yaml.schedule) == ({}, None), key
         assert (scope_yaml.scope_yaml_object is None) == (key == "text"), key
-    wrong_schedule = contract_yaml.scopes["wrong_schedule"].schedule
+    wrong_schedule = scopes["wrong_schedule"].schedule
     assert [wrong_schedule.cron, wrong_schedule.timezone, wrong_schedule.variables] == [None] * 3
 
     scope = Scope.from_yaml(eu)
@@ -267,19 +277,13 @@ def test_a_merge_key_outside_scopes_raises_as_on_origin(source_body: str):
 )
 def test_check_yaml_scope(check_body: Optional[str], expected):
     body = f"      qualifier: q\n      {check_body}\n" if check_body is not None else ""
-    # Parsed as a kind without scope support, which reads a check's scope without validating it.
-    kind_line = KIND_LINES[ScopeUnsupportedImpl]
-    yaml_str = f"{kind_line}dataset: ds/db/schema/table\ncolumns: []\nchecks:\n  - row_count:\n{body}"
-    contract_yaml, logs = _parse(yaml_str)
-    scope = contract_yaml.checks[0].scope
+    yaml_str = f"dataset: ds/db/schema/table\ncolumns: []\nchecks:\n  - row_count:\n{body}"
+    scope = _parse(yaml_str)[0].checks[0].scope
     assert scope == expected
-    if isinstance(expected, (bool, dict, list)):
-        assert type(scope) is type(expected)
+    if isinstance(expected, bool):
+        assert type(scope) is bool
     if isinstance(expected, (dict, list)):
-        # A plain copy prints the same on every parse, and never as a memory address.
-        assert str(scope) == str(_parse(yaml_str)[0].checks[0].scope)
-        assert "object at 0x" not in str(scope)
-    assert logs.get_logs() == []
+        assert isinstance(scope, type(expected))
 
 
 # A declared variable in every field of a scope body and its schedule. 'REGION' resolves to 'eu'.
@@ -298,27 +302,32 @@ SCOPE_INPUT_WITH_A_VARIABLE: str = """
 """
 
 
-@pytest.mark.parametrize(
-    "kind_line, resolves",
-    [
-        ("", True),
-        ("kind: contract\n", True),
-        (f"kind: {SCOPE_UNSUPPORTED_KIND}\n", False),
-        ("kind: nobody-registered-this\n", False),
-    ],
-    ids=["no-kind", "kind-contract", "kind-without-support", "unregistered-kind"],
-)
-def test_the_file_kind_decides_whether_scope_input_resolves_variables(kind_line: str, resolves: bool):
-    # Parsed without a session, the way publication reads a file. A kind without scope support, and a kind nobody
-    # registered, read scope input as written, so no variable in it can log or fail the file.
+@pytest.mark.parametrize("kind_line", ["", "kind: contract\n"], ids=["no-kind", "kind-contract"])
+def test_a_contract_resolves_variables_in_scope_input(kind_line: str):
     contract_yaml, logs = _parse(kind_line + dedent_and_strip(SCOPE_INPUT_WITH_A_VARIABLE))
 
-    value = "eu" if resolves else "${var.REGION}"
     eu = contract_yaml.scopes["eu"]
-    assert (eu.name, eu.description, eu.filter) == (value, f"in {value}", f"region = '{value}'")
-    assert eu.check_attributes == {"team": value}
-    assert (eu.schedule.cron, eu.schedule.timezone, eu.schedule.variables) == (value, value, {"LOOKBACK": value})
+    assert (eu.name, eu.description, eu.filter) == ("eu", "in eu", "region = 'eu'")
+    assert eu.check_attributes == {"team": "eu"}
+    assert (eu.schedule.cron, eu.schedule.timezone, eu.schedule.variables) == ("eu", "eu", {"LOOKBACK": "eu"})
     assert not logs.has_errors
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [SCOPE_UNSUPPORTED_KIND, "nobody-registered-this"],
+    ids=["kind-without-support", "unregistered-kind"],
+)
+def test_a_kind_without_scope_support_rejects_scopes_and_check_scopes(kind: str):
+    contract_yaml, logs = _parse(
+        f"kind: {kind}\n"
+        + dedent_and_strip(SCOPE_INPUT_WITH_A_VARIABLE)
+        + "\nchecks:\n  - row_count:\n  - row_count: {qualifier: eu, scope: eu}\n"
+    )
+
+    assert contract_yaml.scopes == {}
+    assert logs.get_errors() == [unsupported_scopes_error(kind)] * 2
+    assert all(record.location is not None for record in logs.gatherer.get_error_logs())
 
 
 def test_class_defaults_cover_yamls_and_impls_without_scopes():
@@ -349,8 +358,8 @@ def test_class_defaults_cover_yamls_and_impls_without_scopes():
     assert not logs.has_errors
 
 
-# Three checks in the base scope, one in a declared scope, then five that get a placeholder. A tagged value is not a
-# string, so '!tag eu' names no declared scope, while '!tag base' still reads as the base.
+# Two checks in the base scope, then a mix of one check in a declared scope and six that get a placeholder. A tagged
+# value is not a string, so neither '!tag base' nor '!tag eu' names a scope.
 SCOPE_FOR_YAML: str = """
     dataset: ds/db/schema/table
     filter: id > 1
@@ -372,30 +381,26 @@ SCOPE_FOR_YAML: str = """
       - row_count: {qualifier: mapping, scope: {a: 1}}
       - row_count: {qualifier: list, scope: [a, b]}
 """
-PLACEHOLDER_KEYS: list[str] = ["eu", "undeclared", "5", "{'a': 1}", "['a', 'b']"]
-# A contract reports the two keys that are no scope keys and every check scope that names no declared scope. A kind
-# without scope support reports nothing.
+# The scope keys of checks 2 to 8. A placeholder keeps a valid key that names no declared scope.
+SCOPE_KEYS: list[str] = [INVALID_SCOPE_KEY, "eu", INVALID_SCOPE_KEY, "undeclared"] + [INVALID_SCOPE_KEY] * 3
+# A contract reports the two keys that are no scope keys and every check scope that names no declared scope.
 BASE_RESERVED: str = "'base' is reserved for the checks without a scope"
-SCOPE_FOR_ERRORS: dict[type, list[str]] = {
-    ContractImpl: [
-        "Invalid scope key true: a scope key must be a string, but YAML reads this one as a boolean",
-        f"Invalid scope key 'base': {BASE_RESERVED}",
-        f"Invalid check scope 'base': {BASE_RESERVED}",
-        "Check 'scope' must name a declared scope, but was a tagged value: base",
-        "Check 'scope' must name a declared scope, but was a tagged value: eu",
-        "Check references unknown scope 'undeclared'. Declared scopes: ['eu', 'us']",
-        "Check 'scope' must name a declared scope, but was a number: 5",
-        "Check 'scope' must name a declared scope, but was an object",
-        "Check 'scope' must name a declared scope, but was a list",
-    ],
-    ScopeUnsupportedImpl: [],
-}
+SCOPE_FOR_ERRORS: list[str] = [
+    "Invalid scope key true: a scope key must be a string, but YAML reads this one as a boolean",
+    f"Invalid scope key 'base': {BASE_RESERVED}",
+    f"Invalid check scope 'base': {BASE_RESERVED}",
+    "Check 'scope' must name a declared scope, but was a tagged value: base",
+    "Check 'scope' must name a declared scope, but was a tagged value: eu",
+    "Check references unknown scope 'undeclared'. Declared scopes: ['eu', 'us']",
+    "Check 'scope' must name a declared scope, but was a number: 5",
+    "Check 'scope' must name a declared scope, but was an object",
+    "Check 'scope' must name a declared scope, but was a list",
+]
 
 
-@pytest.mark.parametrize("impl_class", KINDS)
-def test_scope_for(impl_class: type[CheckCollectionImpl]):
-    impl, logs = _build_impl(impl_class, KIND_LINES[impl_class] + dedent_and_strip(SCOPE_FOR_YAML))
-    assert logs.get_errors() == SCOPE_FOR_ERRORS[impl_class]
+def test_scope_for():
+    impl, logs = _build_impl(ContractImpl, SCOPE_FOR_YAML)
+    assert logs.get_errors() == SCOPE_FOR_ERRORS
 
     # The base scope shares the collection's own objects and is active on the collection CTE.
     base_scope = impl.base_scope
@@ -412,26 +417,31 @@ def test_scope_for(impl_class: type[CheckCollectionImpl]):
     assert base_scope not in impl.scopes.values()
 
     check_impls = impl.all_check_impls
-    assert all(check_impl.scope is impl.base_scope for check_impl in check_impls[:3])
+    assert all(check_impl.scope is impl.base_scope for check_impl in check_impls[:2])
     assert check_impls[3].scope is impl.scopes["eu"]
-    placeholders = [check_impl.scope for check_impl in check_impls[4:]]
-    assert [placeholder.key for placeholder in placeholders] == PLACEHOLDER_KEYS
+    assert [check_impl.scope.key for check_impl in check_impls[2:]] == SCOPE_KEYS
+    placeholders = [check_impl.scope for index, check_impl in enumerate(check_impls) if index > 1 and index != 3]
     for placeholder in placeholders:
         assert not placeholder.is_active and not placeholder.is_base
         assert all(placeholder is not scope for scope in impl.scopes.values())
 
-    # Every check is selected. A check in an inactive scope is skipped and builds no metrics.
-    assert all(check_impl.selected for check_impl in check_impls)
-    assert [check_impl.skip for check_impl in check_impls] == [False] * 3 + [True] * 6
-    assert [bool(check_impl.metrics) for check_impl in check_impls] == [True] * 3 + [False] * 6
-    # 'selected' is the selector verdict alone.
+    # A check in an inactive scope is skipped and builds no metrics.
+    assert [check_impl.skip for check_impl in check_impls] == [False] * 2 + [True] * 7
+    assert [bool(check_impl.metrics) for check_impl in check_impls] == [True] * 2 + [False] * 7
+    # A selector that picks the check in the inactive scope still leaves it skipped.
     selector = CheckSelector.parse("qualifier=eu")
-    selected_impl, _ = _build_impl(impl_class, KIND_LINES[impl_class] + dedent_and_strip(SCOPE_FOR_YAML), [selector])
-    assert [check_impl.selected for check_impl in selected_impl.all_check_impls] == [False] * 3 + [True] + [False] * 5
+    selected_impl, _ = _build_impl(ContractImpl, SCOPE_FOR_YAML, [selector])
     assert all(check_impl.skip for check_impl in selected_impl.all_check_impls)
 
     check_infos = [check_impl._build_check_info() for check_impl in check_impls]
-    assert [check.scope for check in check_infos] == [None] * 3 + ["eu"] + PLACEHOLDER_KEYS
+    assert [check.scope for check in check_infos] == [None] * 2 + SCOPE_KEYS
+
+
+def test_a_kind_without_scope_support_runs_no_check_of_a_file_with_scope_input():
+    impl, logs = _build_impl(ScopeUnsupportedImpl, UNSUPPORTED_KIND_LINE + dedent_and_strip(SCOPE_FOR_YAML))
+    # One error for 'scopes' and one for each check that sets 'scope'.
+    assert logs.get_errors() == [UNSUPPORTED] * 9
+    assert impl.scopes == {}
 
 
 def test_extension_constructor_sees_the_scopes_before_checks_are_parsed():
@@ -455,8 +465,8 @@ def test_extension_constructor_sees_the_scopes_before_checks_are_parsed():
     assert seen == {"scopes": ["eu", "us"], "base_scope_active": True}
     eu = impl.all_check_impls[3]
     assert eu.scope.is_active and eu.metrics
-    assert [check_impl.skip for check_impl in impl.all_check_impls] == [False] * 4 + [True] * 5
-    assert logs.get_errors() == SCOPE_FOR_ERRORS[ContractImpl]
+    assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, False, True, False] + [True] * 5
+    assert logs.get_errors() == SCOPE_FOR_ERRORS
 
 
 class _ContractStub:
@@ -492,22 +502,9 @@ def test_unscoped_identity_is_unchanged():
     assert _identity(qualifier="q", scope_key=BASE_SCOPE_KEY) == _identity(qualifier="q")
 
 
-def _digest_term(value: str) -> str:
-    return "#" + blake2b(value.encode("utf-8", "surrogatepass"), digest_size=8).hexdigest()
-
-
-@pytest.mark.parametrize(
-    "value, term",
-    [(key, f"{key}:") for key in ["eu", "e", "true", "release-gate", "eu_west_1", "a" * 64]]
-    + [
-        (value, _digest_term(value)) for value in ["x:y", "Eu", "5", "{'a': 1}", "eu\n", "a" * 65, "\ud800", "<HexInt>"]
-    ],
-)
-def test_the_scope_term_comes_first(value: str, term: str):
-    # A valid scope key feeds itself and ':'. Any other value feeds '#', which no valid scope key starts with, and a
-    # digest whose fixed length ends the term.
-    assert (SCOPE_KEY_PATTERN.fullmatch(value) is not None) == term.endswith(":")
-    assert _identity(scope_key=value) == _identity_hash_with_scope_term(term)
+@pytest.mark.parametrize("key", ["eu", "e", "release-gate", "eu_west_1", "a" * 64, INVALID_SCOPE_KEY])
+def test_the_scope_term_comes_first(key: str):
+    assert _identity(scope_key=key) == _identity_hash_with_scope_term(f"{key}:")
 
 
 @pytest.mark.parametrize(
@@ -518,14 +515,7 @@ def test_the_scope_term_comes_first(value: str, term: str):
         ({"column_name": "cx", "scope_key": "eu"}, {"column_name": "x", "scope_key": "euc"}),
         ({"scope_key": "eu"}, {"scope_key": "us"}),
         ({"scope_key": "eu"}, {}),
-        ({"scope_key": "\ud800"}, {}),
-        ({"scope_key": "\ud800"}, {"scope_key": "eu"}),
-        # ':' closes the term only for a valid scope key, so an invalid value cannot end it early. The middle part is
-        # what the builder feeds between the scope term and the qualifier, with no separators.
-        (
-            {"qualifier": "y:dsotest_dsprschemadstabletrow_countqz", "scope_key": "x"},
-            {"qualifier": "z", "scope_key": "x:dsotest_dsprschemadstabletrow_countqy"},
-        ),
+        ({"scope_key": INVALID_SCOPE_KEY}, {}),
     ],
 )
 def test_scoped_identity_never_collides(scoped: dict, other: dict):
@@ -610,11 +600,10 @@ def _shared_anchors(indent: str, fan_out: int = 10, levels: int = 6) -> str:
     return "".join(lines)
 
 
-# Scope input that origin runs, since it never reads it, and that failed a file of every kind in review. Each file has
-# one unscoped and one scoped check. ruamel keeps no position for a merged or tagged key, str() rejects a huge int,
+# Odd scope input that review found. Each file has one unscoped and one scoped check. ruamel keeps no position for a merged or tagged key, str() rejects a huge int,
 # UTF-8 a lone surrogate, a copy recurses too far on a deep value and expands shared anchors, and a variable inside a
 # value that is not a string is never resolved.
-SCOPE_FILES_ORIGIN_RUNS: dict[str, str] = {
+ODD_SCOPE_FILES: dict[str, str] = {
     "merge-key-in-scope-body": _two_check_file(
         "eu", top="x-d: &d {name: Shared, check_attributes: {team: finance}}\nscopes: {eu: {<<: *d, filter: id > 1}}\n"
     ),
@@ -661,13 +650,12 @@ SCOPE_FILES_ORIGIN_RUNS: dict[str, str] = {
 }
 
 
-# What a contract reports for each of those files. Only the merged keys are valid scope input, so every other file
-# fails as a contract, while a kind without scope support still runs it as origin does.
+# What a contract reports for each of those files. Only the merged keys are valid scope input.
 KEY_PATTERN_REASON: str = (
     "a scope key starts with a lowercase letter, followed by at most 63 lowercase letters, digits, '_' or '-'"
 )
 NOT_A_DECLARED_SCOPE: str = "Check 'scope' must name a declared scope, but was"
-CONTRACT_ERRORS_FOR_SCOPE_FILES_ORIGIN_RUNS: dict[str, list[str]] = {
+CONTRACT_ERRORS_FOR_ODD_SCOPE_FILES: dict[str, list[str]] = {
     "merge-key-in-scope-body": [],
     "merge-key-in-scope-schedule": ["Scope 'eu' has no 'name'"],
     "merge-key-in-scopes": [],
@@ -712,28 +700,21 @@ def _assert_scoped_identity_is_stable(impl_class: type[CheckCollectionImpl], imp
     assert scoped.identity == _build_impl(impl_class, yaml_str)[0].all_check_impls[1].identity
 
 
-@pytest.mark.parametrize("yaml_str", list(SCOPE_FILES_ORIGIN_RUNS.values()), ids=list(SCOPE_FILES_ORIGIN_RUNS))
-def test_scope_input_origin_ignores_never_fails_a_kind_without_scope_support(monkeypatch, yaml_str):
-    yaml_str = KIND_LINES[ScopeUnsupportedImpl] + yaml_str
-    impl, logs = _build_impl(ScopeUnsupportedImpl, yaml_str)
-    assert not logs.has_errors
-    _assert_scoped_identity_is_stable(ScopeUnsupportedImpl, impl, yaml_str)
-
-    # A failed file of a kind without scope support drops out of the upload, and the dataset-wide sweep then archives
-    # its checks.
-    result, uploads = _verify(monkeypatch, yaml_str)
-    assert result.error is None, repr(result.error)
-    assert result.get_errors() == []
-    outcomes = [check_result.outcome for check_result in result.check_results]
-    assert outcomes == [CheckOutcome.PASSED, CheckOutcome.EXCLUDED]
-    assert result.number_of_checks_excluded == 1
-    assert [len(upload["checks"]) for upload in uploads] == [2]
+@pytest.mark.parametrize(
+    "file_key", ["merge-key-in-scope-body", "merge-keys-only-in-check-body", "huge-int", "lone-surrogate"]
+)
+def test_a_kind_without_scope_support_fails_the_file(monkeypatch, file_key: str):
+    result, uploads = _verify(monkeypatch, UNSUPPORTED_KIND_LINE + ODD_SCOPE_FILES[file_key])
+    assert UNSUPPORTED in result.get_errors()
+    assert result.status == CheckCollectionStatus.ERROR
+    assert result.check_results == []
+    assert _uploaded_checks(uploads) == [[]]
 
 
-@pytest.mark.parametrize("file_key", list(SCOPE_FILES_ORIGIN_RUNS))
-def test_a_contract_reports_the_scope_input_origin_ignores(monkeypatch, file_key: str):
-    yaml_str = SCOPE_FILES_ORIGIN_RUNS[file_key]
-    errors = CONTRACT_ERRORS_FOR_SCOPE_FILES_ORIGIN_RUNS[file_key]
+@pytest.mark.parametrize("file_key", list(ODD_SCOPE_FILES))
+def test_a_contract_reports_odd_scope_input(monkeypatch, file_key: str):
+    yaml_str = ODD_SCOPE_FILES[file_key]
+    errors = CONTRACT_ERRORS_FOR_ODD_SCOPE_FILES[file_key]
     impl, logs = _build_impl(ContractImpl, yaml_str)
     assert logs.get_errors() == errors
     _assert_scoped_identity_is_stable(ContractImpl, impl, yaml_str)
@@ -752,9 +733,9 @@ def test_a_contract_reports_the_scope_input_origin_ignores(monkeypatch, file_key
         assert [len(upload["checks"]) for upload in uploads] == [2]
 
 
-def test_scope_reads_of_input_origin_ignores():
+def test_scope_reads_of_odd_scope_input():
     def scopes(file_key: str) -> dict:
-        return _parse(SCOPE_FILES_ORIGIN_RUNS[file_key])[0].scopes
+        return _parse(ODD_SCOPE_FILES[file_key])[0].scopes
 
     # Merged keys read like written ones, and ruamel puts them after the mapping's own keys.
     eu = scopes("merge-key-in-scope-body")["eu"]
@@ -764,13 +745,13 @@ def test_scope_reads_of_input_origin_ignores():
     assert [(key, scope.name) for key, scope in scopes("merge-key-in-scopes").items()] == [("eu", "EU"), ("us", "US")]
     eu = scopes("merge-keys-only-in-scope-body")["eu"]
     assert (eu.name, eu.filter) == ("Shared", "id > 1")
-    assert _parse(SCOPE_FILES_ORIGIN_RUNS["merge-keys-only-in-check-body"])[0].checks[1].scope == "eu"
+    assert _parse(ODD_SCOPE_FILES["merge-keys-only-in-check-body"])[0].checks[1].scope == "eu"
     assert [(key, scope.name) for key, scope in scopes("merge-key-at-root").items()] == [("eu", "EU")]
 
-    # A check scope too deep to copy stays as parsed: never None, which would run the check unscoped, and never a
-    # string, so it can never name a declared scope.
+    # A deep check scope stays as parsed: never None, which would run the check unscoped, and never a string, so it
+    # can never name a declared scope.
     for file_key in ["deep-check-scope", "deep-check-scope-past-str"]:
-        unscoped, scoped = _parse(SCOPE_FILES_ORIGIN_RUNS[file_key])[0].checks
+        unscoped, scoped = _parse(ODD_SCOPE_FILES[file_key])[0].checks
         assert unscoped.scope is None
         assert isinstance(scoped.scope, list), file_key
     # Such a value in a scope body or a schedule reads as absent when the mapping around it still copies, and a whole
@@ -782,19 +763,16 @@ def test_scope_reads_of_input_origin_ignores():
     assert scopes("deep-scopes-block") == {}
 
 
-@pytest.mark.parametrize("impl_class", KINDS)
-def test_a_scope_value_built_from_shared_anchors_reads_without_expanding_it(impl_class: type[CheckCollectionImpl]):
+def test_a_scope_value_built_from_shared_anchors_reads_without_expanding_it():
     # About 500 bytes whose scope value expands to a million scalars. Each further level multiplies the expanded
-    # value, and the time to build or print it, by ten. The placeholder scope reads as the value's type name, so
-    # nothing printed the expanded value.
-    yaml_str = SCOPE_FILES_ORIGIN_RUNS["shared-anchors"]
+    # value, and the time to build or print it, by ten. Nothing prints the value.
+    yaml_str = ODD_SCOPE_FILES["shared-anchors"]
     assert len(yaml_str) < 600
-    impl, _ = _build_impl(impl_class, KIND_LINES[impl_class] + yaml_str)
-    assert impl.all_check_impls[1].scope.key == "<list>"
+    impl, _ = _build_impl(ContractImpl, yaml_str)
+    assert impl.all_check_impls[1].scope.key == INVALID_SCOPE_KEY
 
 
-# Each place in the scope input where a variable can be used, with 'REF' standing for the reference. None of these
-# files has a scoped check, so origin, which never reads 'scopes', runs both checks and logs nothing.
+# Each place in the scope input where a variable can be used, with 'REF' standing for the reference.
 UNDECLARED_VARIABLE_IN_SCOPE_INPUT: dict[str, str] = {
     "scope-filter": "scopes:\n  eu:\n    name: EU\n    filter: 'REF'\n",
     "scope-name": "scopes:\n  eu:\n    name: 'REF'\n",
@@ -810,17 +788,17 @@ UNDECLARED_VARIABLE_IN_SCOPE_INPUT: dict[str, str] = {
         "scopes:\n  eu:\n    name: EU\n    schedule:\n      cron: '0 6 * * *'\n      variables: {LOOKBACK: 'REF'}\n"
     ),
 }
-# A check's scope value holding the reference, alone or inside a longer string. Origin resolves variables one level
-# into a check body, so it logs the reference once from its own read of the body and fails the file. That read leaves
-# a lone reference as null and a reference inside a longer string as written. A contract reads the value once more,
-# like a check 'filter', so the longer string logs a second line there.
+# A check's scope value holding the reference, alone or inside a longer string. The read of the check body resolves
+# variables one level deep, so it logs the reference once and fails the file. That read leaves a lone reference as
+# null and a reference inside a longer string as written. The contract reads the value once more, like a check
+# 'filter', so the longer string logs a second line.
 UNDECLARED_VARIABLE_IN_CHECK_SCOPE: dict[str, str] = {
     "check-scope": "'REF'",
     "check-scope-inside-a-string": "'eu-REF'",
 }
-# The key of the check's scope. A lone reference read as null is the base scope, and a longer string as written names
-# a placeholder.
-CHECK_SCOPE_KEY_AS_READ: dict[str, str] = {"'REF'": BASE_SCOPE_KEY, "'eu-REF'": "eu-REF"}
+# The key of the check's scope. A lone reference read as null is the base scope, and a longer string as written is no
+# valid scope key.
+CHECK_SCOPE_KEY_AS_READ: dict[str, str] = {"'REF'": BASE_SCOPE_KEY, "'eu-REF'": INVALID_SCOPE_KEY}
 UNDECLARED_VARIABLE_MESSAGES: dict[str, str] = {
     "${var.NOPE}": "Variable 'NOPE' was used and not declared",
     "${soda.NOPE}": "Variable 'NOPE' was used and not available in the 'soda' namespace",
@@ -847,26 +825,6 @@ def _variable_log_lines(result, uploads: list) -> tuple:
     )
 
 
-@pytest.mark.parametrize("reference", list(UNDECLARED_VARIABLE_MESSAGES))
-@pytest.mark.parametrize(
-    "scopes_block", list(UNDECLARED_VARIABLE_IN_SCOPE_INPUT.values()), ids=list(UNDECLARED_VARIABLE_IN_SCOPE_INPUT)
-)
-def test_unsupported_kind_ends_as_origin_on_an_undeclared_variable_in_scope_input(
-    monkeypatch, scopes_block: str, reference: str
-):
-    kind_line = KIND_LINES[ScopeUnsupportedImpl]
-    origin, origin_uploads = _verify(monkeypatch, _undeclared_variable_file(kind_line, "", None, reference))
-    result, uploads = _verify(monkeypatch, _undeclared_variable_file(kind_line, scopes_block, None, reference))
-
-    assert result.status == origin.status == CheckCollectionStatus.PASSED
-    assert [check_result.outcome for check_result in result.check_results] == [CheckOutcome.PASSED] * 2
-    assert result.get_errors() == []
-    assert result.get_warnings() == []
-    assert _variable_log_lines(result, uploads) == ([], [[]])
-    assert _uploaded_checks(uploads) == _uploaded_checks(origin_uploads)
-    assert [len(upload["checks"]) for upload in uploads] == [2]
-
-
 # A contract also rejects a 'scopes' block or a scope body that is a string, whatever the string holds.
 CONTRACT_ERRORS_AFTER_THE_UNDECLARED_VARIABLE: dict[str, list[str]] = {
     "scopes-block": [f"{SCOPES_NOT_A_MAPPING} a string"],
@@ -888,26 +846,18 @@ def test_contract_logs_an_undeclared_variable_in_scope_input(scope_input: str, r
 @pytest.mark.parametrize(
     "scope_value", list(UNDECLARED_VARIABLE_IN_CHECK_SCOPE.values()), ids=list(UNDECLARED_VARIABLE_IN_CHECK_SCOPE)
 )
-@pytest.mark.parametrize("impl_class", [ScopeUnsupportedImpl, ContractImpl], ids=["unsupported-kind", "contract"])
-def test_an_undeclared_variable_in_a_check_scope_value(
-    monkeypatch, impl_class: type[CheckCollectionImpl], scope_value: str, reference: str
-):
-    yaml_str = _undeclared_variable_file(KIND_LINES[impl_class], "scopes: {eu: {name: EU}}\n", scope_value, reference)
-    scope = _build_impl(impl_class, yaml_str)[0].all_check_impls[1].scope
-    assert scope.key == CHECK_SCOPE_KEY_AS_READ[scope_value].replace("REF", reference)
+def test_an_undeclared_variable_in_a_check_scope_value(monkeypatch, scope_value: str, reference: str):
+    yaml_str = _undeclared_variable_file("", "scopes: {eu: {name: EU}}\n", scope_value, reference)
+    scope = _build_impl(ContractImpl, yaml_str)[0].all_check_impls[1].scope
+    assert scope.key == CHECK_SCOPE_KEY_AS_READ[scope_value]
     assert scope.is_base or not scope.is_active
 
     result, uploads = _verify(monkeypatch, yaml_str)
 
-    # A kind without scope support never reads 'scope' a second time, so it logs only origin's line. A contract then
-    # also reports the scope the longer string names.
-    reads = 2 if impl_class is ContractImpl and scope_value == "'eu-REF'" else 1
-    messages = [UNDECLARED_VARIABLE_MESSAGES[reference]] * reads
-    scope_errors = (
-        [f"Check references unknown scope '{scope.key}'. Declared scopes: ['eu']"]
-        if impl_class is ContractImpl and scope_value == "'eu-REF'"
-        else []
-    )
+    # The longer string logs the reference twice, and names no declared scope.
+    in_a_string = scope_value == "'eu-REF'"
+    messages = [UNDECLARED_VARIABLE_MESSAGES[reference]] * (2 if in_a_string else 1)
+    scope_errors = [f"Check references unknown scope 'eu-{reference}'. Declared scopes: ['eu']"] if in_a_string else []
     assert result.status == CheckCollectionStatus.ERROR
     assert result.check_results == []
     assert result.get_errors() == messages + scope_errors

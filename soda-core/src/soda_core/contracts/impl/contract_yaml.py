@@ -17,11 +17,12 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import ContractYamlSource, VariableResolver, YamlList, YamlObject, YamlValue
 from soda_core.contracts.impl.scope import (
     ScopeYaml,
-    check_scope_error,
+    check_scope_input_error,
     check_scope_location,
     log_scope_error,
-    null_check_scope_error,
     read_check_scope,
+    scope_key_location,
+    unsupported_scopes_error,
     validate_scopes,
 )
 
@@ -132,14 +133,15 @@ class ContractYaml(CheckCollectionYaml):
         if self.filter:
             self.filter = self.filter.strip()
 
-        # Decided before the first read of scope input, here and in the checks below. The base __init__ read the
-        # kind, and its impl class registered on import, before the session looked it up to parse this file.
-        self.yaml_source.supports_scopes = _kind_supports_scopes(self.kind)
-        self.scopes: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(self.yaml_object)
-        # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope support
-        # never validates its scope input.
-        if self.yaml_source.supports_scopes:
+        # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope
+        # support declares none, and ``scopes`` in its file is an error.
+        self.supports_scopes: bool = _kind_supports_scopes(self.kind)
+        self.scopes: dict[Any, ScopeYaml] = {}
+        if self.supports_scopes:
+            self.scopes = ScopeYaml.parse_scopes(self.yaml_object)
             validate_scopes(self.yaml_object)
+        elif "scopes" in self.yaml_object.yaml_dict:
+            log_scope_error(unsupported_scopes_error(self.kind), scope_key_location(self.yaml_object, "scopes"))
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
@@ -353,13 +355,12 @@ class ContractYaml(CheckCollectionYaml):
                         )
                         if check_yaml:
                             checks.append(check_yaml)
-                            if self.yaml_source.supports_scopes:
-                                check_body: Any = (
-                                    check_yaml_object.yaml_dict.get(check_type_name)
-                                    if isinstance(check_yaml_object, YamlObject)
-                                    else None
-                                )
-                                self._validate_check_scope(check_yaml, check_body)
+                            check_body: Any = (
+                                check_yaml_object.yaml_dict.get(check_type_name)
+                                if isinstance(check_yaml_object, YamlObject)
+                                else None
+                            )
+                            self._validate_check_scope(check_yaml, check_body)
                         else:
                             logger.error(
                                 f"Invalid check type '{check_type_name}'. "
@@ -371,15 +372,12 @@ class ContractYaml(CheckCollectionYaml):
         return checks
 
     def _validate_check_scope(self, check_yaml: CheckYaml, check_body: Any) -> None:
-        """Logs an error when the check's ``scope`` names no scope it can run in.
+        """Logs an error when the check's ``scope`` names no scope it can run in, or when the kind supports none.
 
-        ``check_body`` is the body as written. A scope that reads as null would run the check in the base scope, so
-        the body tells whether it set one.
+        ``check_body`` is the body as written, which tells whether a ``scope`` that reads as null was set.
         """
-        error: Optional[str] = (
-            check_scope_error(check_yaml.scope, self.scopes)
-            if check_yaml.scope is not None
-            else null_check_scope_error(check_body, self.yaml_source)
+        error: Optional[str] = check_scope_input_error(
+            check_body, self.yaml_source, check_yaml.scope, self.scopes, self.kind, self.supports_scopes
         )
         if error:
             log_scope_error(error, check_scope_location(check_yaml.check_yaml_object))
