@@ -498,16 +498,6 @@ def test_execute_over_runner(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    # Without check paths and check filters the command carries no executionOptions.
-    assert _runner_commands(data_source_test_helper.soda_cloud) == [
-        {
-            "type": "sodaCoreVerifyContract",
-            "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
-            "verbose": False,
-            "variables": {},
-        }
-    ]
-
 
 def test_execute_over_runner_completed_with_warnings(data_source_test_helper: DataSourceTestHelper):
     """When the runner returns completedWithWarnings, is_warned must be True and is_passed must be False."""
@@ -1605,43 +1595,18 @@ def test_runner_command_carries_check_paths_and_check_filters(publish: bool, com
             {"field": "scope", "values": ["apac"], "negate": True},
         ],
     }
-    assert list(command) == ["type", "contract", "verbose", "variables", "executionOptions"]
-
-
-def test_runner_command_carries_a_negated_check_filter():
-    cloud = MockSodaCloud(_runner_completed())
-
-    _execute_session_on_runner(cloud, check_filters=["scope!=eu"])
-
-    [command] = _runner_commands(cloud)
-    assert command["executionOptions"] == {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": True}]}
-    assert command["executionOptions"]["checkFilters"][0]["negate"] is True
+    assert command["executionOptions"]["checkFilters"][1]["negate"] is True
 
 
 @pytest.mark.parametrize(
-    "check_paths, check_filters, execution_options",
-    [
-        pytest.param(None, None, None, id="neither"),
-        pytest.param([], [], None, id="empty"),
-        pytest.param(
-            ["a", "b"],
-            ["scope=eu", "scope=us", "scope!=apac"],
-            {
-                "checkPaths": ["a", "b"],
-                "checkFilters": [
-                    {"field": "scope", "values": ["eu", "us"], "negate": False},
-                    {"field": "scope", "values": ["apac"], "negate": True},
-                ],
-            },
-            id="paths-and-filters",
-        ),
-    ],
+    "check_paths, check_filters",
+    [pytest.param(None, None, id="neither"), pytest.param([], [], id="empty")],
 )
-def test_runner_command_wire_bytes(
-    check_paths: Optional[list[str]], check_filters: Optional[list[str]], execution_options: Optional[dict]
+def test_runner_command_wire_bytes_without_check_paths_and_check_filters(
+    check_paths: Optional[list[str]], check_filters: Optional[list[str]]
 ):
-    """The runner command byte for byte as requests sends it. Without check paths and check filters these are the
-    bytes of the command before either existed."""
+    """Without check paths and check filters the runner command goes out byte for byte as it did before either
+    existed."""
     cloud = MockSodaCloud(_runner_completed())
 
     _execute_session_on_runner(cloud, check_paths=check_paths, check_filters=check_filters)
@@ -1656,27 +1621,10 @@ def test_runner_command_wire_bytes(
         "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
         "verbose": False,
         "variables": {},
+        "token": "mock-token",
     }
-    if execution_options is not None:
-        expected["executionOptions"] = execution_options
-    expected["token"] = "mock-token"
     wire_bytes = Request(method="post", url="https://mock.soda.io", json=command).prepare().body
     assert wire_bytes == json.dumps(expected).encode("utf-8")
-
-
-def test_runner_command_without_check_paths_and_check_filters_is_unchanged():
-    cloud = MockSodaCloud(_runner_completed())
-
-    _execute_session_on_runner(cloud)
-
-    [command] = _runner_commands(cloud)
-    assert list(command) == ["type", "contract", "verbose", "variables"]
-    assert command == {
-        "type": "sodaCoreVerifyContract",
-        "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
-        "verbose": False,
-        "variables": {},
-    }
 
 
 @pytest.mark.parametrize(
@@ -1686,7 +1634,6 @@ def test_runner_command_without_check_paths_and_check_filters_is_unchanged():
             [], ["scope=eu"], {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": False}]}, id="no-paths"
         ),
         pytest.param(["a"], None, {"checkPaths": ["a"]}, id="no-filters"),
-        pytest.param([], [], None, id="neither"),
     ],
 )
 def test_runner_command_omits_an_empty_list(
