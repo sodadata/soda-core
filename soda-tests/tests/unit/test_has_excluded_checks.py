@@ -1,7 +1,7 @@
-"""Unit tests for ``has_excluded`` on the per-file result and on the session result.
+"""Unit tests for ``has_excluded_checks`` on the per-file result and on both session results.
 
-``ContractVerificationSessionResult.has_excluded`` ORs ``has_excluded`` over its
-per-file results, so it only works when ``CheckCollectionResult`` defines it.
+``CheckCollectionSessionResult.has_excluded_checks`` and ``ContractVerificationSessionResult.has_excluded_checks``
+OR ``has_excluded_checks`` over their per-file results, so they only work when ``CheckCollectionResult`` defines it.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-from soda_core.check_collections.base import CheckCollectionResult
+from soda_core.check_collections.base import CheckCollectionResult, CheckCollectionSessionResult
 from soda_core.common.logs import Location
 from soda_core.contracts.contract_verification import (
     Check,
@@ -76,33 +76,46 @@ def _make_result(
     ],
     ids=["no_checks", "no_excluded_checks"],
 )
-def test_check_collection_result_has_excluded_is_false_without_excluded_results(outcomes):
+def test_check_collection_result_has_excluded_checks_is_false_without_excluded_results(outcomes):
     result = _make_result(outcomes, result_class=CheckCollectionResult)
 
     assert result.number_of_checks_excluded == 0
-    assert result.has_excluded is False
+    assert result.has_excluded_checks is False
 
 
-def test_check_collection_result_has_excluded_is_true_with_one_excluded_result():
+def test_check_collection_result_has_excluded_checks_is_true_with_one_excluded_result():
     result = _make_result([CheckOutcome.PASSED, CheckOutcome.EXCLUDED], result_class=CheckCollectionResult)
 
     assert result.number_of_checks_excluded == 1
-    assert result.has_excluded is True
+    assert result.has_excluded_checks is True
 
 
-@pytest.mark.parametrize(
+SESSION_OUTCOMES = pytest.mark.parametrize(
     "outcomes_per_result, expected",
     [
+        ([], False),
         ([[CheckOutcome.PASSED], [CheckOutcome.FAILED]], False),
         ([[CheckOutcome.PASSED], [CheckOutcome.EXCLUDED]], True),
         ([[CheckOutcome.EXCLUDED], [CheckOutcome.PASSED]], True),
     ],
-    ids=["none_excluded", "last_excluded", "first_excluded"],
+    ids=["no_results", "none_excluded", "last_excluded", "first_excluded"],
 )
-def test_session_result_has_excluded_ors_across_results(outcomes_per_result, expected):
+
+
+@SESSION_OUTCOMES
+def test_check_collection_session_result_has_excluded_checks_ors_across_results(outcomes_per_result, expected):
+    session_result = CheckCollectionSessionResult(
+        results=[_make_result(outcomes, result_class=CheckCollectionResult) for outcomes in outcomes_per_result]
+    )
+
+    assert session_result.has_excluded_checks is expected
+
+
+@SESSION_OUTCOMES
+def test_contract_verification_session_result_has_excluded_checks_ors_across_results(outcomes_per_result, expected):
     session_result = ContractVerificationSessionResult(
         contract_verification_results=[_make_result(outcomes) for outcomes in outcomes_per_result]
     )
 
     assert session_result.number_of_checks_excluded == (1 if expected else 0)
-    assert session_result.has_excluded is expected
+    assert session_result.has_excluded_checks is expected
