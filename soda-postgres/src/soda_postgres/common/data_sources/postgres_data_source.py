@@ -7,21 +7,36 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SamplerType, SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ANALYZE_TABLE,
     AND,
+    ASSIGNMENT,
     CAST,
     COLUMN,
+    CREATE_INDEX_IF_NOT_EXISTS,
+    CREATE_TABLE,
     CREATE_TABLE_COLUMN,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DATE_ISO_TEXT,
+    DATE_TRUNC,
+    EPOCH_SECONDS,
     EQ,
     FROM,
     GT,
     IN,
     JOIN,
+    JSON_MERGE,
     LEFT_INNER_JOIN,
     LITERAL,
     LOWER,
     ORDER_BY_ASC,
     RAW_SQL,
+    REGEXP_REPLACE,
     SELECT,
+    SOURCE_COLUMN,
+    TIMESTAMP_ISO_TEXT,
+    TO_TIMEZONE,
+    UPSERT,
+    UPSERT_VIA_SELECT,
     WHERE,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -81,6 +96,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
     )
+    SUPPORTS_DATA_PLANE_STATEMENTS = True
 
     def supports_materialized_views(self) -> bool:
         return True
@@ -215,6 +231,92 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
             return True
 
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    ###
+    # Data plane statements
+    ###
+    def _build_create_table_storage_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        # Free space on each page lets an update that changes no indexed column put the new row
+        # version on the same page (a HOT update), so it adds no index entries.
+        return "WITH (fillfactor = 70)" if create_table.update_heavy else ""
+
+    def _build_upsert_sql(self, upsert: UPSERT) -> str:
+        target_sql: str = self._build_statement_target_sql(upsert.fully_qualified_table_name, upsert.alias)
+        insert_sql: str = f"INSERT INTO {target_sql}"
+        insert_sql += self._build_insert_into_columns_sql(upsert)
+        insert_sql += self._build_insert_into_values_sql(upsert)
+        return f"{insert_sql}\n{self._build_on_conflict_sql(upsert.key_columns, upsert.update_assignments)}"
+
+    def _build_upsert_via_select_sql(self, upsert_via_select: UPSERT_VIA_SELECT) -> str:
+        target_sql: str = self._build_statement_target_sql(
+            upsert_via_select.fully_qualified_table_name, upsert_via_select.alias
+        )
+        insert_sql: str = f"INSERT INTO {target_sql}\n"
+        insert_sql += self._build_insert_into_columns_sql(upsert_via_select) + "\n"
+        insert_sql += "(\n" + self.build_select_sql(upsert_via_select.select_elements, add_semicolon=False) + "\n)"
+        on_conflict_sql: str = self._build_on_conflict_sql(
+            upsert_via_select.key_columns, upsert_via_select.update_assignments
+        )
+        return f"{insert_sql}\n{on_conflict_sql}"
+
+    def _build_on_conflict_sql(self, key_columns: list[COLUMN], update_assignments: Optional[list[ASSIGNMENT]]) -> str:
+        # The key columns must carry a unique index or constraint: it is the conflict arbiter.
+        key_columns_sql: str = ", ".join(self.build_expression_sql(column) for column in key_columns)
+        if not update_assignments:
+            return f"ON CONFLICT ({key_columns_sql}) DO NOTHING"
+        return f"ON CONFLICT ({key_columns_sql}) DO UPDATE SET {self._build_assignments_sql(update_assignments)}"
+
+    def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
+        return f"EXCLUDED.{self.quote_default(source_column.name)}"
+
+    def _build_create_index_sql(self, create_index: CREATE_INDEX_IF_NOT_EXISTS) -> Optional[str]:
+        index_name: str = self.quote_for_ddl(create_index.index_name)
+        table_name: str = self._convert_fqn_for_ddl(create_index.fully_qualified_table_name)
+        columns_sql: str = self._build_index_columns_sql(create_index.columns)
+        return f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} {columns_sql}"
+
+    def _build_analyze_table_sql(self, analyze_table: ANALYZE_TABLE) -> Optional[str]:
+        return f"ANALYZE {self._convert_fqn_for_ddl(analyze_table.fully_qualified_table_name)}"
+
+    def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
+        # Without the "g" flag Postgres replaces only the first match.
+        expression_sql: str = self.build_expression_sql(regexp_replace.expression)
+        pattern_sql: str = self.literal_string(regexp_replace.pattern)
+        replacement_sql: str = self.literal_string(regexp_replace.replacement)
+        return f"regexp_replace({expression_sql}, {pattern_sql}, {replacement_sql}, 'g')"
+
+    def _build_date_trunc_sql(self, date_trunc: DATE_TRUNC) -> str:
+        return f"date_trunc({self.literal_string(date_trunc.unit)}, {self.build_expression_sql(date_trunc.expression)})"
+
+    def _build_to_timezone_sql(self, to_timezone: TO_TIMEZONE) -> str:
+        expression_sql: str = self.build_expression_sql(to_timezone.expression)
+        return f"({expression_sql} AT TIME ZONE {self.literal_string(to_timezone.timezone)})"
+
+    def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
+        return f"EXTRACT(EPOCH FROM {self.build_expression_sql(epoch_seconds.expression)})"
+
+    def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
+        # Double-quoted text in a to_char format is output literally.
+        iso_format: str = 'YYYY-MM-DD"T"HH24:MI:SS'
+        if timestamp_iso_text.fractional_seconds:
+            iso_format += ".US"
+        if timestamp_iso_text.utc_suffix:
+            iso_format += '"+00:00"'
+        expression_sql: str = self.build_expression_sql(timestamp_iso_text.expression)
+        return f"to_char({expression_sql}, {self.literal_string(iso_format)})"
+
+    def _build_date_iso_text_sql(self, date_iso_text: DATE_ISO_TEXT) -> str:
+        return f"to_char({self.build_expression_sql(date_iso_text.expression)}, 'YYYY-MM-DD')"
+
+    def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
+        # jsonb ||: the union of both objects' keys, the right one's value winning on a duplicate.
+        return f"({self.build_expression_sql(json_merge.left)} || {self.build_expression_sql(json_merge.right)})"
+
+    def _begin_read_only_transaction_sql(self) -> Optional[str]:
+        return "BEGIN READ ONLY"
+
+    def _rollback_sql(self) -> Optional[str]:
+        return "ROLLBACK"
 
     ###
     # Tables and columns metadata queries
