@@ -2,7 +2,7 @@
 #
 # Asserted by soda-tests/tests/unit/test_check_path_grammar.py, which builds each row as a one-check
 # contract on the dataset below with a data source named like its first segment. checkPath is the grammar
-# and is written by hand. identity is recorded: SODA_TEST_RECORD_FIXTURES=1 rewrites it.
+# and is written by hand. identity is recorded: SODA_TEST_UPDATE_SNAPSHOTS=1 rewrites it.
 #
 # Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scope work adds
 # each row again with the scope.eu: prefix. The Soda Cloud backend mirrors this list.
