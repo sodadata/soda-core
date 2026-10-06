@@ -793,22 +793,21 @@ class CheckCollectionImpl:
 
         # Before the columns are parsed: column checks are built there, and a check in an inactive scope is
         # skipped when it is built.
-        if type(self).supports_scopes:
-            from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension
+        from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension
 
-            for extension in self.extensions:
-                activate_scopes = getattr(extension, "activate_scopes", None)
-                if activate_scopes is None:
-                    continue
-                # Every extension inherits a default activate_scopes that does nothing. Only one that
-                # overrides it runs scopes.
-                default_hook = CheckCollectionImplExtension.activate_scopes
-                if getattr(type(extension), "activate_scopes", None) is not default_hook:
-                    self.scopes_extension_called = True
-                try:
-                    activate_scopes(contract_impl=self)
-                except Exception as e:
-                    logger.error(f"Error activating scopes with extension {extension.__class__.__name__}: {e}")
+        for extension in self.extensions:
+            activate_scopes = getattr(extension, "activate_scopes", None)
+            if activate_scopes is None:
+                continue
+            # Every extension inherits a default activate_scopes that does nothing. Only one that
+            # overrides it runs scopes.
+            default_hook = CheckCollectionImplExtension.activate_scopes
+            if getattr(type(extension), "activate_scopes", None) is not default_hook:
+                self.scopes_extension_called = True
+            try:
+                activate_scopes(contract_impl=self)
+            except Exception as e:
+                logger.error(f"Error activating scopes with extension {extension.__class__.__name__}: {e}")
 
         self.column_impls = self._parse_columns(yaml)
         self.check_impls = self._parse_checks(yaml)
