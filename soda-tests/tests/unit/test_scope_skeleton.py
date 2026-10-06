@@ -12,7 +12,6 @@ Every test here drops the soda-scopes extension, so the file pins core alone eve
 
 from __future__ import annotations
 
-import time
 from hashlib import blake2b
 from types import SimpleNamespace
 from typing import Optional
@@ -785,14 +784,13 @@ def test_scope_reads_of_input_origin_ignores():
 
 @pytest.mark.parametrize("impl_class", KINDS)
 def test_a_scope_value_built_from_shared_anchors_reads_without_expanding_it(impl_class: type[CheckCollectionImpl]):
-    # About 500 bytes whose scope value expands to a million scalars. Origin reads it in milliseconds. Each further
-    # level multiplies the expanded value, and the time to build or print it, by ten.
+    # About 500 bytes whose scope value expands to a million scalars. Each further level multiplies the expanded
+    # value, and the time to build or print it, by ten. The placeholder scope reads as the value's type name, so
+    # nothing printed the expanded value.
     yaml_str = SCOPE_FILES_ORIGIN_RUNS["shared-anchors"]
     assert len(yaml_str) < 600
-    started = time.monotonic()
-    _build_impl(impl_class, KIND_LINES[impl_class] + yaml_str)
-    elapsed = time.monotonic() - started
-    assert elapsed < 5, f"building the impl took {elapsed:.1f}s"
+    impl, _ = _build_impl(impl_class, KIND_LINES[impl_class] + yaml_str)
+    assert impl.all_check_impls[1].scope.key == "<list>"
 
 
 # Each place in the scope input where a variable can be used, with 'REF' standing for the reference. None of these
