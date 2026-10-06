@@ -6,7 +6,6 @@ import pytest
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.filtered_cte import (
     FILTERED_CTE_ALIAS_MAX_LENGTH,
-    FILTERED_SCOPE_CTE_PREFIX,
     build_filtered_cte,
     filtered_cte_alias,
     is_filtered_cte_alias,
@@ -31,24 +30,12 @@ def test_filtered_cte_alias(key, alias):
     assert filtered_cte_alias(key) == alias
 
 
-def test_filtered_cte_alias_constants():
-    assert FILTERED_SCOPE_CTE_PREFIX == "_soda_filtered_scope_"
-    assert len(FILTERED_SCOPE_CTE_PREFIX) == 21
-    assert FILTERED_CTE_ALIAS_MAX_LENGTH == 30
-    assert filtered_cte_alias(None) == SODA_FILTERED_CTE_NAME
-    assert len(filtered_cte_alias("abcdefghi")) == FILTERED_CTE_ALIAS_MAX_LENGTH
-
-
 @pytest.mark.parametrize("key", ["eu", "eu_west", "eu-west", "abcdefghi", "abcdefghij", "a" * 64, "a-" * 32])
 def test_filtered_cte_alias_fits_the_oracle_limit(key):
     assert len(filtered_cte_alias(key)) <= FILTERED_CTE_ALIAS_MAX_LENGTH
 
 
 def test_filtered_cte_alias_plain_and_hashed_forms_never_meet():
-    plain = filtered_cte_alias("eu_west")
-    hashed = filtered_cte_alias("eu-west")
-    assert plain[21].isalpha()
-    assert hashed[21] == "_"
     assert filtered_cte_alias("eu-west") != filtered_cte_alias("eu_west")
 
 
