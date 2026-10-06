@@ -225,7 +225,7 @@ def execute_check_collections(
     _raise_if_kind_offenders(kind_offenders, expected_kinds)
     _raise_if_duplicate_collection_ids(constructed)
     _raise_if_combined_session_spans_multiple_datasets(constructed)
-    _raise_if_unknown_scope_keys(constructed, check_selectors)
+    raise_if_unknown_scope_keys(constructed, check_selectors)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -552,7 +552,7 @@ def _raise_if_combined_session_spans_multiple_datasets(
         )
 
 
-def _raise_if_unknown_scope_keys(
+def raise_if_unknown_scope_keys(
     constructed: list[
         tuple[
             Optional[CheckCollectionImpl],
