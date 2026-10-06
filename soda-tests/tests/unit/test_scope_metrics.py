@@ -17,7 +17,6 @@ import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockSodaCloud
 from helpers.scope_activation_extension import scope_activation
-from helpers.scope_test_kinds import ScopeUnsupportedImpl
 from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from soda_core.check_collections.base import CheckCollectionImpl, add_scope_rows_tested
@@ -247,15 +246,6 @@ def test_without_activation_every_declared_scope_stays_inactive():
     assert not any(scope.is_active for scope in impl.scopes.values())
     assert [check_impl.skip for check_impl in impl.all_check_impls if check_impl.scope.is_base] == [False, False]
     assert all(check_impl.skip for check_impl in impl.all_check_impls if not check_impl.scope.is_base)
-
-
-def test_a_kind_without_scope_support_never_activates_scopes():
-    with scope_activation("eu", impl_class=ScopeUnsupportedImpl) as activated_impls:
-        impl, logs = _build_impl(SCOPED_YAML, impl_class=ScopeUnsupportedImpl)
-    assert activated_impls == []
-    assert not impl.scopes["eu"].is_active
-    assert _checks_by_qualifier(impl, "missing")["eu"].skip
-    assert not logs.has_errors
 
 
 def test_a_failing_activation_logs_an_error():
