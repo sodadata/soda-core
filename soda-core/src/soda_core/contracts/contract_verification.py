@@ -202,13 +202,13 @@ class ContractVerificationSessionResult:
         )
 
     @property
-    def has_excluded(self) -> bool:
+    def has_excluded_checks(self) -> bool:
         """
         Returns true if there are checks that have been excluded.
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.has_excluded
+            contract_verification_result.has_excluded_checks
             for contract_verification_result in self.contract_verification_results
         )
 

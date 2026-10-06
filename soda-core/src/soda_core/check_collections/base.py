@@ -226,11 +226,11 @@ class CheckCollectionResult:
         )
 
     @property
-    def has_excluded(self) -> bool:
+    def has_excluded_checks(self) -> bool:
         """
         Returns true if there are checks that have been excluded.
         """
-        return self.number_of_checks_excluded > 0
+        return any(check_result.is_excluded for check_result in self.check_results)
 
 
 @dataclass
@@ -256,6 +256,11 @@ class CheckCollectionSessionResult:
     def is_warned(self) -> bool:
         """True if any per-file result has at least one WARN check."""
         return any(r.is_warned for r in self.results)
+
+    @property
+    def has_excluded_checks(self) -> bool:
+        """True if any per-file result has at least one EXCLUDED check."""
+        return any(r.has_excluded_checks for r in self.results)
 
     @property
     def sending_results_to_soda_cloud_failed(self) -> bool:
