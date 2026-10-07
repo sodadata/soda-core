@@ -1673,14 +1673,14 @@ def test_runner_command_sends_base_and_wildcard_scope_values_without_a_local_che
     cloud = MockSodaCloud(_runner_completed())
 
     session_result = _execute_session_on_runner(
-        cloud, check_filters=["scope=base", "scope=a*", "scope!=?u"], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
+        cloud, check_filters=["scope=base", "scope=e*", "scope!=?u"], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
     )
 
     assert interpret_contract_verification_result(session_result) == ExitCode.OK
     [command] = _runner_commands(cloud)
     assert command["executionOptions"] == {
         "checkFilters": [
-            {"field": "scope", "values": ["base", "a*"], "negate": False},
+            {"field": "scope", "values": ["base", "e*"], "negate": False},
             {"field": "scope", "values": ["?u"], "negate": True},
         ]
     }
