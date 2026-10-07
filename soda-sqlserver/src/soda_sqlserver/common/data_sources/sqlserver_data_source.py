@@ -1,37 +1,58 @@
 import logging
+import re
 from copy import deepcopy
 from datetime import date, datetime
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
+    ANALYZE_TABLE,
     COLUMN,
     COUNT,
+    CREATE_INDEX_IF_NOT_EXISTS,
+    CREATE_SCHEMA_IF_NOT_EXISTS,
     CREATE_TABLE,
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     CREATE_VIEW,
+    CURRENT_TIMESTAMP,
+    DATE_ISO_TEXT,
+    DATE_TRUNC,
+    DELETE,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     DROP_VIEW,
     DROP_VIEW_IF_EXISTS,
+    EPOCH_SECONDS,
+    FROM,
     INSERT_INTO,
     INSERT_INTO_VIA_SELECT,
     INTO,
+    JOIN,
+    JSON_MERGE,
+    LEFT_INNER_JOIN,
     LENGTH,
     LIMIT,
     OFFSET,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
+    REGEXP_REPLACE,
+    SOURCE_COLUMN,
     STRING_HASH,
     TIME_DELTA,
+    TIMESTAMP_ISO_TEXT,
+    TO_TIMEZONE,
     TUPLE,
+    UPDATE,
+    UPSERT,
+    UPSERT_VIA_SELECT,
     VALUES,
     WITH,
     seconds_per_time_bucket,
@@ -47,9 +68,24 @@ logger: logging.Logger = soda_logger
 
 # APPROX_PERCENTILE_DISC needs SQL Server 2022+ on-prem, or Azure SQL Database /
 # Managed Instance (which report a legacy ProductMajorVersion).
+# So does DATETRUNC.
 SQLSERVER_2022_MAJOR_VERSION = 16
 AZURE_SQL_DATABASE_ENGINE_EDITION = 5
 AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION = 8
+# REGEXP_REPLACE needs SQL Server 2025+ on-prem, or Azure SQL Database.
+SQLSERVER_2025_MAJOR_VERSION = 17
+SQLSERVER_RELEASE_BY_MAJOR_VERSION = {
+    SQLSERVER_2022_MAJOR_VERSION: "SQL Server 2022",
+    SQLSERVER_2025_MAJOR_VERSION: "SQL Server 2025",
+}
+AZURE_ENGINE_NAME_BY_EDITION = {
+    AZURE_SQL_DATABASE_ENGINE_EDITION: "Azure SQL Database",
+    AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION: "Azure SQL Managed Instance",
+}
+
+# A three-part name, capturing the database. Each part is bracket-quoted, with ]] for a literal ], or plain.
+_NAME_PART_PATTERN = r"(?:\[(?:[^\]]|\]\])*\]|[^.\[\]]*)"
+THREE_PART_NAME_PATTERN = re.compile(rf"({_NAME_PART_PATTERN})\.{_NAME_PART_PATTERN}\.{_NAME_PART_PATTERN}")
 
 
 class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceModel):
@@ -102,6 +138,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
     # T-SQL's page window is `OFFSET m ROWS` then `FETCH NEXT n ROWS ONLY`.
     OFFSET_BEFORE_LIMIT: bool = True
+    SUPPORTS_DATA_PLANE_STATEMENTS = True
 
     def __init__(self):
         super().__init__()
@@ -534,3 +571,265 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def _build_random_sql(self, random: RANDOM) -> str:
         return "ABS(CAST(CHECKSUM(NEWID()) AS FLOAT)) / 2147483648.0"
+
+    ###
+    # Data plane statements
+    ###
+    # Every override below is inherited by the Fabric and Synapse dialects, which do not set
+    # SUPPORTS_DATA_PLANE_STATEMENTS: the base gates each hook on the flag, except
+    # _build_current_timestamp_sql, which therefore checks the flag itself.
+
+    # MERGE names its incoming rows; SOURCE_COLUMN renders as this alias.
+    _MERGE_SOURCE_ALIAS = "src"
+    _MERGE_DEFAULT_TARGET_ALIAS = "tgt"
+
+    def _build_update_sql(self, update: UPDATE) -> str:
+        if not update.alias:
+            if update.from_elements:
+                raise self._unaliased_target_error("UPDATE", "from_elements")
+            return super()._build_update_sql(update)
+        lines: list[str] = [
+            f"UPDATE {self.quote_default(update.alias)}",
+            f"SET {self._build_assignments_sql(update.assignments)}",
+        ]
+        lines.extend(
+            self._build_target_and_sources_sql_lines(
+                update.fully_qualified_table_name, update.alias, update.from_elements
+            )
+        )
+        if update.where is not None:
+            lines.extend(self._build_where_sql_lines([update.where]))
+        return "\n".join(lines)
+
+    def _build_delete_sql(self, delete: DELETE) -> str:
+        if not delete.alias:
+            if delete.using_elements:
+                raise self._unaliased_target_error("DELETE", "using_elements")
+            return super()._build_delete_sql(delete)
+        lines: list[str] = [f"DELETE {self.quote_default(delete.alias)}"]
+        lines.extend(
+            self._build_target_and_sources_sql_lines(
+                delete.fully_qualified_table_name, delete.alias, delete.using_elements
+            )
+        )
+        if delete.where is not None:
+            lines.extend(self._build_where_sql_lines([delete.where]))
+        return "\n".join(lines)
+
+    def _unaliased_target_error(self, node_name: str, sources_field: str) -> UnsupportedSqlStatementError:
+        return UnsupportedSqlStatementError(
+            f"{type(self).__name__} does not support {node_name} with {sources_field} and no alias: T-SQL binds "
+            f"an unaliased target to a reference to the same table among the further tables"
+        )
+
+    def _build_target_and_sources_sql_lines(
+        self, fully_qualified_table_name: str, alias: str, elements: Optional[list[FROM | JOIN]]
+    ) -> list[str]:
+        """``FROM <target> AS <alias>`` followed by the further tables, laid out as the base lays out an
+        UPDATE's FROM clause: plain FROM elements comma-separated, each JOIN on its own line."""
+        lines: list[str] = [f"FROM {self._build_statement_target_sql(fully_qualified_table_name, alias)}"]
+        continuation: str = " " * len("FROM ")
+        for element in elements or []:
+            if isinstance(element, (LEFT_INNER_JOIN, JOIN)):
+                lines.append(f"{continuation}{self._build_join_part(element)}")
+            else:
+                lines[-1] += ","
+                lines.append(f"{continuation}{self._build_from_part(element)}")
+        return lines
+
+    def build_upsert_sql(self, upsert: UPSERT, add_semicolon: Optional[bool] = None) -> str:
+        # The MERGE carries its own semicolon: T-SQL requires it (error 10713) whatever the caller asks.
+        return super().build_upsert_sql(upsert, add_semicolon=False)
+
+    def build_upsert_via_select_sql(
+        self, upsert_via_select: UPSERT_VIA_SELECT, add_semicolon: Optional[bool] = None
+    ) -> str:
+        return super().build_upsert_via_select_sql(upsert_via_select, add_semicolon=False)
+
+    def _build_upsert_sql(self, upsert: UPSERT) -> str:
+        return self._build_merge_sql(upsert, self._build_insert_into_values_sql(upsert).strip())
+
+    def _build_upsert_via_select_sql(self, upsert_via_select: UPSERT_VIA_SELECT) -> str:
+        # A CTE cannot open a MERGE source (error 156), so it moves in front of the MERGE.
+        with_elements, select_elements = self._split_with_elements(upsert_via_select.select_elements)
+        merge_sql: str = self._build_merge_sql(
+            upsert_via_select, self.build_select_sql(select_elements, add_semicolon=False)
+        )
+        return "\n".join([*self._build_cte_sql_lines(with_elements), merge_sql])
+
+    @staticmethod
+    def _split_with_elements(select_elements: list) -> tuple[list[WITH], list]:
+        """The WITH elements of a statement's SELECT, which T-SQL puts in front of the whole statement, and
+        the other elements."""
+        with_elements: list[WITH] = [element for element in select_elements if isinstance(element, WITH)]
+        other_elements: list = [element for element in select_elements if not isinstance(element, WITH)]
+        return with_elements, other_elements
+
+    def _build_merge_sql(self, upsert: UPSERT | UPSERT_VIA_SELECT, source_sql: str) -> str:
+        """HOLDLOCK keeps the key range locked from the match to the insert, so a concurrent upsert of the
+        same key waits instead of failing on the primary key."""
+        target_alias: str = upsert.alias or self._MERGE_DEFAULT_TARGET_ALIAS
+        if target_alias.lower() == self._MERGE_SOURCE_ALIAS:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support an upsert target alias {target_alias!r}: "
+                f"it names the incoming rows"
+            )
+        target: str = self.quote_default(target_alias)
+        source: str = self.quote_default(self._MERGE_SOURCE_ALIAS)
+        column_names: list[str] = [self.quote_default(self._upsert_column_name(column)) for column in upsert.columns]
+        columns_sql: str = ", ".join(column_names)
+        key_condition_sql: str = " AND ".join(
+            f"{target}.{key} = {source}.{key}"
+            for key in (self.quote_default(self._upsert_column_name(column)) for column in upsert.key_columns)
+        )
+        lines: list[str] = [
+            f"MERGE INTO {upsert.fully_qualified_table_name} WITH (HOLDLOCK) AS {target}",
+            f"USING (\n{source_sql}\n) AS {source} ({columns_sql})",
+            f"ON ({key_condition_sql})",
+        ]
+        if upsert.update_assignments:
+            lines.append(f"WHEN MATCHED THEN UPDATE SET {self._build_assignments_sql(upsert.update_assignments)}")
+        source_values_sql: str = ", ".join(f"{source}.{column_name}" for column_name in column_names)
+        lines.append(f"WHEN NOT MATCHED THEN INSERT ({columns_sql}) VALUES ({source_values_sql});")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _upsert_column_name(column: COLUMN | str) -> str:
+        column_name = column.name if isinstance(column, COLUMN) else column
+        if not isinstance(column_name, str):
+            raise ValueError(f"An upsert column must be named, got {column_name!r}")
+        return column_name
+
+    def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
+        return f"{self.quote_default(self._MERGE_SOURCE_ALIAS)}.{self.quote_default(source_column.name)}"
+
+    def _build_create_index_sql(self, create_index: CREATE_INDEX_IF_NOT_EXISTS) -> Optional[str]:
+        # T-SQL has no CREATE INDEX IF NOT EXISTS.
+        index_name: str = create_index.index_name
+        table_name: str = self._convert_fqn_for_ddl(create_index.fully_qualified_table_name)
+        columns_sql: str = self._build_index_columns_sql(create_index.columns)
+        return (
+            f"IF NOT EXISTS (SELECT 1 FROM {self._sys_indexes_sql(table_name)} "
+            f"WHERE name = N{self.literal_string(index_name)} "
+            f"AND object_id = OBJECT_ID(N{self.literal_string(table_name)})) "
+            f"CREATE INDEX {self.quote_for_ddl(index_name)} ON {table_name} {columns_sql}"
+        )
+
+    @staticmethod
+    def _sys_indexes_sql(table_name: str) -> str:
+        """The sys.indexes of the database OBJECT_ID resolves the table in: the one its name qualifies it
+        with, or else the current one."""
+        three_part_name = THREE_PART_NAME_PATTERN.fullmatch(table_name)
+        if three_part_name and three_part_name.group(1):
+            return f"{three_part_name.group(1)}.sys.indexes"
+        return "sys.indexes"
+
+    def _build_create_schema_sql(self, create_schema: CREATE_SCHEMA_IF_NOT_EXISTS) -> str:
+        # CREATE SCHEMA must be alone in its batch, hence EXEC; the schema lands in the current database.
+        schema_name: str = create_schema.prefixes[1]
+        create_schema_sql: str = f"CREATE SCHEMA [{schema_name.replace(']', ']]')}]"
+        return (
+            f"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N{self.literal_string(schema_name)}) "
+            f"EXEC(N{self.literal_string(create_schema_sql)})"
+        )
+
+    def _build_analyze_table_sql(self, analyze_table: ANALYZE_TABLE) -> Optional[str]:
+        return f"UPDATE STATISTICS {self._convert_fqn_for_ddl(analyze_table.fully_qualified_table_name)}"
+
+    def _begin_read_only_transaction_sql(self) -> Optional[str]:
+        # T-SQL has no read-only transaction; rollback_sql undoes whatever was written in this one.
+        return "BEGIN TRANSACTION"
+
+    def _rollback_sql(self) -> Optional[str]:
+        # An error can already have ended the transaction, and a ROLLBACK without one fails (error 3903).
+        return "IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION"
+
+    def _build_current_timestamp_sql(self, current_timestamp: CURRENT_TIMESTAMP) -> str:
+        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return super()._build_current_timestamp_sql(current_timestamp)
+        # T-SQL's CURRENT_TIMESTAMP is the server's local time without an offset.
+        return "SYSDATETIMEOFFSET()"
+
+    def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
+        # Through datetime2(7), so a date or a text renders as a timestamp does.
+        timestamp_sql: str = f"CAST({self.build_expression_sql(timestamp_iso_text.expression)} AS datetime2(7))"
+        iso_text_sql: str
+        if timestamp_iso_text.fractional_seconds:
+            # Style 126 drops a zero fraction; style 121 keeps it, with a space where ISO has the T. LEFT
+            # truncates the seventh digit as the whole-second form does, where datetime2(6) would round.
+            iso_text_sql = f"STUFF(LEFT(CONVERT(varchar(27), {timestamp_sql}, 121), 26), 11, 1, 'T')"
+        else:
+            iso_text_sql = f"CONVERT(varchar(19), {timestamp_sql}, 126)"
+        if timestamp_iso_text.utc_suffix:
+            # + propagates NULL; CONCAT would return the bare suffix.
+            return f"({iso_text_sql} + '+00:00')"
+        return iso_text_sql
+
+    def _build_date_iso_text_sql(self, date_iso_text: DATE_ISO_TEXT) -> str:
+        return f"CONVERT(char(10), {self.build_expression_sql(date_iso_text.expression)}, 23)"
+
+    def _build_to_timezone_sql(self, to_timezone: TO_TIMEZONE) -> str:
+        # AT TIME ZONE takes Windows zone names, so UTC is the one zone rendered.
+        if to_timezone.timezone.lower() not in ("utc", "etc/utc"):
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support TO_TIMEZONE to {to_timezone.timezone!r}: only UTC"
+            )
+        return f"CAST(SWITCHOFFSET({self.build_expression_sql(to_timezone.expression)}, '+00:00') AS datetime2(7))"
+
+    def _build_date_trunc_sql(self, date_trunc: DATE_TRUNC) -> str:
+        self._require_engine(
+            node_name="DATE_TRUNC",
+            function_name="DATETRUNC",
+            major_version=SQLSERVER_2022_MAJOR_VERSION,
+            azure_engine_editions=(AZURE_SQL_DATABASE_ENGINE_EDITION, AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION),
+        )
+        return f"DATETRUNC({date_trunc.unit.upper()}, {self.build_expression_sql(date_trunc.expression)})"
+
+    def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
+        # A Managed Instance has the regex functions only under some update policies, which its facts
+        # do not tell apart.
+        self._require_engine(
+            node_name="REGEXP_REPLACE",
+            function_name="REGEXP_REPLACE",
+            major_version=SQLSERVER_2025_MAJOR_VERSION,
+            azure_engine_editions=(AZURE_SQL_DATABASE_ENGINE_EDITION,),
+        )
+        expression_sql: str = self.build_expression_sql(regexp_replace.expression)
+        pattern_sql: str = self.literal_string(regexp_replace.pattern)
+        replacement_sql: str = self.literal_string(regexp_replace.replacement)
+        return f"REGEXP_REPLACE({expression_sql}, {pattern_sql}, {replacement_sql})"
+
+    def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
+        # T-SQL has no interval type: a timestamp difference is DATEDIFF's count of one unit.
+        raise self._unsupported_sql_statement_error("EPOCH_SECONDS")
+
+    def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
+        # No T-SQL function merges two JSON objects; a caller sets the keys one by one with JSON_MODIFY.
+        raise self._unsupported_sql_statement_error("JSON_MERGE")
+
+    def _require_engine(
+        self,
+        node_name: str,
+        function_name: str,
+        major_version: int,
+        azure_engine_editions: tuple[int, ...],
+    ) -> None:
+        """Raises unless the connected engine has ``function_name``: from ``major_version`` on premises,
+        and on the ``azure_engine_editions``, which report a legacy major version. Without server facts
+        (rendering only, snapshot replay) the newest engine is assumed, as in
+        supports_percentile_within_group."""
+        if self.server_major_version is None and self.engine_edition is None:
+            return
+        if (
+            self.server_major_version is not None and self.server_major_version >= major_version
+        ) or self.engine_edition in azure_engine_editions:
+            return
+        engine_names: list[str] = [
+            SQLSERVER_RELEASE_BY_MAJOR_VERSION[major_version],
+            *(AZURE_ENGINE_NAME_BY_EDITION[edition] for edition in azure_engine_editions),
+        ]
+        raise UnsupportedSqlStatementError(
+            f"{type(self).__name__} does not support {node_name} on this server (major version "
+            f"{self.server_major_version}, engine edition {self.engine_edition}): {function_name} needs "
+            f"{', '.join(engine_names[:-1])} or {engine_names[-1]}"
+        )

@@ -869,6 +869,7 @@ class REGEX_LIKE(SqlExpression):
 class LIKE(Operator):
     # The character that makes the next `%`, `_` or itself literal in the pattern; renders
     # `ESCAPE '<char>'`. None renders no ESCAPE clause.
+    # On T-SQL `[` opens a character-set wildcard as well, so a caller escapes it there too.
     escape: Optional[str] = None
 
     def __post_init__(self):
@@ -1165,7 +1166,10 @@ class UPSERT(BaseSqlExpression):
 @dataclass
 class UPSERT_VIA_SELECT(BaseSqlExpression):
     """UPSERT whose rows come from a SELECT, on the same terms: the selected rows must be unique on
-    ``key_columns``, ``alias`` names the existing row and ``SOURCE_COLUMN`` the incoming one."""
+    ``key_columns``, ``alias`` names the existing row and ``SOURCE_COLUMN`` the incoming one.
+
+    T-SQL refuses an ORDER BY in the MERGE source unless it is paired with a LIMIT.
+    """
 
     fully_qualified_table_name: str
     select_elements: list[Any]
