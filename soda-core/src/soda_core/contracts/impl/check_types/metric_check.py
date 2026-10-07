@@ -122,9 +122,12 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
         expression: str | None = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.expression: str = expression or check_impl.check_yaml.expression
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
@@ -159,9 +162,12 @@ class MetricQueryMetricImpl(MetricImpl):
         query: Optional[str] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.query: str = query or check_impl.check_yaml.query
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,

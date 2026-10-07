@@ -157,6 +157,7 @@ class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
         check_impl: MissingAndValidityCheckImpl,
     ):
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type="distinct_count",
@@ -208,6 +209,7 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
             metric_type=metric_type,
             check_filter=check_filter,
             missing_and_validity=missing_and_validity,
+            scope=distinct_count_metric_impl.scope,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:
@@ -325,9 +327,12 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
         column_expressions: list[COLUMN | SqlExpressionStr],
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.column_expressions: list[COLUMN | SqlExpressionStr] = column_expressions
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
@@ -378,6 +383,7 @@ class MultiColumnDuplicateCountMetricImpl(DerivedMetricImpl):
             column_impl=multi_column_distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,
+            scope=multi_column_distinct_count_metric_impl.scope,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:

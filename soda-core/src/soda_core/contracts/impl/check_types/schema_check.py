@@ -117,6 +117,7 @@ class SchemaCheckImpl(CheckImpl):
         self.schema_metric = self._resolve_metric(
             SchemaMetricImpl(
                 contract_impl=contract_impl,
+                check_impl=self,
             )
         )
 
@@ -259,8 +260,9 @@ class SchemaMetricImpl(MetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
+        check_impl: Optional[CheckImpl] = None,
     ):
-        super().__init__(contract_impl=contract_impl, metric_type="schema")
+        super().__init__(contract_impl=contract_impl, metric_type="schema", check_impl=check_impl)
 
 
 class SchemaQuery(Query):

@@ -93,10 +93,13 @@ class RowCountMetricImpl(AggregationMetricImpl):
         filter: Optional[str] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
         scope: Optional[Scope] = None,
     ):
         check_filter = filter if filter else check_impl.check_yaml.filter if check_impl else None
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             metric_type="row_count",
             check_filter=check_filter,

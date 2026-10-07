@@ -115,6 +115,7 @@ class MissingCountMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
