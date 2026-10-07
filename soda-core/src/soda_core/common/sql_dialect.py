@@ -1094,8 +1094,10 @@ class SqlDialect:
         return self._build_create_schema_sql(create_schema) + (";" if add_semicolon else "")
 
     def begin_read_only_transaction_sql(self) -> Optional[str]:
-        """Statement opening a transaction in which the data source refuses writes, or None when the
-        dialect offers none. For an application running user-authored reads; ``rollback_sql`` ends it.
+        """Statement opening a transaction whose writes are not committed, or None when the dialect
+        offers none. The data source refuses writes in it where it has a read-only mode; a dialect
+        without one begins a transaction that the caller rolls back. For an application running
+        user-authored reads; ``rollback_sql`` ends it.
         """
         if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
             return None
