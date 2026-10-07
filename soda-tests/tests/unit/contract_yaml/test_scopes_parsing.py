@@ -118,6 +118,11 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
         [f"Invalid scope key '9a': {KEY_PATTERN_REASON}"],
     ),
     "key-with-a-dot": ("scopes:\n  eu.west: {name: A}\n", "", [f"Invalid scope key 'eu.west': {KEY_PATTERN_REASON}"]),
+    "key-with-a-variable": (
+        'scopes:\n  "${var.REGION}": {name: A}\n',
+        "",
+        ["Invalid scope key '${var.REGION}': a scope key is fixed, so it cannot use a variable"],
+    ),
     "key-of-65-characters": (
         f"scopes:\n  {'a' * 65}: {{name: A}}\n",
         "",
@@ -211,11 +216,16 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
         "      scope:\n",
         ["Check 'scope' must name a declared scope, but was null"],
     ),
-    # A reference in a namespace the engine does not know reads as null without an error of its own.
+    # A scope key is fixed, so a check's scope never takes a variable, whatever its namespace.
     "scope-reference-in-an-unknown-namespace": (
         "scopes:\n  eu: {name: EU}\n",
         "      scope: ${nope.SCOPE}\n",
-        ["Check 'scope' must name a declared scope, but '${nope.SCOPE}' resolved to null"],
+        ["Check 'scope' cannot use a variable, but was '${nope.SCOPE}'. Name a declared scope key"],
+    ),
+    "scope-variable-inside-a-string": (
+        "scopes:\n  eu: {name: EU}\n",
+        "      scope: eu-${nope.SCOPE}\n",
+        ["Check 'scope' cannot use a variable, but was 'eu-${nope.SCOPE}'. Name a declared scope key"],
     ),
     "scope-number": (
         "scopes:\n  eu: {name: EU}\n",
@@ -431,30 +441,23 @@ def _environment_scope_contract(kind_line: str = "") -> str:
     return _contract("scopes:\n  eu: {name: EU}\n", f"      scope: ${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}\n", kind_line)
 
 
-def test_a_check_scope_from_an_unset_environment_variable_is_an_error(monkeypatch, tmp_path):
-    # An unset environment variable reads as null without an error of its own. The check must not end up in the base
-    # scope, where core runs it over the whole dataset.
-    monkeypatch.delenv(SCOPE_ENVIRONMENT_VARIABLE, raising=False)
-    errors = [f"Check 'scope' must name a declared scope, but '${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}' resolved to null"]
+@pytest.mark.parametrize("value", [None, "eu"], ids=["unset", "set-to-a-declared-scope"])
+def test_a_check_scope_cannot_use_an_environment_variable(monkeypatch, tmp_path, value: Optional[str]):
+    # The check fails the file whatever the variable holds, so the same contract never moves its checks between
+    # scopes from one run to the next.
+    if value is None:
+        monkeypatch.delenv(SCOPE_ENVIRONMENT_VARIABLE, raising=False)
+    else:
+        monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, value)
+    errors = [
+        f"Check 'scope' cannot use a variable, but was '${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}'. "
+        "Name a declared scope key"
+    ]
     _, logs = _parse(_environment_scope_contract())
     assert logs.get_errors() == errors
     [record] = logs.gatherer.get_error_logs()
     assert getattr(record, ExtraKeys.LOCATION).line is not None
     assert _soda_contract_test(monkeypatch, tmp_path, _environment_scope_contract()) == (ExitCode.LOG_ERRORS, errors)
-
-
-def test_a_check_scope_from_a_set_environment_variable_is_validated(monkeypatch):
-    monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, "apac")
-    _, logs = _parse(_environment_scope_contract())
-    assert logs.get_errors() == ["Check references unknown scope 'apac'. Declared scopes: ['eu']"]
-
-    monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, "eu")
-    impl, logs = _build_contract_impl(_environment_scope_contract())
-    assert logs.get_errors() == []
-    assert [(check_impl.scope.key, check_impl.skip) for check_impl in impl.all_check_impls] == [
-        ("base", False),
-        ("eu", True),
-    ]
 
 
 def test_a_file_without_scopes_parses_as_before():

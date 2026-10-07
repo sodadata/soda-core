@@ -59,7 +59,6 @@ from soda_core.contracts.impl.scope import (
     check_scope_location,
     log_scope_error,
     scope_key_error,
-    scope_key_location,
     unsupported_scopes_error,
 )
 
@@ -390,7 +389,9 @@ class CheckCollectionYaml:
             and isinstance(self.yaml_object, YamlObject)
             and "scopes" in self.yaml_object.yaml_dict
         ):
-            log_scope_error(unsupported_scopes_error(self.kind), scope_key_location(self.yaml_object, "scopes"))
+            log_scope_error(
+                unsupported_scopes_error(self.kind), self.yaml_object.create_location_from_yaml_dict_key("scopes")
+            )
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 
@@ -871,12 +872,7 @@ class CheckCollectionImpl:
         check_yaml_object = check_yaml.check_yaml_object
         if not check_yaml.scope_validated and isinstance(check_yaml_object, YamlObject):
             error: Optional[str] = check_scope_input_error(
-                check_yaml_object.yaml_dict,
-                check_yaml_object.yaml_source,
-                raw,
-                self.scopes,
-                self.kind,
-                type(self).supports_scopes,
+                check_yaml_object, self.scopes, self.kind, type(self).supports_scopes
             )
             if error:
                 log_scope_error(error, check_scope_location(check_yaml_object))
