@@ -2432,9 +2432,11 @@ def _build_runner_execution_options(
     """The ``executionOptions`` of a runner command, or None when there is neither a check path nor a selector.
 
     ``checkPaths`` holds the check paths as given. ``checkFilters`` holds one filter per field and polarity, in the
-    order of each pair's first selector, with its values in the order given and a repeated value once. Every field
-    goes up as written: Soda Cloud decides which fields and values it accepts. An empty list omits its key, since
-    Soda Cloud rejects an empty one.
+    order of each pair's first selector, with its values in the order given and a repeated value once. What the CLI
+    can check is checked before this runs: each selector parsed, and each scope key, a pattern included, against the
+    contract files. Which fields and values the runner takes is Soda Cloud's rule: it answers this request with 400
+    before it starts a scan, so nothing reaches the runner. An empty list omits its key, since Soda Cloud rejects an
+    empty one.
     """
     execution_options: dict = {}
     if check_paths:
