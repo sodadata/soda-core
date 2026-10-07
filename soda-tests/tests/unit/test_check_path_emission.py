@@ -112,9 +112,9 @@ class _StubCheckImpl:
 
     check_path = _RealCheckImpl.check_path
 
-    def __init__(self, *, wire_source: str, collection_id, path: str, scope_key: str = BASE_SCOPE_KEY):
+    def __init__(self, *, wire_source: str, collection_id, path: str):
         self.relative_path = path
-        self.scope = Scope(key=scope_key)
+        self.scope = Scope(key=BASE_SCOPE_KEY)
         self.contract_impl = type("_StubCollection", (), {"supports_scopes": True})()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
@@ -173,24 +173,6 @@ def test_check_full_path_falls_back_to_bare_path_when_collection_id_missing():
         path="checks.row_count",
     )
     assert stub.check_path == "checks.row_count"
-
-
-@pytest.mark.parametrize(
-    "collection_id, expected",
-    [
-        ("my_pii_standard", "data-standard.my_pii_standard:columns.age.checks.missing"),
-        (None, "columns.age.checks.missing"),
-    ],
-)
-def test_check_path_for_non_contract_subtype_ignores_the_scope(collection_id, expected):
-    """Only contract paths carry the scope prefix; other subtypes keep today's path."""
-    stub = _StubCheckImpl(
-        wire_source="data-standard",
-        collection_id=collection_id,
-        path="columns.age.checks.missing",
-        scope_key="eu",
-    )
-    assert stub.check_path == expected
 
 
 def test_verify_raises_when_non_contract_impl_missing_collection_id():

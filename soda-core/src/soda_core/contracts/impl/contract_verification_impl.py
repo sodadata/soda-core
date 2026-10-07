@@ -1401,12 +1401,11 @@ class CheckImpl:
 
         - Contracts (``wire_source == "soda-contract"``): bare
           ``self.relative_path``, byte-identical to today's emission. A check
-          in a declared scope of a kind with scope support gets
-          ``f"scope.{key}:{relative_path}"``, with the same single ``:``
-          delimiter and the wire source unchanged.
+          in a declared scope gets ``f"scope.{key}:{relative_path}"``, with
+          the same single ``:`` delimiter and the wire source unchanged.
         - Non-contract subtypes (e.g. data standards): the full option-3
-          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``, with
-          or without a scope.
+          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``. They
+          reject scope input, so their checks are always in the base scope.
         - Defensive fallback (no ``collection_id``): bare ``self.relative_path``.
 
         The ``type`` (wire_source) and ``id`` (collection_id) segments must not
@@ -1537,8 +1536,8 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        # A scope filter replaces the top-level filter; the base scope keeps the top-level filter as written.
-        dataset_filter: Optional[str] = self.contract_impl.yaml.filter if self.scope.is_base else self.scope.filter
+        # A scope filter replaces the top-level filter. The base scope's filter is the top-level filter.
+        dataset_filter: Optional[str] = self.scope.filter
         if dataset_filter:
             contract_dict["filter"] = dataset_filter
 
