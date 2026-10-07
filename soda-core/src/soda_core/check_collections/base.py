@@ -952,9 +952,8 @@ class CheckCollectionImpl:
         for metric in self.metrics:
             # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
             if isinstance(metric, AggregationMetricImpl):
-                # A metric in a declared scope is queried by the extension that activated the scope. A check puts a
-                # metric in its scope only when the metric holds the collection's own dataset_identifier object,
-                # see CheckImpl.apply_scope_to_metric; an equal identifier gets no scope and lands here.
+                # A metric in a declared scope is queried by the extension that activated the scope. A metric gets
+                # its check's scope when it is built, unless it measures another dataset, see MetricImpl.
                 if metric.scope is not None and not metric.scope.is_base:
                     continue
                 if (metric.data_source_impl is None and metric.dataset_identifier is None) or (

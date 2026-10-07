@@ -1448,30 +1448,7 @@ class CheckImpl:
             return default_check_name
         return check_yaml.type_name
 
-    def apply_scope_to_metric(self, metric_impl: MetricImpl) -> MetricImpl:
-        """Puts a metric on the collection's dataset in this check's scope, before it is resolved.
-
-        A metric that already has a scope comes back untouched. Only a declared scope rebuilds the id, so a
-        base metric keeps its id, including any suffix a caller added before resolving it. A check type that
-        resolves its metrics itself calls this before it changes their id.
-
-        The collection's dataset is its ``dataset_identifier`` object, not an equal one: a reconciliation
-        source on the same dataset builds an equal identifier and must stay out of the scope. ``_build_queries``
-        matches on equality, so a metric on an equal identifier that a check built itself gets no scope here and
-        is measured over the base CTE. For its own dataset, such a check passes no identifier or
-        ``contract_impl.dataset_identifier`` itself.
-        """
-        if metric_impl.scope is not None:
-            return metric_impl
-        if metric_impl.dataset_identifier is not self.contract_impl.dataset_identifier:
-            return metric_impl
-        metric_impl.scope = self.scope
-        if not self.scope.is_base:
-            metric_impl.id = metric_impl._build_id()
-        return metric_impl
-
     def _resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
-        self.apply_scope_to_metric(metric_impl)
         resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
         return resolved_metric_impl
@@ -1637,6 +1614,11 @@ class MetricImpl:
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
         scope: Optional[Scope] = None,
+        # The check the metric is built for. The metric measures the check's scope.
+        check_impl: Optional[CheckImpl] = None,
+        # False for a metric that measures another dataset than the collection's, like a reconciliation source.
+        # Such a metric is never in a scope.
+        scoped: bool = True,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1652,8 +1634,10 @@ class MetricImpl:
             self.data_source_impl = data_source_impl
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
-        # The scope the metric is measured in, None until a check puts it in one. Set before the id, which reads it.
-        self.scope: Optional[Scope] = scope
+        # The scope the metric is measured in: the one given, else its check's. Set before the id, which reads it.
+        self.scope: Optional[Scope] = None
+        if scoped:
+            self.scope = scope if scope is not None else (check_impl.scope if check_impl is not None else None)
 
         self.id: str = self._build_id()
 
@@ -1753,6 +1737,8 @@ class AggregationMetricImpl(MetricImpl):
         dataset_identifier: Optional[DatasetIdentifier] = None,
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
         scope: Optional[Scope] = None,
+        check_impl: Optional[CheckImpl] = None,
+        scoped: bool = True,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1764,6 +1750,8 @@ class AggregationMetricImpl(MetricImpl):
             dataset_identifier=dataset_identifier,
             column_expression=column_expression,
             scope=scope,
+            check_impl=check_impl,
+            scoped=scoped,
         )
 
     @abstractmethod
@@ -1817,6 +1805,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=None,
+            scope=fraction_metric_impl.scope,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:

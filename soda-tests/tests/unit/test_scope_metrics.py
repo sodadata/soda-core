@@ -126,54 +126,44 @@ def test_a_declared_scope_is_the_first_id_term():
     assert scoped.id != RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["us"]).id
 
 
-def test_the_scoping_step_scopes_metrics_on_the_collection_dataset_only():
+def test_a_metric_takes_the_scope_of_its_check_when_it_is_built():
     with scope_activation("eu"):
         impl, logs = _build_impl(SCOPED_YAML)
     assert not logs.has_errors
     row_count_checks = _checks_by_qualifier(impl, "row_count")
     base_check, eu_check = row_count_checks[None], row_count_checks["eu"]
-    eu = impl.scopes["eu"]
+    eu, us = impl.scopes["eu"], impl.scopes["us"]
+    unscoped_id = RowCountMetricImpl(contract_impl=impl).id
 
-    # A base check sets the scope and keeps the id.
-    metric = RowCountMetricImpl(contract_impl=impl)
-    unscoped_id = metric.id
-    assert base_check.apply_scope_to_metric(metric) is metric
-    assert metric.scope is impl.base_scope and metric.id == unscoped_id
-
-    # A check in a declared scope rebuilds the id with the scope term, once.
-    metric = RowCountMetricImpl(contract_impl=impl)
-    assert eu_check.apply_scope_to_metric(metric) is metric
-    assert metric.scope is eu
-    assert metric.id == RowCountMetricImpl(contract_impl=impl, scope=eu).id != unscoped_id
-    scoped_id = metric.id
-    assert eu_check.apply_scope_to_metric(metric) is metric and metric.id == scoped_id
-    assert base_check.apply_scope_to_metric(metric) is metric and metric.scope is eu and metric.id == scoped_id
-
-    # A metric that already has a scope, the base included, comes back untouched.
-    us_metric = RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["us"])
-    us_id = us_metric.id
-    eu_check.apply_scope_to_metric(us_metric)
-    assert us_metric.scope is impl.scopes["us"] and us_metric.id == us_id
-    base_metric = RowCountMetricImpl(contract_impl=impl, scope=impl.base_scope)
-    eu_check.apply_scope_to_metric(base_metric)
+    # A base check's metric is in the base scope and keeps the unscoped id.
+    base_metric = RowCountMetricImpl(contract_impl=impl, check_impl=base_check)
     assert base_metric.scope is impl.base_scope and base_metric.id == unscoped_id
 
-    # The gate compares the dataset object, so a metric on another dataset stays unscoped, even with equal text.
-    for dataset_identifier in [DatasetIdentifier.parse("fx/main/other"), DatasetIdentifier.parse("fx/main/orders")]:
-        other_metric = RowCountMetricImpl(contract_impl=impl, dataset_identifier=dataset_identifier)
-        other_id = other_metric.id
-        eu_check.apply_scope_to_metric(other_metric)
-        assert other_metric.scope is None and other_metric.id == other_id
+    # A check in a declared scope builds its metric in that scope, with the scope term in the id.
+    eu_metric = RowCountMetricImpl(contract_impl=impl, check_impl=eu_check)
+    assert eu_metric.scope is eu
+    assert eu_metric.id == RowCountMetricImpl(contract_impl=impl, scope=eu).id != unscoped_id
+
+    # A scope given to the metric goes over its check's.
+    assert RowCountMetricImpl(contract_impl=impl, check_impl=eu_check, scope=us).scope is us
+
+    # A metric on another dataset says so and is never in a scope, whatever its check.
+    other_dataset = DatasetIdentifier.parse("fx/main/other")
+    source_metric = RowCountMetricImpl(
+        contract_impl=impl, check_impl=eu_check, dataset_identifier=other_dataset, scoped=False
+    )
+    assert source_metric.scope is None
+    assert source_metric.id == RowCountMetricImpl(contract_impl=impl, dataset_identifier=other_dataset).id
 
 
-def test_resolving_a_base_metric_keeps_an_id_suffix_added_before_it():
-    # An extension may extend a metric id before it resolves the metric, so the base must keep the id as it is.
+def test_resolving_a_metric_keeps_its_scope_and_id():
+    # An extension may extend a metric id before it resolves the metric, so resolving must leave the id as it is.
     impl, _ = _build_impl(SCOPED_YAML)
     base_check = _checks_by_qualifier(impl, "row_count")[None]
-    metric = RowCountMetricImpl(contract_impl=impl, filter="id > 2")
+    metric = RowCountMetricImpl(contract_impl=impl, check_impl=base_check, filter="id > 2")
     metric.id = f"{metric.id}-suffix"
 
-    assert base_check.apply_scope_to_metric(metric) is metric
+    assert impl.metrics_resolver.resolve_metric(metric) is metric
     assert metric.id.endswith("-suffix")
     assert metric.scope is impl.base_scope
 

@@ -87,6 +87,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
                     contract_impl=contract_impl,
+                    check_impl=self,
                     column_impl=column_impl,
                     check_filter=self.check_yaml.filter,
                     missing_and_validity=self.missing_and_validity,
@@ -168,6 +169,7 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type="invalid_count",
@@ -209,9 +211,11 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
         check_filter: Optional[str],
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
+        check_impl: Optional[CheckImpl] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
+            check_impl=check_impl,
             metric_type="invalid_reference_count",
             column_impl=column_impl,
             check_filter=check_filter,
