@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
@@ -12,17 +11,10 @@ from soda_core.common.exceptions import (
     SodaCloudException,
 )
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs, preserve_active_logs
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
-from soda_core.contracts.contract_verification import (
-    CheckCollectionStatus,
-    Contract,
-    ContractVerificationResult,
-    ContractVerificationSession,
-    ContractVerificationSessionResult,
-    YamlFileContentInfo,
-)
+from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
@@ -316,17 +308,9 @@ def verify_contract(
         soda_cloud_client,
     )
 
-    contract_yaml_sources, fetch_error_results = _create_contract_yamls(
-        contract_file_paths, dataset_identifiers, soda_cloud_client
-    )
-
-    # A contract that could not be fetched fails the run. An empty result has no errors, so the
-    # CLI would exit 0 on it. This stops the whole run on any one failed fetch. That is only right
-    # while a run has one dataset: verify_contract takes a single dataset_identifier, and the
-    # public API entry points refuse more than one. A run over several datasets would have to
-    # verify the ones it could fetch.
-    if fetch_error_results:
-        return ContractVerificationSessionResult(contract_verification_results=fetch_error_results)
+    # A contract that could not be fetched raises ContractFetchFailedException, so the run fails before anything
+    # is verified. verify_contract takes a single dataset_identifier, so a failed fetch is a failed run.
+    contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
 
     if len(contract_yaml_sources) == 0:
         soda_logger.debug("No contracts given. Exiting.")
@@ -418,11 +402,12 @@ def _create_contract_yamls(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
-) -> tuple[list[ContractYamlSource], list[ContractVerificationResult]]:
-    """Returns the contract YAML sources to verify, and an ERROR result for each dataset whose
-    contract could not be fetched from Soda Cloud."""
+) -> list[ContractYamlSource]:
+    """Returns the contract YAML sources to verify.
+
+    Raises ``ContractFetchFailedException`` for a dataset whose contract could not be fetched from Soda Cloud.
+    """
     contract_yaml_sources: list[ContractYamlSource] = []
-    fetch_error_results: list[ContractVerificationResult] = []
 
     if contract_file_paths:
         contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
@@ -436,57 +421,14 @@ def _create_contract_yamls(
                 # the dataset once. Any other Soda Cloud failure, such as a rejected API key at
                 # login, falls back to its message.
                 reason: str = exc.reason if isinstance(exc, DatasetQueryException) else str(exc)
-                fetch_failure = ContractFetchFailedException(dataset_identifier, reason)
-                fetch_failure.__cause__ = exc
-                fetch_error_results.append(_build_fetch_error_result(fetch_failure))
-                continue
+                raise ContractFetchFailedException(dataset_identifier, reason) from exc
             # Whitespace-only contents count as no contract: the YAML parser would reject them
             # with an error that does not name the dataset.
             if not contract or not contract.strip():
-                fetch_error_results.append(
-                    _build_fetch_error_result(
-                        ContractFetchFailedException(dataset_identifier, "Soda Cloud returned no contract")
-                    )
-                )
-                continue
+                raise ContractFetchFailedException(dataset_identifier, "Soda Cloud returned no contract")
             contract_yaml_sources.append(ContractYamlSource.from_str(contract))
 
-    return contract_yaml_sources, fetch_error_results
-
-
-def _build_fetch_error_result(fetch_failure: ContractFetchFailedException) -> ContractVerificationResult:
-    """An ERROR result for a dataset whose contract could not be fetched from Soda Cloud.
-
-    Nothing was verified, so it has no checks and nothing is sent to Soda Cloud. The ERROR status
-    makes the session result report errors, and the log records carry the message.
-    """
-    now = datetime.now(tz=timezone.utc)
-    # Captured into the result's own Logs, the way build_error_result does for a check
-    # collection that fails before producing output, so the error travels with the result.
-    # The console still shows it.
-    with preserve_active_logs():
-        error_logs = Logs()
-        soda_logger.error(str(fetch_failure))
-    return ContractVerificationResult(
-        check_collection=Contract(
-            data_source_name=None,
-            dataset_prefix=[],
-            dataset_name="",
-            soda_qualified_dataset_name=fetch_failure.dataset_identifier,
-            source=YamlFileContentInfo(source_content_str=None, local_file_path=None),
-        ),
-        data_source=None,
-        data_timestamp=None,
-        started_timestamp=now,
-        ended_timestamp=now,
-        status=CheckCollectionStatus.ERROR,
-        measurements=[],
-        check_results=[],
-        sending_results_to_soda_cloud_failed=False,
-        log_records=error_logs.get_log_records(),
-        post_processing_stages=[],
-        error=fetch_failure,
-    )
+    return contract_yaml_sources
 
 
 def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:
