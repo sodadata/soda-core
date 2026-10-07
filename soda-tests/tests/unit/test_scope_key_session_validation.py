@@ -3,7 +3,8 @@
 Every ``scope`` value in the check filters must be ``base`` or a key that a collection declares somewhere in the
 session. Otherwise ``execute_check_collections`` raises ``InvalidArgumentException`` after
 constructing the collections and before any ``verify()``, so nothing is queried or uploaded. A value with a wildcard
-is a pattern and is not checked. A collection that does not declare a known key needs nothing special: its checks
+is a pattern that must match at least one known key. A collection that does not declare a known key needs nothing
+special: its checks
 fail the filter and go up as EXCLUDED.
 
 The stub impls skip the base ``__init__``, as several other test stubs do, so the check reads the class defaults
@@ -175,12 +176,22 @@ def test_base_is_never_unknown(check_filter: str):
     assert _verified == ["a"]
 
 
-@pytest.mark.parametrize("check_filter", ["scope=ap*", "scope=a?ac", "scope!=*"])
-def test_wildcard_values_are_not_checked(check_filter: str):
+@pytest.mark.parametrize("check_filter", ["scope=e*", "scope=?u", "scope!=*", "scope=ba?e"])
+def test_a_wildcard_value_that_matches_a_known_key_runs(check_filter: str):
     session_result = _execute([_StubSource("a", ["eu"])], [check_filter])
 
     assert len(session_result.results) == 1
     assert _verified == ["a"]
+
+
+@pytest.mark.parametrize("check_filter", ["scope=ap*", "scope!=a?ac"])
+def test_a_wildcard_value_that_matches_no_known_key_fails_the_run(check_filter: str):
+    # The known keys are those of every file in the session, so one file without the key is not enough to pass.
+    with pytest.raises(InvalidArgumentException) as exc_info:
+        _execute([_StubSource("a", ["eu"]), _StubSource("b", [])], [check_filter])
+
+    assert repr(check_filter.split("=", 1)[1]) in str(exc_info.value)
+    assert _verified == []
 
 
 def test_a_collection_that_does_not_declare_a_known_key_still_runs():

@@ -12,6 +12,7 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
+import fnmatch
 from datetime import datetime
 from logging import LogRecord
 from typing import Optional, Union
@@ -552,6 +553,15 @@ def _raise_if_combined_session_spans_multiple_datasets(
         )
 
 
+def _matches_a_known_scope_key(value: str, known_keys: set[str]) -> bool:
+    """Whether a ``scope`` filter value names a known key, or as a pattern matches one, the way a check filter
+    matches it: only ``*`` and ``?`` are wildcards."""
+    if "*" not in value and "?" not in value:
+        return value in known_keys
+    pattern: str = value.replace("[", "[[]")
+    return any(fnmatch.fnmatchcase(key, pattern) for key in known_keys)
+
+
 def raise_if_unknown_scope_keys(
     constructed: list[
         tuple[
@@ -568,7 +578,7 @@ def raise_if_unknown_scope_keys(
 
     ``base`` is always known. The other known keys are the declared scopes of every
     constructed impl; a file that failed construction declares none. Positive and negated values are checked
-    alike, and a value with a ``*`` or ``?`` wildcard is not checked. A collection
+    alike, and a value with a ``*`` or ``?`` wildcard must match at least one known key. A collection
     that does not declare a known key needs nothing here: its checks fail the filter
     and go up as EXCLUDED, so one session-level error replaces an error per file.
 
@@ -588,9 +598,7 @@ def raise_if_unknown_scope_keys(
             known_keys.update(impl.scopes)
 
     unknown_keys: list[str] = list(
-        dict.fromkeys(
-            value for value in scope_values if "*" not in value and "?" not in value and value not in known_keys
-        )
+        dict.fromkeys(value for value in scope_values if not _matches_a_known_scope_key(value, known_keys))
     )
     if not unknown_keys:
         return
