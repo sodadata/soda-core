@@ -267,7 +267,11 @@ class YamlValue:
             return None
 
         # To avoid modifying the original value during variable resolution
-        wrapped_value = copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+        try:
+            wrapped_value = copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+        except RecursionError:
+            logger.error(msg="YAML value is nested too deeply to read", extra={ExtraKeys.LOCATION: location})
+            return None
 
         if isinstance(wrapped_value, dict):
             if self.yaml_source.resolve_on_read:
@@ -277,7 +281,9 @@ class YamlValue:
                             source_text=v,
                             location=location,
                         )
-            return YamlObject(yaml_source=self.yaml_source, yaml_dict=wrapped_value)
+            yaml_object = YamlObject(yaml_source=self.yaml_source, yaml_dict=wrapped_value)
+            yaml_object.written_dict = value
+            return yaml_object
         elif isinstance(wrapped_value, list):
             if self.yaml_source.resolve_on_read:
                 for i in range(0, len(wrapped_value)):
@@ -326,6 +332,8 @@ class YamlObject(YamlValue):
     def __init__(self, yaml_source: YamlSource, yaml_dict: dict) -> None:
         super().__init__(yaml_source)
         self.yaml_dict: dict = yaml_dict
+        # The mapping as written in the file, before a read resolved the variables in its values.
+        self.written_dict: dict = yaml_dict
         self.location: Optional[Location] = get_location(self.yaml_dict, yaml_source.file_path)
 
     def items(self) -> list[tuple]:
@@ -531,9 +539,14 @@ class YamlObject(YamlValue):
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
-                ruamel_location = self.yaml_dict.lc.value(key)
-                line: int = ruamel_location[0]
-                column: int = ruamel_location[1]
+                try:
+                    ruamel_location = self.yaml_dict.lc.value(key)
+                    line: int = ruamel_location[0]
+                    column: int = ruamel_location[1]
+                except (KeyError, TypeError):
+                    # ruamel keeps no position for a key merged in with '<<', none at all for a mapping of merged
+                    # keys only, and none for a tagged key once the mapping is copied. Point at the mapping then.
+                    return self.location
                 return Location(file_path=self.yaml_source.file_path, line=line, column=column)
 
     def to_dict(self) -> dict:
@@ -708,23 +721,6 @@ class VariableResolver:
                 )
         return None
 
-    @classmethod
-    def logs_unresolved_reference(
-        cls,
-        source_text: str,
-        variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]],
-        use_env_vars: bool = True,
-    ) -> bool:
-        """Whether ``resolve`` logs an error when it resolves ``source_text``, a lone reference, to None.
-
-        ``get_variable`` logs for an undeclared ``var``, a ``soda`` variable that is not available and an ``env``
-        reference when environment variables are off. It returns None without an error for an unset environment
-        variable, a namespace it does not know and a declared variable whose value is None.
-        """
-        match = re.fullmatch(cls.VARIABLE_PATTERN, source_text) if isinstance(source_text, str) else None
-        if not match:
-            return False
         namespace, variable = match.group(1), match.group(2)
         if namespace == "var":
             return not isinstance(variable_values, dict) or variable not in variable_values

@@ -340,12 +340,7 @@ class ContractYaml(CheckCollectionYaml):
                         )
                         if check_yaml:
                             checks.append(check_yaml)
-                            check_body: Any = (
-                                check_yaml_object.yaml_dict.get(check_type_name)
-                                if isinstance(check_yaml_object, YamlObject)
-                                else None
-                            )
-                            self._validate_check_scope(check_yaml, check_body)
+                            self._validate_check_scope(check_yaml)
                         else:
                             logger.error(
                                 f"Invalid check type '{check_type_name}'. "
@@ -356,13 +351,10 @@ class ContractYaml(CheckCollectionYaml):
 
         return checks
 
-    def _validate_check_scope(self, check_yaml: CheckYaml, check_body: Any) -> None:
-        """Logs an error when the check's ``scope`` names no scope it can run in, or when the kind supports none.
-
-        ``check_body`` is the body as written, which tells whether a ``scope`` that reads as null was set.
-        """
+    def _validate_check_scope(self, check_yaml: CheckYaml) -> None:
+        """Logs an error when the check's ``scope`` names no scope it can run in, or when the kind supports none."""
         error: Optional[str] = check_scope_input_error(
-            check_body, self.yaml_source, check_yaml.scope, self.scopes, self.kind, self.supports_scopes
+            check_yaml.check_yaml_object, self.scopes, self.kind, self.supports_scopes
         )
         if error:
             log_scope_error(error, check_scope_location(check_yaml.check_yaml_object))

@@ -249,15 +249,18 @@ def test_scope_yaml_fields_and_scope_from_yaml():
     ["    <<: *src\n", "    <<: *src\n    filter: id > 1\n"],
     ids=["merge-keys-only", "merge-and-own-keys"],
 )
-def test_a_merge_key_outside_scopes_raises_as_on_origin(source_body: str):
-    # Only the reads that scopes add fall back to the mapping's location for a key merged in with '<<'. Every other
-    # read raises as on origin, so a data standard whose reconciliation source comes in through a merge key still
-    # loses its reconciliation checks to one swallowed extension error, exactly as on origin.
+def test_a_merge_key_outside_scopes_reads_like_a_written_one(source_body: str):
+    # ruamel keeps no position for a key merged in with '<<'. Every read falls back to the mapping's location, so a
+    # reconciliation source that comes in through a merge key reads instead of raising.
     head = "dataset: ds/db/schema/table\nx-src: &src {dataset: ds/db/schema/source}\nreconciliation:\n  source:\n"
     contract_yaml, _ = _parse(f"{head}{source_body}columns: []\n")
     source = contract_yaml.yaml_object.read_object_opt("reconciliation").read_object_opt("source")
-    with pytest.raises((KeyError, TypeError)):
-        source.read_string("dataset")
+    logs = Logs()
+    try:
+        assert source.read_string("dataset") == "ds/db/schema/source"
+    finally:
+        logs.close()
+    assert logs.get_errors() == []
 
 
 @pytest.mark.parametrize(
@@ -688,6 +691,7 @@ CONTRACT_ERRORS_FOR_ODD_SCOPE_FILES: dict[str, list[str]] = {
     "deep-check-scope-past-str": [f"{NOT_A_DECLARED_SCOPE} a list"],
     # A 'scopes' block too deep to copy reads as no scopes.
     "deep-scopes-block": [
+        "YAML value is nested too deeply to read",
         "'description' of scope 'eu' must be a string, but was a list",
         "Check references unknown scope 'eu'. No scopes are declared",
     ],
@@ -801,17 +805,12 @@ UNDECLARED_VARIABLE_IN_SCOPE_INPUT: dict[str, str] = {
         "scopes:\n  eu:\n    name: EU\n    schedule:\n      cron: '0 6 * * *'\n      variables: {LOOKBACK: 'REF'}\n"
     ),
 }
-# A check's scope value holding the reference, alone or inside a longer string. The read of the check body resolves
-# variables one level deep, so it logs the reference once and fails the file. That read leaves a lone reference as
-# null and a reference inside a longer string as written. The contract reads the value once more, like a check
-# 'filter', so the longer string logs a second line.
+# A check's scope value holding the reference, alone or inside a longer string. A scope key is fixed, so the contract
+# rejects both. The read of the check body still resolves variables one level deep, so it logs the reference once.
 UNDECLARED_VARIABLE_IN_CHECK_SCOPE: dict[str, str] = {
     "check-scope": "'REF'",
     "check-scope-inside-a-string": "'eu-REF'",
 }
-# The key of the check's scope. A lone reference read as null is the base scope, and a longer string as written is no
-# valid scope key.
-CHECK_SCOPE_KEY_AS_READ: dict[str, str] = {"'REF'": BASE_SCOPE_KEY, "'eu-REF'": INVALID_SCOPE_KEY}
 UNDECLARED_VARIABLE_MESSAGES: dict[str, str] = {
     "${var.NOPE}": "Variable 'NOPE' was used and not declared",
     "${soda.NOPE}": "Variable 'NOPE' was used and not available in the 'soda' namespace",
@@ -838,41 +837,40 @@ def _variable_log_lines(result, uploads: list) -> tuple:
     )
 
 
-# A contract also rejects a 'scopes' block or a scope body that is a string, whatever the string holds.
+# A contract also rejects a 'scopes' block or a scope body that is a string, whatever the string holds. A 'scopes'
+# block that is not a mapping is never read, so its reference is never resolved.
 CONTRACT_ERRORS_AFTER_THE_UNDECLARED_VARIABLE: dict[str, list[str]] = {
     "scopes-block": [f"{SCOPES_NOT_A_MAPPING} a string"],
     "scope-body": ["Scope 'eu' must be an object with a 'name', but was a string"],
 }
+SCOPE_INPUT_NEVER_RESOLVED: frozenset[str] = frozenset({"scopes-block"})
 
 
 @pytest.mark.parametrize("reference", list(UNDECLARED_VARIABLE_MESSAGES))
 @pytest.mark.parametrize("scope_input", list(UNDECLARED_VARIABLE_IN_SCOPE_INPUT))
 def test_contract_logs_an_undeclared_variable_in_scope_input(scope_input: str, reference: str):
     _, logs = _parse(_undeclared_variable_file("", UNDECLARED_VARIABLE_IN_SCOPE_INPUT[scope_input], None, reference))
-    assert logs.get_errors() == [
-        UNDECLARED_VARIABLE_MESSAGES[reference],
-        *CONTRACT_ERRORS_AFTER_THE_UNDECLARED_VARIABLE.get(scope_input, []),
-    ]
+    resolve_messages = [] if scope_input in SCOPE_INPUT_NEVER_RESOLVED else [UNDECLARED_VARIABLE_MESSAGES[reference]]
+    assert logs.get_errors() == [*resolve_messages, *CONTRACT_ERRORS_AFTER_THE_UNDECLARED_VARIABLE.get(scope_input, [])]
 
 
 @pytest.mark.parametrize("reference", list(UNDECLARED_VARIABLE_MESSAGES))
 @pytest.mark.parametrize(
     "scope_value", list(UNDECLARED_VARIABLE_IN_CHECK_SCOPE.values()), ids=list(UNDECLARED_VARIABLE_IN_CHECK_SCOPE)
 )
-def test_an_undeclared_variable_in_a_check_scope_value(monkeypatch, scope_value: str, reference: str):
+def test_a_check_scope_cannot_use_a_variable(monkeypatch, scope_value: str, reference: str):
     yaml_str = _undeclared_variable_file("", "scopes: {eu: {name: EU}}\n", scope_value, reference)
     scope = _build_impl(ContractImpl, yaml_str)[0].all_check_impls[1].scope
-    assert scope.key == CHECK_SCOPE_KEY_AS_READ[scope_value]
-    assert scope.is_base or not scope.is_active
+    assert scope.key == INVALID_SCOPE_KEY and not scope.is_active
 
     result, uploads = _verify(monkeypatch, yaml_str)
 
-    # The longer string logs the reference twice, and names no declared scope.
-    in_a_string = scope_value == "'eu-REF'"
-    messages = [UNDECLARED_VARIABLE_MESSAGES[reference]] * (2 if in_a_string else 1)
-    scope_errors = [f"Check references unknown scope 'eu-{reference}'. Declared scopes: ['eu']"] if in_a_string else []
+    written = scope_value.strip("'").replace("REF", reference)
+    messages = [UNDECLARED_VARIABLE_MESSAGES[reference]]
     assert result.status == CheckCollectionStatus.ERROR
     assert result.check_results == []
-    assert result.get_errors() == messages + scope_errors
+    assert result.get_errors() == messages + [
+        f"Check 'scope' cannot use a variable, but was '{written}'. Name a declared scope key"
+    ]
     assert _variable_log_lines(result, uploads) == (messages, [messages])
     assert _uploaded_checks(uploads) == [[]]

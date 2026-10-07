@@ -130,10 +130,11 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
     assert [log["message"] for log in upload["logs"] if log["message"].startswith("Excluded ")] == nudges
 
 
-def test_a_check_scope_from_an_unset_environment_variable_fails_without_queries(
+def test_a_check_scope_from_a_variable_fails_without_queries(
     monkeypatch, data_source_test_helper: DataSourceTestHelper
 ):
-    # Read as null, the scope would put the check in the base scope and run it over the whole dataset.
+    # A scope key is fixed. Read as null, the scope would put the check in the base scope and run it over the whole
+    # dataset.
     monkeypatch.delenv("SODA_TEST_SCOPE_KEY", raising=False)
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     data_source_test_helper.enable_soda_cloud_mock(
@@ -160,7 +161,7 @@ def test_a_check_scope_from_an_unset_environment_variable_fails_without_queries(
 
     [result] = session_result.contract_verification_results
     assert result.get_errors() == [
-        "Check 'scope' must name a declared scope, but '${env.SODA_TEST_SCOPE_KEY}' resolved to null"
+        "Check 'scope' cannot use a variable, but was '${env.SODA_TEST_SCOPE_KEY}'. Name a declared scope key"
     ]
     assert result.status == CheckCollectionStatus.ERROR
     assert interpret_contract_verification_result(session_result) == ExitCode.LOG_ERRORS
