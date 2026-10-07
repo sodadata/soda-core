@@ -3,11 +3,12 @@ they compose, and the expressions their values are computed with.
 
 The ANSI expressions render on every dialect. The statements and the dialect-specific expressions
 render only on a dialect class that sets `SUPPORTS_DATA_PLANE_STATEMENTS` in its own body, today
-Postgres alone. Three things are pinned. The exact Postgres SQL of every node, for an application
-that runs these statements as rendered. That every other dialect renders the ANSI expressions the
-same way. And that it refuses the rest with `UnsupportedSqlStatementError` instead of rendering, so
-a dialect nobody has verified never emits a statement nobody has run; the optimisations,
-CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render None instead.
+Postgres and SQL Server. Three things are pinned. The exact Postgres SQL of every node, for an
+application that runs these statements as rendered (SQL Server's is pinned in soda-sqlserver). That
+every other dialect renders the ANSI expressions the same way. And that it refuses the rest with
+`UnsupportedSqlStatementError` instead of rendering, so a dialect nobody has verified never emits a
+statement nobody has run; the optimisations, CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render
+None instead.
 """
 
 from __future__ import annotations
@@ -567,11 +568,11 @@ def test_an_added_column_default_can_be_an_expression(postgres_dialect):
 # Every other dialect renders the ANSI expressions and refuses the rest
 # ---------------------------------------------------------------------------
 
-# Every dialect class shipped in soda-core other than Postgres, including the ones derived from
-# another (Hive from Databricks, Fabric and Synapse from SQL Server, SparkDF from Databricks).
+# Every dialect class shipped in soda-core other than Postgres and SQL Server, including the ones
+# derived from another (Hive from Databricks, Fabric and Synapse from SQL Server, SparkDF from
+# Databricks).
 _UNSUPPORTED_DIALECT_CASES = [
     ("duckdb", "soda_duckdb.common.data_sources.duckdb_data_source", "DuckDBSqlDialect"),
-    ("sqlserver", "soda_sqlserver.common.data_sources.sqlserver_data_source", "SqlServerSqlDialect"),
     ("snowflake", "soda_snowflake.common.data_sources.snowflake_data_source", "SnowflakeSqlDialect"),
     ("bigquery", "soda_bigquery.common.data_sources.bigquery_data_source", "BigQuerySqlDialect"),
     ("databricks", "soda_databricks.common.data_sources.databricks_data_source", "DatabricksSqlDialect"),
@@ -744,6 +745,43 @@ def test_other_dialects_still_render_like_without_an_escape(unsupported_dialect)
 
 
 # ---------------------------------------------------------------------------
+# A dialect derived from SQL Server that opts in
+# ---------------------------------------------------------------------------
+
+_SQLSERVER_DERIVED_DIALECT_CASES = [case for case in _UNSUPPORTED_DIALECT_CASES if case[0] in ("fabric", "synapse")]
+
+
+@pytest.mark.parametrize(
+    "module_path, class_name",
+    [case[1:] for case in _SQLSERVER_DERIVED_DIALECT_CASES],
+    ids=[case[0] for case in _SQLSERVER_DERIVED_DIALECT_CASES],
+)
+def test_a_sqlserver_derivative_that_opts_in_merges_from_its_own_insert_rows(module_path, class_name):
+    # These dialects insert rows as SELECT ... UNION ALL; the MERGE source takes the same form.
+    class OptedIn(getattr(pytest.importorskip(module_path), class_name), sqlglot_dialect="tsql"):
+        SUPPORTS_DATA_PLANE_STATEMENTS = True
+
+    sql = OptedIn().build_upsert_sql(
+        UPSERT(
+            "[s].[t]",
+            [COLUMN("id"), COLUMN("name")],
+            [VALUES_ROW([LITERAL(1), LITERAL("a")]), VALUES_ROW([LITERAL(2), LITERAL("b")])],
+            [COLUMN("id")],
+        )
+    )
+
+    assert sql == (
+        "MERGE INTO [s].[t] WITH (HOLDLOCK) AS [tgt]\n"
+        "USING (\n"
+        "SELECT 1, 'a'\n"
+        "UNION ALL SELECT 2, 'b'\n"
+        ") AS [src] ([id], [name])\n"
+        "ON ([tgt].[id] = [src].[id])\n"
+        "WHEN NOT MATCHED THEN INSERT ([id], [name]) VALUES ([src].[id], [src].[name]);"
+    )
+
+
+# ---------------------------------------------------------------------------
 # The capability flag is not inherited
 # ---------------------------------------------------------------------------
 
@@ -770,12 +808,13 @@ def _shipped_dialect_classes() -> set[type]:
     return dialect_classes
 
 
-def test_postgres_is_the_only_shipped_dialect_with_the_flag(postgres_dialect):
+def test_postgres_and_sqlserver_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
+    sqlserver_module = pytest.importorskip("soda_sqlserver.common.data_sources.sqlserver_data_source")
     flagged = {
         dialect_class for dialect_class in _shipped_dialect_classes() if dialect_class.SUPPORTS_DATA_PLANE_STATEMENTS
     }
 
-    assert flagged == {type(postgres_dialect)}
+    assert flagged == {type(postgres_dialect), sqlserver_module.SqlServerSqlDialect}
 
 
 def test_a_dialect_derived_from_postgres_has_the_flag_only_when_it_sets_it(postgres_dialect):
