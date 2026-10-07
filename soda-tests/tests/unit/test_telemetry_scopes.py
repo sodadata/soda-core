@@ -242,8 +242,9 @@ def _counts(
 
 # The excluded count on test is 0 because 'soda contract test' builds no check results.
 EXPECTED_RESULT_ATTRIBUTES: dict[str, tuple[dict[str, int], dict[str, int]]] = {
+    # Core alone runs no declared scope, so the scoped checks are not evaluated rather than excluded.
     "verify": (
-        _counts(scopes=2, scoped=3, unscoped=2, excluded=3, checks=5, passed=2),
+        _counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=5, passed=2),
         _counts(scopes=0, scoped=0, unscoped=2, excluded=0, checks=2, passed=2),
     ),
     "test": (
@@ -346,7 +347,15 @@ def test_span_carries_scope_counts(tmp_path, command):
         assert unscoped_output["result"] == {"errors": [], "published": 1}
         return
 
-    assert scoped_output["result"] == {"errors": []}
+    scoped_errors: list[str] = (
+        [
+            "Not evaluating 3 checks in scope 'eu', 'us': running checks in a scope needs a Soda extension that "
+            "runs scopes."
+        ]
+        if command == "verify"
+        else []
+    )
+    assert scoped_output["result"] == {"errors": scoped_errors}
     assert unscoped_output["result"] == {"errors": []}
 
 
