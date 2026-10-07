@@ -1,8 +1,8 @@
 """The ``scope`` check filter on a real data source.
 
 ``scope=<key>`` selects the checks of a declared scope, ``scope=base`` the checks without a scope, several values OR
-together and ``scope!=<key>`` excludes. Core never activates a declared scope, so a selected scoped check still goes
-up as EXCLUDED; the selection itself is read from the check selectors. A key that no collection in the session
+together and ``scope!=<key>`` excludes. Core never activates a declared scope, so a selected scoped check goes up as
+NOT_EVALUATED with one error, and a check the selectors leave out goes up as EXCLUDED. A key that no collection in the session
 declares fails the run with exit code 3 before any query against the dataset.
 
 Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
@@ -149,16 +149,21 @@ def test_scope_selector_matrix(
         check_selectors=CheckSelector.parse_all(check_filters),
     )
 
-    assert not session_result.has_errors
+    selects_a_scoped_check: bool = any(scope != "base" for _, scope in selected)
+    assert session_result.has_errors == selects_a_scoped_check
     [contract_impl] = built_collections
     assert _checks(contract_impl) == CHECKS
     assert _checks(contract_impl, selected_only=True) == selected
 
-    # Only the selected base checks run. Every check is in the result.
+    # Only the selected base checks run, a selected scoped check is not evaluated. Every check is in the result.
     [result] = session_result.contract_verification_results
-    expected_outcomes = [
-        CheckOutcome.PASSED if check in selected and check[1] == "base" else CheckOutcome.EXCLUDED for check in CHECKS
-    ]
+
+    def expected_outcome(check: tuple[str, str]) -> CheckOutcome:
+        if check not in selected:
+            return CheckOutcome.EXCLUDED
+        return CheckOutcome.PASSED if check[1] == "base" else CheckOutcome.NOT_EVALUATED
+
+    expected_outcomes = [expected_outcome(check) for check in CHECKS]
     assert [(check_result.check.type, check_result.check.scope or "base") for check_result in result.check_results] == (
         CHECKS
     )
@@ -195,7 +200,7 @@ def test_an_unknown_scope_key_exits_3_before_any_query(
         return [sql for sql in executed_sql if table_name in sql.lower() or "_soda_filtered_" in sql.lower()]
 
     # A known key queries the dataset, so the capture sees those queries.
-    assert verify(["scope=eu"]) == ExitCode.OK
+    assert verify(["scope=base"]) == ExitCode.OK
     assert queries_on_the_dataset()
     executed_sql.clear()
 
