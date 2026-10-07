@@ -190,7 +190,7 @@ def test_identical_metrics_in_two_scopes_do_not_merge_in_the_resolver():
         assert check_impl.row_count_metric_impl is impl.scopes[key].row_count_metric
     assert missing_checks[None].row_count_metric_impl is impl.row_count_metric_impl
     # The declared scope nobody activated builds no metrics.
-    assert missing_checks["apac"].skip and not missing_checks["apac"].metrics
+    assert missing_checks["apac"].in_inactive_scope and not missing_checks["apac"].metrics
 
 
 def test_the_missing_percentage_metric_goes_through_the_check():
@@ -224,9 +224,9 @@ def test_activation_runs_before_the_columns_are_parsed():
     assert eu.row_count_metric.scope is eu
     assert eu.row_count_metric in impl.metrics_resolver.get_resolved_metrics()
     # A column check and a dataset check in the activated scope run; the other scopes stay inactive.
-    assert not _checks_by_qualifier(impl, "missing")["eu"].skip
-    assert not _checks_by_qualifier(impl, "row_count")["eu"].skip
-    assert _checks_by_qualifier(impl, "missing")["us"].skip
+    assert not _checks_by_qualifier(impl, "missing")["eu"].in_inactive_scope
+    assert not _checks_by_qualifier(impl, "row_count")["eu"].in_inactive_scope
+    assert _checks_by_qualifier(impl, "missing")["us"].in_inactive_scope
     assert not impl.scopes["us"].is_active and not impl.scopes["apac"].is_active
 
 
@@ -234,8 +234,11 @@ def test_without_activation_every_declared_scope_stays_inactive():
     impl, logs = _build_impl(SCOPED_YAML)
     assert not logs.has_errors
     assert not any(scope.is_active for scope in impl.scopes.values())
-    assert [check_impl.skip for check_impl in impl.all_check_impls if check_impl.scope.is_base] == [False, False]
-    assert all(check_impl.skip for check_impl in impl.all_check_impls if not check_impl.scope.is_base)
+    assert [check_impl.in_inactive_scope for check_impl in impl.all_check_impls if check_impl.scope.is_base] == [
+        False,
+        False,
+    ]
+    assert all(check_impl.in_inactive_scope for check_impl in impl.all_check_impls if not check_impl.scope.is_base)
 
 
 def test_a_failing_activation_logs_an_error():
@@ -254,6 +257,17 @@ def test_a_failing_activation_logs_an_error():
 
     assert logs.has_errors
     assert "Error activating scopes with extension _FailingExtension: boom" in logs.get_errors()
+
+
+def _verify_logs(yaml_str: str) -> Logs:
+    """The closed logs of verifying ``yaml_str`` on DuckDB, without Soda Cloud."""
+    logs = Logs()
+    try:
+        yaml = ContractYaml.parse(yaml_source=ContractYamlSource.from_str(dedent_and_strip(yaml_str)))
+        ContractImpl(logs=logs, yaml=yaml, data_source_impl=_duckdb_data_source(), soda_cloud_impl=None).verify()
+        return logs
+    finally:
+        logs.close()
 
 
 def _nudge_lines(logs: Logs) -> list[str]:
@@ -275,10 +289,18 @@ def test_no_nudge_after_an_extension_that_runs_scopes_failed_to_activate_them():
     for extension_class in (_RaisingActivation, _ActivatesNothing):
         ContractImpl.register_extension("scope_activation_that_activates_nothing", extension_class)
         try:
-            impl, logs = _build_impl(SCOPED_YAML)
+            impl, _ = _build_impl(SCOPED_YAML)
+            logs = _verify_logs(SCOPED_YAML)
         finally:
             ContractImpl.impl_extensions.pop("scope_activation_that_activates_nothing", None)
-        assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, True, True, True, False, True]
+        assert [check_impl.in_inactive_scope for check_impl in impl.all_check_impls] == [
+            False,
+            True,
+            True,
+            True,
+            False,
+            True,
+        ]
         assert _nudge_lines(logs) == [], extension_class.__name__
 
 
@@ -291,7 +313,7 @@ def test_an_extension_that_does_not_run_scopes_keeps_the_nudge():
 
     ContractImpl.register_extension("extension_that_does_not_run_scopes", _ParsesChecksOnly)
     try:
-        _, logs = _build_impl(SCOPED_YAML)
+        logs = _verify_logs(SCOPED_YAML)
     finally:
         ContractImpl.impl_extensions.pop("extension_that_does_not_run_scopes", None)
     # The parsing tests pin the text of the line.

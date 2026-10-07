@@ -824,7 +824,6 @@ class CheckCollectionImpl:
         )
 
         self._verify_duplicate_identities(self.all_check_impls)
-        self._log_checks_excluded_for_their_scope()
         self.metrics: list = self.metrics_resolver.get_resolved_metrics()
 
         self.queries: list = []
@@ -894,31 +893,36 @@ class CheckCollectionImpl:
         """The scope a check runs in, never None. See ``ScopeHandling.scope_for``."""
         return type(self).scope_support.scope_for(check_yaml, self.base_scope, self.scopes, self.kind)
 
-    def count_checks_excluded_for_their_scope(self) -> int:
-        """The checks in a declared scope that is not active. They are skipped and report EXCLUDED."""
+    def checks_in_inactive_scopes(self) -> list:
+        """The checks that were selected to run but sit in a declared scope that is not active. They report
+        NOT_EVALUATED."""
         declared_scopes: list[Scope] = list(self.scopes.values())
-        return sum(
-            1
+        return [
+            check_impl
             for check_impl in self.all_check_impls
-            if not check_impl.scope.is_active and any(check_impl.scope is declared for declared in declared_scopes)
-        )
+            if check_impl.in_inactive_scope
+            and not check_impl.skip
+            and any(check_impl.scope is declared for declared in declared_scopes)
+        ]
 
-    def _log_checks_excluded_for_their_scope(self) -> None:
-        """One line for the checks ``count_checks_excluded_for_their_scope`` counts.
+    def _log_checks_in_inactive_scopes(self) -> None:
+        """One error for the checks ``checks_in_inactive_scopes`` returns, naming their scopes.
 
-        Logs nothing when there are none, so a file without such a check logs exactly what it logged before. With an
-        extension that runs scopes, a scope that is still inactive failed to activate and logged an error, so nothing
-        is logged here.
+        An error, so a run with checks that were asked for and did not run never ends as if it passed. Logged when
+        the checks are evaluated, so the other checks still run. With an extension that runs scopes, a scope that is
+        still inactive failed to activate and logged an error of its own, so nothing is logged here.
         """
         if self.scopes_extension_called:
             return
-        excluded: int = self.count_checks_excluded_for_their_scope()
-        if not excluded:
+        check_impls: list = self.checks_in_inactive_scopes()
+        if not check_impls:
             return
-        checks: str = "1 check" if excluded == 1 else f"{excluded} checks"
-        logger.info(
-            f"Excluded {checks} whose scope is not active. "
-            f"Running checks in a scope needs a Soda extension that runs scopes."
+        keys: list[str] = list(dict.fromkeys(check_impl.scope.key for check_impl in check_impls))
+        checks: str = "1 check" if len(check_impls) == 1 else f"{len(check_impls)} checks"
+        scopes: str = ", ".join(f"'{key}'" for key in keys)
+        logger.error(
+            f"Not evaluating {checks} in scope {scopes}: running checks in a scope needs a Soda extension "
+            f"that runs scopes."
         )
 
     def _parse_checks(self, yaml: CheckCollectionYaml) -> list:
@@ -1149,12 +1153,21 @@ class CheckCollectionImpl:
                 measurement_values.derive_value(derived_metric_impl)
 
             if self.data_source_impl:
+                self._log_checks_in_inactive_scopes()
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
                         logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
+                        )
+                    elif check_impl.in_inactive_scope:
+                        # Empty diagnostics, never None, like an unsupported check below.
+                        check_result = CheckResult(
+                            check=check_impl._build_check_info(),
+                            outcome=CheckOutcome.NOT_EVALUATED,
+                            threshold_value=None,
+                            diagnostic_metric_values={},
                         )
                     elif check_impl.unsupported_by_data_source:
                         # NOT_EVALUATED, not EXCLUDED: the user asked for this check and is not getting

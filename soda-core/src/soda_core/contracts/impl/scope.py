@@ -4,7 +4,7 @@ A contract declares scopes under its top-level ``scopes`` key and a check picks 
 ``scope: <key>``. Every collection also has a base scope, its unscoped view, built from
 the top-level ``filter`` and ``check_attributes``. A scope is active once it has a CTE to
 select from. Core activates only the base scope; a declared scope stays inactive unless
-an extension activates it, and checks in an inactive scope are skipped. Only contracts
+an extension activates it, and checks in an inactive scope are not evaluated. Only contracts
 support scopes: in any other kind, ``scopes`` and a check's ``scope`` are parse errors.
 
 This module imports only from ``soda_core.common`` at runtime, so ``base.py`` can import
@@ -309,8 +309,8 @@ class ScopeSupport(ScopeHandling):
         return check_scope_error(scope, scopes)
 
     def _resolve(self, scope: Any, base_scope: Scope, scopes: Mapping) -> Scope:
-        # A value that names no declared scope logged an error and gets an inactive placeholder, so the check is
-        # skipped.
+        # A value that names no declared scope logged an error and gets an inactive placeholder, so the check
+        # never runs.
         if scope is None or scope == BASE_SCOPE_KEY:
             return base_scope
         if isinstance(scope, str) and scope in scopes:

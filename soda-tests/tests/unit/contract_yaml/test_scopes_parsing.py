@@ -761,50 +761,39 @@ NUDGE_YAML: str = """
       - row_count: {qualifier: eu, scope: eu}
       - row_count: {qualifier: us, scope: us}
 """
-CONTRACT_NUDGE: str = (
-    "Excluded 3 checks whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-)
 
 
-def _nudge_lines(logs: Logs) -> list[str]:
-    return [line for line in logs.get_logs() if line.startswith("Excluded ")]
+def _keys(check_impls: list) -> list:
+    return [(check_impl.type, check_impl.scope.key) for check_impl in check_impls]
 
 
-def test_a_contract_logs_one_nudge_for_the_checks_in_inactive_scopes():
+def test_the_checks_in_inactive_scopes_are_the_scoped_checks():
+    # Core alone activates no declared scope. Their checks build no metrics and report NOT_EVALUATED, see
+    # test_scopes_oss_skip.py. Parsing logs nothing about them.
     impl, logs = _build_contract_impl(dedent_and_strip(NUDGE_YAML))
-    assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, True, False, True, True]
-    assert _nudge_lines(logs) == [CONTRACT_NUDGE]
-    assert logs.get_errors() == []
+    assert [check_impl.in_inactive_scope for check_impl in impl.all_check_impls] == [False, True, False, True, True]
+    assert _keys(impl.checks_in_inactive_scopes()) == [("missing", "us"), ("row_count", "eu"), ("row_count", "us")]
+    assert logs.get_logs() == []
 
 
-def test_the_nudge_counts_one_check():
-    yaml_str = _contract("scopes:\n  eu: {name: EU}\n", "      scope: eu\n")
-    _, logs = _build_contract_impl(yaml_str)
-    assert _nudge_lines(logs) == [
-        "Excluded 1 check whose scope is not active. Running checks in a scope needs a Soda extension that runs scopes."
-    ]
+def test_no_check_in_an_inactive_scope_without_a_scoped_check():
+    impl, _ = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n"))
+    assert impl.checks_in_inactive_scopes() == []
 
 
-def test_no_nudge_without_a_scoped_check():
-    impl, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n"))
-    assert impl.count_checks_excluded_for_their_scope() == 0
-    assert _nudge_lines(logs) == []
+def test_a_deselected_check_in_an_inactive_scope_is_not_counted():
+    # It reports EXCLUDED, like any check the selectors leave out.
+    for selector, expected in [("type=missing", [("missing", "us")]), ("qualifier=eu", [("row_count", "eu")])]:
+        impl, _ = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse(selector)])
+        assert _keys(impl.checks_in_inactive_scopes()) == expected, selector
 
 
-def test_the_nudge_counts_scoped_checks_whatever_the_selectors_pick():
-    for selector in ["type=missing", "qualifier=none"]:
-        impl, logs = _build_contract_impl(dedent_and_strip(NUDGE_YAML), check_selectors=[CheckSelector.parse(selector)])
-        assert impl.count_checks_excluded_for_their_scope() == 3, selector
-        assert _nudge_lines(logs) == [CONTRACT_NUDGE], selector
-
-
-def test_no_nudge_for_a_check_whose_scope_is_not_declared():
+def test_a_check_whose_scope_is_not_declared_is_not_counted():
     # The check already logs an error, and no extension would run a scope nobody declared.
     impl, logs = _build_contract_impl(_contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n"))
     assert logs.get_errors() == ["Check references unknown scope 'nope'. Declared scopes: ['eu']"]
-    assert impl.count_checks_excluded_for_their_scope() == 0
-    assert _nudge_lines(logs) == []
+    assert impl.checks_in_inactive_scopes() == []
     # Next to a check in a declared scope, only that one counts.
     yaml_str = _contract("scopes:\n  eu: {name: EU}\n", "      scope: nope\n") + "  - row_count:\n      scope: eu\n"
     impl, _ = _build_contract_impl(yaml_str)
-    assert impl.count_checks_excluded_for_their_scope() == 1
+    assert _keys(impl.checks_in_inactive_scopes()) == [("row_count", "eu")]

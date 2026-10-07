@@ -1252,7 +1252,7 @@ class CheckImpl:
                     )
                 elif reason := check_impl.unsupported_reason(contract_impl.data_source_impl):
                     check_impl.unsupported_by_data_source = reason
-                elif not check_impl.skip:
+                elif not check_impl.skip and not check_impl.in_inactive_scope:
                     check_impl.setup_metrics(
                         contract_impl=contract_impl,
                         column_impl=column_impl,
@@ -1333,11 +1333,13 @@ class CheckImpl:
         # check attributes of its scope. The base scope holds the top-level ones; a declared scope holds its own.
         self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
 
-        # Apply check selectors (subsumes old check_paths logic)
-        # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
-        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self) or not self.scope.is_active
+        # Apply check selectors (subsumes old check_paths logic). A deselected check is skipped and reports EXCLUDED.
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+        # A check in a scope that no extension activated builds no metrics and reports NOT_EVALUATED: it was asked for
+        # and does not run, which is not the same as being deselected.
+        self.in_inactive_scope: bool = not self.scope.is_active
         # Set when the data source declares a supported set this check's type is not in. Distinct from
-        # `skip`, which means the check is deselected or in an inactive scope and reports EXCLUDED.
+        # `skip`, which means the check is deselected and reports EXCLUDED.
         self.unsupported_by_data_source: Optional[str] = None
 
     def get_required_metric_impls(self) -> list["MetricImpl"]:

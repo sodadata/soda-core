@@ -143,7 +143,7 @@ def _snapshot_checks() -> list[dict]:
     return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))["payload"]["checks"]
 
 
-# Pins the EXCLUDED outcome of core alone, so it drops the soda-scopes extension wherever that is installed.
+# Pins the NOT_EVALUATED outcome of core alone, so it drops the soda-scopes extension wherever that is installed.
 @pytest.mark.usefixtures("without_scopes_extension")
 def test_declared_scopes_leave_the_unscoped_checks_as_in_the_snapshot(monkeypatch):
     if updating_snapshots():
@@ -159,5 +159,5 @@ def test_declared_scopes_leave_the_unscoped_checks_as_in_the_snapshot(monkeypatc
     ]
     # The scoped copies get identities of their own, distinct from each other too.
     assert len({check["identities"]["vc1"] for check in scoped_checks}) == 3
-    assert [(check["outcome"], check["source"]) for check in scoped_checks] == [("excluded", "soda-contract")] * 3
-    assert session_result.number_of_checks_excluded == 3
+    assert [(check["outcome"], check["source"]) for check in scoped_checks] == [("unevaluated", "soda-contract")] * 3
+    assert session_result.number_of_checks_excluded == 0

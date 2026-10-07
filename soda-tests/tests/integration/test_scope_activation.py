@@ -74,10 +74,10 @@ def _scopes_yaml(data_source_test_helper: DataSourceTestHelper) -> str:
 
 
 def _verify(
-    data_source_test_helper: DataSourceTestHelper, test_table, contract_yaml_str: str
+    data_source_test_helper: DataSourceTestHelper, test_table, contract_yaml_str: str, errors: tuple[str, ...] = ()
 ) -> ContractVerificationResult:
     session_result = data_source_test_helper.verify_contract(test_table=test_table, contract_yaml_str=contract_yaml_str)
-    assert not session_result.has_errors, session_result.get_errors_str()
+    assert session_result.get_errors() == list(errors), session_result.get_errors_str()
     [result] = session_result.contract_verification_results
     return result
 
@@ -132,8 +132,7 @@ def test_a_scoped_check_aggregates_over_its_scope(
         "dataset_rows_tested": 5,
         "scope_rows_tested": 2,
     }
-    assert results["us"].outcome == CheckOutcome.EXCLUDED
-    assert result.number_of_checks_excluded == 1
+    assert results["us"].outcome == CheckOutcome.NOT_EVALUATED
 
     scope_queries = [sql for sql in captured_sql if "_soda_filtered_scope_eu" in sql]
     assert len(scope_queries) == 1
@@ -169,13 +168,16 @@ def test_without_activation_a_declared_scope_builds_no_sql(
                   qualifier: us
                   scope: us
             """,
+        errors=(
+            "Not evaluating 2 checks in scope 'eu', 'us': running checks in a scope needs a Soda extension that "
+            "runs scopes.",
+        ),
     )
 
     results = _results_by_qualifier(result)
     assert results["all"].outcome == CheckOutcome.PASSED
     assert "scope_rows_tested" not in results["all"].diagnostic_metric_values
-    assert [results["eu"].outcome, results["us"].outcome] == [CheckOutcome.EXCLUDED, CheckOutcome.EXCLUDED]
-    assert result.number_of_checks_excluded == 2
+    assert [results["eu"].outcome, results["us"].outcome] == [CheckOutcome.NOT_EVALUATED] * 2
     assert not any("_soda_filtered_scope_" in sql for sql in captured_sql)
 
 
