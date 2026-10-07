@@ -721,15 +721,6 @@ class VariableResolver:
                 )
         return None
 
-        namespace, variable = match.group(1), match.group(2)
-        if namespace == "var":
-            return not isinstance(variable_values, dict) or variable not in variable_values
-        if namespace == "soda":
-            return not isinstance(soda_variable_values, dict) or variable not in soda_variable_values
-        if namespace == "env":
-            return not use_env_vars
-        return False
-
 
 def yaml_to_string(yaml_value: dict) -> str:
     text_stream = StringIO()
