@@ -491,108 +491,107 @@ def _without_handler(args) -> dict:
 REPEATED_FLAGS = [
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "--contract=b.yaml", "-ds", "ds.yaml"],
-        "soda contract verify got -c/--contract 2 times: a.yaml, b.yaml. Give each flag once.",
+        "soda contract verify got -c/--contract more than once. Give it once.",
         id="verify -c, short and long",
     ),
     pytest.param(
         ["contract", "verify", "-d", "ds/a", "--dataset", "ds/b", "-d", "ds/c", "-ds", "ds.yaml"],
-        "soda contract verify got -d/--dataset 3 times: ds/a, ds/b, ds/c. Give each flag once.",
+        "soda contract verify got -d/--dataset more than once. Give it once.",
         id="verify -d, 3 times",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-ds", "a.yaml", "-ds", "b.yaml"],
-        "soda contract verify got -ds/--data-source 2 times: a.yaml, b.yaml. "
-        "Give each flag once, like -ds a.yaml b.yaml.",
+        "soda contract verify got -ds/--data-source more than once. Give it once, with all its values after it.",
         id="verify -ds, several values and a default",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda contract verify got -sc/--soda-cloud 2 times: a.yml, b.yml. Give each flag once.",
+        "soda contract verify got -sc/--soda-cloud more than once. Give it once.",
         id="verify -sc",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-v", "--verbose"],
-        "soda contract verify got -v/--verbose 2 times. Give each flag once.",
+        "soda contract verify got -v/--verbose more than once. Give it once.",
         id="verify -v, a switch",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-rr"],
-        "soda contract verify got -r/--use-runner 2 times. Give each flag once.",
+        "soda contract verify got -r/--use-runner more than once. Give it once.",
         id="verify -rr, combined",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-btm", "60", "-btm", "60"],
-        "soda contract verify got -btm/--blocking-timeout-in-minutes 2 times: 60, 60. Give each flag once.",
+        "soda contract verify got -btm/--blocking-timeout-in-minutes more than once. Give it once.",
         id="verify -btm, its default twice",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-dw", "-dw", "b.yml"],
-        "soda contract verify got -dw/--diagnostics-warehouse 2 times: no value, b.yml. Give each flag once.",
+        "soda contract verify got -dw/--diagnostics-warehouse more than once. Give it once.",
         id="verify -dw, once without its optional value",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-cp", "p.one", "-cp", "p.two"],
-        "soda contract verify got -cp/--check-paths 2 times: p.one, p.two. Give each flag once, like -cp p.one p.two.",
+        "soda contract verify got -cp/--check-paths more than once. Give it once, with all its values after it.",
         id="verify -cp",
     ),
     pytest.param(
         ["contract", "publish", "-c", "a.yaml", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda contract publish got -sc/--soda-cloud 2 times: a.yml, b.yml. Give each flag once.",
+        "soda contract publish got -sc/--soda-cloud more than once. Give it once.",
         id="publish -sc",
     ),
     pytest.param(
         ["contract", "test", "-c", "a.yaml", "-c", "b.yaml"],
-        "soda contract test got -c/--contract 2 times: a.yaml, b.yaml. Give each flag once.",
+        "soda contract test got -c/--contract more than once. Give it once.",
         id="test -c",
     ),
     pytest.param(
         ["contract", "fetch", "-d", "a", "b", "-d", "c", "-f", "x.yaml", "-sc", "sc.yml"],
-        "soda contract fetch got -d/--dataset 2 times: a b, c. Give each flag once, like -d a b c.",
+        "soda contract fetch got -d/--dataset more than once. Give it once, with all its values after it.",
         id="fetch -d",
     ),
     pytest.param(
         ["contract", "fetch", "-d", "a", "-f", "x.yaml", "-f", "y.yaml", "-sc", "sc.yml"],
-        "soda contract fetch got -f/--file 2 times: x.yaml, y.yaml. Give each flag once, like -f x.yaml y.yaml.",
+        "soda contract fetch got -f/--file more than once. Give it once, with all its values after it.",
         id="fetch -f",
     ),
     pytest.param(
         ["data-source", "create", "-t", "postgres", "-t", "postgres"],
-        "soda data-source create got -t/--type 2 times: postgres, postgres. Give each flag once.",
+        "soda data-source create got -t/--type more than once. Give it once.",
         id="data-source create -t, its default twice",
     ),
     pytest.param(
         ["data-source", "test", "-ds", "a.yml", "-ds", "b.yml"],
-        "soda data-source test got -ds/--data-source 2 times: a.yml, b.yml. Give each flag once.",
+        "soda data-source test got -ds/--data-source more than once. Give it once.",
         id="data-source test -ds",
     ),
     pytest.param(
         ["data-source", "discover", "-ds", "ds.yml", "--include", "a%", "--include", "b%"],
-        "soda data-source discover got --include 2 times: a%, b%. Give each flag once, like --include a% b%.",
+        "soda data-source discover got --include more than once. Give it once, with all its values after it.",
         id="data-source discover --include",
     ),
     pytest.param(
         ["cloud", "create", "-f", "a.yml", "-f", "b.yml"],
-        "soda cloud create got -f/--file 2 times: a.yml, b.yml. Give each flag once.",
+        "soda cloud create got -f/--file more than once. Give it once.",
         id="cloud create -f",
     ),
     pytest.param(
         ["cloud", "test", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda cloud test got -sc/--soda-cloud 2 times: a.yml, b.yml. Give each flag once.",
+        "soda cloud test got -sc/--soda-cloud more than once. Give it once.",
         id="cloud test -sc",
     ),
     pytest.param(
         ["request", "fetch", "-sc", "sc.yml", "-r", "1", "-r", "2", "-f", "out.yaml"],
-        "soda request fetch got -r/--request 2 times: 1, 2. Give each flag once.",
+        "soda request fetch got -r/--request more than once. Give it once.",
         id="request fetch -r",
     ),
     pytest.param(
         ["request", "push", "-sc", "sc.yml", "-f", "in.yaml", "-r", "1", "-m", "a", "-m", "b"],
-        "soda request push got -m/--message 2 times: a, b. Give each flag once.",
+        "soda request push got -m/--message more than once. Give it once.",
         id="request push -m",
     ),
     pytest.param(
         ["request", "transition", "-sc", "sc.yml", "-r", "1", "-s", "open", "-s", "done"],
-        "soda request transition got -s/--status 2 times: open, done. Give each flag once.",
+        "soda request transition got -s/--status more than once. Give it once.",
         id="request transition -s",
     ),
 ]
@@ -602,7 +601,7 @@ REPEATED_FLAGS = [
 def test_every_command_refuses_a_repeated_flag_before_it_runs(argv, error):
     """argparse keeps the last use of a repeated flag and drops the others without a word, so
     -ds a.yaml -ds b.yaml verified against b.yaml only. Every soda command now stops with exit 3
-    before its handler runs, naming the flag and every value it was given. Not argparse's exit 2,
+    before its handler runs, naming the first flag it got twice. Not argparse's exit 2,
     which a launcher cannot tell apart from check warnings."""
     logs = Logs()
     parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
@@ -612,16 +611,13 @@ def test_every_command_refuses_a_repeated_flag_before_it_runs(argv, error):
     handler.assert_not_called()
 
 
-def test_a_command_with_several_repeated_flags_names_them_all_in_one_error():
+def test_a_command_with_several_repeated_flags_names_the_first():
     logs = Logs()
     parser, handler = _parser_with_a_mocked_command("contract", "verify")
     argv = "contract verify -c a.yaml -c b.yaml -v -ds x.yaml -v -ds y.yaml z.yaml".split()
 
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
-    assert logs.get_errors() == [
-        "soda contract verify got -c/--contract 2 times: a.yaml, b.yaml; -v/--verbose 2 times; "
-        "-ds/--data-source 2 times: x.yaml, y.yaml z.yaml. Give each flag once, like -ds x.yaml y.yaml z.yaml."
-    ]
+    assert logs.get_errors() == ["soda contract verify got -c/--contract more than once. Give it once."]
     handler.assert_not_called()
 
 
@@ -734,10 +730,7 @@ def test_a_command_an_extension_adds_takes_each_flag_once(resource):
 
     argv = [resource, *"scan -ds a.yml --data-source b.yml --dry-run --dry-run --no-wait --no-wait".split()]
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
-    assert logs.get_errors() == [
-        f"soda {resource} scan got -ds/--data-source 2 times: a.yml, b.yml; --dry-run 2 times; --no-wait 2 times. "
-        f"Give each flag once."
-    ]
+    assert logs.get_errors() == [f"soda {resource} scan got -ds/--data-source more than once. Give it once."]
     handler.assert_not_called()
 
     argv = [resource, *"scan -ds a.yml --dry-run --dataset x --dataset y".split()]

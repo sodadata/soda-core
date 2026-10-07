@@ -5,7 +5,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser, _SubParsersAction
-from typing import Any, Dict, List, NamedTuple, NoReturn, Optional, Union
+from typing import Dict, List, NoReturn, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
@@ -71,7 +71,7 @@ def execute() -> None:
 
         args = cli_parser.parse_args()
         # Off the args before telemetry and the handler read them, so both see what argparse makes.
-        repeated_flags: List[_RepeatedFlag] = vars(args).pop(_REPEATED_FLAGS, [])
+        repeated_flag: Optional[str] = vars(args).pop(_REPEATED_FLAGS, None)
 
         soda_telemetry.ingest_cli_arguments(vars(args))
 
@@ -86,10 +86,10 @@ def execute() -> None:
             soda_logger.error(f"No handler found for resource '{args.resource}' and command '{args.command}'")
             exit_with_code(ExitCode.LOG_ERRORS)
 
-        if repeated_flags:
+        if repeated_flag:
             # Exit 3 like the CLI's other argument errors, not argparse's exit 2, which is also
             # the check-warnings code.
-            soda_logger.error(_describe_repeated_flags(repeated_flags))
+            soda_logger.error(repeated_flag)
             exit_with_code(ExitCode.LOG_ERRORS)
 
         args.handler_func(args)
@@ -115,117 +115,64 @@ def handle_legacy_commands():
         exit_with_code(ExitCode.LOG_ERRORS)
 
 
-class _CountsUses:
-    """Mixed into an argparse action: tells the parser each time its flag is used."""
+class _TakenOnce:
+    """Mixed into an argparse action: a second use of its flag leaves an error on the args.
+
+    argparse keeps the last use of a repeated flag and drops the others without a word. The first
+    repeat found is the one reported; execute refuses the command with it.
+    """
 
     def __call__(self, parser, namespace, values, option_string=None):
         if self.option_strings:
-            parser.count_flag_use(self, values)
+            if self.dest in parser.flags_given and not hasattr(namespace, _REPEATED_FLAGS):
+                setattr(namespace, _REPEATED_FLAGS, _describe_repeated_flag(parser.prog, self))
+            parser.flags_given.add(self.dest)
         super().__call__(parser, namespace, values, option_string)
-
-
-class _StoreCountingUses(_CountsUses, argparse._StoreAction):
-    pass
-
-
-class _StoreConstCountingUses(_CountsUses, argparse._StoreConstAction):
-    pass
-
-
-class _StoreTrueCountingUses(_CountsUses, argparse._StoreTrueAction):
-    pass
-
-
-class _StoreFalseCountingUses(_CountsUses, argparse._StoreFalseAction):
-    pass
 
 
 # The actions of the flags a soda command takes once, under the names add_argument knows them by.
 # None is the action add_argument picks when given none. append, extend and count collect every
 # use on purpose, so the flags built on them, like --set and -cf/--check-filter, stay repeatable.
-# To take such a flag once too, add its action here the way store is added.
 _ACTIONS_OF_FLAGS_GIVEN_ONCE = {
-    None: _StoreCountingUses,
-    "store": _StoreCountingUses,
-    "store_const": _StoreConstCountingUses,
-    "store_true": _StoreTrueCountingUses,
-    "store_false": _StoreFalseCountingUses,
+    name: type(f"_{action.__name__}TakenOnce", (_TakenOnce, action), {})
+    for name, action in {
+        None: argparse._StoreAction,
+        "store": argparse._StoreAction,
+        "store_const": argparse._StoreConstAction,
+        "store_true": argparse._StoreTrueAction,
+        "store_false": argparse._StoreFalseAction,
+    }.items()
 }
 
-# The key under which the parser leaves the flags given more than once on the args.
+# The key under which the parser leaves the error for a flag given more than once on the args.
 _REPEATED_FLAGS = "repeated_flags"
 
 
-class _RepeatedFlag(NamedTuple):
-    command: str  # the prog of the parser the flag belongs to, like "soda contract fetch"
-    action: argparse.Action
-    uses: List[Any]  # the values each use gave, in order
-
-
 class _SodaArgumentParser(ArgumentParser):
-    """Parses like ArgumentParser, and also finds the flags given more than once.
+    """Parses like ArgumentParser, and leaves an error on the args for a flag given more than once.
 
-    argparse keeps the last use of a repeated flag and drops the others without a word. This
-    parser counts the uses of each flag and leaves the flags used more than once on the args, for
-    execute to refuse the command. A command line without a repeat parses exactly as with
-    ArgumentParser. add_subparsers builds each subcommand's parser with the class of its parent,
-    so every soda command parses with this class, including the ones extensions add through
-    get_or_create_command_parser.
+    A command line without a repeat parses exactly as with ArgumentParser. add_subparsers builds
+    each subcommand's parser with the class of its parent, so every soda command parses with this
+    class, including the ones extensions add through get_or_create_command_parser.
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for action_name, action_class in _ACTIONS_OF_FLAGS_GIVEN_ONCE.items():
             self.register("action", action_name, action_class)
-        self._uses_by_flag: Dict[argparse.Action, List[Any]] = {}
-
-    def count_flag_use(self, action: argparse.Action, values: Any) -> None:
-        self._uses_by_flag.setdefault(action, []).append(values)
+        self.flags_given: set = set()
 
     def parse_known_args(self, args=None, namespace=None):
-        self._uses_by_flag = {}
-        namespace, extras = super().parse_known_args(args, namespace)
-        repeated = [
-            _RepeatedFlag(self.prog, action, uses) for action, uses in self._uses_by_flag.items() if len(uses) > 1
-        ]
-        if repeated:
-            # A subcommand's parser finishes first and copies its args up to this one, repeats included.
-            setattr(namespace, _REPEATED_FLAGS, [*getattr(namespace, _REPEATED_FLAGS, []), *repeated])
-        return namespace, extras
+        self.flags_given = set()
+        return super().parse_known_args(args, namespace)
 
 
-def _describe_repeated_flags(repeated_flags: List[_RepeatedFlag]) -> str:
-    # Like: soda contract fetch got -d/--dataset 2 times: a b, c. Give each flag once, like -d a b c.
-    flags = "; ".join(_describe_repeated_flag(flag) for flag in repeated_flags)
-    # A flag that takes several values takes them all after one use.
-    one_use_examples = [
-        " ".join([flag.action.option_strings[0], *_given_values(flag)])
-        for flag in repeated_flags
-        if flag.action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
-    ]
-    like = f", like {', '.join(one_use_examples)}" if one_use_examples else ""
-    return f"{repeated_flags[0].command} got {flags}. Give each flag once{like}."
-
-
-def _describe_repeated_flag(flag: _RepeatedFlag) -> str:
-    uses = f"{'/'.join(flag.action.option_strings)} {len(flag.uses)} times"
-    if flag.action.nargs == 0:
-        # A switch like -v gives no value.
-        return uses
-    # One entry per use, so the list matches the count. A flag whose value is optional, like -dw,
-    # can be used without one.
-    return f"{uses}: {', '.join(_as_typed(values) or 'no value' for values in flag.uses)}"
-
-
-def _given_values(flag: _RepeatedFlag) -> List[str]:
-    # The values each use gave, as typed. A switch like -v gives none.
-    return [text for text in map(_as_typed, flag.uses) if text]
-
-
-def _as_typed(values: Any) -> str:
-    if values is None:
-        return ""
-    return " ".join(map(str, values)) if isinstance(values, list) else str(values)
+def _describe_repeated_flag(command: str, action: argparse.Action) -> str:
+    # Like: soda contract fetch got -d/--dataset more than once. A flag that takes several values
+    # takes them all after one use.
+    several = action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
+    hint = "Give it once, with all its values after it." if several else "Give it once."
+    return f"{command} got {'/'.join(action.option_strings)} more than once. {hint}"
 
 
 def create_cli_parser() -> ArgumentParser:
