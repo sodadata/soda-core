@@ -12,8 +12,8 @@ from soda_core.common import soda_cloud as soda_cloud_module
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import (
     BACKPRESSURE_OPT_IN_HEADER,
+    DEFAULT_DEFERRAL_BUDGET_SECONDS,
     DEFAULT_RETRY_AFTER_SECONDS,
-    DEFERRAL_BUDGET_SECONDS_DEFAULT,
     deferral_budget_seconds,
     retry_after_seconds,
 )
@@ -36,14 +36,14 @@ def test_every_request_announces_that_the_client_can_wait(monkeypatch):
 
 def test_deferral_budget_defaults_to_fifteen_minutes(monkeypatch):
     monkeypatch.delenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", raising=False)
-    assert deferral_budget_seconds() == DEFERRAL_BUDGET_SECONDS_DEFAULT == 900
+    assert deferral_budget_seconds() == DEFAULT_DEFERRAL_BUDGET_SECONDS == 900
 
 
 def test_deferral_budget_can_be_overridden_and_ignores_garbage(monkeypatch):
     monkeypatch.setenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", "30")
     assert deferral_budget_seconds() == 30.0
     monkeypatch.setenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", "soon")
-    assert deferral_budget_seconds() == DEFERRAL_BUDGET_SECONDS_DEFAULT
+    assert deferral_budget_seconds() == DEFAULT_DEFERRAL_BUDGET_SECONDS
 
 
 def test_retry_after_reads_delta_seconds_and_falls_back_to_the_default():
