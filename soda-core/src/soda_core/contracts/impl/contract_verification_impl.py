@@ -8,7 +8,7 @@ from io import StringIO
 from typing import Protocol
 
 from ruamel.yaml import YAML
-from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionSessionResult
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -318,7 +318,7 @@ class ContractVerificationSessionImpl:
             )
 
         else:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_locally(
+            local_session_result: CheckCollectionSessionResult = cls._execute_locally(
                 logs=logs,
                 contract_yaml_sources=contract_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
@@ -330,6 +330,10 @@ class ContractVerificationSessionImpl:
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 check_selectors=check_selectors,
                 dwh_files=dwh_files,
+            )
+            return ContractVerificationSessionResult(
+                contract_verification_results=list(local_session_result.results),
+                session_log_records=local_session_result.session_log_records,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -347,7 +351,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
-    ) -> list[ContractVerificationResult]:
+    ) -> CheckCollectionSessionResult:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
 
@@ -404,7 +408,7 @@ class ContractVerificationSessionImpl:
                 ds = data_source_impls_by_name.get(name)
                 if ds is not None and ds.has_open_connection():
                     ds.close_connection()
-        return list(session_result.results)
+        return session_result
 
     @classmethod
     def _build_data_source_impls_by_name(

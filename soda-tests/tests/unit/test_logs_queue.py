@@ -327,15 +327,15 @@ def test_child_logs_keep_their_own_records_and_forward_to_the_parents_current_ga
         parent.close()
 
 
-def test_child_logs_count_inherited_records_without_handing_them_on_again():
+def test_a_child_logs_starts_empty_and_hands_its_records_on():
     parent = Logs()
     soda_logger.error("logged by the parent")
-    child = parent.child(inherited_records=parent.get_log_records())
+    child = parent.child()
     try:
         soda_logger.info("logged by the child")
 
-        assert child.get_logs() == ["logged by the parent", "logged by the child"]
-        assert child.get_errors() == ["logged by the parent"]
+        assert child.get_logs() == ["logged by the child"]
+        assert child.get_errors() == []
         assert parent.get_logs() == ["logged by the parent", "logged by the child"]
     finally:
         child.close()

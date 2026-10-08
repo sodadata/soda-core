@@ -105,10 +105,11 @@ def execute_check_collections(
     With more than one yaml, each file gets a child of it (``Logs.child()``)
     with its own records, thread label and error count, so one file's errors
     never set another file's status or reach its upload; the caller's ``logs``
-    still sees every record once. Each child starts with what ``logs`` held
-    before the session, so those records reach every file's upload and an
-    error among them errors every file. A single yaml uses ``logs`` itself,
-    which comes to the same. Without ``logs``, each impl builds its own.
+    still sees every record once. Each child starts empty, so what ``logs`` held
+    before the session sets no file's status. The session keeps those records
+    once and adds them to every upload and failure mark it or a file sends,
+    ahead of the upload's own records. A single yaml uses ``logs`` itself.
+    Without ``logs``, each impl builds its own.
 
     ``expected_kinds`` is an opt-in set of permitted top-level ``kind:``
     values. When set, the executor reads each yaml's ``kind:`` in phase 1
@@ -158,13 +159,13 @@ def execute_check_collections(
     # Siblings sharing the caller's Logs would share its error count, so each file
     # of a multi-file session gets a child of it instead. The child is built before
     # the parse, so the file's parse records land in it too. What the caller logged
-    # before the session belongs to no one file, so every child starts with it, as a
-    # lone file would: an error logged there still errors every file.
+    # before the session belongs to no one file: the session keeps it once and every
+    # upload and failure mark carries it.
     child_logs_per_file: bool = logs is not None and len(yaml_sources) > 1
     pre_session_records: list[LogRecord] = list(logs.get_log_records()) if child_logs_per_file else []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
-        impl_logs: Optional[Logs] = logs.child(inherited_records=pre_session_records) if child_logs_per_file else logs
+        impl_logs: Optional[Logs] = logs.child() if child_logs_per_file else logs
         try:
             # Parse the YAML once for kind dispatch; reuse the parsed
             # object inside the subtype's ``yaml_class.parse(...)`` so the
@@ -207,6 +208,7 @@ def execute_check_collections(
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
             )
+            impl.session_log_records = tuple(pre_session_records)
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
@@ -308,6 +310,7 @@ def execute_check_collections(
                 results=group,
                 wire_source=wire_source,
                 scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
+                session_log_records=pre_session_records,
             )
 
         # Report the (still-PENDING) scan as FAILED only when the whole scan produced nothing
@@ -334,7 +337,7 @@ def execute_check_collections(
             errored_without_results_result.scan_id = soda_scan_id
             marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,
-                logs=errored_without_results_result.log_records,
+                logs=[*pre_session_records, *(errored_without_results_result.log_records or [])],
                 exc=errored_without_results_result.error,
             )
             if not marked_as_failed:
@@ -416,7 +419,7 @@ def execute_check_collections(
                         contract_verification_handler=handler,
                     )
 
-    return CheckCollectionSessionResult(results)
+    return CheckCollectionSessionResult(results, session_log_records=pre_session_records)
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:

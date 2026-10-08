@@ -109,15 +109,13 @@ class Logs:
         self._prev: Optional[Logs] = _active_logs.get()
         _active_logs.set(self)
 
-    def child(self, inherited_records: Optional[list[LogRecord]] = None) -> Logs:
-        """A new Logs with its own records, label and error count that also hands
-        every record on to this one, so this Logs sees each record once. It starts
-        with ``inherited_records``, records this Logs already holds, which it keeps
-        and counts but does not hand on again. Like any new Logs it becomes the
-        active capture target. The executor gives one to each file of a multi-file
-        session, so one file's errors never set another file's status, while what
-        the caller logged before the session counts for every file."""
-        return Logs(gatherer=_ForwardingCollector(self, inherited_records))
+    def child(self) -> Logs:
+        """A new, empty Logs with its own records, label and error count that also
+        hands every record on to this one, so this Logs sees each record once. Like
+        any new Logs it becomes the active capture target. The executor gives one to
+        each file of a multi-file session, so one file's errors never set another
+        file's status."""
+        return Logs(gatherer=_ForwardingCollector(self))
 
     @contextmanager
     def activate(self, label: Optional[str] = None):
@@ -186,11 +184,9 @@ class _ForwardingCollector(LogsCollector):
     to the parent's gatherer, resolved per record since ``switch_gatherer`` can swap it
     mid-run."""
 
-    def __init__(self, parent: Logs, inherited_records: Optional[list[LogRecord]] = None):
+    def __init__(self, parent: Logs):
         super().__init__()
         self.parent: Logs = parent
-        # A copy, since the parent's own list keeps growing with what this child hands on.
-        self.logs = list(inherited_records or [])
 
     def emit(self, log_record: LogRecord):
         super().emit(log_record)
