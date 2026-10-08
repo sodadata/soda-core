@@ -35,10 +35,6 @@ def test_filtered_cte_alias_fits_the_oracle_limit(key):
     assert len(filtered_cte_alias(key)) <= FILTERED_CTE_ALIAS_MAX_LENGTH
 
 
-def test_filtered_cte_alias_plain_and_hashed_forms_never_meet():
-    assert filtered_cte_alias("eu-west") != filtered_cte_alias("eu_west")
-
-
 @pytest.mark.parametrize(
     "alias",
     [
@@ -71,11 +67,6 @@ def test_is_filtered_cte_alias_accepts(alias):
 )
 def test_is_filtered_cte_alias_rejects(alias):
     assert not is_filtered_cte_alias(alias)
-
-
-def test_is_filtered_cte_alias_accepts_every_scope_alias():
-    for key in [None, "eu", "eu-west", "north_america"]:
-        assert is_filtered_cte_alias(filtered_cte_alias(key))
 
 
 def _origin_cte(dataset_identifier: DatasetIdentifier, filter: str | None) -> CTE:

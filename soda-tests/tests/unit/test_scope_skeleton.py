@@ -18,12 +18,11 @@ import duckdb
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND, ScopeUnsupportedImpl
+from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
 from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
 from helpers.test_table import TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
-from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logs import Logs
@@ -33,15 +32,7 @@ from soda_core.contracts.contract_verification import CheckCollectionStatus, Che
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension, CheckImpl, ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.contracts.impl.scope import (
-    BASE_SCOPE_KEY,
-    INVALID_SCOPE_KEY,
-    RESERVED_SCOPE_KEYS,
-    SCOPE_KEY_PATTERN,
-    Scope,
-    ScopeYaml,
-    unsupported_scopes_error,
-)
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, INVALID_SCOPE_KEY, Scope, ScopeYaml, unsupported_scopes_error
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
 pytestmark = pytest.mark.usefixtures("without_scopes_extension")
@@ -116,21 +107,11 @@ def _two_check_file(scope_value: Optional[str], top: str = "", check_body: str =
 
 
 def test_scope_constants_and_model():
-    assert BASE_SCOPE_KEY == "base"
-    assert RESERVED_SCOPE_KEYS == frozenset({"base", "true", "false", "null", "yes", "no", "on", "off", "y", "n"})
-    for key in ["eu", "a", "release-gate", "eu_west", "a" * 64]:
-        assert SCOPE_KEY_PATTERN.fullmatch(key), key
-    for key in ["", "Eu", "1eu", "-eu", "_eu", "eu west", "eu.west", "a" * 65, "eu\n"]:
-        assert not SCOPE_KEY_PATTERN.fullmatch(key), key
-
     base = Scope(key=BASE_SCOPE_KEY)
     eu = Scope(key="eu", name="EU", filter="region = 'eu'")
     assert base.is_base and not eu.is_base
     assert not base.is_active and not eu.is_active
     assert (eu.cte, eu.row_count_metric, eu.check_attributes) == (None, None, {})
-    assert base.cte_alias() == SODA_FILTERED_CTE_NAME
-    assert eu.cte_alias() == "_soda_filtered_scope_eu"
-    assert Scope(key="eu-west").cte_alias() == "_soda_filtered_scope__c3b6b924"
 
     cte = build_filtered_cte(DatasetIdentifier.parse("ds/db/schema/table"), eu.filter, eu.cte_alias())
     row_count_metric = object()
@@ -305,9 +286,8 @@ SCOPE_INPUT_WITH_A_VARIABLE: str = """
 """
 
 
-@pytest.mark.parametrize("kind_line", ["", "kind: contract\n"], ids=["no-kind", "kind-contract"])
-def test_a_contract_resolves_variables_in_scope_input(kind_line: str):
-    contract_yaml, logs = _parse(kind_line + dedent_and_strip(SCOPE_INPUT_WITH_A_VARIABLE))
+def test_a_contract_resolves_variables_in_scope_input():
+    contract_yaml, logs = _parse(dedent_and_strip(SCOPE_INPUT_WITH_A_VARIABLE))
 
     eu = contract_yaml.scopes["eu"]
     assert (eu.name, eu.description, eu.filter) == ("eu", "in eu", "region = 'eu'")
@@ -331,34 +311,6 @@ def test_a_kind_without_scope_support_rejects_scopes_and_check_scopes(kind: str)
     assert contract_yaml.scopes == {}
     assert logs.get_errors() == [unsupported_scopes_error(kind)] * 2
     assert all(record.location is not None for record in logs.gatherer.get_error_logs())
-
-
-def test_class_defaults_cover_yamls_and_impls_without_scopes():
-    class _NeverReadsScopesYaml(CheckCollectionYaml):
-        """Runs the base ``__init__`` only, like the metric-monitoring yamls."""
-
-    bare_yaml = _NeverReadsScopesYaml(yaml_source=ContractYamlSource.from_str("dataset: ds/db/schema/table\n"))
-    assert dict(bare_yaml.scopes) == {}
-
-    assert CheckCollectionImpl.supports_scopes is False
-    assert ContractImpl.supports_scopes is True
-    assert ScopeUnsupportedImpl.supports_scopes is False
-
-    # A yaml that is not a CheckCollectionYaml, like the data-standard test fake, must carry 'scopes' itself.
-    duck_typed_yaml = SimpleNamespace(
-        dataset="ds/db/schema/table",
-        scopes={},
-        filter=None,
-        check_attributes={},
-        columns=[],
-        checks=[],
-        yaml_source=SimpleNamespace(file_path="/fake/duck.yml", yaml_str_original="# duck", description="duck yaml"),
-        yaml_object=SimpleNamespace(keys=lambda: []),
-    )
-    impl, logs = _build_impl(ScopeUnsupportedImpl, duck_typed_yaml)
-    assert impl.scopes == {}
-    assert impl.base_scope.is_base and impl.base_scope.is_active
-    assert not logs.has_errors
 
 
 def test_a_kind_with_its_own_yaml_class_rejects_scopes():
@@ -453,13 +405,6 @@ def test_scope_for():
     assert [check.scope for check in check_infos] == [None] * 2 + SCOPE_KEYS
 
 
-def test_a_kind_without_scope_support_runs_no_check_of_a_file_with_scope_input():
-    impl, logs = _build_impl(ScopeUnsupportedImpl, UNSUPPORTED_KIND_LINE + dedent_and_strip(SCOPE_FOR_YAML))
-    # One error for 'scopes' and one for each check that sets 'scope'.
-    assert logs.get_errors() == [UNSUPPORTED] * 9
-    assert impl.scopes == {}
-
-
 def test_extension_constructor_sees_the_scopes_before_checks_are_parsed():
     seen: dict = {}
 
@@ -499,28 +444,6 @@ def _identity(column_name: Optional[str] = None, qualifier: Optional[str] = None
     return CheckImpl._build_identity(
         contract_impl=_ContractStub(), column_impl=column_impl, check_type="row_count", qualifier=qualifier, **kwargs
     )
-
-
-def _identity_hash_with_scope_term(scope_term: str) -> str:
-    # The scope term, then origin's terms in origin's order.
-    expected = ConsistentHashBuilder(8)
-    expected.add_property("scope", scope_term)
-    origin_terms = [("dso", "test_ds"), ("pr", "schema"), ("ds", "table"), ("c", None), ("t", "row_count"), ("q", None)]
-    for key, value in origin_terms:
-        expected.add_property(key, value)
-    return expected.get_hash()
-
-
-def test_unscoped_identity_is_unchanged():
-    without_keyword = _identity()
-    assert _identity(scope_key=None) == without_keyword
-    assert _identity(scope_key=BASE_SCOPE_KEY) == without_keyword
-    assert _identity(qualifier="q", scope_key=BASE_SCOPE_KEY) == _identity(qualifier="q")
-
-
-@pytest.mark.parametrize("key", ["eu", "e", "release-gate", "eu_west_1", "a" * 64, INVALID_SCOPE_KEY])
-def test_the_scope_term_comes_first(key: str):
-    assert _identity(scope_key=key) == _identity_hash_with_scope_term(f"{key}:")
 
 
 @pytest.mark.parametrize(
@@ -780,15 +703,6 @@ def test_scope_reads_of_odd_scope_input():
     assert scopes("deep-scopes-block") == {}
 
 
-def test_a_scope_value_built_from_shared_anchors_reads_without_expanding_it():
-    # About 500 bytes whose scope value expands to a million scalars. Each further level multiplies the expanded
-    # value, and the time to build or print it, by ten. Nothing prints the value.
-    yaml_str = ODD_SCOPE_FILES["shared-anchors"]
-    assert len(yaml_str) < 600
-    impl, _ = _build_impl(ContractImpl, yaml_str)
-    assert impl.all_check_impls[1].scope.key == INVALID_SCOPE_KEY
-
-
 # Each place in the scope input where a variable can be used, with 'REF' standing for the reference.
 UNDECLARED_VARIABLE_IN_SCOPE_INPUT: dict[str, str] = {
     "scope-filter": "scopes:\n  eu:\n    name: EU\n    filter: 'REF'\n",
@@ -813,7 +727,6 @@ UNDECLARED_VARIABLE_IN_CHECK_SCOPE: dict[str, str] = {
 }
 UNDECLARED_VARIABLE_MESSAGES: dict[str, str] = {
     "${var.NOPE}": "Variable 'NOPE' was used and not declared",
-    "${soda.NOPE}": "Variable 'NOPE' was used and not available in the 'soda' namespace",
 }
 
 

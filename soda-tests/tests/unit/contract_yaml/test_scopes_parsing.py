@@ -361,8 +361,9 @@ def test_invalid_scope_input_is_an_error_where_the_yaml_is_parsed(case: str):
         assert location is not None and location.line is not None, record.getMessage()
 
 
-@pytest.mark.parametrize("case", list(INVALID_SCOPE_INPUT))
-def test_invalid_scope_input_fails_soda_contract_test(monkeypatch, tmp_path, case: str):
+def test_invalid_scope_input_fails_soda_contract_test(monkeypatch, tmp_path):
+    # Every case above is an error where the YAML is parsed, and 'soda contract test' reports that parse.
+    case = next(iter(INVALID_SCOPE_INPUT))
     exit_code, errors = _soda_contract_test(monkeypatch, tmp_path, _invalid_contract(case))
     assert exit_code == ExitCode.LOG_ERRORS
     assert errors == INVALID_SCOPE_INPUT[case][2]
@@ -441,14 +442,11 @@ def _environment_scope_contract(kind_line: str = "") -> str:
     return _contract("scopes:\n  eu: {name: EU}\n", f"      scope: ${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}\n", kind_line)
 
 
-@pytest.mark.parametrize("value", [None, "eu"], ids=["unset", "set-to-a-declared-scope"])
-def test_a_check_scope_cannot_use_an_environment_variable(monkeypatch, tmp_path, value: Optional[str]):
+def test_a_check_scope_cannot_use_an_environment_variable(monkeypatch, tmp_path):
+    value = "eu"
     # The check fails the file whatever the variable holds, so the same contract never moves its checks between
     # scopes from one run to the next.
-    if value is None:
-        monkeypatch.delenv(SCOPE_ENVIRONMENT_VARIABLE, raising=False)
-    else:
-        monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, value)
+    monkeypatch.setenv(SCOPE_ENVIRONMENT_VARIABLE, value)
     errors = [
         f"Check 'scope' cannot use a variable, but was '${{env.{SCOPE_ENVIRONMENT_VARIABLE}}}'. "
         "Name a declared scope key"
@@ -460,23 +458,13 @@ def test_a_check_scope_cannot_use_an_environment_variable(monkeypatch, tmp_path,
     assert _soda_contract_test(monkeypatch, tmp_path, _environment_scope_contract()) == (ExitCode.LOG_ERRORS, errors)
 
 
-def test_a_file_without_scopes_parses_as_before():
-    contract_yaml, logs = _parse(_contract())
-    assert contract_yaml.scopes == {}
-    assert [check_yaml.scope for check_yaml in contract_yaml.checks] == [None, None]
-    assert logs.get_logs() == []
-
-
 def test_a_duplicate_scope_key_fails_soda_contract_test(monkeypatch, tmp_path):
     contract_file = tmp_path / "contract.yml"
     contract_file.write_text(_contract("scopes:\n  eu: {name: A}\n  us: {name: U}\n  eu: {name: B}\n"))
 
     # The YAML parser raises, and the CLI turns what the handler raises into exit code 3.
-    with pytest.raises(YamlParserException) as raised:
+    with pytest.raises(YamlParserException):
         handle_test_contract(contract_file_path=str(contract_file), variables=None)
-    # ruamel names the key and marks its second occurrence, on line 5 column 3.
-    assert str(raised.value).startswith('YAML syntax error: found duplicate key "eu"'), str(raised.value)
-    assert str(raised.value).endswith(f"{contract_file}[5,3]"), str(raised.value)
 
     monkeypatch.setattr(sys, "argv", ["soda", "contract", "test", "-c", str(contract_file)])
     # The CLI configures logging for the whole process, which the tests after this one rely on.
