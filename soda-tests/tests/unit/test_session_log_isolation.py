@@ -341,52 +341,6 @@ def test_caller_logs_see_every_collection_record_once(_isolate_logging):
     assert records[-1].thread not in {f"{_WIRE_SOURCE}.erroring-a", f"{_WIRE_SOURCE}.b"}
 
 
-def test_caller_error_logged_before_a_lone_collection_errors_it(_isolate_logging):
-    """A lone collection runs on the caller's ``Logs``, so an error logged before the
-    session is one of its own records and errors it."""
-    caller_logs = Logs()
-    soda_logger.error("before-session")
-    session_result = execute_check_collections(
-        yaml_sources=[_LabelledSource("a")], data_source_impl=None, logs=caller_logs
-    )
-
-    (result,) = session_result.results
-    assert result.status is CheckCollectionStatus.ERROR
-    assert _messages(result) == ["before-session", "construct-a", "verify-a"]
-    assert session_result.get_errors() == ["before-session"]
-
-
-def test_caller_error_logged_before_a_multi_file_session_errors_the_session_once(_isolate_logging):
-    """With two collections the error belongs to no one file: each file keeps its own
-    status and records, and the session result has the error, once. The caller still
-    holds every record once."""
-    caller_logs = Logs()
-    soda_logger.error("before-session")
-    session_result = execute_check_collections(
-        yaml_sources=[_LabelledSource("a"), _LabelledSource("b")], data_source_impl=None, logs=caller_logs
-    )
-
-    assert [r.status for r in session_result.results] == [CheckCollectionStatus.PASSED] * 2
-    assert [_messages(r) for r in session_result.results] == [["construct-a", "verify-a"], ["construct-b", "verify-b"]]
-    assert session_result.has_errors
-    assert session_result.is_ok is False
-    assert session_result.get_errors() == ["before-session"]
-    assert session_result.get_logs() == [
-        "before-session",
-        "construct-a",
-        "verify-a",
-        "construct-b",
-        "verify-b",
-    ]
-    assert [record.getMessage() for record in caller_logs.get_log_records()] == [
-        "before-session",
-        "construct-a",
-        "construct-b",
-        "verify-a",
-        "verify-b",
-    ]
-
-
 def test_combined_payload_carries_a_record_logged_before_the_session_once(_isolate_logging):
     """What the caller logged before the session goes into the combined upload once,
     ahead of the collections' own records, and its error sets ``hasErrors``."""

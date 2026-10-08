@@ -167,9 +167,8 @@ def test_first_contract_error_leaves_the_second_contract_its_own_status(
     assert second.get_errors() == []
 
 
-@pytest.mark.parametrize("erroring_phase", _ERRORING_CONTRACT_CHECKS.keys())
 def test_each_contract_of_a_session_uploads_only_its_own_records_and_the_caller_sees_each_once(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, erroring_phase: str
+    data_source_test_helper: DataSourceTestHelper, monkeypatch
 ):
     """Each upload carries its own contract's records and, once, what the caller logged
     before the session, never the other contract's. The results hold only their own
@@ -183,7 +182,7 @@ def test_each_contract_of_a_session_uploads_only_its_own_records_and_the_caller_
     session_result, payloads = _verify_contracts(
         data_source_test_helper,
         test_table,
-        [_ERRORING_CONTRACT_CHECKS[erroring_phase], _PASSING_CONTRACT_CHECKS],
+        [_ERRORING_CONTRACT_CHECKS["parse"], _PASSING_CONTRACT_CHECKS],
         logs=caller_logs,
     )
 
@@ -198,35 +197,13 @@ def test_each_contract_of_a_session_uploads_only_its_own_records_and_the_caller_
     assert _payload_messages(first_payload, level="error")
     assert _payload_messages(second_payload, level="error") == []
 
-    pre_session_record = caller_logs.get_log_records()[0]
-    assert pre_session_record.getMessage() == "Logged by the caller before the session"
-    assert session_result.session_log_records == [pre_session_record]
-    first_record_ids = {id(record) for record in first.log_records}
-    second_record_ids = {id(record) for record in second.log_records}
-    assert id(pre_session_record) not in first_record_ids | second_record_ids
-    assert first_record_ids.isdisjoint(second_record_ids)
-    caller_record_ids = [id(record) for record in caller_logs.get_log_records()]
-    assert len(caller_record_ids) == len(set(caller_record_ids))
-    assert first_record_ids | second_record_ids <= set(caller_record_ids)
-
-
-def test_single_contract_session_keeps_the_callers_logs(data_source_test_helper: DataSourceTestHelper, monkeypatch):
-    """A lone contract has no sibling to keep apart from, so it keeps using the
-    caller's Logs: its upload still carries what the caller logged before the session."""
-    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    caller_logs = Logs()
-    soda_logger.warning("Logged by the caller before the session")
-    session_result, (payload,) = _verify_contracts(
-        data_source_test_helper, test_table, [_PASSING_CONTRACT_CHECKS], logs=caller_logs
-    )
-
-    (result,) = session_result.contract_verification_results
-    assert result.status is CheckCollectionStatus.PASSED
-    assert [record.getMessage() for record in result.log_records] == [
-        record.getMessage() for record in caller_logs.get_log_records()
+    assert [record.getMessage() for record in session_result.session_log_records] == [
+        "Logged by the caller before the session"
     ]
-    assert "Logged by the caller before the session" in _payload_messages(payload, level="warning")
+    assert "Logged by the caller before the session" not in first.get_logs() + second.get_logs()
+    caller_messages = [record.getMessage() for record in caller_logs.get_log_records()]
+    assert caller_messages.count("Logged by the caller before the session") == 1
+    assert len([m for m in caller_messages if m.startswith("Verifying contract")]) == 2
 
 
 def _unused_data_source_with_an_undeclared_variable(

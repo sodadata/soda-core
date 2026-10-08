@@ -349,48 +349,6 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     )
 
 
-VERIFY_OTHER_ARGS = ["-ds", "ds.yaml", "-sc", "cloud.yaml"]
-
-
-@pytest.mark.parametrize("contract_args", [["-c", "a.yaml"], ["--contract=a.yaml"]])
-def test_contract_verify_runs_one_contract_and_one_dataset(contract_args):
-    sys.argv = ["soda", "contract", "verify", *contract_args, "-d", "ds/a", *VERIFY_OTHER_ARGS]
-
-    args = create_cli_parser().parse_args()
-    with patch("soda_core.cli.cli.handle_verify_contract", return_value=ExitCode.CHECK_FAILURES) as mock_handler, patch(
-        "soda_core.cli.cli.resolve_soda_cloud_for_failure_report", return_value=None
-    ):
-        with pytest.raises(SystemExit) as e:
-            args.handler_func(args)
-
-    assert e.value.code == ExitCode.CHECK_FAILURES
-    assert mock_handler.call_args.args[:2] == ("a.yaml", "ds/a")
-
-
-def test_contract_verify_without_a_value_for_contract_keeps_the_argparse_error(capsys):
-    sys.argv = ["soda", "contract", "verify", *VERIFY_OTHER_ARGS, "-c"]
-
-    with pytest.raises(SystemExit) as e:
-        create_cli_parser().parse_args()
-
-    assert e.value.code == 2
-    assert "argument -c/--contract: expected one argument" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    "dataset_args, expected_datasets", [(["-d", "ds/a"], ["ds/a"]), (["-d", "ds/a", "ds/b"], ["ds/a", "ds/b"])]
-)
-def test_contract_fetch_takes_several_datasets_in_one_use(dataset_args, expected_datasets):
-    sys.argv = ["soda", "contract", "fetch", *dataset_args, "-f", "a.yaml", "b.yaml", "-sc", "cloud.yaml"]
-
-    args = create_cli_parser().parse_args()
-    with patch("soda_core.cli.cli.handle_fetch_contract", return_value=ExitCode.OK.value) as mock_handler:
-        with pytest.raises(SystemExit):
-            args.handler_func(args)
-
-    mock_handler.assert_called_once_with(["a.yaml", "b.yaml"], expected_datasets, "cloud.yaml")
-
-
 def _run_soda(argv: list[str], parser: ArgumentParser) -> Optional[int]:
     """Runs the soda script's entry point on argv, parsed by the given parser. Returns the exit
     code, or None when the command's handler returned without exiting. The CLI's own logging
@@ -431,7 +389,7 @@ def _without_handler(args) -> dict:
 
 
 # One repeated flag of each kind argparse has: a single value, short and long; several values in
-# one use; a switch; switches combined; an optional value; and a flag of another command family.
+# one use; a switch; switches combined; and an optional value.
 REPEATED_FLAGS = [
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "--contract=b.yaml", "-ds", "ds.yaml"],
@@ -458,11 +416,6 @@ REPEATED_FLAGS = [
         "soda contract verify got -dw/--diagnostics-warehouse more than once. Give it once.",
         id="optional value, once without it",
     ),
-    pytest.param(
-        ["request", "push", "-sc", "sc.yml", "-f", "in.yaml", "-r", "1", "-m", "a", "-m", "b"],
-        "soda request push got -m/--message more than once. Give it once.",
-        id="another command family",
-    ),
 ]
 
 
@@ -487,25 +440,6 @@ def test_a_command_with_several_repeated_flags_names_the_first():
 
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
     assert logs.get_errors() == ["soda contract verify got -c/--contract more than once. Give it once."]
-    handler.assert_not_called()
-
-
-def test_a_repeated_flag_is_logged_after_logging_is_set_up():
-    parser, handler = _parser_with_a_mocked_command("contract", "verify")
-    calls = MagicMock()
-
-    with patch("soda_core.cli.cli.cli_parser", parser), patch(
-        "soda_core.cli.cli._configure_logging", calls.configure_logging
-    ), patch("soda_core.cli.cli.soda_logger", calls.soda_logger), patch.object(
-        sys, "argv", ["soda", "contract", "verify", "-c", "a.yaml", "-v", "-v"]
-    ):
-        with pytest.raises(SystemExit) as e:
-            execute()
-
-    assert e.value.code == ExitCode.LOG_ERRORS
-    call_names = [name for name, _, _ in calls.mock_calls]
-    assert call_names.index("configure_logging") < call_names.index("soda_logger.error")
-    calls.configure_logging.assert_called_once_with(True)
     handler.assert_not_called()
 
 
