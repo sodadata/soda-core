@@ -202,6 +202,12 @@ def handle_discover_data_source(
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Discovery results were not accepted by Soda Cloud.")
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
+    if scan_context.scan_gone:
+        # Say what really happened: the datasets were discovered, but the scan they were meant
+        # for is finished, so Soda Cloud never took the results.
+        soda_logger.info(f"Discovered {len(dqns)} datasets. The scan was cancelled, so the results were discarded.")
+        return ExitCode.OK
+
     soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Discovered {len(dqns)} datasets and sent results to Soda Cloud.")
     return ExitCode.OK
 
