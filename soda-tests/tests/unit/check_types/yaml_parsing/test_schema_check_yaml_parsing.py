@@ -10,7 +10,6 @@ Focuses on unique fields:
 Common fields (name, qualifier, filter, attributes) are tested in test_common_check_yaml_features.py.
 """
 
-
 from helpers.yaml_parsing_helpers import parse_check_from_contract
 
 
