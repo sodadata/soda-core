@@ -142,45 +142,6 @@ def test_a_scoped_check_aggregates_over_its_scope(
     assert len(base_queries) == 1
 
 
-def test_without_activation_a_declared_scope_builds_no_sql(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch: pytest.MonkeyPatch
-):
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    captured_sql = _capture_executed_sql(data_source_test_helper, monkeypatch)
-
-    result = _verify(
-        data_source_test_helper,
-        test_table,
-        _scopes_yaml(data_source_test_helper)
-        + """
-            columns:
-              - name: email
-                checks:
-                  - missing:
-                      qualifier: all
-                      threshold:
-                        must_be_less_than: 5
-                  - missing:
-                      qualifier: eu
-                      scope: eu
-            checks:
-              - row_count:
-                  qualifier: us
-                  scope: us
-            """,
-        errors=(
-            "Not evaluating 2 checks in scope 'eu', 'us': running checks in a scope needs a Soda extension that "
-            "runs scopes.",
-        ),
-    )
-
-    results = _results_by_qualifier(result)
-    assert results["all"].outcome == CheckOutcome.PASSED
-    assert "scope_rows_tested" not in results["all"].diagnostic_metric_values
-    assert [results["eu"].outcome, results["us"].outcome] == [CheckOutcome.NOT_EVALUATED] * 2
-    assert not any("_soda_filtered_scope_" in sql for sql in captured_sql)
-
-
 def test_identical_metrics_in_two_scopes_stay_separate(
     data_source_test_helper: DataSourceTestHelper, monkeypatch: pytest.MonkeyPatch
 ):

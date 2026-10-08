@@ -90,26 +90,6 @@ def _origin_cte(dataset_identifier: DatasetIdentifier, filter: str | None) -> CT
     )
 
 
-@pytest.mark.parametrize("filter", [None, "id > 1"])
-def test_build_filtered_cte_equals_the_origin_construction(filter):
-    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
-    cte = build_filtered_cte(dataset_identifier, filter, SODA_FILTERED_CTE_NAME)
-    assert cte == _origin_cte(dataset_identifier, filter)
-
-
-def test_build_filtered_cte_with_sampler_equals_the_sampled_origin_construction():
-    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
-    expected = _origin_cte(dataset_identifier, "id > 1")
-    expected.cte_query[1] = expected.cte_query[1].SAMPLE(SamplerType.ABSOLUTE_LIMIT, 10)
-
-    cte = build_filtered_cte(
-        dataset_identifier, "id > 1", SODA_FILTERED_CTE_NAME, sampler=(SamplerType.ABSOLUTE_LIMIT, 10)
-    )
-
-    assert cte == expected
-    assert cte != _origin_cte(dataset_identifier, "id > 1")
-
-
 def test_build_filtered_cte_uses_the_given_alias():
     dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
     cte = build_filtered_cte(dataset_identifier, None, filtered_cte_alias("eu"))

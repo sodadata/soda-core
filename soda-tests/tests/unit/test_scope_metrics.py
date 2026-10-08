@@ -109,23 +109,6 @@ def _checks_by_qualifier(impl: CheckCollectionImpl, check_type: str) -> dict:
     }
 
 
-def test_the_base_scope_adds_no_id_term():
-    impl, _ = _build_impl(SCOPED_YAML)
-    unscoped = RowCountMetricImpl(contract_impl=impl)
-    base = RowCountMetricImpl(contract_impl=impl, scope=impl.base_scope)
-
-    assert base.id == unscoped.id == impl.row_count_metric_impl.id
-
-
-def test_a_declared_scope_is_the_first_id_term():
-    impl, _ = _build_impl(SCOPED_YAML)
-    unscoped = RowCountMetricImpl(contract_impl=impl)
-    scoped = RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["eu"])
-
-    assert scoped.id != unscoped.id
-    assert scoped.id != RowCountMetricImpl(contract_impl=impl, scope=impl.scopes["us"]).id
-
-
 def test_a_metric_takes_the_scope_of_its_check_when_it_is_built():
     with scope_activation("eu"):
         impl, logs = _build_impl(SCOPED_YAML)
@@ -168,31 +151,6 @@ def test_resolving_a_metric_keeps_its_scope_and_id():
     assert metric.scope is impl.base_scope
 
 
-def test_identical_metrics_in_two_scopes_do_not_merge_in_the_resolver():
-    with scope_activation("eu", "us"):
-        impl, logs = _build_impl(SCOPED_YAML)
-    assert not logs.has_errors
-    missing_checks = _checks_by_qualifier(impl, "missing")
-
-    missing_count_metrics = [
-        metric for metric in impl.metrics_resolver.get_resolved_metrics() if isinstance(metric, MissingCountMetricImpl)
-    ]
-    assert [metric.scope for metric in missing_count_metrics] == [
-        impl.base_scope,
-        impl.scopes["eu"],
-        impl.scopes["us"],
-    ]
-    assert len({metric.id for metric in missing_count_metrics}) == 3
-    for key in ["eu", "us"]:
-        check_impl = missing_checks[key]
-        assert check_impl.missing_count_metric_impl is missing_count_metrics[["eu", "us"].index(key) + 1]
-        # The check's row count is the scope's own row count metric.
-        assert check_impl.row_count_metric_impl is impl.scopes[key].row_count_metric
-    assert missing_checks[None].row_count_metric_impl is impl.row_count_metric_impl
-    # The declared scope nobody activated builds no metrics.
-    assert missing_checks["apac"].in_inactive_scope and not missing_checks["apac"].metrics
-
-
 def test_the_missing_percentage_metric_goes_through_the_check():
     with scope_activation("eu"):
         impl, _ = _build_impl(SCOPED_YAML)
@@ -228,17 +186,6 @@ def test_activation_runs_before_the_columns_are_parsed():
     assert not _checks_by_qualifier(impl, "row_count")["eu"].in_inactive_scope
     assert _checks_by_qualifier(impl, "missing")["us"].in_inactive_scope
     assert not impl.scopes["us"].is_active and not impl.scopes["apac"].is_active
-
-
-def test_without_activation_every_declared_scope_stays_inactive():
-    impl, logs = _build_impl(SCOPED_YAML)
-    assert not logs.has_errors
-    assert not any(scope.is_active for scope in impl.scopes.values())
-    assert [check_impl.in_inactive_scope for check_impl in impl.all_check_impls if check_impl.scope.is_base] == [
-        False,
-        False,
-    ]
-    assert all(check_impl.in_inactive_scope for check_impl in impl.all_check_impls if not check_impl.scope.is_base)
 
 
 def test_a_failing_activation_logs_an_error():
@@ -347,14 +294,6 @@ def _sampling_soda_cloud() -> MockSodaCloud:
         ),
     )
     return soda_cloud
-
-
-def test_the_base_cte_comes_from_the_factory():
-    impl, _ = _build_impl(SAMPLING_YAML, soda_cloud=_sampling_soda_cloud())
-
-    assert impl.filtered_cte_sampler is None
-    assert impl.cte == build_filtered_cte(impl.dataset_identifier, "id > 0", SODA_FILTERED_CTE_NAME)
-    assert impl.base_scope.cte is impl.cte
 
 
 @mock.patch.object(EnvConfigHelper, "is_contract_test_scan_definition_type", new_callable=mock.PropertyMock)

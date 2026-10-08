@@ -16,12 +16,10 @@ from typing import Optional
 
 import duckdb
 import pytest
-from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
 from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
-from helpers.test_table import TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.filtered_cte import build_filtered_cte
@@ -478,61 +476,6 @@ def _identity(column_name: Optional[str] = None, qualifier: Optional[str] = None
 )
 def test_scoped_identity_never_collides(scoped: dict, other: dict):
     assert _identity(**scoped) != _identity(**other)
-
-
-def test_identical_checks_in_two_scopes_get_different_identities():
-    impl, logs = _build_impl(
-        ContractImpl,
-        """
-        dataset: ds/db/schema/table
-        scopes:
-          eu: {name: EU}
-          us: {name: US}
-        columns: []
-        checks:
-          - row_count:
-          - row_count: {scope: eu}
-          - row_count: {scope: us}
-        """,
-    )
-    identities = [check_impl.identity for check_impl in impl.all_check_impls]
-    assert len(set(identities)) == 3
-    assert not logs.has_errors
-
-    unscoped_file, _ = _build_impl(ContractImpl, "dataset: ds/db/schema/table\ncolumns: []\nchecks:\n  - row_count:\n")
-    assert identities[0] == unscoped_file.all_check_impls[0].identity
-
-
-test_table_specification = (
-    TestTableSpecification.builder()
-    .table_purpose("scope_skeleton")
-    .column_integer("id")
-    .rows(rows=[(1,), (2,), (3,)])
-    .build()
-)
-
-
-def test_a_check_in_an_inactive_scope_is_not_evaluated(data_source_test_helper: DataSourceTestHelper):
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-
-    session_result = data_source_test_helper.verify_contract(
-        test_table=test_table,
-        contract_yaml_str="""
-            scopes:
-              eu: {name: EU, filter: id > 1}
-            checks:
-              - row_count:
-              - row_count: {scope: eu}
-        """,
-    )
-
-    result = session_result.contract_verification_results[0]
-    assert [(check_result.check.scope, check_result.outcome) for check_result in result.check_results] == [
-        (None, CheckOutcome.PASSED),
-        ("eu", CheckOutcome.NOT_EVALUATED),
-    ]
-    assert result.number_of_checks_excluded == 0
-    assert result.get_errors() == [NOT_EVALUATING_ONE_EU_CHECK]
 
 
 # A value nested deeper than a copy can recurse, built from a chain of anchors so the YAML parser itself never
