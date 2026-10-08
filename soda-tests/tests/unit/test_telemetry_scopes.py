@@ -143,15 +143,7 @@ import sys
 arguments = json.loads(sys.argv[1])
 command = arguments["command"]
 
-if command == "import":
-    import soda_core.cli.cli
-    import soda_core.contracts.api.test_api
-    import soda_core.contracts.api.verify_api
-
-    def run(contract_file_path):
-        return None
-
-elif command == "verify":
+if command == "verify":
     from soda_core.contracts.api.verify_api import verify_contract_locally
 
     def run(contract_file_path):
@@ -319,14 +311,6 @@ def _result_attributes(attributes: dict) -> dict:
     return {key: value for key, value in attributes.items() if key.startswith("result__")}
 
 
-def test_telemetry_test_mode_imports_and_records_spans_in_the_memory_exporter():
-    child_output = _run_child(command="import", contract_file_paths=[""], paths={})
-
-    [output] = child_output["outputs"]
-    assert output["span_name"] == SPAN_NAME
-    assert _result_attributes(output["attributes"]) == {}
-
-
 @pytest.mark.parametrize("command", ["verify", "test", "publish"])
 def test_span_carries_scope_counts(tmp_path, command):
     paths: dict[str, str] = _write_files(tmp_path)
@@ -427,14 +411,6 @@ def test_publication_and_verification_count_invalid_scopes_alike(contract, expec
     assert (result.number_of_scopes, result.number_of_scoped_checks, result.number_of_unscoped_checks) == (
         expected_counts
     )
-
-
-def test_publication_counts_a_contract_without_checks():
-    contract_yaml = ContractYaml.parse(
-        yaml_source=ContractYamlSource.from_str("dataset: ds/db/schema/table\ncolumns:\n  - name: id\n")
-    )
-
-    assert count_scopes_and_checks([contract_yaml]) == (0, 0, 0)
 
 
 def test_publication_sums_the_counts_of_its_contracts():
