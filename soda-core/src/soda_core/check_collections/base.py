@@ -56,6 +56,7 @@ from soda_core.contracts.impl.scope import (
     Scope,
     ScopeHandling,
     ScopeYaml,
+    count_scopes_and_scoped_checks,
     scope_key_error,
 )
 
@@ -1266,8 +1267,9 @@ class CheckCollectionImpl:
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
-        scoped_checks_count: int = len(
-            [check_impl for check_impl in self.all_check_impls if not check_impl.scope.is_base]
+        scopes_count, scoped_checks_count, unscoped_checks_count = count_scopes_and_scoped_checks(
+            self.scopes,
+            [None if check_impl.scope.is_base else check_impl.scope.key for check_impl in self.all_check_impls],
         )
 
         verification_result: CheckCollectionResult = self.result_class(
@@ -1294,9 +1296,9 @@ class CheckCollectionImpl:
             log_records=log_records,
             post_processing_stages=post_processing_stages,
             dataset_columns=_find_measured_dataset_columns(check_results),
-            number_of_scopes=len(self.scopes),
+            number_of_scopes=scopes_count,
             number_of_scoped_checks=scoped_checks_count,
-            number_of_unscoped_checks=len(self.all_check_impls) - scoped_checks_count,
+            number_of_unscoped_checks=unscoped_checks_count,
         )
 
         scan_id: Optional[str] = None
