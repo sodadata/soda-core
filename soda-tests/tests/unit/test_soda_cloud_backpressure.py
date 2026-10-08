@@ -11,11 +11,9 @@ from unittest.mock import patch
 
 import duckdb
 import pytest
+from helpers.cli_verify import DEFAULT_CONTRACT_YAML, DEFAULT_DATA_SOURCE_YAML, handle_verify_contract_with_files
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import handle_verify_contract
-from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
-from soda_core.cli.handlers.scan import run_scan
 from soda_core.common import soda_cloud as soda_cloud_module
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import (
@@ -289,21 +287,6 @@ def test_a_re_login_does_not_start_a_new_budget(fake_clock, monkeypatch):
     assert len(mock_cloud.requests) == 5
 
 
-_DATA_SOURCE_YAML = """
-type: duckdb
-name: test_ds
-connection:
-    database: ":memory:"
-    schema: main
-"""
-
-_CONTRACT_YAML = """
-dataset: test_ds/main/my_table
-columns:
-  - name: id
-"""
-
-
 class _CloudBusyOnEveryUpload(MockSodaCloud):
     def _http_handle(self, method, url, headers, json, data):
         # The parent records the request and checks that its body can be serialized, as for any other request.
@@ -318,7 +301,7 @@ def _scan_results_uploads(mock_cloud: MockSodaCloud) -> list:
 def test_results_are_marked_not_sent_when_soda_cloud_stays_busy_past_the_budget(fake_clock, monkeypatch):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     monkeypatch.setenv(DEFERRAL_BUDGET_ENV_VAR, "0")
-    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(_DATA_SOURCE_YAML))
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(DEFAULT_DATA_SOURCE_YAML))
     mock_cloud = _CloudBusyOnEveryUpload()
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
@@ -327,7 +310,7 @@ def test_results_are_marked_not_sent_when_soda_cloud_stays_busy_past_the_budget(
         side_effect=RuntimeError("Invalid access token"),
     ):
         session_result = ContractVerificationSession.execute(
-            contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
+            contract_yaml_sources=[ContractYamlSource.from_str(DEFAULT_CONTRACT_YAML)],
             data_source_impls=[data_source_impl],
             soda_cloud_impl=mock_cloud,
             soda_cloud_publish_results=True,
@@ -335,37 +318,6 @@ def test_results_are_marked_not_sent_when_soda_cloud_stays_busy_past_the_budget(
 
     assert len(_scan_results_uploads(mock_cloud)) == 1
     assert session_result.contract_verification_results[0].sending_results_to_soda_cloud_failed is True
-
-
-def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data_source_yaml: str) -> ExitCode:
-    """The CLI verify flow, wired as in test_contract_marks_scan_failed_on_connection_error.py: a real session
-    and a real duckdb data source, with SodaCloud.from_config returning the given mock, inside run_scan (the
-    place where the CLI marks a scan as failed)."""
-    contract_path = tmp_path / "contract.yaml"
-    contract_path.write_text(_CONTRACT_YAML)
-    data_source_path = tmp_path / "ds.yaml"
-    data_source_path.write_text(data_source_yaml)
-
-    with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
-        soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
-        return run_scan(
-            soda_cloud,
-            lambda logs: handle_verify_contract(
-                contract_file_path=str(contract_path),
-                dataset_identifier=None,
-                data_source_file_paths=[str(data_source_path)],
-                soda_cloud_file_path="sc.yaml",
-                variables={},
-                publish=True,
-                verbose=False,
-                use_runner=False,
-                blocking_timeout_in_minutes=10,
-                check_paths=None,
-                check_selectors=[],
-                diagnostics_warehouse_file_path=None,
-                logs=logs,
-            ),
-        )
 
 
 def test_cli_boundary_deferred_upload_exits_results_not_sent_without_marking_the_scan_failed(
@@ -384,7 +336,7 @@ def test_cli_boundary_deferred_upload_exits_results_not_sent_without_marking_the
     mock_cloud = _CloudBusyOnEveryUpload()
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
-    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml)
+    exit_code = handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert len(_scan_results_uploads(mock_cloud)) == 1
