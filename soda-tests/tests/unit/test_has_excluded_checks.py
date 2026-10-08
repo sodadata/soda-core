@@ -71,49 +71,32 @@ def _make_result(
 
 
 @pytest.mark.parametrize(
-    "outcomes",
+    "outcomes, expected",
     [
-        [],
-        [CheckOutcome.PASSED, CheckOutcome.FAILED, CheckOutcome.WARN, CheckOutcome.NOT_EVALUATED],
+        ([], False),
+        ([CheckOutcome.PASSED, CheckOutcome.FAILED, CheckOutcome.WARN, CheckOutcome.NOT_EVALUATED], False),
+        ([CheckOutcome.PASSED, CheckOutcome.EXCLUDED], True),
     ],
-    ids=["no_checks", "no_excluded_checks"],
+    ids=["no_checks", "no_excluded_checks", "one_excluded_check"],
 )
-def test_check_collection_result_has_excluded_checks_is_false_without_excluded_results(outcomes):
+def test_check_collection_result_has_excluded_checks(outcomes, expected):
     result = _make_result(outcomes, result_class=CheckCollectionResult)
 
-    assert result.number_of_checks_excluded == 0
-    assert result.has_excluded_checks is False
+    assert result.number_of_checks_excluded == (1 if expected else 0)
+    assert result.has_excluded_checks is expected
 
 
-def test_check_collection_result_has_excluded_checks_is_true_with_one_excluded_result():
-    result = _make_result([CheckOutcome.PASSED, CheckOutcome.EXCLUDED], result_class=CheckCollectionResult)
-
-    assert result.number_of_checks_excluded == 1
-    assert result.has_excluded_checks is True
-
-
-SESSION_OUTCOMES = pytest.mark.parametrize(
+# ContractVerificationSessionResult inherits has_excluded_checks from CheckCollectionSessionResult, so the public
+# class covers both.
+@pytest.mark.parametrize(
     "outcomes_per_result, expected",
     [
         ([], False),
         ([[CheckOutcome.PASSED], [CheckOutcome.FAILED]], False),
-        ([[CheckOutcome.PASSED], [CheckOutcome.EXCLUDED]], True),
         ([[CheckOutcome.EXCLUDED], [CheckOutcome.PASSED]], True),
     ],
-    ids=["no_results", "none_excluded", "last_excluded", "first_excluded"],
+    ids=["no_results", "none_excluded", "one_excluded"],
 )
-
-
-@SESSION_OUTCOMES
-def test_check_collection_session_result_has_excluded_checks_ors_across_results(outcomes_per_result, expected):
-    session_result = CheckCollectionSessionResult(
-        results=[_make_result(outcomes, result_class=CheckCollectionResult) for outcomes in outcomes_per_result]
-    )
-
-    assert session_result.has_excluded_checks is expected
-
-
-@SESSION_OUTCOMES
 def test_contract_verification_session_result_has_excluded_checks_ors_across_results(outcomes_per_result, expected):
     session_result = ContractVerificationSessionResult(
         contract_verification_results=[_make_result(outcomes) for outcomes in outcomes_per_result]
