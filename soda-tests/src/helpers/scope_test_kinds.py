@@ -1,6 +1,6 @@
 """Test-only check-collection kinds for scope tests.
 
-``ScopeUnsupportedImpl`` is a kind without scope support that parses its YAML with
+``ScopeUnsupportedImpl`` is a kind with the default ``NoScopeSupport`` that parses its YAML with
 ``ContractYaml``, so ``scopes`` and ``scope`` are read exactly as a data standard reads
 them. It registers on import through ``CheckCollectionImpl.__init_subclass__``.
 """
@@ -17,4 +17,3 @@ class ScopeUnsupportedImpl(CheckCollectionImpl):
     yaml_class = ContractYaml
     result_class = CheckCollectionResult
     requires_collection_id = False
-    supports_scopes = False

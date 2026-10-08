@@ -52,11 +52,6 @@ def _read_field(yaml_object: YamlObject, key: str, written_type: type) -> Any:
     return yaml_object.read_value(key)
 
 
-def read_check_scope(check_yaml_object: YamlObject) -> Any:
-    """A check's ``scope`` as written. A scope key is fixed, so no variable in it is ever resolved."""
-    return check_yaml_object.written_dict.get("scope")
-
-
 class ScheduleYaml:
     """A ``schedule`` mapping, read without validation."""
 
@@ -276,22 +271,94 @@ def unsupported_scopes_error(kind: Optional[str]) -> str:
     return f"Scopes are only supported in contracts, not in kind '{kind}'"
 
 
-def check_scope_input_error(
-    check_yaml_object: YamlObject, scopes: Mapping, kind: Optional[str], supports_scopes: bool
-) -> Optional[str]:
-    """Why a check's scope input, as written in its body, is invalid, or None when the check sets no ``scope``."""
-    written: dict = check_yaml_object.written_dict
-    if not isinstance(written, dict) or "scope" not in written:
-        return None
-    if not supports_scopes:
-        return unsupported_scopes_error(kind)
-    if written["scope"] is None:
-        return "Check 'scope' must name a declared scope, but was null"
-    return check_scope_error(written["scope"], scopes)
-
-
 def log_scope_error(message: str, location: Optional[Location]) -> None:
     logger.error(msg=message, extra={ExtraKeys.LOCATION: location})
+
+
+def _sets_scope(check_yaml_object: Any) -> bool:
+    return (
+        isinstance(check_yaml_object, YamlObject)
+        and isinstance(check_yaml_object.yaml_dict, dict)
+        and ("scope" in check_yaml_object.yaml_dict)
+    )
+
+
+class ScopeHandling:
+    """How a kind of check collection handles scopes. A kind picks one on its impl class as ``scope_support``:
+    ``NoScopeSupport`` by default, ``ScopeSupport`` for contracts. The YAML of the kind and its impl call it, so no
+    code outside this module asks whether a kind supports scopes."""
+
+    def prepare(self, collection_yaml_object: YamlObject, kind: Optional[str]) -> None:
+        """Runs once before the file is parsed."""
+
+    def parse_scopes(self, collection_yaml_object: YamlObject) -> dict[Any, ScopeYaml]:
+        """The declared scopes by key, with an error logged for each rule they break."""
+        return {}
+
+    def check_scope_input_error(self, check_yaml_object: Any, scopes: Mapping, kind: Optional[str]) -> Optional[str]:
+        """Why the ``scope`` a check body sets is invalid, or None when it is valid or the check sets none."""
+        return None
+
+    def validate_check_scope(self, check_yaml: Any, scopes: Mapping, kind: Optional[str]) -> None:
+        """Logs an error for an invalid check ``scope``, once per check."""
+        error: Optional[str] = self.check_scope_input_error(check_yaml.check_yaml_object, scopes, kind)
+        if error:
+            log_scope_error(error, check_scope_location(check_yaml.check_yaml_object))
+        check_yaml.scope_validated = True
+
+    def scope_for(self, check_yaml: Any, base_scope: Scope, scopes: Mapping, kind: Optional[str]) -> Scope:
+        """The scope a check runs in, never None. A check whose scope the YAML did not validate, one an extension
+        parsed itself, is validated here."""
+        if not check_yaml.scope_validated:
+            self.validate_check_scope(check_yaml, scopes, kind)
+        return self._resolve(check_yaml.scope, base_scope, scopes)
+
+    def _resolve(self, scope: Any, base_scope: Scope, scopes: Mapping) -> Scope:
+        return base_scope
+
+
+class NoScopeSupport(ScopeHandling):
+    """The default: ``scopes`` and a check's ``scope`` are parse errors, and every check runs in the base scope."""
+
+    def prepare(self, collection_yaml_object: YamlObject, kind: Optional[str]) -> None:
+        if isinstance(collection_yaml_object, YamlObject) and "scopes" in collection_yaml_object.yaml_dict:
+            log_scope_error(
+                unsupported_scopes_error(kind), collection_yaml_object.create_location_from_yaml_dict_key("scopes")
+            )
+
+    def check_scope_input_error(self, check_yaml_object: Any, scopes: Mapping, kind: Optional[str]) -> Optional[str]:
+        return unsupported_scopes_error(kind) if _sets_scope(check_yaml_object) else None
+
+
+class ScopeSupport(ScopeHandling):
+    """Contracts: declared scopes, and a check that names one runs in it."""
+
+    def prepare(self, collection_yaml_object: YamlObject, kind: Optional[str]) -> None:
+        # A check's scope names a fixed key, so it is read as written: a variable in it stays text and is rejected.
+        if isinstance(collection_yaml_object, YamlObject):
+            collection_yaml_object.yaml_source.unresolved_keys.add("scope")
+
+    def parse_scopes(self, collection_yaml_object: YamlObject) -> dict[Any, ScopeYaml]:
+        scope_yamls: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(collection_yaml_object)
+        validate_scopes(collection_yaml_object)
+        return scope_yamls
+
+    def check_scope_input_error(self, check_yaml_object: Any, scopes: Mapping, kind: Optional[str]) -> Optional[str]:
+        if not _sets_scope(check_yaml_object):
+            return None
+        scope: Any = check_yaml_object.yaml_dict["scope"]
+        if scope is None:
+            return "Check 'scope' must name a declared scope, but was null"
+        return check_scope_error(scope, scopes)
+
+    def _resolve(self, scope: Any, base_scope: Scope, scopes: Mapping) -> Scope:
+        # A value that names no declared scope logged an error and gets an inactive placeholder, so the check is
+        # skipped.
+        if scope is None or scope == BASE_SCOPE_KEY:
+            return base_scope
+        if isinstance(scope, str) and scope in scopes:
+            return scopes[scope]
+        return Scope(key=scope if isinstance(scope, str) and SCOPE_KEY_PATTERN.fullmatch(scope) else INVALID_SCOPE_KEY)
 
 
 def _type_text(value: Any) -> str:

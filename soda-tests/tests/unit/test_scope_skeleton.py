@@ -778,12 +778,12 @@ def test_a_check_scope_cannot_use_a_variable(monkeypatch, scope_value: str, refe
 
     result, uploads = _verify(monkeypatch, yaml_str)
 
+    # A check's 'scope' is never resolved, so the reference only fails as a scope, with no resolver error.
     written = scope_value.strip("'").replace("REF", reference)
-    messages = [UNDECLARED_VARIABLE_MESSAGES[reference]]
     assert result.status == CheckCollectionStatus.ERROR
     assert result.check_results == []
-    assert result.get_errors() == messages + [
+    assert result.get_errors() == [
         f"Check 'scope' cannot use a variable, but was '{written}'. Name a declared scope key"
     ]
-    assert _variable_log_lines(result, uploads) == (messages, [messages])
+    assert _variable_log_lines(result, uploads) == ([], [[]])
     assert _uploaded_checks(uploads) == [[]]

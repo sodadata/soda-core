@@ -51,15 +51,11 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.scope import (
     BASE_SCOPE_KEY,
-    INVALID_SCOPE_KEY,
-    SCOPE_KEY_PATTERN,
+    NoScopeSupport,
     Scope,
+    ScopeHandling,
     ScopeYaml,
-    check_scope_input_error,
-    check_scope_location,
-    log_scope_error,
     scope_key_error,
-    unsupported_scopes_error,
 )
 
 logger: logging.Logger = soda_logger
@@ -382,16 +378,9 @@ class CheckCollectionYaml:
         # never ``None``.
         self.yaml_object: YamlObject = yaml_object if yaml_object is not None else yaml_source.parse()
         self.kind: Optional[str] = self.yaml_object.read_string_opt("kind")
-        # A kind without scope support fails a file that declares scopes.
-        self.supports_scopes: bool = _kind_supports_scopes(self.kind)
-        if (
-            not self.supports_scopes
-            and isinstance(self.yaml_object, YamlObject)
-            and "scopes" in self.yaml_object.yaml_dict
-        ):
-            log_scope_error(
-                unsupported_scopes_error(self.kind), self.yaml_object.create_location_from_yaml_dict_key("scopes")
-            )
+        # How this kind handles scopes, from its impl class. A kind without scopes fails a file that declares them.
+        self.scope_support: ScopeHandling = _scope_support_for_kind(self.kind)
+        self.scope_support.prepare(self.yaml_object, self.kind)
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 
@@ -413,14 +402,13 @@ class CheckCollectionYaml:
         )
 
 
-def _kind_supports_scopes(kind: Optional[str]) -> bool:
-    """``supports_scopes`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
+def _scope_support_for_kind(kind: Optional[str]) -> ScopeHandling:
+    """``scope_support`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
     as ``contract`` when the file names no kind. A kind nobody registered supports no scopes."""
     try:
-        impl_class = CheckCollectionImpl.for_kind(kind or "contract")
+        return CheckCollectionImpl.for_kind(kind or "contract").scope_support
     except ValueError:
-        return False
-    return impl_class.supports_scopes
+        return NoScopeSupport()
 
 
 def _resolve_data_timestamp_str(
@@ -493,10 +481,8 @@ class CheckCollectionImpl:
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
     session_log_records: tuple[LogRecord, ...] = ()
-    # Whether this kind runs declared scopes. Read it from the class, as
-    # ``type(impl).supports_scopes``. In a kind without support, ``scopes`` and
-    # a check's ``scope`` are parse errors.
-    supports_scopes: bool = False
+    # How this kind handles scopes. By default ``scopes`` and a check's ``scope`` are parse errors.
+    scope_support: ScopeHandling = NoScopeSupport()
     # Defaults for stubs that skip ``__init__``; real instances overwrite both.
     base_scope: Optional[Scope] = None
     scopes: Mapping[str, Scope] = MappingProxyType({})
@@ -862,25 +848,8 @@ class CheckCollectionImpl:
         return None
 
     def scope_for(self, check_yaml) -> Scope:
-        """The scope a check runs in, never None.
-
-        A check without ``scope`` runs in the base scope. A value that names no declared scope logged an error,
-        and gets an inactive placeholder that is not stored in ``self.scopes``, so the check is skipped.
-        """
-        raw = check_yaml.scope
-        # ContractYaml validates the checks it parses. This reports the checks an extension parsed itself.
-        check_yaml_object = check_yaml.check_yaml_object
-        if not check_yaml.scope_validated and isinstance(check_yaml_object, YamlObject):
-            error: Optional[str] = check_scope_input_error(
-                check_yaml_object, self.scopes, self.kind, type(self).supports_scopes
-            )
-            if error:
-                log_scope_error(error, check_scope_location(check_yaml_object))
-        if raw is None or raw == BASE_SCOPE_KEY:
-            return self.base_scope
-        if isinstance(raw, str) and raw in self.scopes:
-            return self.scopes[raw]
-        return Scope(key=raw if isinstance(raw, str) and SCOPE_KEY_PATTERN.fullmatch(raw) else INVALID_SCOPE_KEY)
+        """The scope a check runs in, never None. See ``ScopeHandling.scope_for``."""
+        return type(self).scope_support.scope_for(check_yaml, self.base_scope, self.scopes, self.kind)
 
     def count_checks_excluded_for_their_scope(self) -> int:
         """The checks in a declared scope that is not active. They are skipped and report EXCLUDED."""

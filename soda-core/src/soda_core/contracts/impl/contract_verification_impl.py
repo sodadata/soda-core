@@ -45,7 +45,7 @@ from soda_core.contracts.impl.contract_yaml import (
     normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
-from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope, ScopeHandling, ScopeSupport
 
 logger: logging.Logger = soda_logger
 
@@ -553,8 +553,8 @@ class ContractImpl(CheckCollectionImpl):
     # backend's contract ingestion path doesn't route by
     # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
     requires_collection_id: bool = False
-    # Contracts run declared scopes; see CheckCollectionImpl.supports_scopes.
-    supports_scopes: bool = True
+    # Contracts run declared scopes; see CheckCollectionImpl.scope_support.
+    scope_support: ScopeHandling = ScopeSupport()
 
     # Per-kind extension override slot. Global extensions live on the
     # ``CheckCollectionImpl`` base and apply to every kind; this dict is the

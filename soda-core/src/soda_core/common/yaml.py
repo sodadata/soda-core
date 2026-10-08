@@ -95,6 +95,8 @@ class YamlSource:
         self.resolve_on_read_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_soda_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
+        # Keys whose values are read as written, never with their variables resolved.
+        self.unresolved_keys: set[str] = set()
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -259,7 +261,7 @@ class YamlValue:
     def __init__(self, yaml_source: YamlSource) -> None:
         self.yaml_source: YamlSource = yaml_source
 
-    def yaml_wrap(self, value: any, location: Optional[Location] = None):
+    def yaml_wrap(self, value: any, location: Optional[Location] = None, resolve: bool = True):
         # Resolve variables on read if configured to do so.
         # Only resolve one level deep in dicts and lists, we are not building a full template engine here.
 
@@ -276,14 +278,12 @@ class YamlValue:
         if isinstance(wrapped_value, dict):
             if self.yaml_source.resolve_on_read:
                 for k, v in wrapped_value.items():
-                    if isinstance(v, str):
+                    if isinstance(v, str) and k not in self.yaml_source.unresolved_keys:
                         wrapped_value[k] = self._resolve_variable(
                             source_text=v,
                             location=location,
                         )
-            yaml_object = YamlObject(yaml_source=self.yaml_source, yaml_dict=wrapped_value)
-            yaml_object.written_dict = value
-            return yaml_object
+            return YamlObject(yaml_source=self.yaml_source, yaml_dict=wrapped_value)
         elif isinstance(wrapped_value, list):
             if self.yaml_source.resolve_on_read:
                 for i in range(0, len(wrapped_value)):
@@ -294,7 +294,7 @@ class YamlValue:
                             location=location,
                         )
             return YamlList(yaml_source=self.yaml_source, yaml_list=wrapped_value)
-        elif isinstance(wrapped_value, str) and self.yaml_source.resolve_on_read:
+        elif isinstance(wrapped_value, str) and self.yaml_source.resolve_on_read and resolve:
             wrapped_value = self._resolve_variable(
                 source_text=wrapped_value,
                 location=location,
@@ -332,8 +332,6 @@ class YamlObject(YamlValue):
     def __init__(self, yaml_source: YamlSource, yaml_dict: dict) -> None:
         super().__init__(yaml_source)
         self.yaml_dict: dict = yaml_dict
-        # The mapping as written in the file, before a read resolved the variables in its values.
-        self.written_dict: dict = yaml_dict
         self.location: Optional[Location] = get_location(self.yaml_dict, yaml_source.file_path)
 
     def items(self) -> list[tuple]:
@@ -534,7 +532,7 @@ class YamlObject(YamlValue):
             )
             value = None
 
-        return self.yaml_wrap(value, location=location)
+        return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
