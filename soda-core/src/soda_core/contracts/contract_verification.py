@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
+from logging import LogRecord
 from numbers import Number
 from typing import Any, Optional, Union
 
@@ -495,8 +496,12 @@ class ContractVerificationSessionResult(CheckCollectionSessionResult):
     @param contract_verification_results: The list of contract verification results.
     """
 
-    def __init__(self, contract_verification_results: list[ContractVerificationResult]):
-        super().__init__(results=contract_verification_results)
+    def __init__(
+        self,
+        contract_verification_results: list[ContractVerificationResult],
+        session_log_records: Optional[list[LogRecord]] = None,
+    ):
+        super().__init__(results=contract_verification_results, session_log_records=list(session_log_records or []))
 
     @property
     def contract_verification_results(self) -> list[ContractVerificationResult]:

@@ -74,7 +74,9 @@ class _FakeResult(CheckCollectionResult):
     """Sentinel result subclass — same shape as ``CheckCollectionResult``."""
 
 
-def _make_result(label: str, log_records: list) -> _FakeResult:
+def _make_result(
+    label: str, log_records: list, status: CheckCollectionStatus = CheckCollectionStatus.PASSED
+) -> _FakeResult:
     now = datetime.now(tz=timezone.utc)
     return _FakeResult(
         check_collection=Contract(
@@ -92,7 +94,7 @@ def _make_result(label: str, log_records: list) -> _FakeResult:
         data_timestamp=now,
         started_timestamp=now,
         ended_timestamp=now,
-        status=CheckCollectionStatus.PASSED,
+        status=status,
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
@@ -107,7 +109,9 @@ class _LoggingImpl(CheckCollectionImpl):
     Mirrors the parts of ``CheckCollectionImpl.__init__`` / ``verify()`` that
     matter for capture, without a data source: it owns its ``Logs`` (when
     ``logs=None``), labels that Logs (so records are stamped at emit), emits a
-    construction line, and on verify() emits a line and pops the records.
+    construction line, and on verify() emits a line and pops the records. A
+    label starting with ``erroring`` emits its verify line at ERROR, and the
+    status comes from the impl's own Logs, as in ``CheckCollectionImpl.verify()``.
     """
 
     kind = _LOGGING_KIND
@@ -134,8 +138,12 @@ class _LoggingImpl(CheckCollectionImpl):
         return self._label
 
     def verify(self) -> _FakeResult:
-        soda_logger.info(f"verify-{self._label}")
-        return _make_result(self._label, self.logs.get_log_records())
+        if self._label.startswith("erroring"):
+            soda_logger.error(f"verify-{self._label}")
+        else:
+            soda_logger.info(f"verify-{self._label}")
+        status = CheckCollectionStatus.ERROR if self.logs.has_errors else CheckCollectionStatus.PASSED
+        return _make_result(self._label, self.logs.get_log_records(), status)
 
 
 class _RaisingConstructImpl(CheckCollectionImpl):
@@ -285,3 +293,72 @@ def test_failed_construction_leaves_capture_intact_for_siblings(_isolate_logging
     assert {r.thread for r in session_result.results[2].log_records} == {f"{_WIRE_SOURCE}.ok-2"}
     # No per-construction handler accumulation on the root logger.
     assert len(logging.root.handlers) == handler_count_before
+
+
+def _run_two_collections_with_caller_logs(caller_logs: Logs) -> list[_FakeResult]:
+    sources = [_LabelledSource("erroring-a"), _LabelledSource("b")]
+    session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None, logs=caller_logs)
+    return session_result.results
+
+
+def test_caller_logs_session_keeps_each_collection_status_and_records(_isolate_logging):
+    """With a caller ``Logs``, one collection's error must not set a sibling's
+    status, and each result carries only its own records, labelled for it."""
+    results = _run_two_collections_with_caller_logs(Logs())
+
+    assert [r.status for r in results] == [CheckCollectionStatus.ERROR, CheckCollectionStatus.PASSED]
+    assert _messages(results[0]) == ["construct-erroring-a", "verify-erroring-a"]
+    assert _messages(results[1]) == ["construct-b", "verify-b"]
+    for result in results:
+        label = result.check_collection.dataset_name
+        assert {record.thread for record in result.log_records} == {f"{_WIRE_SOURCE}.{label}"}
+
+    payload = _build_check_collection_results_json_dict(results, wire_source=_WIRE_SOURCE)
+    assert sorted((log["message"], log["thread"]) for log in payload["logs"]) == [
+        ("construct-b", f"{_WIRE_SOURCE}.b"),
+        ("construct-erroring-a", f"{_WIRE_SOURCE}.erroring-a"),
+        ("verify-b", f"{_WIRE_SOURCE}.b"),
+        ("verify-erroring-a", f"{_WIRE_SOURCE}.erroring-a"),
+    ]
+
+
+def test_caller_logs_see_every_collection_record_once(_isolate_logging):
+    """The caller's ``Logs`` gets each collection's records exactly once, with
+    the collection's label, and keeps no collection's label for what it logs
+    after the session."""
+    caller_logs = Logs()
+    _run_two_collections_with_caller_logs(caller_logs)
+    soda_logger.info("after-session")
+
+    records = caller_logs.get_log_records()
+    assert [(record.getMessage(), record.thread) for record in records[:-1]] == [
+        ("construct-erroring-a", f"{_WIRE_SOURCE}.erroring-a"),
+        ("construct-b", f"{_WIRE_SOURCE}.b"),
+        ("verify-erroring-a", f"{_WIRE_SOURCE}.erroring-a"),
+        ("verify-b", f"{_WIRE_SOURCE}.b"),
+    ]
+    assert records[-1].getMessage() == "after-session"
+    assert records[-1].thread not in {f"{_WIRE_SOURCE}.erroring-a", f"{_WIRE_SOURCE}.b"}
+
+
+def test_combined_payload_carries_a_record_logged_before_the_session_once(_isolate_logging):
+    """What the caller logged before the session goes into the combined upload once,
+    ahead of the collections' own records, and its error sets ``hasErrors``."""
+    caller_logs = Logs()
+    soda_logger.error("before-session")
+    session_result = execute_check_collections(
+        yaml_sources=[_LabelledSource("a"), _LabelledSource("b")], data_source_impl=None, logs=caller_logs
+    )
+
+    payload = _build_check_collection_results_json_dict(
+        session_result.results, wire_source=_WIRE_SOURCE, session_log_records=session_result.session_log_records
+    )
+    assert [log["message"] for log in payload["logs"]] == [
+        "before-session",
+        "construct-a",
+        "verify-a",
+        "construct-b",
+        "verify-b",
+    ]
+    assert [log["index"] for log in payload["logs"]] == [0, 1, 2, 3, 4]
+    assert payload["hasErrors"] is True
