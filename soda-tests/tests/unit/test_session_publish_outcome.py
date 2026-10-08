@@ -275,7 +275,11 @@ class _UnbuildableImpl(_OutcomeImpl):
 
 
 def _verify(
-    monkeypatch, labels: list[str], managed: bool, soda_cloud: Optional[_SodaCloud] = None
+    monkeypatch,
+    labels: list[str],
+    managed: bool,
+    soda_cloud: Optional[_SodaCloud] = None,
+    logs: Optional[Logs] = None,
 ) -> tuple[list[CheckCollectionResult], ExitCode, _SodaCloud]:
     _set_scan_id(monkeypatch, managed)
     soda_cloud = soda_cloud if soda_cloud is not None else _SodaCloud()
@@ -285,6 +289,7 @@ def _verify(
         soda_cloud_impl=soda_cloud,
         publish_results=True,
         default_impl_class=_OutcomeImpl,
+        logs=logs,
     )
     return session_result.results, session_result_to_exit_code(session_result), soda_cloud
 
@@ -406,6 +411,26 @@ def test_errors_with_nothing_evaluated_mark_a_managed_scan_failed(monkeypatch, l
             assert f"Built {label}" in _log_messages(mark)
     assert exit_code == ExitCode.LOG_ERRORS
     assert not any(result.sending_results_to_soda_cloud_failed for result in results)
+
+
+@pytest.mark.parametrize(
+    "labels, command_type",
+    [
+        (["healthy-a", "healthy-b"], "sodaCoreInsertScanResults"),
+        (["unparseable-a", "excluded-b"], "sodaCoreMarkScanFailed"),
+    ],
+    ids=["combined_insert", "failure_mark"],
+)
+def test_a_record_logged_before_the_session_goes_up_once(monkeypatch, labels: list[str], command_type: str):
+    """What the caller logged before a multi-file session belongs to no one file. The combined
+    insert and the failure mark each carry it once, ahead of the files' own records."""
+    caller_logs = Logs()
+    soda_logger.warning("before-session")
+    _, _, soda_cloud = _verify(monkeypatch, labels, managed=True, logs=caller_logs)
+
+    [command] = soda_cloud.requests_of_type(command_type)
+    assert _log_messages(command)[0] == "before-session"
+    assert _log_messages(command).count("before-session") == 1
 
 
 def test_rejected_mark_of_errors_with_nothing_evaluated_exits_results_not_sent(monkeypatch):

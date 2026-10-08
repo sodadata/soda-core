@@ -1409,7 +1409,9 @@ class CheckCollectionImpl:
             # After an insert that may have landed, a 5xx or a timeout, or after an earlier file
             # of the session reached the scan, there is no mark: it would turn a completed scan
             # FAILED and replace its logs.
-            self.soda_cloud.mark_scan_as_failed(scan_id=self.soda_config.soda_scan_id, logs=log_records)
+            self.soda_cloud.mark_scan_as_failed(
+                scan_id=self.soda_config.soda_scan_id, logs=[*self.session_log_records, *(log_records or [])]
+            )
 
         # Post-processing handlers. For combine-upload subtypes, defer to
         # the session executor — handlers need the scan_id and

@@ -370,6 +370,7 @@ def execute_check_collections(
                 results=upload + stand_ins,
                 wire_source=wire_source,
                 scan_definition_suffix=suffix_by_wire_source[wire_source],
+                session_log_records=pre_session_records,
             )
             uploaded_ids.update(id(result) for result in upload)
 
@@ -380,6 +381,7 @@ def execute_check_collections(
                 all_results=results,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_scan_id=soda_scan_id,
+                session_log_records=pre_session_records,
             )
 
     # Post-processing handlers — combine-upload subtypes. The non-combine path
@@ -597,6 +599,7 @@ def _mark_scan_failed(
     all_results: list[CheckCollectionResult],
     soda_cloud_impl: SodaCloud,
     soda_scan_id: str,
+    session_log_records: list[LogRecord],
 ) -> None:
     """Report a managed scan as FAILED, at most once, for the session's combined uploads.
 
@@ -623,7 +626,7 @@ def _mark_scan_failed(
         # RESULTS_NOT_SENT_TO_CLOUD, and the scan is not marked a second time.
         soda_cloud_impl.mark_scan_as_failed(
             scan_id=soda_scan_id,
-            logs=_distinct_log_records(all_results),
+            logs=_session_and_result_log_records(session_log_records, all_results),
             exc=next((result.error for result in all_results if result.error is not None), None),
         )
         return
@@ -643,7 +646,7 @@ def _mark_scan_failed(
     first_errored.scan_id = soda_scan_id
     marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
         scan_id=soda_scan_id,
-        logs=_distinct_log_records(results_to_mark_failed),
+        logs=_session_and_result_log_records(session_log_records, results_to_mark_failed),
         exc=first_errored.error,
     )
     if not marked_as_failed:
@@ -652,16 +655,14 @@ def _mark_scan_failed(
         first_errored.sending_results_to_soda_cloud_failed = True
 
 
-def _distinct_log_records(results: list[CheckCollectionResult]) -> list[LogRecord]:
-    """Every result's records in order, each once: a record the caller logged before
-    the session sits in every file's records."""
-    log_records: list[LogRecord] = []
-    seen_ids: set[int] = set()
+def _session_and_result_log_records(
+    session_log_records: list[LogRecord], results: list[CheckCollectionResult]
+) -> list[LogRecord]:
+    """The session's own records, then every result's, in order. No record sits in two
+    of them: a file's Logs holds only that file's records."""
+    log_records: list[LogRecord] = list(session_log_records)
     for result in results:
-        for log_record in result.log_records or []:
-            if id(log_record) not in seen_ids:
-                seen_ids.add(id(log_record))
-                log_records.append(log_record)
+        log_records.extend(result.log_records or [])
     return log_records
 
 
