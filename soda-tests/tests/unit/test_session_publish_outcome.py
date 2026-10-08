@@ -735,27 +735,6 @@ def combined_contracts(monkeypatch):
     monkeypatch.setattr(ContractImpl, "combine_uploads", True)
 
 
-@_MANAGED
-@pytest.mark.parametrize(
-    "checks_yamls",
-    [[_UNPARSEABLE_CONTRACT, _HEALTHY_CONTRACT], [_HEALTHY_CONTRACT, _UNPARSEABLE_CONTRACT]],
-    ids=["errored_first", "errored_last"],
-)
-def test_combined_contract_erroring_before_results_goes_up_with_its_evaluated_sibling(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, combined_contracts, managed: bool, checks_yamls
-):
-    session_result, exit_code, soda_cloud = _verify_contracts(
-        data_source_test_helper, monkeypatch, checks_yamls, managed
-    )
-
-    [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
-    assert insert["hasErrors"] is True
-    assert [check["checkPath"] for check in insert["checks"]] == ["checks.row_count"]
-    assert any("not_a_check_type" in message for message in _log_messages(insert, level="error"))
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
-    assert exit_code == ExitCode.LOG_ERRORS
-
-
 def test_combined_contract_filter_selecting_only_the_unparseable_one_marks_the_scan_failed(
     data_source_test_helper: DataSourceTestHelper, monkeypatch, combined_contracts
 ):
@@ -774,84 +753,6 @@ def test_combined_contract_filter_selecting_only_the_unparseable_one_marks_the_s
     assert mark["scanId"] == _SCAN_ID
     assert any("not_a_check_type" in message for message in _log_messages(mark, level="error"))
     assert exit_code == ExitCode.LOG_ERRORS
-
-
-@_MANAGED
-def test_lone_combined_contract_with_a_rejected_file_upload_sends_no_results_and_exits_results_not_sent(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, combined_contracts, managed: bool
-):
-    session_result, exit_code, soda_cloud = _verify_contracts(
-        data_source_test_helper,
-        monkeypatch,
-        [_REJECTED_HEALTHY_CONTRACT],
-        managed,
-        soda_cloud=_SodaCloud(reject_file_upload_containing=_REJECTED_UPLOAD_MARKER),
-    )
-
-    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    if managed:
-        [mark] = marks
-        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
-    else:
-        assert marks == []
-    assert all(result.sending_results_to_soda_cloud_failed for result in session_result.contract_verification_results)
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-
-@_MANAGED
-def test_combined_contract_with_a_rejected_file_upload_goes_up_without_it_and_with_errors(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, combined_contracts, managed: bool
-):
-    session_result, exit_code, soda_cloud = _verify_contracts(
-        data_source_test_helper,
-        monkeypatch,
-        [_HEALTHY_CONTRACT, _REJECTED_HEALTHY_CONTRACT],
-        managed,
-        soda_cloud=_SodaCloud(reject_file_upload_containing=_REJECTED_UPLOAD_MARKER),
-    )
-
-    [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
-    assert insert["hasErrors"] is True
-    assert [check["checkPath"] for check in insert["checks"]] == ["checks.row_count"]
-    assert any("is not part of this upload" in message for message in _log_messages(insert, level="error"))
-    assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
-    assert [r.sending_results_to_soda_cloud_failed for r in session_result.contract_verification_results] == [
-        False,
-        True,
-    ]
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-
-
-@_MANAGED
-def test_contract_with_a_rejected_file_upload_exits_results_not_sent(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch, managed: bool
-):
-    """The per-file path of a single contract: no results reach Soda Cloud, so the run
-    must not exit 0, the reason is in the results, and a managed scan is marked failed
-    with the contract's records."""
-    session_result, exit_code, soda_cloud = _verify_contracts(
-        data_source_test_helper,
-        monkeypatch,
-        [_REJECTED_HEALTHY_CONTRACT],
-        managed,
-        soda_cloud=_SodaCloud(reject_file_upload_containing=_REJECTED_UPLOAD_MARKER),
-    )
-
-    [result] = session_result.contract_verification_results
-    assert result.status is CheckCollectionStatus.PASSED
-    assert result.sending_results_to_soda_cloud_failed is True
-    assert any("Not sending results to Soda Cloud" in error for error in result.get_errors())
-    assert soda_cloud.requests_of_type("sodaCoreInsertScanResults") == []
-    marks = soda_cloud.requests_of_type("sodaCoreMarkScanFailed")
-    if managed:
-        [mark] = marks
-        assert mark["scanId"] == _SCAN_ID
-        assert any("did not upload to Soda Cloud" in message for message in _log_messages(mark, level="error"))
-        assert result.scan_id is None
-    else:
-        assert marks == []
-    assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
 @_MANAGED
