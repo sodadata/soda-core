@@ -186,10 +186,7 @@ class CheckSelector:
         return items
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
-        """Compare values. Uses fnmatch if selector_value contains wildcards."""
-        # Escape '[' so fnmatch treats it literally — only * and ? are wildcards
-        escaped = selector_value.replace("[", "[[]")
-        return fnmatch.fnmatchcase(check_value, escaped)
+        return value_matches(check_value, selector_value)
 
     @staticmethod
     def all_match(selectors: list[CheckSelector], check_impl) -> bool:
@@ -214,6 +211,12 @@ class CheckSelector:
             if any(s.matches(check_impl) for s in negated):
                 return False
         return True
+
+
+def value_matches(check_value: str, selector_value: str) -> bool:
+    """Whether a check filter value matches ``check_value``. Only ``*`` and ``?`` are wildcards: ``[`` is escaped
+    so fnmatch reads it literally."""
+    return fnmatch.fnmatchcase(check_value, selector_value.replace("[", "[[]"))
 
 
 # Help for -cf/--check-filter, shared by every CLI that takes check filters.

@@ -12,12 +12,16 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
-import fnmatch
 from datetime import datetime
 from logging import LogRecord
 from typing import Optional, Union
 
-from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
+from soda_core.check_collections.base import (
+    CheckCollectionImpl,
+    CheckCollectionResult,
+    CheckCollectionSessionResult,
+    describe_construct_failure,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -26,6 +30,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.contracts.impl.check_selector import value_matches
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
@@ -555,11 +560,8 @@ def _raise_if_combined_session_spans_multiple_datasets(
 
 def _matches_a_known_scope_key(value: str, known_keys: set[str]) -> bool:
     """Whether a ``scope`` filter value names a known key, or as a pattern matches one, the way a check filter
-    matches it: only ``*`` and ``?`` are wildcards."""
-    if "*" not in value and "?" not in value:
-        return value in known_keys
-    pattern: str = value.replace("[", "[[]")
-    return any(fnmatch.fnmatchcase(key, pattern) for key in known_keys)
+    matches it."""
+    return any(value_matches(key, value) for key in known_keys)
 
 
 def raise_if_unknown_scope_keys(
@@ -605,12 +607,7 @@ def raise_if_unknown_scope_keys(
 
     for impl, _impl_class, construct_exc, yaml_source in constructed:
         if impl is None and construct_exc is not None:
-            # The same text ``build_error_result`` logs for a construct failure.
-            source_description = getattr(yaml_source, "file_path", None) or getattr(yaml_source, "description", None)
-            message = str(construct_exc) or type(construct_exc).__name__
-            locates_itself = bool(source_description) and str(source_description) in message
-            location = f", in {source_description}" if source_description and not locates_itself else ""
-            logger.error(f"{message}{location}")
+            logger.error(describe_construct_failure(construct_exc, yaml_source))
 
     # A scope is no list, so '[eu,us]' is read as one key. Repeating the filter selects several scopes.
     list_hint: str = (
