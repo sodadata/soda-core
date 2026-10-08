@@ -84,6 +84,26 @@ def _find_measured_dataset_columns(check_results: list[CheckResult]) -> Optional
     return None
 
 
+def count_check_outcomes(check_results: list[CheckResult]) -> dict[CheckOutcome, int]:
+    """Counts the check results per outcome, for the summary table of a run.
+
+    Raises ``ValueError`` on an outcome this function does not count, so a new ``CheckOutcome`` fails loudly
+    here instead of going missing from the summary.
+    """
+    counts: dict[CheckOutcome, int] = {
+        CheckOutcome.PASSED: 0,
+        CheckOutcome.FAILED: 0,
+        CheckOutcome.WARN: 0,
+        CheckOutcome.NOT_EVALUATED: 0,
+        CheckOutcome.EXCLUDED: 0,
+    }
+    for check_result in check_results:
+        if check_result.outcome not in counts:
+            raise ValueError(f"Cannot count check outcome {check_result.outcome!r} of '{check_result.check.name}'")
+        counts[check_result.outcome] += 1
+    return counts
+
+
 @dataclass
 class CheckCollectionResult:
     """Result of verifying one check-collection file.
@@ -1214,24 +1234,13 @@ class CheckCollectionImpl:
 
         summary_lines: list[str] = []
 
-        failed_count: int = 0
-        warned_count: int = 0
-        not_evaluated_count: int = 0
-        passed_count: int = 0
-        excluded_count: int = 0
-
-        for check_result in check_results:
-            if check_result.is_failed:
-                failed_count += 1
-            elif check_result.is_not_evaluated:
-                not_evaluated_count += 1
-            elif check_result.is_passed:
-                passed_count += 1
-            elif check_result.is_warned:
-                warned_count += 1
-            elif check_result.is_excluded:
-                excluded_count += 1
-        total_count: int = failed_count + not_evaluated_count + passed_count + warned_count + excluded_count
+        outcome_counts: dict[CheckOutcome, int] = count_check_outcomes(check_results)
+        failed_count: int = outcome_counts[CheckOutcome.FAILED]
+        warned_count: int = outcome_counts[CheckOutcome.WARN]
+        not_evaluated_count: int = outcome_counts[CheckOutcome.NOT_EVALUATED]
+        passed_count: int = outcome_counts[CheckOutcome.PASSED]
+        excluded_count: int = outcome_counts[CheckOutcome.EXCLUDED]
+        total_count: int = sum(outcome_counts.values())
 
         error_count: int = len(self.logs.get_errors())
 
