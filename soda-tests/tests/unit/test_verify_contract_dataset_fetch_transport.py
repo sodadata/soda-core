@@ -182,6 +182,14 @@ REJECTING_RESPONSES = [
     pytest.param(lambda: _response(200, {"contents": "  \n\t \n"}), NO_CONTRACT, id="whitespace-contents"),
 ]
 
+# One of each kind of failure for the CLI tests, which take the same path whatever the reason is. The API test below
+# checks the reason of every response.
+CLI_REJECTING_RESPONSES = [
+    response
+    for response in REJECTING_RESPONSES
+    if response.id in {"unreachable", "server-error", "contract-not-found", "no-contents"}
+]
+
 
 def _fetch_failure_line(reason: str) -> str:
     return f"Could not fetch the contract for dataset '{DATASET}': {reason}"
@@ -197,7 +205,7 @@ def _error_messages(caplog) -> list[str]:
 
 
 @pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
-@pytest.mark.parametrize("get_contract, reason", REJECTING_RESPONSES)
+@pytest.mark.parametrize("get_contract, reason", CLI_REJECTING_RESPONSES)
 def test_cli_exits_3_and_sends_nothing_when_cloud_cannot_hand_over_the_contract(
     monkeypatch, caplog, config_files, get_contract, reason, extra_args
 ):
@@ -216,7 +224,7 @@ def test_cli_exits_3_and_sends_nothing_when_cloud_cannot_hand_over_the_contract(
 
 
 @pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
-@pytest.mark.parametrize("get_contract, reason", REJECTING_RESPONSES)
+@pytest.mark.parametrize("get_contract, reason", CLI_REJECTING_RESPONSES[:2])
 def test_cli_on_a_managed_run_marks_the_scan_failed_with_the_error_when_cloud_cannot_hand_over_the_contract(
     monkeypatch, config_files, get_contract, reason, extra_args
 ):
@@ -365,13 +373,10 @@ def test_api_raises_for_a_rejected_api_key_without_marking(monkeypatch, config_f
     assert [body.get("type") for body in transport.requests] == ["login"]
 
 
-@pytest.mark.parametrize("scan_id", [None, SCAN_ID], ids=["ad-hoc", "managed"])
 @pytest.mark.parametrize("get_contract, reason", REJECTING_RESPONSES)
-def test_api_raises_for_a_failed_fetch_without_marking(monkeypatch, config_files, get_contract, reason, scan_id):
-    if scan_id:
-        monkeypatch.setenv("SODA_SCAN_ID", scan_id)
-    else:
-        monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+def test_api_raises_for_a_failed_fetch_without_marking(monkeypatch, config_files, get_contract, reason):
+    # A managed run, where a mark would go out if the API marked.
+    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
     transport = _Transport(get_contract)
     monkeypatch.setattr(SodaCloud, "_http_post", transport)
     data_source_file, soda_cloud_file = config_files

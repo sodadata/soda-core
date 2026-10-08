@@ -52,10 +52,9 @@ def _fetch_failures() -> list:
     ]
 
 
+# The transport tests cover every empty form Soda Cloud can send.
 EMPTY_CONTRACTS = [
     pytest.param(None, id="none"),
-    pytest.param("", id="empty"),
-    pytest.param("\n", id="newline"),
     pytest.param("  \n\t \n", id="whitespace"),
 ]
 
