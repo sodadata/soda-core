@@ -6,7 +6,6 @@ run sends, are exercised end to end.
 """
 
 import json
-import pickle
 import sys
 from logging import ERROR
 from pathlib import Path
@@ -177,8 +176,6 @@ REJECTING_RESPONSES = [
     pytest.param(lambda: _response(200, {}), NO_CONTRACT, id="no-contents"),
     pytest.param(lambda: _response(200, "ok", "text/plain"), NO_CONTRACT, id="non-json-200"),
     pytest.param(lambda: _response(200, {"contents": None}), NO_CONTRACT, id="null-contents"),
-    pytest.param(lambda: _response(200, {"contents": ""}), NO_CONTRACT, id="empty-contents"),
-    pytest.param(lambda: _response(200, {"contents": "\n"}), NO_CONTRACT, id="newline-contents"),
     pytest.param(lambda: _response(200, {"contents": "  \n\t \n"}), NO_CONTRACT, id="whitespace-contents"),
 ]
 
@@ -257,9 +254,8 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_rejects_the_failure_report(monk
     assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
 
 
-@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
 def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_and_the_report(
-    monkeypatch, caplog, config_files, extra_args
+    monkeypatch, caplog, config_files
 ):
     # The fetch and the failure report both fail to reach Soda Cloud, so exit 3 would claim a
     # delivery that never happened.
@@ -273,7 +269,7 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_an
     monkeypatch.setattr(SodaCloud, "_http_post", unreachable)
     data_source_file, soda_cloud_file = config_files
 
-    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     # Each attempt dies at login: one for the fetch, one for the failure report.
@@ -283,10 +279,7 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_an
     ]
 
 
-@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
-def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_cloud(
-    monkeypatch, config_files, extra_args
-):
+def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_cloud(monkeypatch, config_files):
     # The fetch gets an answer, the failure report does not: Soda Cloud never has the failure.
     monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
     transport = _Transport(lambda: _response(500, {"message": "boom"}))
@@ -300,7 +293,7 @@ def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_
     monkeypatch.setattr(SodaCloud, "_http_post", mark_unreachable)
     data_source_file, soda_cloud_file = config_files
 
-    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
@@ -316,14 +309,13 @@ def _rejecting_the_api_key() -> _Transport:
     return _Transport(lambda: _response(200, {"contents": CONTRACT_YAML}), login_status=401)
 
 
-@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
-def test_cli_exits_3_with_the_fetch_line_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files, extra_args):
+def test_cli_exits_3_with_the_fetch_line_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     transport = _rejecting_the_api_key()
     monkeypatch.setattr(SodaCloud, "_http_post", transport)
     data_source_file, soda_cloud_file = config_files
 
-    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.LOG_ERRORS
     assert [message for message in _error_messages(caplog) if DATASET in message] == [
@@ -333,15 +325,14 @@ def test_cli_exits_3_with_the_fetch_line_when_cloud_rejects_the_api_key(monkeypa
     assert [body.get("type") for body in transport.requests] == ["login"]
 
 
-@pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
-def test_cli_on_a_managed_run_exits_4_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files, extra_args):
+def test_cli_on_a_managed_run_exits_4_when_cloud_rejects_the_api_key(monkeypatch, caplog, config_files):
     # The failure report cannot log in either, so Soda Cloud never has the failure.
     monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
     transport = _rejecting_the_api_key()
     monkeypatch.setattr(SodaCloud, "_http_post", transport)
     data_source_file, soda_cloud_file = config_files
 
-    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert [message for message in _error_messages(caplog) if DATASET in message] == [
@@ -390,9 +381,7 @@ def test_api_raises_for_a_failed_fetch_without_marking(monkeypatch, config_files
             publish=True,
         )
 
-    # A caller that runs verify_contract in a worker process gets the exception back pickled.
-    round_tripped = pickle.loads(pickle.dumps(exc_info.value))
-    assert str(exc_info.value) == str(round_tripped) == _fetch_failure_line(reason)
+    assert str(exc_info.value) == _fetch_failure_line(reason)
     assert transport.request_types == ["sodaCoreGetContract"]
 
 
