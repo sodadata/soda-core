@@ -203,6 +203,35 @@ class VerificationIngestionMode(Enum):
 HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 
 
+# Backpressure (PLATL-1280). Soda Cloud only defers clients that announce they can wait, and every
+# 429 it produces comes before the request did any work, so the same body is safe to send again.
+BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
+DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
+DEFERRAL_BUDGET_SECONDS_DEFAULT: int = 15 * 60
+DEFAULT_RETRY_AFTER_SECONDS: int = 15
+
+
+def deferral_budget_seconds() -> float:
+    """How long one request keeps waiting for Soda Cloud before it gives up and reports the failure.
+    Overridable per runner, e.g. for scans close to their Kubernetes deadline."""
+    raw_value: Optional[str] = os.environ.get(DEFERRAL_BUDGET_ENV_VAR)
+    if raw_value is None:
+        return float(DEFERRAL_BUDGET_SECONDS_DEFAULT)
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_value!r}: not a number of seconds")
+        return float(DEFERRAL_BUDGET_SECONDS_DEFAULT)
+
+
+def retry_after_seconds(response: Response) -> float:
+    """Retry-After as delta-seconds; Soda Cloud never sends the HTTP-date form, so anything else gets the default."""
+    try:
+        return max(0.0, float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS)))
+    except (TypeError, ValueError):
+        return float(DEFAULT_RETRY_AFTER_SECONDS)
+
+
 @dataclass(frozen=True)
 class HistoricDateTimeRange:
     """Scan-time window for historic-data queries."""
@@ -350,8 +379,9 @@ class SodaCloud:
     @property
     def headers(self) -> dict[str, str]:
         """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
-        it changes nothing: pass request-specific headers through request_headers() instead."""
-        return {"User-Agent": user_agent()}
+        it changes nothing: pass request-specific headers through request_headers() instead.
+        X-Soda-Backpressure tells Soda Cloud this client waits and resends when asked to (429)."""
+        return {"User-Agent": user_agent(), BACKPRESSURE_OPT_IN_HEADER: "1"}
 
     def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
         """The default headers plus the request-specific ones, so every request identifies
