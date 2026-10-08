@@ -793,16 +793,11 @@ class CheckCollectionImpl:
 
         # Before the columns are parsed: column checks are built there, and a check in an inactive scope is
         # skipped when it is built.
-        from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension
-
         for extension in self.extensions:
             activate_scopes = getattr(extension, "activate_scopes", None)
             if activate_scopes is None:
                 continue
-            # Every extension inherits a default activate_scopes that does nothing. Only one that
-            # overrides it runs scopes.
-            default_hook = CheckCollectionImplExtension.activate_scopes
-            if getattr(type(extension), "activate_scopes", None) is not default_hook:
+            if getattr(extension, "runs_scopes", False):
                 self.scopes_extension_called = True
             try:
                 activate_scopes(contract_impl=self)

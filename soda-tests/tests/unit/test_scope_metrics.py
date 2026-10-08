@@ -190,6 +190,8 @@ def test_activation_runs_before_the_columns_are_parsed():
 
 def test_a_failing_activation_logs_an_error():
     class _FailingExtension(CheckCollectionImplExtension):
+        runs_scopes = True
+
         def __init__(self, contract_impl: CheckCollectionImpl):
             self.contract_impl = contract_impl
 
@@ -223,6 +225,8 @@ def _nudge_lines(logs: Logs) -> list[str]:
 
 def test_no_nudge_after_an_extension_that_runs_scopes_failed_to_activate_them():
     class _RaisingActivation(CheckCollectionImplExtension):
+        runs_scopes = True
+
         def __init__(self, contract_impl: CheckCollectionImpl):
             self.contract_impl = contract_impl
 
@@ -252,7 +256,7 @@ def test_no_nudge_after_an_extension_that_runs_scopes_failed_to_activate_them():
 
 
 def test_an_extension_that_does_not_run_scopes_keeps_the_nudge():
-    """It inherits the default activate_scopes, like an extension that only parses its own checks."""
+    """It leaves runs_scopes False, like an extension that only parses its own checks."""
 
     class _ParsesChecksOnly(CheckCollectionImplExtension):
         def __init__(self, contract_impl: CheckCollectionImpl):

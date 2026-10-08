@@ -527,6 +527,10 @@ class ContractVerificationSessionImpl:
 
 
 class CheckCollectionImplExtension(Protocol):
+    # True on an extension that runs declared scopes in activate_scopes. Core then leaves reporting a scope that
+    # stayed inactive to the extension.
+    runs_scopes: bool = False
+
     def __init__(self, contract_impl: CheckCollectionImpl):
         self.contract_impl: CheckCollectionImpl = contract_impl
 

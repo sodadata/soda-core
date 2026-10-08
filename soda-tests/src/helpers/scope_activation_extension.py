@@ -24,6 +24,7 @@ SCOPE_ACTIVATION_EXTENSION_NAME: str = "scope_activation_test_extension"
 
 
 class ScopeActivationExtension(CheckCollectionImplExtension):
+    runs_scopes: bool = True
     scope_keys: tuple[str, ...] = ()
     activated_impls: list[CheckCollectionImpl] = []
 
