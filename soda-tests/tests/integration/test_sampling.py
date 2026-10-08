@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
 from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
@@ -64,7 +65,11 @@ def test_sampling_simple_pass(
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     country_test_table = data_source_test_helper.ensure_test_table(country_test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,
@@ -146,7 +151,11 @@ def test_sampling_not_applied_simple_pass(
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     country_test_table = data_source_test_helper.ensure_test_table(country_test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,
@@ -230,7 +239,11 @@ def test_sampling_custom_sql_pass(
     # Checking the actual sql in logs, even though just in logs as result does not have them.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     age_quoted = data_source_test_helper.quote_column("age")
     table_full_name = test_table.qualified_name

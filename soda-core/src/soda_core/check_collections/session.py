@@ -263,12 +263,23 @@ def execute_check_collections(
         # produced nothing to send, we report it as FAILED. Keep the first match so the logs
         # used are deterministic when several collections error.
         errored_without_results_result: Optional[CheckCollectionResult] = None
+        # Collections whose file upload was rejected, so they have no fileId and verify()
+        # flagged them. Held so that, if nothing else reached Cloud, the scan is marked FAILED
+        # with their logs instead of staying PENDING with no trace.
+        upload_failed_results: list[CheckCollectionResult] = []
         for (_, impl_class, _, _), result in zip(constructed, results):
             if impl_class is None or not impl_class.combine_uploads:
                 continue
-            # Per-file alignment guard or data-source-missing path already
-            # flagged this result; don't include it in the combined upload.
+            # Per-file alignment guard, data-source-missing or upload-failure path
+            # already flagged this result; don't include it in the combined upload.
             if result.sending_results_to_soda_cloud_failed:
+                if (
+                    impl_class.uploads_yaml_file
+                    and result.check_collection
+                    and result.check_collection.source
+                    and result.check_collection.source.soda_cloud_file_id is None
+                ):
+                    upload_failed_results.append(result)
                 continue
             if soda_scan_id and result.errored_without_results:
                 if errored_without_results_result is None:
@@ -279,7 +290,8 @@ def execute_check_collections(
                 if result.check_collection and result.check_collection.source
                 else None
             )
-            if file_id is None:
+            # A placeholder for a file that failed before producing output has nothing to send.
+            if result.error is not None or (file_id is None and impl_class.uploads_yaml_file):
                 continue
             combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
             combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
@@ -324,6 +336,29 @@ def execute_check_collections(
                 # send failure so the exit code goes > 3 and the launcher fallback marks
                 # the scan failed itself.
                 errored_without_results_result.sending_results_to_soda_cloud_failed = True
+
+        # Same rule for a rejected file upload: mark FAILED only when nothing else reached
+        # Cloud, so a sibling's uploaded results are never overridden.
+        if (
+            soda_scan_id
+            and upload_failed_results
+            and not combined_by_wire_source
+            and not any(r.scan_id for r in results)
+        ):
+            # NOTE: log_records is [] on a run whose logs stream to Soda Cloud, and this mark
+            # REPLACES the scan's stored logs. Move to Logs.records_for_failure_report() before
+            # any combine-uploads flow opts into batched ingestion.
+            for upload_failed_result in upload_failed_results:
+                upload_failed_result.scan_id = soda_scan_id
+            # Impls may share one Logs, so the same record can sit in several results.
+            failure_logs = list(
+                {id(record): record for r in upload_failed_results for record in (r.log_records or [])}.values()
+            )
+            if soda_cloud_impl.mark_scan_as_failed(scan_id=soda_scan_id, logs=failure_logs):
+                # The failure is visible in Cloud. Keeping a flag would push the exit code to 4
+                # and the launcher fallback would mark the scan a second time.
+                for upload_failed_result in upload_failed_results:
+                    upload_failed_result.sending_results_to_soda_cloud_failed = False
 
     # Post-processing handlers — combine-upload subtypes. The non-combine path
     # runs handlers inline per file inside ``verify()``; combine-upload results are
