@@ -489,8 +489,8 @@ class ContractVerificationSessionResult(CheckCollectionSessionResult):
     """Represents the result of a contract verification session.
 
     Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
-    ``has_errors``, ``is_failed``, ``is_warned``, ``has_excluded_checks`` and
-    ``sending_results_to_soda_cloud_failed`` come from ``CheckCollectionSessionResult``.
+    Every property and method comes from ``CheckCollectionSessionResult``; this class keeps the public constructor
+    and the ``contract_verification_results`` name.
 
     @param contract_verification_results: The list of contract verification results.
     """
@@ -506,71 +506,3 @@ class ContractVerificationSessionResult(CheckCollectionSessionResult):
     @contract_verification_results.setter
     def contract_verification_results(self, contract_verification_results: list[ContractVerificationResult]) -> None:
         self.results = contract_verification_results
-
-    def get_logs(self) -> list[str]:
-        logs: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
-            logs.extend(contract_verification_result.get_logs())
-        return logs
-
-    def get_logs_str(self) -> str:
-        return "\n".join(self.get_logs())
-
-    def get_errors(self) -> list[str]:
-        errors: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
-            errors.extend(contract_verification_result.get_errors())
-        return errors
-
-    @property
-    def number_of_checks(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_passed(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_passed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_failed(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_failed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_excluded(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_excluded
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    def get_errors_str(self) -> str:
-        return "\n".join(self.get_errors())
-
-    @property
-    def is_passed(self) -> bool:
-        """
-        Returns true if there are no checks that have failed.
-        Ignores execution errors in the logs.
-        """
-        return all(
-            contract_verification_result.is_passed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def is_ok(self) -> bool:
-        return all(
-            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
-        )
-
-    def assert_ok(self) -> ContractVerificationSessionResult:
-        if not self.is_ok:
-            raise SodaException(message=self.get_errors_str())
-        return self

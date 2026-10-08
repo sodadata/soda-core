@@ -20,6 +20,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationSessionResult,
+    SodaException,
     YamlFileContentInfo,
 )
 
@@ -134,3 +135,19 @@ def test_contract_verification_session_result_keeps_its_public_constructor_and_r
         assert session_result.is_failed is True
         assert session_result.is_warned is True
         assert session_result.has_excluded_checks is False
+
+
+def test_check_collection_session_result_carries_the_session_api_for_every_kind():
+    failed = replace(
+        _make_result([CheckOutcome.FAILED], result_class=CheckCollectionResult), status=CheckCollectionStatus.FAILED
+    )
+    excluded = _make_result([CheckOutcome.PASSED, CheckOutcome.EXCLUDED], result_class=CheckCollectionResult)
+
+    session_result = CheckCollectionSessionResult(results=[failed, excluded])
+
+    assert session_result.number_of_checks == 3
+    assert session_result.number_of_checks_failed == 1
+    assert session_result.number_of_checks_excluded == 1
+    assert session_result.is_ok is False
+    with pytest.raises(SodaException):
+        session_result.assert_ok()
