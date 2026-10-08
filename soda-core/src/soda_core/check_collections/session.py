@@ -12,7 +12,7 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
-import dataclasses
+import logging
 from datetime import datetime
 from logging import LogRecord
 from typing import Optional, Union
@@ -31,7 +31,7 @@ from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
-from soda_core.contracts.contract_verification import CheckCollectionStatus, CheckOutcome
+from soda_core.contracts.contract_verification import CheckOutcome
 from soda_core.contracts.impl.check_selector import value_matches
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
@@ -304,23 +304,16 @@ def execute_check_collections(
         # mark_scan_as_failed needs). An ad-hoc run has no scan to mark, so its upload
         # creates the scan and carries the errors.
         soda_scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
-        groups = _group_combine_upload_results(constructed, results, default_impl_class)
-        uploads_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
-        suffix_by_wire_source: dict[str, Optional[str]] = {}
-        # The results whose own data goes up in no upload. Each upload carries a stand-in for
-        # each of them, with its records and an error naming it, so no upload reads clean.
-        results_left_out: list[CheckCollectionResult] = []
-        # Every result of a managed run's group that errored and evaluated no check. An upload
-        # of it could only hold excluded checks next to the error, so the scan is marked
+        all_members: list[_CombineUploadMember] = _combine_upload_members(constructed, results, default_impl_class)
+        members, unsendable_results = _split_unsendable(all_members)
+        member_results: list[CheckCollectionResult] = [result for _, result in members]
+        # Every result of the session that errored and evaluated no check, on a managed run. An
+        # upload of it could only hold excluded checks next to the error, so the scan is marked
         # failed instead, below.
         results_to_mark_failed: list[CheckCollectionResult] = []
-        for wire_source, group_members in groups.items():
-            members, unsendable_results = _split_unsendable(group_members)
-            results_left_out.extend(unsendable_results)
-            member_results: list[CheckCollectionResult] = [result for _, result in members]
-            if soda_scan_id and _errored_without_evaluating_a_check(member_results, left_out=unsendable_results):
-                results_to_mark_failed.extend(member_results)
-                continue
+        if soda_scan_id and _errored_without_evaluating_a_check(member_results, left_out=unsendable_results):
+            results_to_mark_failed = member_results
+        else:
             # Every collection goes up, so the upload has errors when one of them errored, and
             # carries its records. A file that never became a collection has no dataset, data
             # source or file of its own: it rides along after the collections and never leads
@@ -335,28 +328,23 @@ def execute_check_collections(
                 if unsendable_results:
                     for result in member_results:
                         result.sending_results_to_soda_cloud_failed = True
-                continue
-            uploads_by_wire_source[wire_source] = upload
-            suffix_by_wire_source[wire_source] = next(
-                member_class.scan_definition_suffix
-                for member_class, result in reversed(members)
-                if result.error is None
-            )
-
-        stand_ins: list[CheckCollectionResult] = [_left_out_stand_in(result) for result in results_left_out]
-
-        for wire_source, upload in uploads_by_wire_source.items():
-            response_json_by_wire_source[wire_source] = soda_cloud_impl.send_check_collection_results(
-                results=upload + stand_ins,
-                wire_source=wire_source,
-                scan_definition_suffix=suffix_by_wire_source[wire_source],
-                session_log_records=pre_session_records,
-            )
-            uploaded_ids.update(id(result) for result in upload)
+            else:
+                head_class: type[CheckCollectionImpl] = next(
+                    member_class for member_class, result in reversed(members) if result.error is None
+                )
+                # A file that can't be sent stays out of the upload, and its records go up with the
+                # session's own, after an error that names it, so the upload has errors.
+                response_json_by_wire_source[head_class.wire_source] = soda_cloud_impl.send_check_collection_results(
+                    results=upload,
+                    wire_source=head_class.wire_source,
+                    scan_definition_suffix=head_class.scan_definition_suffix,
+                    session_log_records=[*pre_session_records, *_left_out_log_records(unsendable_results)],
+                )
+                uploaded_ids.update(id(result) for result in upload)
 
         if soda_scan_id:
             _mark_scan_failed(
-                combined_results=[result for members in groups.values() for _, result in members],
+                combined_results=[result for _, result in all_members],
                 results_to_mark_failed=results_to_mark_failed,
                 all_results=results,
                 soda_cloud_impl=soda_cloud_impl,
@@ -443,7 +431,7 @@ def execute_check_collections(
 _CombineUploadMember = tuple[type[CheckCollectionImpl], CheckCollectionResult]
 
 
-def _group_combine_upload_results(
+def _combine_upload_members(
     constructed: list[
         tuple[
             Optional[CheckCollectionImpl],
@@ -454,20 +442,22 @@ def _group_combine_upload_results(
     ],
     results: list[CheckCollectionResult],
     default_impl_class: Optional[type[CheckCollectionImpl]],
-) -> dict[str, list[_CombineUploadMember]]:
-    """The results of combine-upload subtypes by wire source, in session order.
+) -> list[_CombineUploadMember]:
+    """The results of the session's combine-upload files, in session order. A session holds
+    files of one combine-upload kind, which ``_raise_if_combined_session_spans_multiple_datasets``
+    checks.
 
     A file that failed before its kind was known belongs to the caller's
     ``default_impl_class``, the subtype the session verifies, so its error still
-    reaches Soda Cloud with the group. Without a default subtype it joins no group.
+    reaches Soda Cloud with the others. Without a default subtype it is left out.
     """
-    groups: dict[str, list[_CombineUploadMember]] = {}
+    members: list[_CombineUploadMember] = []
     for (_, impl_class, _, _), result in zip(constructed, results):
         member_class: Optional[type[CheckCollectionImpl]] = impl_class if impl_class is not None else default_impl_class
         if member_class is None or not member_class.combine_uploads:
             continue
-        groups.setdefault(member_class.wire_source, []).append((member_class, result))
-    return groups
+        members.append((member_class, result))
+    return members
 
 
 def _split_unsendable(
@@ -478,8 +468,8 @@ def _split_unsendable(
 
     A result cannot be sent when its verify flagged it: Soda Cloud rejected its file upload,
     its results don't match its contract file, or its data source is missing. It stays out
-    of the upload. The others still go up, with a stand-in for it that gives the upload
-    errors and names it, and the run exits RESULTS_NOT_SENT_TO_CLOUD for it.
+    of the upload. The others still go up with its records and an error that names it,
+    so the upload has errors, and the run exits RESULTS_NOT_SENT_TO_CLOUD for it.
     """
     sendable: list[_CombineUploadMember] = []
     unsendable_results: list[CheckCollectionResult] = []
@@ -492,37 +482,31 @@ def _split_unsendable(
     return sendable, unsendable_results
 
 
-def _left_out_stand_in(result: CheckCollectionResult) -> CheckCollectionResult:
-    """What an upload carries for a result whose own data it leaves out: an ERROR copy
-    of it with no checks, measurements or stages, whose records end with an error that
-    names its file. The upload has errors, says what is missing, and never reads as a
-    clean run. The result itself is left as it was."""
-    source = result.check_collection.source if result.check_collection else None
-    file_description: str = (
-        (source.local_file_path if source else None)
-        or (result.check_collection.soda_qualified_dataset_name if result.check_collection else None)
-        or "a file of this run"
-    )
-    # Captured into its own Logs, the way build_error_result does, so the record reaches no
-    # other file's records. The console still shows it.
-    with preserve_active_logs():
-        stand_in_logs = Logs()
-        logger.error(
-            f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} {file_description} is not part of "
-            f"this upload: its results could not be sent to Soda Cloud."
+def _left_out_log_records(results: list[CheckCollectionResult]) -> list[LogRecord]:
+    """The records an upload carries for the results it leaves out: each one's own records,
+    then an error that names its file, so the upload has errors and says what is missing."""
+    log_records: list[LogRecord] = []
+    for result in results:
+        source = result.check_collection.source if result.check_collection else None
+        file_description: str = (
+            (source.local_file_path if source else None)
+            or (result.check_collection.soda_qualified_dataset_name if result.check_collection else None)
+            or "a file of this run"
         )
-    return dataclasses.replace(
-        result,
-        status=CheckCollectionStatus.ERROR,
-        measurements=[],
-        check_results=[],
-        measurement_dicts=[],
-        token_usage=None,
-        post_processing_stages=[],
-        dataset_columns=None,
-        scan_id=None,
-        log_records=[*(result.log_records or []), *stand_in_logs.get_log_records()],
-    )
+        log_records.extend(result.log_records or [])
+        log_records.append(
+            logging.LogRecord(
+                name=logger.name,
+                level=logging.ERROR,
+                pathname=__file__,
+                lineno=0,
+                msg=f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} {file_description} is not part of "
+                f"this upload: its results could not be sent to Soda Cloud.",
+                args=None,
+                exc_info=None,
+            )
+        )
+    return log_records
 
 
 def _errored_without_evaluating_a_check(
@@ -531,7 +515,7 @@ def _errored_without_evaluating_a_check(
     """True when a result of the group errored before it had check results and no result
     that can go up evaluated a check: every check there is was left out by a check filter.
     A result that is ``left_out`` only because it cannot be sent is no such error: the
-    others then go up with a stand-in that names it."""
+    others then go up with records that name it."""
     errored: bool = any(result.errored_without_results for result in [*results, *left_out])
     return errored and not any(
         check_result.outcome != CheckOutcome.EXCLUDED for result in results for check_result in result.check_results
@@ -724,6 +708,11 @@ def _raise_if_combined_session_spans_multiple_datasets(
         path = getattr(yaml_source, "file_path", None) or repr(yaml_source)
         files_by_dataset.setdefault(impl_class.wire_source, {}).setdefault(dataset, []).append(path)
 
+    if len(files_by_dataset) > 1:
+        raise InvalidArgumentException(
+            "A combined (combine_uploads) session takes files of one kind, but found: "
+            f"{', '.join(sorted(files_by_dataset))}. Run each kind in its own session."
+        )
     offenders = {ws: by_ds for ws, by_ds in files_by_dataset.items() if len(by_ds) > 1}
     if offenders:
         lines: list[str] = []

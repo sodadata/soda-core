@@ -595,7 +595,7 @@ def test_group_with_errors_goes_up_without_its_rejected_file(
 def test_managed_group_left_with_only_excluded_checks_and_no_error_goes_up(monkeypatch, rejected_label: str):
     """No file errored before its check results, so the group is not one that errored and
     evaluated no check. The file that can go up holds only an excluded check, and goes up
-    with the stand-in that names the rejected file, instead of a mark."""
+    with the records that name the rejected file, instead of a mark."""
     labels = ["excluded-a", rejected_label]
     results, exit_code, soda_cloud = _verify(
         monkeypatch, labels, managed=True, soda_cloud=_SodaCloud(reject_file_upload_containing=rejected_label)
