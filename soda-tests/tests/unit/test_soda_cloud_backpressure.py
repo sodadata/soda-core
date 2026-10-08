@@ -6,8 +6,9 @@ resend after Retry-After. soda-core announces that it can wait with X-Soda-Backp
 
 from unittest.mock import patch
 
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.mock_soda_cloud import MockRequest, MockResponse, MockSodaCloud
 from soda_core.common import soda_cloud as soda_cloud_module
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import (
     BACKPRESSURE_OPT_IN_HEADER,
     DEFAULT_RETRY_AFTER_SECONDS,
@@ -15,6 +16,8 @@ from soda_core.common.soda_cloud import (
     deferral_budget_seconds,
     retry_after_seconds,
 )
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.contracts.contract_verification import ContractVerificationSession
 
 
 def _insert_scan_results_command() -> dict:
@@ -116,3 +119,54 @@ def test_the_wait_never_exceeds_what_is_left_of_the_budget(sleep_mock, monkeypat
 
     (waited,), _ = sleep_mock.call_args
     assert waited <= 3.0
+
+
+_DATA_SOURCE_YAML = """
+type: duckdb
+name: test_ds
+connection:
+    database: ":memory:"
+    schema: main
+"""
+
+_CONTRACT_YAML = """
+dataset: test_ds/main/my_table
+columns:
+  - name: id
+"""
+
+
+class _CloudBusyOnEveryUpload(MockSodaCloud):
+    def _http_handle(self, method, url, headers, json, data):
+        if isinstance(json, dict) and json.get("type") == "sodaCoreInsertScanResults":
+            self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
+            return MockResponse(
+                status_code=429, headers={"Retry-After": "1"}, json_object={"code": "too_many_requests"}
+            )
+        return super()._http_handle(method, url, headers, json, data)
+
+
+@patch.object(soda_cloud_module, "sleep")
+def test_results_are_marked_not_sent_when_soda_cloud_stays_busy_past_the_budget(sleep_mock, monkeypatch):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    monkeypatch.setenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", "0")
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(_DATA_SOURCE_YAML))
+    mock_cloud = _CloudBusyOnEveryUpload()
+    mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
+
+    with patch(
+        "soda_duckdb.common.data_sources.duckdb_data_source.DuckDBDataSourceConnection._create_connection",
+        side_effect=RuntimeError("Invalid access token"),
+    ):
+        session_result = ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
+            data_source_impls=[data_source_impl],
+            soda_cloud_impl=mock_cloud,
+            soda_cloud_publish_results=True,
+        )
+
+    uploads = [
+        r for r in mock_cloud.requests if isinstance(r.json, dict) and r.json.get("type") == "sodaCoreInsertScanResults"
+    ]
+    assert len(uploads) == 1
+    assert session_result.contract_verification_results[0].sending_results_to_soda_cloud_failed is True
