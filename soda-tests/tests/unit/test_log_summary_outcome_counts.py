@@ -33,25 +33,13 @@ def _check_result(name: str, outcome) -> CheckResult:
     return CheckResult(check=check, outcome=outcome)
 
 
-def test_counts_every_outcome():
-    # Fails when a new CheckOutcome is added and the counting is not updated for it.
-    check_results = [_check_result(f"check {outcome.name}", outcome) for outcome in CheckOutcome]
-
-    assert count_check_outcomes(check_results) == {outcome: 1 for outcome in CheckOutcome}
-
-
 def test_counts_each_result_under_its_own_outcome():
-    outcomes = [CheckOutcome.PASSED, CheckOutcome.PASSED, CheckOutcome.FAILED, CheckOutcome.EXCLUDED]
+    # Every CheckOutcome once, so a new outcome the counting misses fails here, plus a second PASSED.
+    outcomes = [*CheckOutcome, CheckOutcome.PASSED]
 
     counts = count_check_outcomes([_check_result(f"check {index}", outcome) for index, outcome in enumerate(outcomes)])
 
-    assert counts == {
-        CheckOutcome.PASSED: 2,
-        CheckOutcome.FAILED: 1,
-        CheckOutcome.WARN: 0,
-        CheckOutcome.NOT_EVALUATED: 0,
-        CheckOutcome.EXCLUDED: 1,
-    }
+    assert counts == {**{outcome: 1 for outcome in CheckOutcome}, CheckOutcome.PASSED: 2}
 
 
 def test_counts_nothing_without_results():
