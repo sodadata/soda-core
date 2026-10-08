@@ -70,8 +70,6 @@ def execute() -> None:
         handle_legacy_commands()
 
         args = cli_parser.parse_args()
-        # Off the args before telemetry and the handler read them, so both see what argparse makes.
-        repeated_flag: Optional[str] = vars(args).pop(_REPEATED_FLAGS, None)
 
         soda_telemetry.ingest_cli_arguments(vars(args))
 
@@ -84,12 +82,6 @@ def execute() -> None:
 
         if not hasattr(args, "handler_func"):
             soda_logger.error(f"No handler found for resource '{args.resource}' and command '{args.command}'")
-            exit_with_code(ExitCode.LOG_ERRORS)
-
-        if repeated_flag:
-            # Exit 3 like the CLI's other argument errors, not argparse's exit 2, which is also
-            # the check-warnings code.
-            soda_logger.error(repeated_flag)
             exit_with_code(ExitCode.LOG_ERRORS)
 
         args.handler_func(args)
@@ -116,16 +108,16 @@ def handle_legacy_commands():
 
 
 class _TakenOnce:
-    """Mixed into an argparse action: a second use of its flag leaves an error on the args.
+    """Mixed into an argparse action: a second use of its flag is a usage error.
 
     argparse keeps the last use of a repeated flag and drops the others without a word. The first
-    repeat found is the one reported; execute refuses the command with it.
+    repeat raises, and argparse reports it through the parser's ``error``.
     """
 
     def __call__(self, parser, namespace, values, option_string=None):
         if self.option_strings:
-            if self.dest in parser.flags_given and not hasattr(namespace, _REPEATED_FLAGS):
-                setattr(namespace, _REPEATED_FLAGS, _describe_repeated_flag(parser.prog, self))
+            if self.dest in parser.flags_given:
+                raise argparse.ArgumentError(None, _describe_repeated_flag(self))
             parser.flags_given.add(self.dest)
         super().__call__(parser, namespace, values, option_string)
 
@@ -144,12 +136,10 @@ _ACTIONS_OF_FLAGS_GIVEN_ONCE = {
     }.items()
 }
 
-# The key under which the parser leaves the error for a flag given more than once on the args.
-_REPEATED_FLAGS = "repeated_flags"
-
 
 class _SodaArgumentParser(ArgumentParser):
-    """Parses like ArgumentParser, and leaves an error on the args for a flag given more than once.
+    """Parses like ArgumentParser, but a flag given more than once is a usage error, and every usage
+    error exits 3 instead of 2, since 2 is also the check-warnings code.
 
     A command line without a repeat parses exactly as with ArgumentParser. add_subparsers builds
     each subcommand's parser with the class of its parent, so every soda command parses with this
@@ -166,13 +156,18 @@ class _SodaArgumentParser(ArgumentParser):
         self.flags_given = set()
         return super().parse_known_args(args, namespace)
 
+    def error(self, message: str):
+        # As ArgumentParser.error, with exit code 3.
+        self.print_usage(sys.stderr)
+        self.exit(ExitCode.LOG_ERRORS, f"{self.prog}: error: {message}\n")
 
-def _describe_repeated_flag(command: str, action: argparse.Action) -> str:
-    # Like: soda contract fetch got -d/--dataset more than once. A flag that takes several values
-    # takes them all after one use.
+
+def _describe_repeated_flag(action: argparse.Action) -> str:
+    # Like: -d/--dataset given more than once. A flag that takes several values takes them all
+    # after one use. The parser's error puts the command in front.
     several = action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
     hint = "Give it once, with all its values after it." if several else "Give it once."
-    return f"{command} got {'/'.join(action.option_strings)} more than once. {hint}"
+    return f"{'/'.join(action.option_strings)} given more than once. {hint}"
 
 
 def create_cli_parser() -> ArgumentParser:

@@ -393,53 +393,71 @@ def _without_handler(args) -> dict:
 REPEATED_FLAGS = [
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "--contract=b.yaml", "-ds", "ds.yaml"],
-        "soda contract verify got -c/--contract more than once. Give it once.",
+        "soda contract verify: error: -c/--contract given more than once. Give it once.",
         id="single value, short and long",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-ds", "a.yaml", "-ds", "b.yaml"],
-        "soda contract verify got -ds/--data-source more than once. Give it once, with all its values after it.",
+        "soda contract verify: error: -ds/--data-source given more than once. Give it once, with all its values after it.",
         id="several values",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-v", "--verbose"],
-        "soda contract verify got -v/--verbose more than once. Give it once.",
+        "soda contract verify: error: -v/--verbose given more than once. Give it once.",
         id="switch",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-rr"],
-        "soda contract verify got -r/--use-runner more than once. Give it once.",
+        "soda contract verify: error: -r/--use-runner given more than once. Give it once.",
         id="switches combined",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-dw", "-dw", "b.yml"],
-        "soda contract verify got -dw/--diagnostics-warehouse more than once. Give it once.",
+        "soda contract verify: error: -dw/--diagnostics-warehouse given more than once. Give it once.",
         id="optional value, once without it",
     ),
 ]
 
 
+def _error_line(stderr: str) -> str:
+    """The last line argparse prints for a usage error, after the usage."""
+    return stderr.strip().splitlines()[-1]
+
+
 @pytest.mark.parametrize("argv, error", REPEATED_FLAGS)
-def test_every_command_refuses_a_repeated_flag_before_it_runs(argv, error):
+def test_every_command_refuses_a_repeated_flag_before_it_runs(argv, error, capsys):
     """argparse keeps the last use of a repeated flag and drops the others without a word, so
-    -ds a.yaml -ds b.yaml verified against b.yaml only. Every soda command now stops with exit 3
-    before its handler runs, naming the first flag it got twice. Not argparse's exit 2,
-    which a launcher cannot tell apart from check warnings."""
-    logs = Logs()
+    -ds a.yaml -ds b.yaml verified against b.yaml only. Every soda command now stops with a usage
+    error before its handler runs, naming the first flag it got twice."""
     parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
 
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
-    assert logs.get_errors() == [error]
+    assert _error_line(capsys.readouterr().err) == error
     handler.assert_not_called()
 
 
-def test_a_command_with_several_repeated_flags_names_the_first():
-    logs = Logs()
+def test_a_command_with_several_repeated_flags_names_the_first(capsys):
     parser, handler = _parser_with_a_mocked_command("contract", "verify")
     argv = "contract verify -c a.yaml -c b.yaml -v -ds x.yaml -v -ds y.yaml z.yaml".split()
 
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
-    assert logs.get_errors() == ["soda contract verify got -c/--contract more than once. Give it once."]
+    assert _error_line(capsys.readouterr().err) == (
+        "soda contract verify: error: -c/--contract given more than once. Give it once."
+    )
+    handler.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["contract", "verify", "-c", "a.yaml", "--no-such-flag"], ["contract", "verify", "-c"]],
+    ids=["unknown flag", "missing value"],
+)
+def test_every_usage_error_exits_3_not_argparses_2(argv, capsys):
+    """Exit 2 is also the check-warnings code, so a launcher could not tell a usage error from warnings."""
+    parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
+
+    assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
+    assert "error:" in _error_line(capsys.readouterr().err)
     handler.assert_not_called()
 
 
@@ -493,10 +511,9 @@ def test_flags_that_collect_every_use_stay_repeatable():
 
 
 @pytest.mark.parametrize("resource", ["data-source", "widget"], ids=["existing resource", "new resource"])
-def test_a_command_an_extension_adds_takes_each_flag_once(resource):
+def test_a_command_an_extension_adds_takes_each_flag_once(resource, capsys):
     """Extensions hang their commands on the root parser through get_or_create_command_parser and
     add their flags with plain add_argument calls. They get the rule without any code of their own."""
-    logs = Logs()
     parser = create_cli_parser()
     command_parser = get_or_create_command_parser(parser, resource, "scan", help_str="Scan it")
     command_parser.add_argument("-ds", "--data-source", type=str)
@@ -508,7 +525,9 @@ def test_a_command_an_extension_adds_takes_each_flag_once(resource):
 
     argv = [resource, *"scan -ds a.yml --data-source b.yml --dry-run --dry-run --no-wait --no-wait".split()]
     assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
-    assert logs.get_errors() == [f"soda {resource} scan got -ds/--data-source more than once. Give it once."]
+    assert _error_line(capsys.readouterr().err) == (
+        f"soda {resource} scan: error: -ds/--data-source given more than once. Give it once."
+    )
     handler.assert_not_called()
 
     argv = [resource, *"scan -ds a.yml --dry-run --dataset x --dataset y".split()]
