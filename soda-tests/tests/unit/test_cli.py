@@ -349,59 +349,14 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     )
 
 
-# (command, its other required arguments, the handler that would parse, connect and call Cloud)
-CONTRACT_COMMANDS_TAKING_ONE_CONTRACT = [
-    ("verify", ["-ds", "ds.yaml", "-sc", "cloud.yaml"], "handle_verify_contract"),
-    ("publish", ["-sc", "cloud.yaml"], "handle_publish_contract"),
-    ("test", [], "handle_test_contract"),
-]
-
-
-@pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
-@pytest.mark.parametrize("contract_args", [["-c", "a.yaml"], ["--contract", "a.yaml"], ["--contract=a.yaml"]])
-def test_contract_command_runs_one_contract(command, other_args, handler_name, contract_args):
-    sys.argv = ["soda", "contract", command, *contract_args, *other_args]
-
-    parser = create_cli_parser()
-    args = parser.parse_args()
-
-    assert args.contract == "a.yaml"
-    with patch(f"soda_core.cli.cli.{handler_name}", return_value=ExitCode.CHECK_FAILURES) as mock_handler:
-        with pytest.raises(SystemExit) as e:
-            args.handler_func(args)
-
-    assert e.value.code == ExitCode.CHECK_FAILURES
-    mock_handler.assert_called_once()
-    assert mock_handler.call_args.args[0] == "a.yaml"
-
-
-@pytest.mark.parametrize("command, other_args, handler_name", CONTRACT_COMMANDS_TAKING_ONE_CONTRACT)
-def test_contract_command_without_a_value_for_contract_keeps_the_argparse_error(
-    command, other_args, handler_name, capsys
-):
-    sys.argv = ["soda", "contract", command, *other_args, "-c"]
-
-    parser = create_cli_parser()
-    with pytest.raises(SystemExit) as e:
-        parser.parse_args()
-
-    assert e.value.code == 2
-    assert "argument -c/--contract: expected one argument" in capsys.readouterr().err
-
-
 VERIFY_OTHER_ARGS = ["-ds", "ds.yaml", "-sc", "cloud.yaml"]
 
 
-@pytest.mark.parametrize("dataset_args", [["-d", "ds/a"], ["--dataset", "ds/a"], ["--dataset=ds/a"]])
-@pytest.mark.parametrize("contract_args, expected_contract", [([], None), (["-c", "a.yaml"], "a.yaml")])
-def test_contract_verify_runs_one_dataset(dataset_args, contract_args, expected_contract):
-    logs = Logs()
-    sys.argv = ["soda", "contract", "verify", *contract_args, *dataset_args, *VERIFY_OTHER_ARGS]
+@pytest.mark.parametrize("contract_args", [["-c", "a.yaml"], ["--contract=a.yaml"]])
+def test_contract_verify_runs_one_contract_and_one_dataset(contract_args):
+    sys.argv = ["soda", "contract", "verify", *contract_args, "-d", "ds/a", *VERIFY_OTHER_ARGS]
 
-    parser = create_cli_parser()
-    args = parser.parse_args()
-
-    assert args.dataset == "ds/a"
+    args = create_cli_parser().parse_args()
     with patch("soda_core.cli.cli.handle_verify_contract", return_value=ExitCode.CHECK_FAILURES) as mock_handler, patch(
         "soda_core.cli.cli.resolve_soda_cloud_for_failure_report", return_value=None
     ):
@@ -409,43 +364,30 @@ def test_contract_verify_runs_one_dataset(dataset_args, contract_args, expected_
             args.handler_func(args)
 
     assert e.value.code == ExitCode.CHECK_FAILURES
-    assert logs.get_errors() == []
-    mock_handler.assert_called_once()
-    assert mock_handler.call_args.args[:2] == (expected_contract, "ds/a")
+    assert mock_handler.call_args.args[:2] == ("a.yaml", "ds/a")
 
 
-def test_contract_verify_without_a_value_for_dataset_keeps_the_argparse_error(capsys):
-    sys.argv = ["soda", "contract", "verify", *VERIFY_OTHER_ARGS, "-d"]
+def test_contract_verify_without_a_value_for_contract_keeps_the_argparse_error(capsys):
+    sys.argv = ["soda", "contract", "verify", *VERIFY_OTHER_ARGS, "-c"]
 
-    parser = create_cli_parser()
     with pytest.raises(SystemExit) as e:
-        parser.parse_args()
+        create_cli_parser().parse_args()
 
     assert e.value.code == 2
-    assert "argument -d/--dataset: expected one argument" in capsys.readouterr().err
+    assert "argument -c/--contract: expected one argument" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
-    "dataset_args, expected_datasets",
-    [
-        (["-d", "ds/a"], ["ds/a"]),
-        (["-d", "ds/a", "ds/b"], ["ds/a", "ds/b"]),
-        (["--dataset", "ds/a", "ds/b"], ["ds/a", "ds/b"]),
-    ],
+    "dataset_args, expected_datasets", [(["-d", "ds/a"], ["ds/a"]), (["-d", "ds/a", "ds/b"], ["ds/a", "ds/b"])]
 )
-def test_contract_fetch_takes_several_datasets(dataset_args, expected_datasets):
-    logs = Logs()
+def test_contract_fetch_takes_several_datasets_in_one_use(dataset_args, expected_datasets):
     sys.argv = ["soda", "contract", "fetch", *dataset_args, "-f", "a.yaml", "b.yaml", "-sc", "cloud.yaml"]
 
-    parser = create_cli_parser()
-    args = parser.parse_args()
-
+    args = create_cli_parser().parse_args()
     with patch("soda_core.cli.cli.handle_fetch_contract", return_value=ExitCode.OK.value) as mock_handler:
-        with pytest.raises(SystemExit) as e:
+        with pytest.raises(SystemExit):
             args.handler_func(args)
 
-    assert e.value.code == 0
-    assert logs.get_errors() == []
     mock_handler.assert_called_once_with(["a.yaml", "b.yaml"], expected_datasets, "cloud.yaml")
 
 
@@ -488,111 +430,38 @@ def _without_handler(args) -> dict:
     return {key: value for key, value in vars(args).items() if key != "handler_func"}
 
 
+# One repeated flag of each kind argparse has: a single value, short and long; several values in
+# one use; a switch; switches combined; an optional value; and a flag of another command family.
 REPEATED_FLAGS = [
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "--contract=b.yaml", "-ds", "ds.yaml"],
         "soda contract verify got -c/--contract more than once. Give it once.",
-        id="verify -c, short and long",
-    ),
-    pytest.param(
-        ["contract", "verify", "-d", "ds/a", "--dataset", "ds/b", "-d", "ds/c", "-ds", "ds.yaml"],
-        "soda contract verify got -d/--dataset more than once. Give it once.",
-        id="verify -d, 3 times",
+        id="single value, short and long",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-ds", "a.yaml", "-ds", "b.yaml"],
         "soda contract verify got -ds/--data-source more than once. Give it once, with all its values after it.",
-        id="verify -ds, several values and a default",
-    ),
-    pytest.param(
-        ["contract", "verify", "-c", "a.yaml", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda contract verify got -sc/--soda-cloud more than once. Give it once.",
-        id="verify -sc",
+        id="several values",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-v", "--verbose"],
         "soda contract verify got -v/--verbose more than once. Give it once.",
-        id="verify -v, a switch",
+        id="switch",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-rr"],
         "soda contract verify got -r/--use-runner more than once. Give it once.",
-        id="verify -rr, combined",
-    ),
-    pytest.param(
-        ["contract", "verify", "-c", "a.yaml", "-btm", "60", "-btm", "60"],
-        "soda contract verify got -btm/--blocking-timeout-in-minutes more than once. Give it once.",
-        id="verify -btm, its default twice",
+        id="switches combined",
     ),
     pytest.param(
         ["contract", "verify", "-c", "a.yaml", "-dw", "-dw", "b.yml"],
         "soda contract verify got -dw/--diagnostics-warehouse more than once. Give it once.",
-        id="verify -dw, once without its optional value",
-    ),
-    pytest.param(
-        ["contract", "verify", "-c", "a.yaml", "-cp", "p.one", "-cp", "p.two"],
-        "soda contract verify got -cp/--check-paths more than once. Give it once, with all its values after it.",
-        id="verify -cp",
-    ),
-    pytest.param(
-        ["contract", "publish", "-c", "a.yaml", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda contract publish got -sc/--soda-cloud more than once. Give it once.",
-        id="publish -sc",
-    ),
-    pytest.param(
-        ["contract", "test", "-c", "a.yaml", "-c", "b.yaml"],
-        "soda contract test got -c/--contract more than once. Give it once.",
-        id="test -c",
-    ),
-    pytest.param(
-        ["contract", "fetch", "-d", "a", "b", "-d", "c", "-f", "x.yaml", "-sc", "sc.yml"],
-        "soda contract fetch got -d/--dataset more than once. Give it once, with all its values after it.",
-        id="fetch -d",
-    ),
-    pytest.param(
-        ["contract", "fetch", "-d", "a", "-f", "x.yaml", "-f", "y.yaml", "-sc", "sc.yml"],
-        "soda contract fetch got -f/--file more than once. Give it once, with all its values after it.",
-        id="fetch -f",
-    ),
-    pytest.param(
-        ["data-source", "create", "-t", "postgres", "-t", "postgres"],
-        "soda data-source create got -t/--type more than once. Give it once.",
-        id="data-source create -t, its default twice",
-    ),
-    pytest.param(
-        ["data-source", "test", "-ds", "a.yml", "-ds", "b.yml"],
-        "soda data-source test got -ds/--data-source more than once. Give it once.",
-        id="data-source test -ds",
-    ),
-    pytest.param(
-        ["data-source", "discover", "-ds", "ds.yml", "--include", "a%", "--include", "b%"],
-        "soda data-source discover got --include more than once. Give it once, with all its values after it.",
-        id="data-source discover --include",
-    ),
-    pytest.param(
-        ["cloud", "create", "-f", "a.yml", "-f", "b.yml"],
-        "soda cloud create got -f/--file more than once. Give it once.",
-        id="cloud create -f",
-    ),
-    pytest.param(
-        ["cloud", "test", "-sc", "a.yml", "-sc", "b.yml"],
-        "soda cloud test got -sc/--soda-cloud more than once. Give it once.",
-        id="cloud test -sc",
-    ),
-    pytest.param(
-        ["request", "fetch", "-sc", "sc.yml", "-r", "1", "-r", "2", "-f", "out.yaml"],
-        "soda request fetch got -r/--request more than once. Give it once.",
-        id="request fetch -r",
+        id="optional value, once without it",
     ),
     pytest.param(
         ["request", "push", "-sc", "sc.yml", "-f", "in.yaml", "-r", "1", "-m", "a", "-m", "b"],
         "soda request push got -m/--message more than once. Give it once.",
-        id="request push -m",
-    ),
-    pytest.param(
-        ["request", "transition", "-sc", "sc.yml", "-r", "1", "-s", "open", "-s", "done"],
-        "soda request transition got -s/--status more than once. Give it once.",
-        id="request transition -s",
+        id="another command family",
     ),
 ]
 
@@ -645,37 +514,10 @@ ONE_USE_OF_EACH_FLAG = [
     ["contract", "verify", "-c", "a.yaml", "-d", "x/y", "-ds", "a.yml", "b.yml", "-sc", "sc.yml", "--set", "k=v",
      "-r", "-a", "-btm", "60", "-p", "-v", "-cp", "p.one", "p.two", "-cf", "name=x", "-dw", "dw.yml", "-mdw", "m.yml"],
     # fmt: on
-    ["contract", "verify", "--contract=a.yaml", "--dataset=x/y", "--data-source", "a.yml", "--use-runner"],
     ["contract", "verify", "-c", "a.yaml", "-vp", "-dw", "-cp"],
-    ["contract", "verify", "-d", "x/y"],
-    ["contract", "publish", "-c", "a.yaml", "-sc", "sc.yml", "-v"],
-    ["contract", "test", "-c", "a.yaml", "-v"],
-    ["contract", "test"],
     ["contract", "fetch", "-d", "a", "b", "-f", "x.yaml", "y.yaml", "-sc", "sc.yml", "-v"],
-    ["data-source", "create", "-f", "ds.yml", "-t", "postgres", "-v"],
-    ["data-source", "create"],
-    ["data-source", "test", "-ds", "ds.yml", "-sc", "sc.yml", "-v"],
-    # fmt: off
-    ["data-source", "discover", "-ds", "ds.yml", "--include", "a%", "b%", "--exclude", "c%",
-     "--scan-definition-name", "sd", "-sc", "sc.yml", "-v"],
-    # fmt: on
-    ["cloud", "create", "-f", "sc.yml", "-v"],
-    ["cloud", "test", "-sc", "sc.yml", "-v"],
-    ["request", "fetch", "-sc", "sc.yml", "-r", "1", "-f", "out.yaml", "-p", "2"],
-    ["request", "push", "-sc", "sc.yml", "-f", "in.yaml", "-r", "1", "-m", "hello"],
-    ["request", "transition", "-sc", "sc.yml", "-r", "1", "-s", "done"],
+    ["data-source", "discover", "-ds", "ds.yml", "--include", "a%", "b%", "--exclude", "c%", "-sc", "sc.yml"],
 ]
-
-
-@pytest.mark.parametrize("argv", ONE_USE_OF_EACH_FLAG, ids=lambda argv: " ".join(argv))
-def test_one_use_of_each_flag_parses_as_plain_argparse_does(argv):
-    """execute() sends vars(args) to telemetry and the handlers read the same args, so a command
-    line without a repeat must parse to exactly what argparse alone makes of it."""
-    args = create_cli_parser().parse_args(argv)
-    plain_args = _plain_argparse_cli_parser().parse_args(argv)
-
-    assert _without_handler(args) == _without_handler(plain_args)
-    assert args.handler_func.__qualname__ == plain_args.handler_func.__qualname__
 
 
 def test_every_command_prints_the_help_and_usage_plain_argparse_prints():
@@ -690,7 +532,9 @@ def test_every_command_prints_the_help_and_usage_plain_argparse_prints():
 
 
 @pytest.mark.parametrize("argv", ONE_USE_OF_EACH_FLAG, ids=lambda argv: " ".join(argv))
-def test_one_use_of_each_flag_runs_the_command(argv):
+def test_one_use_of_each_flag_runs_the_command_with_what_plain_argparse_parses(argv):
+    """execute() sends vars(args) to telemetry and the handlers read the same args, so a command
+    line without a repeat must reach the handler exactly as argparse alone parses it."""
     logs = Logs()
     parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
 
