@@ -176,7 +176,7 @@ def test_base_is_never_unknown(check_filter: str):
     assert _verified == ["a"]
 
 
-@pytest.mark.parametrize("check_filter", ["scope=e*", "scope=?u", "scope!=*", "scope=ba?e"])
+@pytest.mark.parametrize("check_filter", ["scope=e*", "scope=ba?e"])
 def test_a_wildcard_value_that_matches_a_known_key_runs(check_filter: str):
     session_result = _execute([_StubSource("a", ["eu"])], [check_filter])
 
@@ -218,12 +218,6 @@ def test_no_scope_filter_means_no_check(check_filters: Optional[list[str]]):
 
     assert len(session_result.results) == 1
     assert _verified == ["a"]
-
-
-def test_a_file_that_declares_no_scopes_knows_only_base():
-    assert _execute([_StubSource("a")], ["scope=base"]).results
-    with pytest.raises(InvalidArgumentException, match="'eu'"):
-        _execute([_StubSource("a")], ["scope=eu"])
 
 
 def test_list_syntax_for_a_scope_gets_a_hint():

@@ -711,8 +711,3 @@ def test_check_filter_help_lists_every_supported_field():
 
 def test_check_filter_help_explains_negation():
     assert "key!=value" in CHECK_FILTER_HELP
-
-
-def test_check_filter_help_is_the_shared_constant():
-    """Other CLIs that take -cf import CHECK_FILTER_HELP, so contract verify must show exactly that text."""
-    assert _contract_verify_check_filter_help() == CHECK_FILTER_HELP

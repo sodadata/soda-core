@@ -171,10 +171,11 @@ def test_scope_selector_matrix(
     assert result.number_of_checks_excluded == expected_outcomes.count(CheckOutcome.EXCLUDED)
 
 
-@pytest.mark.parametrize("check_filter", ["scope=apac", "scope!=apac"])
 def test_an_unknown_scope_key_exits_3_before_any_query(
-    data_source_test_helper: DataSourceTestHelper, monkeypatch: pytest.MonkeyPatch, check_filter: str
+    data_source_test_helper: DataSourceTestHelper, monkeypatch: pytest.MonkeyPatch
 ):
+    # The unit tests cover the negated form.
+    check_filter = "scope=apac"
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     executed_sql: list[str] = _capture_sql(data_source_test_helper, monkeypatch)

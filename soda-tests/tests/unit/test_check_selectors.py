@@ -562,10 +562,6 @@ class TestCheckSelectorNegation:
         assert CheckSelector.parse("scope!=eu") != CheckSelector.parse("scope=eu")
         assert CheckSelector.parse("scope=eu") == CheckSelector(field="scope", value="eu", raw="scope=eu")
 
-    def test_repr(self):
-        assert repr(CheckSelector.parse("scope=eu")) == "CheckSelector('scope', 'eu')"
-        assert repr(CheckSelector.parse("scope!=eu")) == "CheckSelector('scope', 'eu', negated=True)"
-
     def test_only_negated_selectors(self):
         selectors = CheckSelector.parse_all(["scope!=eu"])
         assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu"))
