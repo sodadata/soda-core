@@ -4,6 +4,7 @@ A 429 from Soda Cloud is produced before the request did any work, so the same b
 resend after Retry-After. soda-core announces that it can wait with X-Soda-Backpressure.
 """
 
+import copy
 from unittest.mock import patch
 
 from helpers.mock_soda_cloud import MockRequest, MockResponse, MockSodaCloud
@@ -24,7 +25,8 @@ def _insert_scan_results_command() -> dict:
     return {"type": "sodaCoreInsertScanResults", "definitionName": "my_scan"}
 
 
-def test_every_request_announces_that_the_client_can_wait():
+def test_every_request_announces_that_the_client_can_wait(monkeypatch):
+    monkeypatch.delenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", raising=False)
     mock_cloud = MockSodaCloud()
 
     mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
@@ -57,9 +59,21 @@ def test_retry_after_reads_delta_seconds_and_falls_back_to_the_default():
     )
 
 
+class _CloudRecordingBodies(MockSodaCloud):
+    def __init__(self, responses):
+        super().__init__(responses=responses)
+        self.bodies: list[dict] = []
+
+    def _http_handle(self, method, url, headers, json, data):
+        # Both attempts share one dict, so a copy is the only way to see what each attempt sent.
+        self.bodies.append(copy.deepcopy(json))
+        return super()._http_handle(method, url, headers, json, data)
+
+
 @patch.object(soda_cloud_module, "sleep")
-def test_a_429_waits_retry_after_with_jitter_and_resends_the_same_body(sleep_mock):
-    mock_cloud = MockSodaCloud(
+def test_a_429_waits_retry_after_with_jitter_and_resends_the_same_body(sleep_mock, monkeypatch):
+    monkeypatch.delenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", raising=False)
+    mock_cloud = _CloudRecordingBodies(
         responses=[
             MockResponse(status_code=429, headers={"Retry-After": "7"}, json_object={"code": "too_many_requests"}),
             MockResponse(status_code=200, json_object={"scanId": "scan-1"}),
@@ -70,13 +84,15 @@ def test_a_429_waits_retry_after_with_jitter_and_resends_the_same_body(sleep_moc
 
     assert response.status_code == 200
     assert len(mock_cloud.requests) == 2
-    assert mock_cloud.requests[0].json == mock_cloud.requests[1].json
+    assert mock_cloud.bodies[0] == mock_cloud.bodies[1]
+    sleep_mock.assert_called_once()
     (waited,), _ = sleep_mock.call_args
     assert 7.0 <= waited <= 7.0 * 1.3
 
 
 @patch.object(soda_cloud_module, "sleep")
-def test_a_429_without_retry_after_waits_the_default(sleep_mock):
+def test_a_429_without_retry_after_waits_the_default(sleep_mock, monkeypatch):
+    monkeypatch.delenv("SODA_CLOUD_DEFERRAL_BUDGET_SECONDS", raising=False)
     mock_cloud = MockSodaCloud(
         responses=[
             MockResponse(status_code=429, json_object={"code": "too_many_requests"}),
@@ -86,6 +102,7 @@ def test_a_429_without_retry_after_waits_the_default(sleep_mock):
 
     mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
 
+    sleep_mock.assert_called_once()
     (waited,), _ = sleep_mock.call_args
     assert 15.0 <= waited <= 15.0 * 1.3
 
@@ -119,6 +136,7 @@ def test_the_wait_never_exceeds_what_is_left_of_the_budget(sleep_mock, monkeypat
 
     mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
 
+    sleep_mock.assert_called_once()
     (waited,), _ = sleep_mock.call_args
     assert waited <= 3.0
 
