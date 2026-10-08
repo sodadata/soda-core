@@ -1772,12 +1772,11 @@ def test_runner_keeps_a_file_that_fails_to_build_to_its_own_error():
 
 def test_runner_checks_scope_keys_per_file():
     """Soda Cloud checks the scope keys of each contract on its own, so the runner path does too: a key that only
-    another file declares is unknown, and the error stops the session. Every file is checked before the first
-    request, so the first file's run never starts without the second."""
+    another file declares is unknown, and the error stops the session at that file. Files are checked and sent one
+    by one, so the first file's run has already started."""
     cloud = MockSodaCloud(_runner_completed())
 
     with pytest.raises(InvalidArgumentException, match=re.escape("'apac'")):
         _execute_files_on_runner(cloud, [_SCOPED_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=apac"])
 
-    assert _runner_commands(cloud) == []
-    assert cloud.requests == []
+    assert len(_runner_commands(cloud)) == 1

@@ -467,12 +467,7 @@ class ContractVerificationSessionImpl:
         "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
         from soda_core.check_collections.session import raise_if_unknown_scope_keys
 
-        # Every file is built and its scope keys checked before the first request to Soda Cloud, so an unknown
-        # key in a later file never leaves an earlier file's run started on the runner. Building is local.
-        # Per file: the source, the built impl and its init log records, or the ERROR placeholder.
-        prepared: list[
-            tuple[ContractYamlSource, Optional[ContractImpl], list, Optional[ContractVerificationResult]]
-        ] = []
+        contract_verification_results: list[ContractVerificationResult] = []
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -498,29 +493,18 @@ class ContractVerificationSessionImpl:
                 )
                 init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
-                prepared.append((contract_yaml_source, contract_impl, init_log_records, None))
             except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
                 # Same per-item isolation as the local path: keep an ERROR placeholder for the
                 # item. Dropping it left the session without a result, and an empty session
                 # reads as a pass.
-                prepared.append(
-                    (contract_yaml_source, None, [], ContractImpl.build_error_result(contract_yaml_source, exc))
-                )
-
-        # Soda Cloud refuses a scope key the file does not declare, file by file. Refuse it here as a local run
-        # does. Outside any try, so the error stops the session before anything is sent.
-        for contract_yaml_source, contract_impl, _init_log_records, _error_result in prepared:
-            if contract_impl is not None:
-                raise_if_unknown_scope_keys(
-                    [(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors
-                )
-
-        contract_verification_results: list[ContractVerificationResult] = []
-        for contract_yaml_source, contract_impl, init_log_records, error_result in prepared:
-            if contract_impl is None:
-                contract_verification_results.append(error_result)
+                contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
                 continue
+
+            # Soda Cloud refuses a scope key the file does not declare. Refuse it here, as a local run does.
+            # Outside any try, so the error stops the session before this file is sent.
+            raise_if_unknown_scope_keys([(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors)
+
             try:
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
