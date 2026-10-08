@@ -4,13 +4,14 @@ import base64
 import json
 import logging
 import os
+import random
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from time import sleep
+from time import monotonic, sleep
 from typing import Any, Dict, Optional, Union
 
 import requests
@@ -1518,10 +1519,9 @@ class SodaCloud:
             logger.debug(
                 f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
             )
-            response: Response = self._http_post(
+            response: Response = self._post_waiting_while_deferred(
                 url=f"{self.api_url}/{request_type}",
-                headers=self.headers,
-                json=request_body,
+                request_body=request_body,
                 request_log_name=request_log_name,
             )
 
@@ -1571,6 +1571,25 @@ class SodaCloud:
     def _clean_request_from_private_info(self, json_str: str) -> str:
         regex = re.compile(r'"token":\s*"[^"]+"')
         return regex.sub(r'"token": "****"', json_str)
+
+    def _post_waiting_while_deferred(self, url: str, request_body: dict, request_log_name: str) -> Response:
+        """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
+        little jitter so pods do not resend in step) and send the same body again, until the deferral
+        budget is spent. The last 429 is then returned and handled like any other error."""
+        deadline: float = monotonic() + deferral_budget_seconds()
+        while True:
+            response: Response = self._http_post(
+                url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
+            )
+            if response.status_code != 429:
+                return response
+            remaining: float = deadline - monotonic()
+            if remaining <= 0:
+                logger.error(f"Soda Cloud stayed busy for the whole deferral budget, giving up on {request_log_name}")
+                return response
+            wait_seconds: float = min(retry_after_seconds(response) * random.uniform(1.0, 1.3), remaining)
+            logger.info(f"Soda Cloud is busy, sending {request_log_name} again in {wait_seconds:.0f}s")
+            sleep(wait_seconds)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
