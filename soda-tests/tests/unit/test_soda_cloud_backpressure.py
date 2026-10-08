@@ -113,9 +113,9 @@ def test_the_same_bad_deferral_budget_is_warned_about_once_not_on_every_request(
     deferral_budget_seconds()
     deferral_budget_seconds()
 
-    warnings = _logged(caplog, logging.WARNING, DEFERRAL_BUDGET_ENV_VAR)
-    assert len(warnings) == 1
-    assert "'soon'" in warnings[0]
+    assert _logged(caplog, logging.WARNING, DEFERRAL_BUDGET_ENV_VAR) == [
+        f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}='soon': not a valid number of seconds"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -190,6 +190,16 @@ def test_a_request_that_did_not_have_to_wait_logs_no_wait_summary(caplog):
 
     mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
 
+    assert _logged(caplog, logging.INFO, "accepted") == []
+
+
+def test_a_request_that_waited_and_then_got_an_error_is_not_logged_as_accepted(fake_clock, caplog):
+    caplog.set_level(logging.INFO, logger="soda")
+    mock_cloud = MockSodaCloud(responses=[_busy("7"), MockResponse(status_code=500, json_object={})])
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert len(fake_clock) == 1
     assert _logged(caplog, logging.INFO, "accepted") == []
 
 

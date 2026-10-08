@@ -212,6 +212,7 @@ BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
 DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
 DEFAULT_DEFERRAL_BUDGET_SECONDS: int = 15 * 60
 DEFAULT_RETRY_AFTER_SECONDS: int = 15
+MIN_RETRY_AFTER_SECONDS: int = 1
 MAX_RETRY_AFTER_SECONDS: int = 600
 
 
@@ -235,7 +236,7 @@ def _parse_deferral_budget(raw_budget_seconds: Optional[str]) -> float:
     # 0 is fine: it means "do not wait". Negative, infinite and "nan" values are mistakes.
     if budget_seconds is not None and math.isfinite(budget_seconds) and budget_seconds >= 0:
         return budget_seconds
-    logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_budget_seconds!r}: not a number of seconds")
+    logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_budget_seconds!r}: not a valid number of seconds")
     return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
 
 
@@ -248,7 +249,7 @@ def retry_after_seconds(response: Response) -> float:
         return float(DEFAULT_RETRY_AFTER_SECONDS)
     if not math.isfinite(header_seconds):
         return float(DEFAULT_RETRY_AFTER_SECONDS)
-    return min(float(MAX_RETRY_AFTER_SECONDS), max(1.0, header_seconds))
+    return min(float(MAX_RETRY_AFTER_SECONDS), max(float(MIN_RETRY_AFTER_SECONDS), header_seconds))
 
 
 @dataclass(frozen=True)
@@ -1549,7 +1550,7 @@ class SodaCloud:
                 url=f"{self.api_url}/{request_type}",
                 request_body=request_body,
                 request_log_name=request_log_name,
-                budget_deadline=deferral_deadline,
+                deferral_deadline=deferral_deadline,
             )
 
             trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
@@ -1601,11 +1602,11 @@ class SodaCloud:
         return regex.sub(r'"token": "****"', json_str)
 
     def _post_waiting_while_deferred(
-        self, url: str, request_body: dict, request_log_name: str, budget_deadline: float
+        self, url: str, request_body: dict, request_log_name: str, deferral_deadline: float
     ) -> Response:
         """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
         little jitter so many clients do not all resend at the same moment) and send the same body
-        again, until the budget deadline passes. The last 429 is then returned and handled like any
+        again, until the deferral deadline passes. The last 429 is then returned and handled like any
         other error."""
         attempts: int = 0
         waited_seconds: float = 0.0
@@ -1615,12 +1616,12 @@ class SodaCloud:
                 url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
             )
             if response.status_code != 429:
-                if attempts > 1:
+                if attempts > 1 and response.ok:
                     logger.info(
                         f"Soda Cloud accepted {request_log_name} after waiting {waited_seconds:.1f}s ({attempts} tries)"
                     )
                 return response
-            remaining_budget_seconds: float = budget_deadline - monotonic()
+            remaining_budget_seconds: float = deferral_deadline - monotonic()
             if remaining_budget_seconds <= 0:
                 budget_seconds: float = deferral_budget_seconds()
                 logger.error(
