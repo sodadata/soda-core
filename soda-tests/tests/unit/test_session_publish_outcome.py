@@ -240,6 +240,10 @@ class _OutcomeImpl(CheckCollectionImpl):
             if self.soda_cloud and self.publish_results
             else None
         )
+        # As CheckCollectionImpl.verify does: a rejected file upload is logged and flags the result.
+        upload_rejected: bool = bool(self.soda_cloud and self.publish_results and not file_id)
+        if upload_rejected:
+            soda_logger.error(f"Not sending results to Soda Cloud. The {self.label} file did not upload to Soda Cloud.")
         now = datetime.now(tz=timezone.utc)
         return _Result(
             check_collection=Contract(
@@ -260,7 +264,7 @@ class _OutcomeImpl(CheckCollectionImpl):
             status=status,
             measurements=[],
             check_results=check_results,
-            sending_results_to_soda_cloud_failed=False,
+            sending_results_to_soda_cloud_failed=upload_rejected,
             log_records=self.logs.get_log_records(),
             post_processing_stages=[],
         )

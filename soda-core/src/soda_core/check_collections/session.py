@@ -317,7 +317,7 @@ def execute_check_collections(
         for wire_source, group_members in groups.items():
             members, unsendable_results = _split_unsendable(group_members)
             results_left_out.extend(unsendable_results)
-            member_results: list[CheckCollectionResult] = [result for _, _, result in members]
+            member_results: list[CheckCollectionResult] = [result for _, result in members]
             if soda_scan_id and _errored_without_evaluating_a_check(member_results, left_out=unsendable_results):
                 results_to_mark_failed.extend(member_results)
                 continue
@@ -339,7 +339,7 @@ def execute_check_collections(
             uploads_by_wire_source[wire_source] = upload
             suffix_by_wire_source[wire_source] = next(
                 member_class.scan_definition_suffix
-                for member_class, _, result in reversed(members)
+                for member_class, result in reversed(members)
                 if result.error is None
             )
 
@@ -356,7 +356,7 @@ def execute_check_collections(
 
         if soda_scan_id:
             _mark_scan_failed(
-                combined_results=[result for members in groups.values() for _, _, result in members],
+                combined_results=[result for members in groups.values() for _, result in members],
                 results_to_mark_failed=results_to_mark_failed,
                 all_results=results,
                 soda_cloud_impl=soda_cloud_impl,
@@ -440,7 +440,7 @@ def execute_check_collections(
     return CheckCollectionSessionResult(results, session_log_records=pre_session_records)
 
 
-_CombineUploadMember = tuple[type[CheckCollectionImpl], Optional[CheckCollectionImpl], CheckCollectionResult]
+_CombineUploadMember = tuple[type[CheckCollectionImpl], CheckCollectionResult]
 
 
 def _group_combine_upload_results(
@@ -462,11 +462,11 @@ def _group_combine_upload_results(
     reaches Soda Cloud with the group. Without a default subtype it joins no group.
     """
     groups: dict[str, list[_CombineUploadMember]] = {}
-    for (impl, impl_class, _, _), result in zip(constructed, results):
+    for (_, impl_class, _, _), result in zip(constructed, results):
         member_class: Optional[type[CheckCollectionImpl]] = impl_class if impl_class is not None else default_impl_class
         if member_class is None or not member_class.combine_uploads:
             continue
-        groups.setdefault(member_class.wire_source, []).append((member_class, impl, result))
+        groups.setdefault(member_class.wire_source, []).append((member_class, result))
     return groups
 
 
@@ -474,28 +474,18 @@ def _split_unsendable(
     members: list[_CombineUploadMember],
 ) -> tuple[list[_CombineUploadMember], list[CheckCollectionResult]]:
     """The members of the group that can go up in its combined upload, and the results
-    of the ones that cannot, flagged as not sent.
+    of the ones that cannot.
 
-    A result cannot be sent when the alignment guard, a missing data source or a
-    rejected file upload already flagged it, or when it became a collection but has
-    no file on Soda Cloud. It stays out of the upload. The others still go up, with a
-    stand-in for it that gives the upload errors and names it, and the run exits
-    RESULTS_NOT_SENT_TO_CLOUD for it.
+    A result cannot be sent when its verify flagged it: Soda Cloud rejected its file upload,
+    its results don't match its contract file, or its data source is missing. It stays out
+    of the upload. The others still go up, with a stand-in for it that gives the upload
+    errors and names it, and the run exits RESULTS_NOT_SENT_TO_CLOUD for it.
     """
     sendable: list[_CombineUploadMember] = []
     unsendable_results: list[CheckCollectionResult] = []
     for member in members:
-        _, impl, result = member
+        _, result = member
         if result.sending_results_to_soda_cloud_failed:
-            unsendable_results.append(result)
-        elif result.error is None and not _soda_cloud_file_id(result):
-            if impl is not None:
-                with impl.logs.activate(impl.thread_label):
-                    logger.error(
-                        f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                        f"The {impl.display_name} file did not upload to Soda Cloud."
-                    )
-            result.sending_results_to_soda_cloud_failed = True
             unsendable_results.append(result)
         else:
             sendable.append(member)
@@ -533,11 +523,6 @@ def _left_out_stand_in(result: CheckCollectionResult) -> CheckCollectionResult:
         scan_id=None,
         log_records=[*(result.log_records or []), *stand_in_logs.get_log_records()],
     )
-
-
-def _soda_cloud_file_id(result: CheckCollectionResult) -> Optional[str]:
-    source = result.check_collection.source if result.check_collection else None
-    return source.soda_cloud_file_id if source else None
 
 
 def _errored_without_evaluating_a_check(
