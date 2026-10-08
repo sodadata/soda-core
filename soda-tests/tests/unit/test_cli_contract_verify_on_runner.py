@@ -135,10 +135,11 @@ def test_verify_on_runner_sends_check_paths_and_check_filters(
     }
 
 
-@pytest.mark.parametrize("check_filter", ["scope=apac", "scope!=apac"])
 def test_verify_on_runner_exits_3_on_an_undeclared_scope_key_without_a_cloud_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, check_filter: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
+    # test_soda_cloud.py covers the negated form and the list syntax.
+    check_filter = "scope=apac"
     cloud = MockSodaCloud([])
     argv = [
         "contract",

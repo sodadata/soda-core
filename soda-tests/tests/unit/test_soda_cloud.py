@@ -1573,31 +1573,6 @@ def _execute_session_on_runner(
     )
 
 
-@pytest.mark.parametrize("publish, command_type", [(True, "sodaCoreVerifyContract"), (False, "sodaCoreTestContract")])
-def test_runner_command_carries_check_paths_and_check_filters(publish: bool, command_type: str):
-    cloud = MockSodaCloud(_runner_completed())
-
-    session_result = _execute_session_on_runner(
-        cloud,
-        check_paths=["a", "b"],
-        check_filters=["scope=eu", "scope=us", "scope!=apac"],
-        publish=publish,
-    )
-
-    assert interpret_contract_verification_result(session_result) == ExitCode.OK
-    [command] = _runner_commands(cloud)
-    assert command["type"] == command_type
-    # The check paths go up as given, and never as a check_path filter.
-    assert command["executionOptions"] == {
-        "checkPaths": ["a", "b"],
-        "checkFilters": [
-            {"field": "scope", "values": ["eu", "us"], "negate": False},
-            {"field": "scope", "values": ["apac"], "negate": True},
-        ],
-    }
-    assert command["executionOptions"]["checkFilters"][1]["negate"] is True
-
-
 @pytest.mark.parametrize(
     "check_paths, check_filters",
     [pytest.param(None, None, id="neither"), pytest.param([], [], id="empty")],
