@@ -226,9 +226,10 @@ def deferral_budget_seconds() -> float:
 
 
 def retry_after_seconds(response: Response) -> float:
-    """Retry-After as delta-seconds; Soda Cloud never sends the HTTP-date form, so anything else gets the default."""
+    """Retry-After as delta-seconds, never below one second; Soda Cloud never sends the HTTP-date form, so anything
+    else gets the default."""
     try:
-        return max(0.0, float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS)))
+        return max(1.0, float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS)))
     except (TypeError, ValueError):
         return float(DEFAULT_RETRY_AFTER_SECONDS)
 

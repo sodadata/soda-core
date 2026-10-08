@@ -46,6 +46,8 @@ def test_deferral_budget_can_be_overridden_and_ignores_garbage(monkeypatch):
 
 def test_retry_after_reads_delta_seconds_and_falls_back_to_the_default():
     assert retry_after_seconds(MockResponse(status_code=429, headers={"Retry-After": "17"}, json_object={})) == 17.0
+    assert retry_after_seconds(MockResponse(status_code=429, headers={"Retry-After": "0"}, json_object={})) == 1.0
+    assert retry_after_seconds(MockResponse(status_code=429, headers={"Retry-After": "-5"}, json_object={})) == 1.0
     assert retry_after_seconds(MockResponse(status_code=429, json_object={})) == DEFAULT_RETRY_AFTER_SECONDS
     assert (
         retry_after_seconds(
