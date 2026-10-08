@@ -305,42 +305,48 @@ def execute_check_collections(
         # creates the scan and carries the errors.
         soda_scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
         all_members: list[_CombineUploadMember] = _combine_upload_members(constructed, results, default_impl_class)
-        members, unsendable_results = _split_unsendable(all_members)
-        member_results: list[CheckCollectionResult] = [result for _, result in members]
-        # Every result of the session that errored and evaluated no check, on a managed run. An
-        # upload of it could only hold excluded checks next to the error, so the scan is marked
-        # failed instead, below.
+        # One upload per combine-upload kind, as on main. The CLI's data-standard verify only ever has one.
+        members_by_wire_source: dict[str, list[_CombineUploadMember]] = {}
+        for member in all_members:
+            members_by_wire_source.setdefault(member[0].wire_source, []).append(member)
+        # Every result that errored and evaluated no check, on a managed run. An upload of it could
+        # only hold excluded checks next to the error, so the scan is marked failed instead, below.
         results_to_mark_failed: list[CheckCollectionResult] = []
-        if soda_scan_id and _errored_without_evaluating_a_check(member_results, left_out=unsendable_results):
-            results_to_mark_failed = member_results
-        else:
-            # Every collection goes up, so the upload has errors when one of them errored, and
-            # carries its records. A file that never became a collection has no dataset, data
-            # source or file of its own: it rides along after the collections and never leads
-            # the upload, whose first result names the scan.
-            upload: list[CheckCollectionResult] = [r for r in member_results if r.error is None] + [
-                r for r in member_results if r.error is not None
-            ]
-            if not upload or upload[0].error is not None:
-                # Nothing to build a scan from. An ad-hoc run has no scan to mark either: the
-                # errors are on the console and the run exits LOG_ERRORS, as when it fails before
-                # it has results, or RESULTS_NOT_SENT_TO_CLOUD when a file could not be sent.
-                if unsendable_results:
-                    for result in member_results:
-                        result.sending_results_to_soda_cloud_failed = True
+        for kind_members in members_by_wire_source.values():
+            members, unsendable_results = _split_unsendable(kind_members)
+            member_results: list[CheckCollectionResult] = [result for _, result in members]
+            if soda_scan_id and _errored_without_evaluating_a_check(member_results, left_out=unsendable_results):
+                results_to_mark_failed.extend(member_results)
             else:
-                head_class: type[CheckCollectionImpl] = next(
-                    member_class for member_class, result in reversed(members) if result.error is None
-                )
-                # A file that can't be sent stays out of the upload, and its records go up with the
-                # session's own, after an error that names it, so the upload has errors.
-                response_json_by_wire_source[head_class.wire_source] = soda_cloud_impl.send_check_collection_results(
-                    results=upload,
-                    wire_source=head_class.wire_source,
-                    scan_definition_suffix=head_class.scan_definition_suffix,
-                    session_log_records=[*pre_session_records, *_left_out_log_records(unsendable_results)],
-                )
-                uploaded_ids.update(id(result) for result in upload)
+                # Every collection goes up, so the upload has errors when one of them errored, and
+                # carries its records. A file that never became a collection has no dataset, data
+                # source or file of its own: it rides along after the collections and never leads
+                # the upload, whose first result names the scan.
+                upload: list[CheckCollectionResult] = [r for r in member_results if r.error is None] + [
+                    r for r in member_results if r.error is not None
+                ]
+                if not upload or upload[0].error is not None:
+                    # Nothing to build a scan from. An ad-hoc run has no scan to mark either: the
+                    # errors are on the console and the run exits LOG_ERRORS, as when it fails before
+                    # it has results, or RESULTS_NOT_SENT_TO_CLOUD when a file could not be sent.
+                    if unsendable_results:
+                        for result in member_results:
+                            result.sending_results_to_soda_cloud_failed = True
+                else:
+                    head_class: type[CheckCollectionImpl] = next(
+                        member_class for member_class, result in reversed(members) if result.error is None
+                    )
+                    # A file that can't be sent stays out of the upload, and its records go up with the
+                    # session's own, after an error that names it, so the upload has errors.
+                    response_json_by_wire_source[
+                        head_class.wire_source
+                    ] = soda_cloud_impl.send_check_collection_results(
+                        results=upload,
+                        wire_source=head_class.wire_source,
+                        scan_definition_suffix=head_class.scan_definition_suffix,
+                        session_log_records=[*pre_session_records, *_left_out_log_records(unsendable_results)],
+                    )
+                    uploaded_ids.update(id(result) for result in upload)
 
         if soda_scan_id:
             _mark_scan_failed(
@@ -443,9 +449,9 @@ def _combine_upload_members(
     results: list[CheckCollectionResult],
     default_impl_class: Optional[type[CheckCollectionImpl]],
 ) -> list[_CombineUploadMember]:
-    """The results of the session's combine-upload files, in session order. A session holds
-    files of one combine-upload kind, which ``_raise_if_combined_session_spans_multiple_datasets``
-    checks.
+    """The results of the session's combine-upload files, in session order. The CLI's
+    data-standard verify holds files of one combine-upload kind; the session uploads each kind
+    on its own.
 
     A file that failed before its kind was known belongs to the caller's
     ``default_impl_class``, the subtype the session verifies, so its error still
@@ -708,11 +714,6 @@ def _raise_if_combined_session_spans_multiple_datasets(
         path = getattr(yaml_source, "file_path", None) or repr(yaml_source)
         files_by_dataset.setdefault(impl_class.wire_source, {}).setdefault(dataset, []).append(path)
 
-    if len(files_by_dataset) > 1:
-        raise InvalidArgumentException(
-            "A combined (combine_uploads) session takes files of one kind, but found: "
-            f"{', '.join(sorted(files_by_dataset))}. Run each kind in its own session."
-        )
     offenders = {ws: by_ds for ws, by_ds in files_by_dataset.items() if len(by_ds) > 1}
     if offenders:
         lines: list[str] = []
