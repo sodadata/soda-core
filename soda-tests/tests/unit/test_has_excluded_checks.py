@@ -6,6 +6,7 @@ OR ``has_excluded_checks`` over their per-file results, so they only work when `
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -119,3 +120,17 @@ def test_contract_verification_session_result_has_excluded_checks_ors_across_res
 
     assert session_result.number_of_checks_excluded == (1 if expected else 0)
     assert session_result.has_excluded_checks is expected
+
+
+def test_contract_verification_session_result_keeps_its_public_constructor_and_results_attribute():
+    failed = replace(_make_result([CheckOutcome.FAILED]), status=CheckCollectionStatus.FAILED)
+    warned = replace(_make_result([CheckOutcome.WARN]), status=CheckCollectionStatus.WARNED)
+
+    by_keyword = ContractVerificationSessionResult(contract_verification_results=[failed, warned])
+    by_position = ContractVerificationSessionResult([failed, warned])
+
+    for session_result in (by_keyword, by_position):
+        assert session_result.contract_verification_results == [failed, warned]
+        assert session_result.is_failed is True
+        assert session_result.is_warned is True
+        assert session_result.has_excluded_checks is False

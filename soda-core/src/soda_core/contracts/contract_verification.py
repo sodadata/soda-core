@@ -100,130 +100,6 @@ class ContractVerificationSession:
         )
 
 
-class ContractVerificationSessionResult:
-    """Represents the result of a contract verification session.
-
-    Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
-
-    @param contract_verification_results: The list of contract verification results.
-    """
-
-    def __init__(self, contract_verification_results: list[ContractVerificationResult]):
-        self.contract_verification_results: list[ContractVerificationResult] = contract_verification_results
-
-    def get_logs(self) -> list[str]:
-        logs: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
-            logs.extend(contract_verification_result.get_logs())
-        return logs
-
-    def get_logs_str(self) -> str:
-        return "\n".join(self.get_logs())
-
-    def get_errors(self) -> list[str]:
-        errors: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
-            errors.extend(contract_verification_result.get_errors())
-        return errors
-
-    @property
-    def number_of_checks(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_passed(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_passed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_failed(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_failed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def number_of_checks_excluded(self) -> int:
-        return sum(
-            contract_verification_result.number_of_checks_excluded
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    def get_errors_str(self) -> str:
-        return "\n".join(self.get_errors())
-
-    @property
-    def has_errors(self) -> bool:
-        return any(
-            contract_verification_result.has_errors
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def is_failed(self) -> bool:
-        """
-        Returns true if there are checks that have failed.
-        False is returned if there are no check results.
-        Only looks at check results.
-        Ignores execution errors in the logs.
-        """
-        return any(
-            contract_verification_result.is_failed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def is_warned(self) -> bool:
-        """
-        Returns true if there are checks that have warnings.
-        False is returned if there are no check results.
-        Only looks at check results.
-        Ignores execution errors in the logs.
-        """
-        return any(
-            contract_verification_result.is_warned
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def is_passed(self) -> bool:
-        """
-        Returns true if there are no checks that have failed.
-        Ignores execution errors in the logs.
-        """
-        return all(
-            contract_verification_result.is_passed
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def has_excluded_checks(self) -> bool:
-        """
-        Returns true if there are checks that have been excluded.
-        Ignores execution errors in the logs.
-        """
-        return any(
-            contract_verification_result.has_excluded_checks
-            for contract_verification_result in self.contract_verification_results
-        )
-
-    @property
-    def is_ok(self) -> bool:
-        return all(
-            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
-        )
-
-    def assert_ok(self) -> ContractVerificationSessionResult:
-        if not self.is_ok:
-            raise SodaException(message=self.get_errors_str())
-        return self
-
-
 class SodaException(Exception):
     """
     See also adr/03_exceptions_vs_error_logs.md
@@ -580,11 +456,11 @@ class PostProcessingStage:
         self.records_written: Optional[int] = records_written
 
 
-# ``CheckCollectionResult`` lives in ``check_collections.base`` (the spec
+# ``CheckCollectionResult`` and ``CheckCollectionSessionResult`` live in ``check_collections.base`` (the spec
 # location). Imported here at module bottom to break the import cycle:
 # ``base.py`` needs Contract / DataSource / Measurement / ... defined above,
-# and ``ContractVerificationResult`` is a thin subclass below.
-from soda_core.check_collections.base import CheckCollectionResult  # noqa: E402
+# and ``ContractVerificationResult`` and ``ContractVerificationSessionResult`` are thin subclasses below.
+from soda_core.check_collections.base import CheckCollectionResult, CheckCollectionSessionResult  # noqa: E402
 
 
 @dataclass
@@ -607,3 +483,94 @@ class ContractVerificationResult(CheckCollectionResult):
         through ``check_collection``.
         """
         return self.check_collection
+
+
+class ContractVerificationSessionResult(CheckCollectionSessionResult):
+    """Represents the result of a contract verification session.
+
+    Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
+    ``has_errors``, ``is_failed``, ``is_warned``, ``has_excluded_checks`` and
+    ``sending_results_to_soda_cloud_failed`` come from ``CheckCollectionSessionResult``.
+
+    @param contract_verification_results: The list of contract verification results.
+    """
+
+    def __init__(self, contract_verification_results: list[ContractVerificationResult]):
+        super().__init__(results=contract_verification_results)
+
+    @property
+    def contract_verification_results(self) -> list[ContractVerificationResult]:
+        """The per-contract results, the same list as ``results``."""
+        return self.results
+
+    @contract_verification_results.setter
+    def contract_verification_results(self, contract_verification_results: list[ContractVerificationResult]) -> None:
+        self.results = contract_verification_results
+
+    def get_logs(self) -> list[str]:
+        logs: list[str] = []
+        for contract_verification_result in self.contract_verification_results:
+            logs.extend(contract_verification_result.get_logs())
+        return logs
+
+    def get_logs_str(self) -> str:
+        return "\n".join(self.get_logs())
+
+    def get_errors(self) -> list[str]:
+        errors: list[str] = []
+        for contract_verification_result in self.contract_verification_results:
+            errors.extend(contract_verification_result.get_errors())
+        return errors
+
+    @property
+    def number_of_checks(self) -> int:
+        return sum(
+            contract_verification_result.number_of_checks
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def number_of_checks_passed(self) -> int:
+        return sum(
+            contract_verification_result.number_of_checks_passed
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def number_of_checks_failed(self) -> int:
+        return sum(
+            contract_verification_result.number_of_checks_failed
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def number_of_checks_excluded(self) -> int:
+        return sum(
+            contract_verification_result.number_of_checks_excluded
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    def get_errors_str(self) -> str:
+        return "\n".join(self.get_errors())
+
+    @property
+    def is_passed(self) -> bool:
+        """
+        Returns true if there are no checks that have failed.
+        Ignores execution errors in the logs.
+        """
+        return all(
+            contract_verification_result.is_passed
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
+    def is_ok(self) -> bool:
+        return all(
+            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
+        )
+
+    def assert_ok(self) -> ContractVerificationSessionResult:
+        if not self.is_ok:
+            raise SodaException(message=self.get_errors_str())
+        return self
