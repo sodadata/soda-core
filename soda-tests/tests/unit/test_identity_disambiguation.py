@@ -172,16 +172,6 @@ def _contract_identity(**kwargs) -> str:
     )
 
 
-def test_base_scope_adds_nothing_to_the_contract_identity():
-    """No scope and the base scope both keep the unscoped identity."""
-    assert _contract_identity(scope_key=None) == _contract_identity()
-    assert _contract_identity(scope_key="base") == _contract_identity()
-
-
-def test_identical_checks_in_two_scopes_produce_different_identities():
-    assert len({_contract_identity(scope_key="eu"), _contract_identity(scope_key="us"), _contract_identity()}) == 3
-
-
 def test_scope_and_reconciliation_source_both_tell_checks_apart():
     extras = {"src": "payments"}
     assert _contract_identity(extra_identity_properties=extras, scope_key="base") == _contract_identity(

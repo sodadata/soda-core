@@ -13,17 +13,16 @@ def _scoped_checks(monkeypatch) -> list[dict]:
     return [check for check in payload["checks"] if check["checkPath"].startswith("scope.")]
 
 
-def test_scoped_checks_carry_the_scope_prefix(monkeypatch):
-    assert [check["checkPath"] for check in _scoped_checks(monkeypatch)] == [
+def test_scoped_checks_carry_their_scope_in_path_attributes_and_definition(monkeypatch):
+    scoped_checks = _scoped_checks(monkeypatch)
+
+    assert [check["checkPath"] for check in scoped_checks] == [
         "scope.eu:columns.amount.checks.invalid",
         "scope.eu:checks.row_count.2",
         "scope.us:checks.row_count",
     ]
-
-
-def test_scoped_checks_carry_the_scope_check_attributes(monkeypatch):
     # The scope's check attributes under the check's own, never the top-level ones.
-    assert [check["resourceAttributes"] for check in _scoped_checks(monkeypatch)] == [
+    assert [check["resourceAttributes"] for check in scoped_checks] == [
         [
             {"name": "team", "value": "data-eng-eu"},
             {"name": "region", "value": "eu-west"},
@@ -32,11 +31,8 @@ def test_scoped_checks_carry_the_scope_check_attributes(monkeypatch):
         [{"name": "team", "value": "data-eng-eu"}, {"name": "region", "value": "eu"}],
         [],
     ]
-
-
-def test_scoped_checks_carry_the_scope_filter_in_their_definition(monkeypatch):
     # The scope filter in place of the top-level one; a scope without a filter shows none.
-    assert [check["definition"] for check in _scoped_checks(monkeypatch)] == [
+    assert [check["definition"] for check in scoped_checks] == [
         "filter: country IN ('BE', 'NL', 'DE')\n"
         "columns:\n"
         "- name: amount\n"

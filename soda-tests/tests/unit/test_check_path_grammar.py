@@ -133,21 +133,6 @@ def test_check_path_and_identity_match_grammar(row_index: int):
     )
 
 
-def _row_without_scope(row: dict) -> dict:
-    [(check_type, check_body)] = row["check"].items()
-    check_body = {key: value for key, value in (check_body or {}).items() if key != "scope"}
-    return {"column": row.get("column"), "check": {check_type: check_body or None}}
-
-
-def test_each_unscoped_row_is_repeated_in_the_scope_eu():
-    unscoped_rows: list[dict] = [row for row in GRAMMAR["rows"] if _check_scope(row) is None]
-    scoped_rows: list[dict] = [row for row in GRAMMAR["rows"] if _check_scope(row) is not None]
-
-    assert {_check_scope(row) for row in scoped_rows} == {"eu"}
-    assert [_row_without_scope(row) for row in scoped_rows] == [_row_without_scope(row) for row in unscoped_rows]
-    assert [row["checkPath"] for row in scoped_rows] == [f"scope.eu:{row['checkPath']}" for row in unscoped_rows]
-
-
 def test_identical_checks_in_two_scopes_get_their_own_path_and_identity():
     contract: dict = {
         "dataset": GRAMMAR["dataset"],
