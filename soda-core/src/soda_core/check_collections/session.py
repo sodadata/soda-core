@@ -104,10 +104,7 @@ def execute_check_collections(
     scan after an insert that reached it, or may have: a 5xx or a timeout can
     follow an insert Soda Cloud stored, and a mark would turn that scan FAILED
     and replace its logs. Per-file collections decide in their own
-    ``verify()`` and follow the same rule: in a session of several of them under
-    one scan id, a file that cannot go up after an earlier file reached the scan
-    is flagged as not sent and marks nothing. A session where every file
-    succeeds uploads exactly as before.
+    ``verify()``. A session where every file succeeds uploads exactly as before.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -277,11 +274,6 @@ def execute_check_collections(
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
-        # A per-file collection marks its own scan in verify(), so it needs to know whether an
-        # earlier file already reached it.
-        impl.scan_reached_by_an_earlier_file = any(
-            result.scan_id or result.results_may_have_reached_soda_cloud for result in results
-        )
         # Capture this verify()'s records into this collection's gatherer.
         with impl.logs.activate(impl.thread_label):
             try:
@@ -312,16 +304,12 @@ def execute_check_collections(
         # mark_scan_as_failed needs). An ad-hoc run has no scan to mark, so its upload
         # creates the scan and carries the errors.
         soda_scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
-        groups, unplaced_results = _group_combine_upload_results(constructed, results, default_impl_class)
-        # Files of unknown kind that no single combined upload can claim: none of the uploads
-        # holds them, so they are flagged as not sent.
-        for result in unplaced_results:
-            result.sending_results_to_soda_cloud_failed = True
+        groups = _group_combine_upload_results(constructed, results, default_impl_class)
         uploads_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
         suffix_by_wire_source: dict[str, Optional[str]] = {}
         # The results whose own data goes up in no upload. Each upload carries a stand-in for
         # each of them, with its records and an error naming it, so no upload reads clean.
-        results_left_out: list[CheckCollectionResult] = list(unplaced_results)
+        results_left_out: list[CheckCollectionResult] = []
         # Every result of a managed run's group that errored and evaluated no check. An upload
         # of it could only hold excluded checks next to the error, so the scan is marked
         # failed instead, below.
@@ -355,14 +343,6 @@ def execute_check_collections(
                 if result.error is None
             )
 
-        if uploads_by_wire_source and results_to_mark_failed:
-            # Another group goes up, so a mark for this one would land on a scan that insert
-            # completed. Its records ride along in that upload instead, and its results are
-            # flagged as not sent.
-            for result in results_to_mark_failed:
-                result.sending_results_to_soda_cloud_failed = True
-            results_left_out.extend(results_to_mark_failed)
-            results_to_mark_failed = []
         stand_ins: list[CheckCollectionResult] = [_left_out_stand_in(result) for result in results_left_out]
 
         for wire_source, upload in uploads_by_wire_source.items():
@@ -376,7 +356,7 @@ def execute_check_collections(
 
         if soda_scan_id:
             _mark_scan_failed(
-                combined_results=[result for members in groups.values() for _, _, result in members] + unplaced_results,
+                combined_results=[result for members in groups.values() for _, _, result in members],
                 results_to_mark_failed=results_to_mark_failed,
                 all_results=results,
                 soda_cloud_impl=soda_cloud_impl,
@@ -474,40 +454,20 @@ def _group_combine_upload_results(
     ],
     results: list[CheckCollectionResult],
     default_impl_class: Optional[type[CheckCollectionImpl]],
-) -> tuple[dict[str, list[_CombineUploadMember]], list[CheckCollectionResult]]:
-    """The results of combine-upload subtypes by wire source, in session order, and the
-    results of files that belong to no group but should have.
+) -> dict[str, list[_CombineUploadMember]]:
+    """The results of combine-upload subtypes by wire source, in session order.
 
     A file that failed before its kind was known belongs to the caller's
     ``default_impl_class``, the subtype the session verifies, so its error still
-    reaches Soda Cloud with the group. Without a default subtype it joins the
-    session's combined upload when there is only one. Next to several it could belong
-    to any of them, so it is returned apart: no upload can claim every file.
+    reaches Soda Cloud with the group. Without a default subtype it joins no group.
     """
-    member_classes: list[Optional[type[CheckCollectionImpl]]] = [
-        impl_class if impl_class is not None else default_impl_class for _, impl_class, _, _ in constructed
-    ]
-    combine_upload_classes: dict[str, type[CheckCollectionImpl]] = {
-        member_class.wire_source: member_class
-        for member_class in member_classes
-        if member_class is not None and member_class.combine_uploads
-    }
-    unknown_kind_class: Optional[type[CheckCollectionImpl]] = (
-        next(iter(combine_upload_classes.values())) if len(combine_upload_classes) == 1 else None
-    )
     groups: dict[str, list[_CombineUploadMember]] = {}
-    unplaced_results: list[CheckCollectionResult] = []
-    for (impl, _, _, _), member_class, result in zip(constructed, member_classes, results):
-        if member_class is None:
-            if unknown_kind_class is None:
-                if combine_upload_classes:
-                    unplaced_results.append(result)
-                continue
-            member_class = unknown_kind_class
-        if not member_class.combine_uploads:
+    for (impl, impl_class, _, _), result in zip(constructed, results):
+        member_class: Optional[type[CheckCollectionImpl]] = impl_class if impl_class is not None else default_impl_class
+        if member_class is None or not member_class.combine_uploads:
             continue
         groups.setdefault(member_class.wire_source, []).append((member_class, impl, result))
-    return groups, unplaced_results
+    return groups
 
 
 def _split_unsendable(
