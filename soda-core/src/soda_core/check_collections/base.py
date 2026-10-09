@@ -56,6 +56,7 @@ from soda_core.contracts.impl.scope import (
     Scope,
     ScopeHandling,
     ScopeYaml,
+    count_scopes_and_scoped_checks,
     scope_key_error,
 )
 
@@ -177,6 +178,12 @@ class CheckCollectionResult:
     # dataset's column list from. None when nothing measured the columns: the engine
     # never runs an extra query just to fill this in.
     dataset_columns: Optional[list[ColumnMetadata]] = None
+    # How many scopes the file declares, and how many of its checks sit outside the base scope and in it. A check
+    # whose scope names no declared scope sits outside. Counted from the parsed checks, so a run that builds no
+    # check results, such as 'soda contract test', reports them too.
+    number_of_scopes: int = 0
+    number_of_scoped_checks: int = 0
+    number_of_unscoped_checks: int = 0
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -309,6 +316,18 @@ class CheckCollectionSessionResult:
     @property
     def number_of_checks_excluded(self) -> int:
         return sum(result.number_of_checks_excluded for result in self.results)
+
+    @property
+    def number_of_scopes(self) -> int:
+        return sum(result.number_of_scopes for result in self.results)
+
+    @property
+    def number_of_scoped_checks(self) -> int:
+        return sum(result.number_of_scoped_checks for result in self.results)
+
+    @property
+    def number_of_unscoped_checks(self) -> int:
+        return sum(result.number_of_unscoped_checks for result in self.results)
 
     @property
     def has_errors(self) -> bool:
@@ -1248,6 +1267,11 @@ class CheckCollectionImpl:
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
+        scopes_count, scoped_checks_count, unscoped_checks_count = count_scopes_and_scoped_checks(
+            self.scopes,
+            [None if check_impl.scope.is_base else check_impl.scope.key for check_impl in self.all_check_impls],
+        )
+
         verification_result: CheckCollectionResult = self.result_class(
             check_collection=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
@@ -1272,6 +1296,9 @@ class CheckCollectionImpl:
             log_records=log_records,
             post_processing_stages=post_processing_stages,
             dataset_columns=_find_measured_dataset_columns(check_results),
+            number_of_scopes=scopes_count,
+            number_of_scoped_checks=scoped_checks_count,
+            number_of_unscoped_checks=unscoped_checks_count,
         )
 
         scan_id: Optional[str] = None

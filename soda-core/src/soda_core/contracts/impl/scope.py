@@ -17,7 +17,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from numbers import Number
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, Optional
 
 from ruamel.yaml.comments import TaggedScalar
 from soda_core.common.filtered_cte import filtered_cte_alias
@@ -40,6 +40,34 @@ INVALID_SCOPE_KEY: str = "<invalid>"
 # The keys a scope accepts, and the keys its schedule accepts.
 SCOPE_YAML_KEYS: tuple[str, ...] = ("name", "description", "filter", "schedule", "check_attributes")
 SCHEDULE_YAML_KEYS: tuple[str, ...] = ("cron", "timezone", "variables")
+
+
+def count_scopes_and_scoped_checks(declared_keys: Iterable[Any], check_scopes: Iterable[Any]) -> tuple[int, int, int]:
+    """The scopes, scoped checks and unscoped checks, by the one rule verify, test and publish share.
+
+    A declared string key other than 'base' is a scope. A check whose scope is None or 'base' is unscoped, any other
+    value is scoped, an undeclared key included.
+    """
+    scopes_count: int = sum(1 for key in declared_keys if isinstance(key, str) and key != BASE_SCOPE_KEY)
+    scope_values: list = list(check_scopes)
+    scoped_checks_count: int = sum(1 for scope in scope_values if scope is not None and scope != BASE_SCOPE_KEY)
+    return scopes_count, scoped_checks_count, len(scope_values) - scoped_checks_count
+
+
+def count_scopes_and_checks(contract_yamls: list) -> tuple[int, int, int]:
+    """The scopes, scoped checks and unscoped checks of the parsed contracts, summed.
+
+    Counts the checks core parses, under ``checks`` and under each column. A check that an extension parses from a
+    section of its own, such as ``reconciliation``, is not counted.
+    """
+    totals: list[int] = [0, 0, 0]
+    for contract_yaml in contract_yamls:
+        check_yamls: list = [check_yaml for check_yaml in contract_yaml.checks or [] if check_yaml is not None]
+        for column_yaml in contract_yaml.columns or []:
+            check_yamls.extend(check_yaml for check_yaml in column_yaml.check_yamls or [] if check_yaml is not None)
+        counts = count_scopes_and_scoped_checks(contract_yaml.scopes, [check_yaml.scope for check_yaml in check_yamls])
+        totals = [total + count for total, count in zip(totals, counts)]
+    return totals[0], totals[1], totals[2]
 
 
 class ScheduleYaml:
