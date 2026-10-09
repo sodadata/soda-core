@@ -4,13 +4,19 @@
 # contract on the dataset below with a data source named like its first segment. checkPath is the grammar
 # and is written by hand. identity is recorded: SODA_TEST_UPDATE_SNAPSHOTS=1 rewrites it.
 #
-# Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scope work adds
-# each row again with the scope.eu: prefix. The Soda Cloud backend mirrors this list.
+# Unscoped rows recorded on soda-core origin/main ac8c7474, before any scope code. The scoped rows repeat
+# each of them in the scope eu, with the scope.eu: prefix; a row's contract declares the scopes below only
+# when its check names a scope. The Soda Cloud backend mirrors this list.
 #
 # The reconciliation path forms, such as reconciliation.checks.row_count_diff,
 # reconciliation.payments.checks.aggregate_diff and reconciliation.payments.checks.aggregate_diff.sum,
-# are pinned in soda-extensions, where the reconciliation check type lives.
+# and their scoped forms, such as scope.eu:reconciliation.payments.checks.aggregate_diff, are pinned in
+# soda-extensions, where the reconciliation check type lives.
 dataset: fixture_ds/main/orders
+scopes:
+  eu:
+    name: EU
+    filter: country IN ('BE', 'NL', 'DE')
 rows:
   - checkPath: checks.row_count
     identity: 3a083c70
@@ -43,4 +49,43 @@ rows:
     identity: bd98ebd7
     check:
       row_count:
+        qualifier: ''
+  # The rows above in the scope eu.
+  - checkPath: scope.eu:checks.row_count
+    identity: 041b6371
+    check:
+      row_count:
+        scope: eu
+  - checkPath: scope.eu:checks.row_count.2
+    identity: f67dc7d1
+    check:
+      row_count:
+        scope: eu
+        qualifier: 2
+  - checkPath: scope.eu:columns.amount.checks.invalid
+    identity: 9ac72e42
+    column: amount
+    check:
+      invalid:
+        scope: eu
+        valid_min: 0
+  - checkPath: scope.eu:columns.amount.checks.invalid.strict
+    identity: ab091104
+    column: amount
+    check:
+      invalid:
+        scope: eu
+        qualifier: strict
+        valid_min: 1
+  - checkPath: scope.eu:checks.schema
+    identity: 6a777e8f
+    check:
+      schema:
+        scope: eu
+  # An empty qualifier is dropped from the path but kept in the identity.
+  - checkPath: scope.eu:checks.row_count
+    identity: 23581df5
+    check:
+      row_count:
+        scope: eu
         qualifier: ''

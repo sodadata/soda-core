@@ -1326,8 +1326,9 @@ class CheckImpl:
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
-        # Merge attributes before filtering (selectors may query them)
-        self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+        # Merge attributes before filtering (selectors may query them). The check's own attributes go over the
+        # check attributes of its scope. The base scope holds the top-level ones; a declared scope holds its own.
+        self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
         # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
@@ -1399,9 +1400,12 @@ class CheckImpl:
         prefix and the ``{relative}`` path.
 
         - Contracts (``wire_source == "soda-contract"``): bare
-          ``self.relative_path``, byte-identical to today's emission.
+          ``self.relative_path``, byte-identical to today's emission. A check
+          in a declared scope gets ``f"scope.{key}:{relative_path}"``, with
+          the same single ``:`` delimiter and the wire source unchanged.
         - Non-contract subtypes (e.g. data standards): the full option-3
-          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``.
+          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``. They
+          reject scope input, so their checks are always in the base scope.
         - Defensive fallback (no ``collection_id``): bare ``self.relative_path``.
 
         The ``type`` (wire_source) and ``id`` (collection_id) segments must not
@@ -1410,8 +1414,9 @@ class CheckImpl:
         ``base.py`` guard in ``verify()`` enforces this for ``collection_id``
         (which does come from user-supplied config).
 
-        Selector matching uses ``self.relative_path`` (not ``check_path``) so
-        the prefix never leaks into ``--check-selector`` matching.
+        ``path`` and ``relative_path`` selectors match ``self.relative_path``,
+        so they never see a prefix. ``check_path`` selectors, which ``-cp``
+        builds, match this value, scope prefix included.
         """
         # ``contract_impl`` is the back-ref to the enclosing
         # ``CheckCollectionImpl`` (name preserved during the rename slice;
@@ -1419,6 +1424,8 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
+            if not self.scope.is_base:
+                return f"scope.{self.scope.key}:{self.relative_path}"
             return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
         # Non-contract subtypes MUST declare collection_id: the
@@ -1529,8 +1536,10 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.yaml.filter:
-            contract_dict["filter"] = self.contract_impl.yaml.filter
+        # A scope filter replaces the top-level filter. The base scope's filter is the top-level filter.
+        dataset_filter: Optional[str] = self.scope.filter
+        if dataset_filter:
+            contract_dict["filter"] = dataset_filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 

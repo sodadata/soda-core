@@ -5,7 +5,8 @@ the ``{type}.{id}`` prefix and the ``{relative}`` path:
 
 - Contracts: ``checkPath`` is the yaml-internal stripped
   ``Check.relative_path``. Byte-identical to every prior contract
-  verification.
+  verification. A check in a declared scope gets the ``scope.<key>:``
+  prefix.
 - Non-contract subtypes (e.g. data standards): ``checkPath`` is
   ``"{wire_source}.{collection_id}:{relative_path}"`` so the backend filter
   routes it. The ``type`` and ``id`` segments must not contain ``.`` or ``:``.
@@ -17,12 +18,11 @@ property on ``CheckImpl`` for both branches of the wire_source heuristic.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import _build_check_result_cloud_dict
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult, Contract, YamlFileContentInfo
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope
 
 
 def _make_contract() -> Contract:
@@ -101,8 +101,9 @@ class _StubCheckImpl:
     We don't subclass ``CheckImpl`` because the real ``__init__`` requires a
     full ``ContractImpl`` (and the real ``relative_path`` property reads
     ``column_impl.column_yaml.name``). The property under test only reads
-    ``self.relative_path``, ``self.contract_impl.wire_source``, and
-    ``self.contract_impl.collection_id`` — we mirror those exactly.
+    ``self.relative_path``, ``self.scope``, ``self.contract_impl.wire_source``,
+    ``self.contract_impl.collection_id`` and ``supports_scopes`` of the
+    collection's class, so we mirror those exactly.
     """
 
     # Borrow the production property verbatim so any future refactor that
@@ -113,7 +114,8 @@ class _StubCheckImpl:
 
     def __init__(self, *, wire_source: str, collection_id, path: str):
         self.relative_path = path
-        self.contract_impl = MagicMock()
+        self.scope = Scope(key=BASE_SCOPE_KEY)
+        self.contract_impl = type("_StubCollection", (), {"supports_scopes": True})()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
 
