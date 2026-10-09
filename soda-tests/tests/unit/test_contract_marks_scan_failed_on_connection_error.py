@@ -23,30 +23,17 @@ Cloud marking has exactly two sites, and they never overlap:
 from unittest.mock import patch
 
 import pytest
+from helpers.cli_verify import DEFAULT_CONTRACT_YAML, DEFAULT_DATA_SOURCE_YAML, handle_verify_contract_with_files
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import handle_verify_contract
-from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
-from soda_core.cli.handlers.scan import run_scan
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
-_DATA_SOURCE_YAML = """
-type: duckdb
-name: test_ds
-connection:
-    database: ":memory:"
-    schema: main
-"""
-
-_CONTRACT_YAML = """
-dataset: test_ds/main/my_table
-columns:
-  - name: id
-"""
+_DATA_SOURCE_YAML = DEFAULT_DATA_SOURCE_YAML
+_CONTRACT_YAML = DEFAULT_CONTRACT_YAML
 
 
 def test_connection_failure_marks_scan_failed_not_completed_with_errors(monkeypatch):
@@ -286,38 +273,6 @@ def test_uncaught_exception_during_construction_reraises_without_marking_scan_fa
     )
 
 
-def _handle_verify_contract_with_files(tmp_path, mock_cloud: MockSodaCloud, data_source_yaml: str = None) -> ExitCode:
-    """Run the real CLI flow end-to-end (real session, real duckdb data source),
-    with ``SodaCloud.from_config`` pinned to the given mock. Mirrors the cli.py
-    verify wiring: channel resolution first, then the bare command wrapped in
-    ``run_scan`` (the single Cloud-marking site)."""
-    contract_path = tmp_path / "contract.yaml"
-    contract_path.write_text(_CONTRACT_YAML)
-    data_source_path = tmp_path / "ds.yaml"
-    data_source_path.write_text(data_source_yaml if data_source_yaml is not None else _DATA_SOURCE_YAML)
-
-    with patch("soda_core.common.soda_cloud.SodaCloud.from_config", return_value=mock_cloud):
-        soda_cloud = resolve_soda_cloud_for_failure_report("sc.yaml", {})
-        return run_scan(
-            soda_cloud,
-            lambda logs: handle_verify_contract(
-                contract_file_path=str(contract_path),
-                dataset_identifier=None,
-                data_source_file_paths=[str(data_source_path)],
-                soda_cloud_file_path="sc.yaml",
-                variables={},
-                publish=True,
-                verbose=False,
-                use_runner=False,
-                blocking_timeout_in_minutes=10,
-                check_paths=None,
-                check_selectors=[],
-                diagnostics_warehouse_file_path=None,
-                logs=logs,
-            ),
-        )
-
-
 def test_cli_boundary_marks_scan_failed_exactly_once_with_engine_logs(monkeypatch, tmp_path):
     """SAS-13001, relocated: an uncaught verify exception reaches Cloud as exactly ONE
     mark-scan-failed — sent by the CLI failure boundary — carrying the captured engine logs.
@@ -333,7 +288,7 @@ def test_cli_boundary_marks_scan_failed_exactly_once_with_engine_logs(monkeypatc
     mock_cloud = MockSodaCloud()
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
-    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+    exit_code = handle_verify_contract_with_files(tmp_path, mock_cloud)
 
     assert exit_code == ExitCode.LOG_ERRORS
     mark_requests = _mark_requests(mock_cloud)
@@ -363,7 +318,7 @@ def test_cli_boundary_rejected_mark_exits_results_not_sent(monkeypatch, tmp_path
     mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
-    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+    exit_code = handle_verify_contract_with_files(tmp_path, mock_cloud)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     assert len(_mark_requests(mock_cloud)) == 1
@@ -384,7 +339,7 @@ def test_cli_boundary_construction_abort_marks_scan_failed_exactly_once_with_eng
     mock_cloud = MockSodaCloud()
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
-    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud)
+    exit_code = handle_verify_contract_with_files(tmp_path, mock_cloud)
 
     assert exit_code == ExitCode.LOG_ERRORS
     mark_requests = _mark_requests(mock_cloud)
@@ -416,7 +371,7 @@ def test_cli_boundary_success_path_uploads_results_without_marking(monkeypatch, 
     mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=200, json_object={"scanId": "scan-under-test"})])
     mock_cloud._upload_contract_yaml_file = lambda *args, **kwargs: "contract-file-id"
 
-    exit_code = _handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml=data_source_yaml)
+    exit_code = handle_verify_contract_with_files(tmp_path, mock_cloud, data_source_yaml=data_source_yaml)
 
     assert exit_code == ExitCode.OK
     assert _mark_requests(mock_cloud) == []

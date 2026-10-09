@@ -3,14 +3,17 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 import os
+import random
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
+from functools import lru_cache
 from logging import LogRecord
-from time import sleep
+from time import monotonic, sleep
 from typing import Any, Dict, Optional, Union
 
 import requests
@@ -203,6 +206,52 @@ class VerificationIngestionMode(Enum):
 HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 
 
+# Backpressure: Soda Cloud only defers clients that announce they can wait, and every 429 it
+# produces comes before the request did any work, so the same body is safe to send again.
+BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
+DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
+DEFAULT_DEFERRAL_BUDGET_SECONDS: int = 5 * 60
+DEFAULT_RETRY_AFTER_SECONDS: int = 15
+MIN_RETRY_AFTER_SECONDS: int = 1
+MAX_RETRY_AFTER_SECONDS: int = 600
+
+
+def deferral_budget_seconds() -> float:
+    """How long one request keeps waiting for Soda Cloud before it gives up and reports the failure.
+    Overridable per runner, e.g. for scans close to their Kubernetes deadline."""
+    return _parse_deferral_budget(os.environ.get(DEFERRAL_BUDGET_ENV_VAR))
+
+
+@lru_cache(maxsize=None)
+def _parse_deferral_budget(raw_budget_seconds: Optional[str]) -> float:
+    """Reads the budget setting. The answer is cached per value, so a bad value is warned about once
+    and not on every request."""
+    if raw_budget_seconds is None or raw_budget_seconds.strip() == "":
+        # Helm renders a setting that was not given as an empty string, so blank means "not set".
+        return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
+    try:
+        budget_seconds: Optional[float] = float(raw_budget_seconds)
+    except ValueError:
+        budget_seconds = None
+    # 0 is fine: it means "do not wait". Negative, infinite and "nan" values are mistakes.
+    if budget_seconds is not None and math.isfinite(budget_seconds) and budget_seconds >= 0:
+        return budget_seconds
+    logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_budget_seconds!r}: not a valid number of seconds")
+    return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
+
+
+def retry_after_seconds(response: Response) -> float:
+    """Retry-After as a number of seconds, clamped to 1..600. Soda Cloud never sends a date here, so anything
+    that is not a number gets the default."""
+    try:
+        header_seconds: float = float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS))
+    except (TypeError, ValueError):
+        return float(DEFAULT_RETRY_AFTER_SECONDS)
+    if not math.isfinite(header_seconds):
+        return float(DEFAULT_RETRY_AFTER_SECONDS)
+    return min(float(MAX_RETRY_AFTER_SECONDS), max(float(MIN_RETRY_AFTER_SECONDS), header_seconds))
+
+
 @dataclass(frozen=True)
 class HistoricDateTimeRange:
     """Scan-time window for historic-data queries."""
@@ -350,8 +399,9 @@ class SodaCloud:
     @property
     def headers(self) -> dict[str, str]:
         """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
-        it changes nothing: pass request-specific headers through request_headers() instead."""
-        return {"User-Agent": user_agent()}
+        it changes nothing: pass request-specific headers through request_headers() instead.
+        X-Soda-Backpressure tells Soda Cloud this client waits and resends when asked to (429)."""
+        return {"User-Agent": user_agent(), BACKPRESSURE_OPT_IN_HEADER: "1"}
 
     def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
         """The default headers plus the request-specific ones, so every request identifies
@@ -1480,7 +1530,12 @@ class SodaCloud:
         )
 
     def _execute_cqrs_request(
-        self, request_type: str, request_log_name: str, request_body: dict, is_retry: bool
+        self,
+        request_type: str,
+        request_log_name: str,
+        request_body: dict,
+        is_retry: bool,
+        deferral_deadline: Optional[float] = None,
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
@@ -1488,11 +1543,14 @@ class SodaCloud:
             logger.debug(
                 f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
             )
-            response: Response = self._http_post(
+            if deferral_deadline is None:
+                # One budget per request: the retry after a re-login below is handed this same deadline.
+                deferral_deadline = monotonic() + deferral_budget_seconds()
+            response: Response = self._post_waiting_while_deferred(
                 url=f"{self.api_url}/{request_type}",
-                headers=self.headers,
-                json=request_body,
+                request_body=request_body,
                 request_log_name=request_log_name,
+                deferral_deadline=deferral_deadline,
             )
 
             trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
@@ -1507,6 +1565,7 @@ class SodaCloud:
                     request_log_name=request_log_name,
                     request_body=request_body,
                     is_retry=False,
+                    deferral_deadline=deferral_deadline,
                 )
             elif not response.ok:
                 try:
@@ -1541,6 +1600,41 @@ class SodaCloud:
     def _clean_request_from_private_info(self, json_str: str) -> str:
         regex = re.compile(r'"token":\s*"[^"]+"')
         return regex.sub(r'"token": "****"', json_str)
+
+    def _post_waiting_while_deferred(
+        self, url: str, request_body: dict, request_log_name: str, deferral_deadline: float
+    ) -> Response:
+        """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
+        little jitter so many clients do not all resend at the same moment) and send the same body
+        again, until the deferral deadline passes. The last 429 is then returned and handled like any
+        other error."""
+        attempts: int = 0
+        waited_seconds: float = 0.0
+        while True:
+            attempts += 1
+            response: Response = self._http_post(
+                url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
+            )
+            if response.status_code != 429:
+                if attempts > 1 and response.ok:
+                    logger.info(
+                        f"Soda Cloud accepted {request_log_name} after waiting {waited_seconds:.1f}s ({attempts} tries)"
+                    )
+                return response
+            remaining_budget_seconds: float = deferral_deadline - monotonic()
+            if remaining_budget_seconds <= 0:
+                budget_seconds: float = deferral_budget_seconds()
+                logger.error(
+                    f"Soda Cloud was still busy after {budget_seconds:.0f}s, giving up on {request_log_name}. "
+                    f"Set {DEFERRAL_BUDGET_ENV_VAR} to wait longer."
+                )
+                return response
+            wait_seconds: float = min(
+                retry_after_seconds(response) * random.uniform(1.0, 1.3), remaining_budget_seconds
+            )
+            logger.info(f"Soda Cloud is busy, sending {request_log_name} again in {wait_seconds:.1f}s")
+            sleep(wait_seconds)
+            waited_seconds += wait_seconds
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)

@@ -75,6 +75,12 @@ soda_cloud:
 """
 )
 
+# The headers every request to Soda Cloud starts from (SodaCloud.headers).
+EXPECTED_DEFAULT_REQUEST_HEADERS: dict[str, str] = {
+    "User-Agent": f"soda-core/{SODA_CORE_VERSION}",
+    "X-Soda-Backpressure": "1",
+}
+
 
 def test_soda_cloud_from_yaml_source_with_api_key_auth():
     try:
@@ -704,7 +710,7 @@ def test_fetch_contract(mock_post):
     soda_cloud.fetch_contract(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContracts",
             "filter": {
@@ -734,7 +740,7 @@ def test_poll_contract_skeleton_generation__completed(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContractSkeletonGenerationState",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -785,7 +791,7 @@ def test_trigger_contract_skeleton_generation__success(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -807,7 +813,7 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
 
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -1033,7 +1039,7 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     assert response.status_code == 200
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
