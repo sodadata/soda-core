@@ -102,8 +102,7 @@ class _StubCheckImpl:
     full ``ContractImpl`` (and the real ``relative_path`` property reads
     ``column_impl.column_yaml.name``). The property under test only reads
     ``self.relative_path``, ``self.scope``, ``self.contract_impl.wire_source``,
-    ``self.contract_impl.collection_id`` and ``supports_scopes`` of the
-    collection's class, so we mirror those exactly.
+    and ``self.contract_impl.collection_id``, so we mirror those exactly.
     """
 
     # Borrow the production property verbatim so any future refactor that
@@ -115,7 +114,7 @@ class _StubCheckImpl:
     def __init__(self, *, wire_source: str, collection_id, path: str):
         self.relative_path = path
         self.scope = Scope(key=BASE_SCOPE_KEY)
-        self.contract_impl = type("_StubCollection", (), {"supports_scopes": True})()
+        self.contract_impl = type("_StubCollection", (), {})()
         self.contract_impl.wire_source = wire_source
         self.contract_impl.collection_id = collection_id
 

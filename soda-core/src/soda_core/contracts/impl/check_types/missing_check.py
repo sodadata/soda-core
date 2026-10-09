@@ -68,7 +68,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
             RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
         )
 
-        self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
+        self.missing_percent_metric_impl: MetricImpl = self._resolve_metric(
             DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
                 fraction_metric_impl=self.missing_count_metric_impl,
@@ -115,6 +115,7 @@ class MissingCountMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,

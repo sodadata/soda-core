@@ -1,8 +1,8 @@
-"""Without an extension that runs scopes, core runs the checks without a scope and excludes the others.
+"""Without an extension that runs scopes, core runs the checks without a scope and does not evaluate the others.
 
-Each declared scope stays inactive. Its checks build no metrics and send no queries, go up to Soda Cloud as
-excluded next to the checks that ran, and one log line says why. The contract then ends as any partial run does:
-UNKNOWN when the checks that ran passed, with exit code 0.
+Each declared scope stays inactive. Its checks build no metrics and send no queries, and go up to Soda Cloud as not
+evaluated next to the checks that ran. One error names their scopes, so the contract ends ERROR with exit code 3
+instead of looking like a run that passed.
 
 Every test here drops the soda-scopes extension, so the file pins core alone even where soda-scopes is installed.
 """
@@ -82,7 +82,7 @@ def _record_queries(monkeypatch, data_source_impl) -> list[str]:
     return executed_sql
 
 
-def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_test_helper: DataSourceTestHelper):
+def test_scoped_checks_are_not_evaluated_without_queries(monkeypatch, data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     data_source_test_helper.enable_soda_cloud_mock(
         [
@@ -97,21 +97,19 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
     [result] = session_result.contract_verification_results
     assert [(check_result.check.scope, check_result.outcome) for check_result in result.check_results] == [
         (None, CheckOutcome.PASSED),
-        ("high", CheckOutcome.EXCLUDED),
-        ("release-gate", CheckOutcome.EXCLUDED),
+        ("high", CheckOutcome.NOT_EVALUATED),
+        ("release-gate", CheckOutcome.NOT_EVALUATED),
         (None, CheckOutcome.PASSED),
-        ("high", CheckOutcome.EXCLUDED),
-        ("release-gate", CheckOutcome.EXCLUDED),
+        ("high", CheckOutcome.NOT_EVALUATED),
+        ("release-gate", CheckOutcome.NOT_EVALUATED),
     ]
-    assert result.number_of_checks_excluded == 4
-    assert session_result.number_of_checks_excluded == 4
-    assert result.get_errors() == []
-    assert result.status == CheckCollectionStatus.UNKNOWN
-    assert interpret_contract_verification_result(session_result) == ExitCode.OK
-
-    # One nudge line, and the upload below carries it. The unit tests pin its text.
-    nudges: list[str] = [line for line in result.get_logs() if line.startswith("Excluded ")]
-    assert len(nudges) == 1
+    assert result.number_of_checks_excluded == 0
+    assert result.get_errors() == [
+        "Not evaluating 4 checks in scope 'high', 'release-gate': running checks in a scope needs a Soda extension "
+        "that runs scopes."
+    ]
+    assert result.status == CheckCollectionStatus.ERROR
+    assert interpret_contract_verification_result(session_result) == ExitCode.LOG_ERRORS
 
     # The unscoped checks ran, and nothing queried a scoped check.
     assert executed_sql
@@ -124,10 +122,10 @@ def test_scoped_checks_are_excluded_without_queries(monkeypatch, data_source_tes
     ]
     uploaded_outcomes = {check["identities"]["vc1"]: check["outcome"] for check in upload["checks"]}
     assert uploaded_outcomes == {
-        check_result.check.identity: ("excluded" if check_result.check.scope else "pass")
+        check_result.check.identity: ("unevaluated" if check_result.check.scope else "pass")
         for check_result in result.check_results
     }
-    assert [log["message"] for log in upload["logs"] if log["message"].startswith("Excluded ")] == nudges
+    assert [log["message"] for log in upload["logs"] if log["level"] == "error"] == result.get_errors()
 
 
 def test_a_check_scope_from_a_variable_fails_without_queries(

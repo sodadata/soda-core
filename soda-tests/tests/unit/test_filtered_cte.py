@@ -11,7 +11,18 @@ from soda_core.common.filtered_cte import (
     is_filtered_cte_alias,
 )
 from soda_core.common.metadata_types import SamplerType
-from soda_core.common.sql_ast import CTE, FROM, SELECT, SODA_FILTERED_CTE_NAME, STAR, WHERE, SqlExpressionStr
+from soda_core.common.sql_ast import (
+    COUNT,
+    CTE,
+    FROM,
+    SELECT,
+    SODA_FILTERED_CTE_NAME,
+    STAR,
+    WHERE,
+    WITH,
+    SqlExpressionStr,
+)
+from soda_core.common.sql_dialect import SqlDialect
 
 
 @pytest.mark.parametrize(
@@ -79,27 +90,37 @@ def _origin_cte(dataset_identifier: DatasetIdentifier, filter: str | None) -> CT
     )
 
 
-@pytest.mark.parametrize("filter", [None, "id > 1"])
-def test_build_filtered_cte_equals_the_origin_construction(filter):
-    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
-    cte = build_filtered_cte(dataset_identifier, filter, SODA_FILTERED_CTE_NAME)
-    assert cte == _origin_cte(dataset_identifier, filter)
-
-
-def test_build_filtered_cte_with_sampler_equals_the_sampled_origin_construction():
-    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
-    expected = _origin_cte(dataset_identifier, "id > 1")
-    expected.cte_query[1] = expected.cte_query[1].SAMPLE(SamplerType.ABSOLUTE_LIMIT, 10)
-
-    cte = build_filtered_cte(
-        dataset_identifier, "id > 1", SODA_FILTERED_CTE_NAME, sampler=(SamplerType.ABSOLUTE_LIMIT, 10)
-    )
-
-    assert cte == expected
-    assert cte != _origin_cte(dataset_identifier, "id > 1")
-
-
 def test_build_filtered_cte_uses_the_given_alias():
     dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
     cte = build_filtered_cte(dataset_identifier, None, filtered_cte_alias("eu"))
     assert cte.alias == "_soda_filtered_scope_eu"
+
+
+def _render(sql_dialect: SqlDialect, cte: CTE) -> str:
+    return sql_dialect.build_select_sql([WITH([cte]), SELECT(COUNT(STAR())), FROM(cte.alias)])
+
+
+@pytest.mark.parametrize("filter", [None, "id > 1"])
+def test_build_filtered_cte_renders_the_origin_sql(filter):
+    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
+    sql = _render(SqlDialect(), build_filtered_cte(dataset_identifier, filter, SODA_FILTERED_CTE_NAME))
+    assert sql == _render(SqlDialect(), _origin_cte(dataset_identifier, filter))
+    assert f'"{SODA_FILTERED_CTE_NAME}" AS (' in sql
+
+
+def test_build_filtered_cte_with_sampler_renders_the_sampled_origin_sql():
+    # The base dialect cannot render a sample, so the sampled SQL is rendered for Postgres.
+    postgres = pytest.importorskip("soda_postgres.common.data_sources.postgres_data_source")
+    sql_dialect = postgres.PostgresSqlDialect()
+    dataset_identifier = DatasetIdentifier.parse("ds/db/schema/table")
+    expected = _origin_cte(dataset_identifier, "id > 1")
+    expected.cte_query[1] = expected.cte_query[1].SAMPLE(SamplerType.PERCENTAGE, 10)
+
+    sql = _render(
+        sql_dialect,
+        build_filtered_cte(dataset_identifier, "id > 1", SODA_FILTERED_CTE_NAME, sampler=(SamplerType.PERCENTAGE, 10)),
+    )
+
+    assert sql == _render(sql_dialect, expected)
+    assert "TABLESAMPLE BERNOULLI(10)" in sql
+    assert sql != _render(sql_dialect, _origin_cte(dataset_identifier, "id > 1"))

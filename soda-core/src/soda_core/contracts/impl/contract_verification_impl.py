@@ -527,6 +527,10 @@ class ContractVerificationSessionImpl:
 
 
 class CheckCollectionImplExtension(Protocol):
+    # True on an extension that runs declared scopes in activate_scopes. Core then leaves reporting a scope that
+    # stayed inactive to the extension.
+    runs_scopes: bool = False
+
     def __init__(self, contract_impl: CheckCollectionImpl):
         self.contract_impl: CheckCollectionImpl = contract_impl
 
@@ -535,6 +539,9 @@ class CheckCollectionImplExtension(Protocol):
 
     def build_queries(self, contract_impl: CheckCollectionImpl) -> list[Query]:
         return []
+
+    def activate_scopes(self, contract_impl: CheckCollectionImpl) -> None:
+        return None
 
 
 class ContractImpl(CheckCollectionImpl):
@@ -1249,7 +1256,7 @@ class CheckImpl:
                     )
                 elif reason := check_impl.unsupported_reason(contract_impl.data_source_impl):
                     check_impl.unsupported_by_data_source = reason
-                elif not check_impl.skip:
+                elif not check_impl.skip and not check_impl.in_inactive_scope:
                     check_impl.setup_metrics(
                         contract_impl=contract_impl,
                         column_impl=column_impl,
@@ -1330,11 +1337,13 @@ class CheckImpl:
         # check attributes of its scope. The base scope holds the top-level ones; a declared scope holds its own.
         self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
 
-        # Apply check selectors (subsumes old check_paths logic)
-        # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
-        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self) or not self.scope.is_active
+        # Apply check selectors (subsumes old check_paths logic). A deselected check is skipped and reports EXCLUDED.
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+        # A check in a scope that no extension activated builds no metrics and reports NOT_EVALUATED: it was asked for
+        # and does not run, which is not the same as being deselected.
+        self.in_inactive_scope: bool = not self.scope.is_active
         # Set when the data source declares a supported set this check's type is not in. Distinct from
-        # `skip`, which means the check is deselected or in an inactive scope and reports EXCLUDED.
+        # `skip`, which means the check is deselected and reports EXCLUDED.
         self.unsupported_by_data_source: Optional[str] = None
 
     def get_required_metric_impls(self) -> list["MetricImpl"]:
@@ -1610,6 +1619,12 @@ class MetricImpl:
         dataset_identifier: Optional[DatasetIdentifier] = None,
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
+        # The check the metric is built for. The metric measures the check's scope.
+        check_impl: Optional[CheckImpl] = None,
+        # False for a metric that must stay out of every scope although it is on the collection's dataset, like a
+        # reconciliation source on that same dataset. A metric on another dataset or data source never gets a scope.
+        scoped: bool = True,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1625,8 +1640,30 @@ class MetricImpl:
             self.data_source_impl = data_source_impl
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
+        # The scope the metric is measured in: the one given, else its check's. Set before the id, which reads it.
+        # Only a metric on the collection's own dataset and data source can be in one, so a builder that forgets
+        # scoped=False for a foreign metric never puts it in a scope's query.
+        self.scope: Optional[Scope] = None
+        if scoped and self._measures_the_collection_dataset():
+            self.scope = scope if scope is not None else (check_impl.scope if check_impl is not None else None)
 
         self.id: str = self._build_id()
+
+    def _measures_the_collection_dataset(self) -> bool:
+        """Whether the metric is on the collection's dataset and data source, compared by value."""
+        collection_dataset: DatasetIdentifier = self.contract_impl.dataset_identifier
+        if not (
+            self.dataset_identifier.data_source_name == collection_dataset.data_source_name
+            and list(self.dataset_identifier.prefixes or []) == list(collection_dataset.prefixes or [])
+            and self.dataset_identifier.dataset_name == collection_dataset.dataset_name
+        ):
+            return False
+        collection_data_source: Optional[DataSourceImpl] = self.contract_impl.data_source_impl
+        return self.data_source_impl is collection_data_source or (
+            self.data_source_impl is not None
+            and collection_data_source is not None
+            and self.data_source_impl.name == collection_data_source.name
+        )
 
     def _build_id(self) -> str:
         hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
@@ -1636,7 +1673,13 @@ class MetricImpl:
         return hash_builder.get_hash()
 
     def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = {"type": self.type}
+        id_properties: dict[str, any] = {}
+        # A declared scope goes first and ends with ':', like the scope term of a check identity, so it can never
+        # run into the next term. Every unscoped id starts with 'type', and the base scope adds nothing, so
+        # unscoped metric ids stay byte-identical.
+        if self.scope is not None and not self.scope.is_base:
+            id_properties["scope"] = f"{self.scope.key}:"
+        id_properties["type"] = self.type
 
         if self.data_source_impl:
             id_properties["data_source"] = self.data_source_impl.name
@@ -1717,6 +1760,9 @@ class AggregationMetricImpl(MetricImpl):
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
+        check_impl: Optional[CheckImpl] = None,
+        scoped: bool = True,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1727,6 +1773,9 @@ class AggregationMetricImpl(MetricImpl):
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
             column_expression=column_expression,
+            scope=scope,
+            check_impl=check_impl,
+            scoped=scoped,
         )
 
     @abstractmethod
@@ -1780,6 +1829,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=None,
+            scope=fraction_metric_impl.scope,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:
