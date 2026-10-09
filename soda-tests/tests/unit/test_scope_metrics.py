@@ -139,6 +139,35 @@ def test_a_metric_takes_the_scope_of_its_check_when_it_is_built():
     assert source_metric.id == RowCountMetricImpl(contract_impl=impl, dataset_identifier=other_dataset).id
 
 
+def test_a_metric_on_another_dataset_or_data_source_is_never_scoped():
+    """Without scoped=False too: core keeps a foreign metric out of every scope."""
+    with scope_activation("eu"):
+        impl, logs = _build_impl(SCOPED_YAML)
+    assert not logs.has_errors
+    eu_check = _checks_by_qualifier(impl, "row_count")["eu"]
+    other_dataset = DatasetIdentifier.parse("fx/main/other")
+    other_data_source = DuckDBDataSourceImpl.from_existing_cursor(duckdb.connect(":memory:"), name="other_ds")
+
+    on_other_dataset = RowCountMetricImpl(contract_impl=impl, check_impl=eu_check, dataset_identifier=other_dataset)
+    assert on_other_dataset.scope is None
+    assert on_other_dataset.id == RowCountMetricImpl(contract_impl=impl, dataset_identifier=other_dataset).id
+
+    on_other_data_source = RowCountMetricImpl(
+        contract_impl=impl, check_impl=eu_check, data_source_impl=other_data_source
+    )
+    assert on_other_data_source.scope is None
+    assert on_other_data_source.id == RowCountMetricImpl(contract_impl=impl, data_source_impl=other_data_source).id
+
+    # An equal identifier, not the same object, still counts as the collection's dataset.
+    same_dataset = DatasetIdentifier.parse(
+        f"{impl.dataset_identifier.data_source_name}/{'/'.join(impl.dataset_identifier.prefixes)}/"
+        f"{impl.dataset_identifier.dataset_name}"
+    )
+    assert RowCountMetricImpl(contract_impl=impl, check_impl=eu_check, dataset_identifier=same_dataset).scope is (
+        impl.scopes["eu"]
+    )
+
+
 def test_resolving_a_metric_keeps_its_scope_and_id():
     # An extension may extend a metric id before it resolves the metric, so resolving must leave the id as it is.
     impl, _ = _build_impl(SCOPED_YAML)

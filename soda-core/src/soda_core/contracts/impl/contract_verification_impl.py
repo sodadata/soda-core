@@ -1622,8 +1622,8 @@ class MetricImpl:
         scope: Optional[Scope] = None,
         # The check the metric is built for. The metric measures the check's scope.
         check_impl: Optional[CheckImpl] = None,
-        # False for a metric that measures another dataset than the collection's, like a reconciliation source.
-        # Such a metric is never in a scope.
+        # False for a metric that must stay out of every scope although it is on the collection's dataset, like a
+        # reconciliation source on that same dataset. A metric on another dataset or data source never gets a scope.
         scoped: bool = True,
     ):
         self.contract_impl: ContractImpl = contract_impl
@@ -1641,11 +1641,29 @@ class MetricImpl:
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
         # The scope the metric is measured in: the one given, else its check's. Set before the id, which reads it.
+        # Only a metric on the collection's own dataset and data source can be in one, so a builder that forgets
+        # scoped=False for a foreign metric never puts it in a scope's query.
         self.scope: Optional[Scope] = None
-        if scoped:
+        if scoped and self._measures_the_collection_dataset():
             self.scope = scope if scope is not None else (check_impl.scope if check_impl is not None else None)
 
         self.id: str = self._build_id()
+
+    def _measures_the_collection_dataset(self) -> bool:
+        """Whether the metric is on the collection's dataset and data source, compared by value."""
+        collection_dataset: DatasetIdentifier = self.contract_impl.dataset_identifier
+        if not (
+            self.dataset_identifier.data_source_name == collection_dataset.data_source_name
+            and list(self.dataset_identifier.prefixes or []) == list(collection_dataset.prefixes or [])
+            and self.dataset_identifier.dataset_name == collection_dataset.dataset_name
+        ):
+            return False
+        collection_data_source: Optional[DataSourceImpl] = self.contract_impl.data_source_impl
+        return self.data_source_impl is collection_data_source or (
+            self.data_source_impl is not None
+            and collection_data_source is not None
+            and self.data_source_impl.name == collection_data_source.name
+        )
 
     def _build_id(self) -> str:
         hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
