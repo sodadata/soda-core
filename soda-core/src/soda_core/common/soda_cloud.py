@@ -55,6 +55,7 @@ from soda_core.contracts.contract_verification import (
     Threshold,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
@@ -743,6 +744,8 @@ class SodaCloud:
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.yaml_source.file_path or "REMOTE"  # TODO
@@ -786,6 +789,8 @@ class SodaCloud:
                 blocking_timeout_in_minutes=blocking_timeout_in_minutes,
                 publish_results=publish_results,
                 verbose=verbose,
+                check_paths=check_paths,
+                check_selectors=check_selectors,
             )
         except Exception as e:
             # Caught inside the capture window: the traceback joins the records logged
@@ -809,6 +814,8 @@ class SodaCloud:
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> CheckCollectionStatus:
         """Drive one remote verification and return its status.
 
@@ -848,6 +855,9 @@ class SodaCloud:
             "verbose": verbose,
             "variables": variables,
         }
+        execution_options: Optional[dict] = _build_runner_execution_options(check_paths, check_selectors)
+        if execution_options:
+            verify_contract_command["executionOptions"] = execution_options
         response: Optional[Response] = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
         )
@@ -2414,6 +2424,34 @@ def _map_remote_scan_status_to_contract_verification_status(
     # timedOut: Cloud ended the scan without an outcome. None of these evaluated the checks,
     # so none may read as a pass, nor ``failed`` as check failures.
     return CheckCollectionStatus.ERROR
+
+
+def _build_runner_execution_options(
+    check_paths: Optional[list[str]], check_selectors: Optional[list[CheckSelector]]
+) -> Optional[dict]:
+    """The ``executionOptions`` of a runner command, or None when there is neither a check path nor a selector.
+
+    ``checkPaths`` holds the check paths as given. ``checkFilters`` holds one filter per field and polarity, in the
+    order of each pair's first selector, with its values in the order given and a repeated value once. What the CLI
+    can check is checked before this runs: each selector parsed, and each scope key, a pattern included, against the
+    contract files. Which fields and values the runner takes is Soda Cloud's rule: it answers this request with 400
+    before it starts a scan, so nothing reaches the runner. An empty list omits its key, since Soda Cloud rejects an
+    empty one.
+    """
+    execution_options: dict = {}
+    if check_paths:
+        execution_options["checkPaths"] = list(check_paths)
+    values_by_field_and_polarity: dict[tuple[str, bool], list[str]] = {}
+    for check_selector in check_selectors or []:
+        values = values_by_field_and_polarity.setdefault((check_selector.field, bool(check_selector.negated)), [])
+        if check_selector.value not in values:
+            values.append(check_selector.value)
+    if values_by_field_and_polarity:
+        execution_options["checkFilters"] = [
+            {"field": field, "values": values, "negate": negate}
+            for (field, negate), values in values_by_field_and_polarity.items()
+        ]
+    return execution_options or None
 
 
 def _parse_json_dict(response: Response) -> Optional[dict]:
