@@ -84,15 +84,15 @@ def test_a_command_request_announces_that_the_client_can_wait():
 @pytest.mark.parametrize(
     "env_value, expected_budget_seconds, expected_warning_count",
     [
-        pytest.param(None, 900.0, 0, id="not set"),
+        pytest.param(None, 300.0, 0, id="not set"),
         pytest.param("30", 30.0, 0, id="seconds"),
         pytest.param("0", 0.0, 0, id="zero means do not wait"),
-        pytest.param("", 900.0, 0, id="empty, which is how Helm renders an unset value"),
-        pytest.param("  ", 900.0, 0, id="blank"),
-        pytest.param("soon", 900.0, 1, id="not a number"),
-        pytest.param("nan", 900.0, 1, id="nan"),
-        pytest.param("inf", 900.0, 1, id="infinite"),
-        pytest.param("-5", 900.0, 1, id="negative"),
+        pytest.param("", 300.0, 0, id="empty, which is how Helm renders an unset value"),
+        pytest.param("  ", 300.0, 0, id="blank"),
+        pytest.param("soon", 300.0, 1, id="not a number"),
+        pytest.param("nan", 300.0, 1, id="nan"),
+        pytest.param("inf", 300.0, 1, id="infinite"),
+        pytest.param("-5", 300.0, 1, id="negative"),
     ],
 )
 def test_deferral_budget_is_read_from_the_environment_and_a_bad_value_gets_the_default(
