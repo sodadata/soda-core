@@ -128,19 +128,20 @@ def test_scope_constants_and_model():
     assert len({eu, other_eu}) == 2
 
 
-SCOPES_NOT_A_MAPPING: str = "'scopes' must be an object that maps scope keys to scopes, but was"
+SCOPES_NULL: str = "YAML key 'scopes' must not be null"
+SCOPES_A_LIST: str = "YAML key 'scopes' expected one of ['dict'], but was YAML list"
 
 
 @pytest.mark.parametrize(
     "scopes_yaml, contract_error",
     [
         ("", None),
-        ("scopes:\n", f"{SCOPES_NOT_A_MAPPING} null"),
-        ("scopes: null\n", f"{SCOPES_NOT_A_MAPPING} null"),
+        ("scopes:\n", SCOPES_NULL),
+        ("scopes: null\n", SCOPES_NULL),
         ("scopes: {}\n", None),
-        ("scopes: []\n", f"{SCOPES_NOT_A_MAPPING} a list"),
-        ("scopes: [eu, us]\n", f"{SCOPES_NOT_A_MAPPING} a list"),
-        ("scopes: eu\n", f"{SCOPES_NOT_A_MAPPING} a string"),
+        ("scopes: []\n", SCOPES_A_LIST),
+        ("scopes: [eu, us]\n", SCOPES_A_LIST),
+        ("scopes: eu\n", "YAML key 'scopes' expected one of ['dict'], but was str"),
     ],
 )
 def test_contract_yaml_scopes_without_entries_read_as_no_scopes(scopes_yaml: str, contract_error: Optional[str]):
@@ -156,7 +157,7 @@ def test_contract_yaml_scopes_without_entries_read_as_no_scopes(scopes_yaml: str
 
 
 def test_scope_yaml_fields_and_scope_from_yaml():
-    # Read with ScopeYaml alone, which does not validate.
+    # Read with ScopeYaml alone, without the rest of the contract.
     logs = Logs()
     yaml_object: YamlObject = ContractYamlSource.from_str(
         dedent_and_strip(
@@ -186,8 +187,24 @@ def test_scope_yaml_fields_and_scope_from_yaml():
     ).parse()
     scopes = ScopeYaml.parse_scopes(yaml_object)
     logs.close()
-    # Reading scopes logs nothing, not even for a key or a value of the wrong type.
-    assert logs.get_logs() == []
+    # Reading scopes logs each bad key and each value of the wrong type, and still reads every scope.
+    assert logs.get_logs() == [
+        "Scope 'text' must be an object with a 'name', but was a string",
+        "YAML key 'name' expected one of ['str'], but was int",
+        "YAML key 'description' expected one of ['str'], but was YAML list",
+        "YAML key 'filter' expected one of ['str'], but was int",
+        "YAML key 'check_attributes' expected one of ['dict'], but was YAML list",
+        "YAML key 'schedule' expected one of ['dict'], but was str",
+        "YAML key 'cron' expected one of ['str'], but was int",
+        "YAML key 'timezone' expected one of ['str'], but was YAML list",
+        "YAML key 'variables' expected one of ['dict'], but was str",
+        "Invalid scope key true: a scope key must be a string, but YAML reads this one as a boolean",
+        "Invalid scope key null: a scope key must be a string, but YAML reads this one as null",
+        "Invalid scope key 0: a scope key must be a string, but YAML reads this one as a number",
+        "Invalid scope key 'yes': 'yes' is reserved, because YAML parsers can read it as a boolean or null",
+        "Invalid scope key 'base': 'base' is reserved for the checks without a scope",
+        "Invalid scope key us: a scope key must be a string, but YAML reads this one as a tagged value",
+    ]
     assert type(scopes) is dict
     assert all(isinstance(scope_yaml, ScopeYaml) for scope_yaml in scopes.values())
     keys = list(scopes)
@@ -615,16 +632,15 @@ CONTRACT_ERRORS_FOR_ODD_SCOPE_FILES: dict[str, list[str]] = {
     # A 'scopes' block too deep to copy reads as no scopes.
     "deep-scopes-block": [
         "YAML value is nested too deeply to read",
-        "'description' of scope 'eu' must be a string, but was a list",
         "Check references unknown scope 'eu'. No scopes are declared",
     ],
     "deep-scope-body-value": [
         "Unknown key 'x_anchors' in scope 'eu'",
-        "'filter' of scope 'eu' must be a string, but was a list",
+        "YAML key 'filter' expected one of ['str'], but was YAML list",
     ],
     "deep-schedule-value": [
         "Unknown key 'x_anchors' in the schedule of scope 'eu'",
-        "'variables' in the schedule of scope 'eu' must be an object, but was a list",
+        "YAML key 'variables' expected one of ['dict'], but was YAML list",
     ],
     "shared-anchors": [f"{NOT_A_DECLARED_SCOPE} a list"],
     "variable-in-a-list": [f"{NOT_A_DECLARED_SCOPE} a list"],
@@ -753,7 +769,7 @@ def _variable_log_lines(result, uploads: list) -> tuple:
 # A contract also rejects a 'scopes' block or a scope body that is a string, whatever the string holds. A 'scopes'
 # block that is not a mapping is never read, so its reference is never resolved.
 CONTRACT_ERRORS_AFTER_THE_UNDECLARED_VARIABLE: dict[str, list[str]] = {
-    "scopes-block": [f"{SCOPES_NOT_A_MAPPING} a string"],
+    "scopes-block": ["YAML key 'scopes' expected one of ['dict'], but was SingleQuotedScalarString"],
     "scope-body": ["Scope 'eu' must be an object with a 'name', but was a string"],
 }
 SCOPE_INPUT_NEVER_RESOLVED: frozenset[str] = frozenset({"scopes-block"})

@@ -156,18 +156,18 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
     "scopes-empty-value": (
         "scopes:\n",
         "",
-        ["'scopes' must be an object that maps scope keys to scopes, but was null"],
+        ["YAML key 'scopes' must not be null"],
     ),
-    "scopes-null": ("scopes: null\n", "", ["'scopes' must be an object that maps scope keys to scopes, but was null"]),
+    "scopes-null": ("scopes: null\n", "", ["YAML key 'scopes' must not be null"]),
     "scopes-list": (
         "scopes: [eu]\n",
         "",
-        ["'scopes' must be an object that maps scope keys to scopes, but was a list"],
+        ["YAML key 'scopes' expected one of ['dict'], but was YAML list"],
     ),
     "scopes-string": (
         "scopes: eu\n",
         "",
-        ["'scopes' must be an object that maps scope keys to scopes, but was a string"],
+        ["YAML key 'scopes' expected one of ['dict'], but was str"],
     ),
     # A check's scope
     "unknown-scope": (
@@ -256,48 +256,48 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
         "",
         ["Scope 'eu' must be an object with a 'name', but was a string"],
     ),
-    "name-number": ("scopes:\n  eu: {name: 5}\n", "", ["'name' of scope 'eu' must be a string, but was a number"]),
-    "name-null": ("scopes:\n  eu: {name: null}\n", "", ["'name' of scope 'eu' must be a string, but was null"]),
+    "name-number": ("scopes:\n  eu: {name: 5}\n", "", ["YAML key 'name' expected one of ['str'], but was int"]),
+    "name-null": ("scopes:\n  eu: {name: null}\n", "", ["YAML key 'name' must not be null"]),
     "description-list": (
         "scopes:\n  eu: {name: EU, description: [a]}\n",
         "",
-        ["'description' of scope 'eu' must be a string, but was a list"],
+        ["YAML key 'description' expected one of ['str'], but was YAML list"],
     ),
     "filter-number": (
         "scopes:\n  eu: {name: EU, filter: 5}\n",
         "",
-        ["'filter' of scope 'eu' must be a string, but was a number"],
+        ["YAML key 'filter' expected one of ['str'], but was int"],
     ),
     "filter-boolean": (
         "scopes:\n  eu: {name: EU, filter: true}\n",
         "",
-        ["'filter' of scope 'eu' must be a string, but was a boolean"],
+        ["YAML key 'filter' expected one of ['str'], but was bool"],
     ),
     "filter-null": (
         "scopes:\n  eu: {name: EU, filter: null}\n",
         "",
-        ["'filter' of scope 'eu' must be a string, but was null"],
+        ["YAML key 'filter' must not be null"],
     ),
     "check-attributes-list": (
         "scopes:\n  eu: {name: EU, check_attributes: [a]}\n",
         "",
-        ["'check_attributes' of scope 'eu' must be an object, but was a list"],
+        ["YAML key 'check_attributes' expected one of ['dict'], but was YAML list"],
     ),
     # A scope's schedule
     "schedule-null": (
         "scopes:\n  eu: {name: EU, schedule: null}\n",
         "",
-        ["'schedule' of scope 'eu' must be an object with a 'cron', but was null"],
+        ["YAML key 'schedule' must not be null"],
     ),
     "schedule-inherit": (
         "scopes:\n  eu: {name: EU, schedule: inherit}\n",
         "",
-        ["'schedule' of scope 'eu' must be an object with a 'cron', but was a string"],
+        ["YAML key 'schedule' expected one of ['dict'], but was str"],
     ),
     "schedule-weekly": (
         'scopes:\n  eu: {name: EU, schedule: "weekly"}\n',
         "",
-        ["'schedule' of scope 'eu' must be an object with a 'cron', but was a string"],
+        ["YAML key 'schedule' expected one of ['dict'], but was DoubleQuotedScalarString"],
     ),
     "schedule-without-cron": (
         "scopes:\n  eu: {name: EU, schedule: {timezone: UTC}}\n",
@@ -312,17 +312,17 @@ INVALID_SCOPE_INPUT: dict[str, tuple[str, str, list[str]]] = {
     "schedule-cron-number": (
         "scopes:\n  eu: {name: EU, schedule: {cron: 6}}\n",
         "",
-        ["'cron' in the schedule of scope 'eu' must be a string, but was a number"],
+        ["YAML key 'cron' expected one of ['str'], but was int"],
     ),
     "schedule-timezone-list": (
         "scopes:\n  eu: {name: EU, schedule: {cron: '0 6 * * *', timezone: [UTC]}}\n",
         "",
-        ["'timezone' in the schedule of scope 'eu' must be a string, but was a list"],
+        ["YAML key 'timezone' expected one of ['str'], but was YAML list"],
     ),
     "schedule-variables-list": (
         "scopes:\n  eu: {name: EU, schedule: {cron: '0 6 * * *', variables: [A]}}\n",
         "",
-        ["'variables' in the schedule of scope 'eu' must be an object, but was a list"],
+        ["YAML key 'variables' expected one of ['dict'], but was YAML list"],
     ),
     "schedule-variable-boolean": (
         "scopes:\n  eu: {name: EU, schedule: {cron: '0 6 * * *', variables: {FLAG: true}}}\n",

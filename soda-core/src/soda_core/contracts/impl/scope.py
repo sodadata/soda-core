@@ -23,7 +23,7 @@ from ruamel.yaml.comments import TaggedScalar
 from soda_core.common.filtered_cte import filtered_cte_alias
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
-from soda_core.common.yaml import VariableResolver, YamlObject, YamlSource
+from soda_core.common.yaml import VariableResolver, YamlObject
 
 if TYPE_CHECKING:
     from soda_core.common.sql_ast import CTE
@@ -42,36 +42,39 @@ SCOPE_YAML_KEYS: tuple[str, ...] = ("name", "description", "filter", "schedule",
 SCHEDULE_YAML_KEYS: tuple[str, ...] = ("cron", "timezone", "variables")
 
 
-def _read_field(yaml_object: YamlObject, key: str, written_type: type) -> Any:
-    """The value of ``key`` when it is written as ``written_type``, read with its variables resolved, else None.
-
-    ``validate_scopes`` reports a value of another type, so the read logs nothing for it.
-    """
-    if not isinstance(yaml_object.yaml_dict.get(key), written_type):
-        return None
-    return yaml_object.read_value(key)
-
-
 class ScheduleYaml:
-    """A ``schedule`` mapping, read without validation."""
+    """A scope's ``schedule`` mapping. The readers log a value of the wrong type at its key and read it as None."""
 
-    def __init__(self, schedule_yaml_object: YamlObject) -> None:
+    def __init__(self, schedule_yaml_object: YamlObject, scope_text: str, written: dict) -> None:
         self.schedule_yaml_object: YamlObject = schedule_yaml_object
         self.location: Optional[Location] = schedule_yaml_object.location
-        self.cron: Optional[str] = _read_field(schedule_yaml_object, "cron", str)
-        self.timezone: Optional[str] = _read_field(schedule_yaml_object, "timezone", str)
-        variables = _read_field(schedule_yaml_object, "variables", dict)
-        self.variables: Optional[dict[str, Any]] = variables.to_dict() if isinstance(variables, YamlObject) else None
+        _log_unknown_keys(schedule_yaml_object, written, SCHEDULE_YAML_KEYS, f"the schedule of {scope_text}")
+        _log_null_values(schedule_yaml_object, written, SCHEDULE_YAML_KEYS)
+        if "cron" not in written:
+            log_scope_error(f"The schedule of {scope_text} has no 'cron'", self.location)
+        self.cron: Optional[str] = schedule_yaml_object.read_string_opt("cron")
+        self.timezone: Optional[str] = schedule_yaml_object.read_string_opt("timezone")
+        variables: Optional[YamlObject] = schedule_yaml_object.read_object_opt("variables")
+        self.variables: Optional[dict[str, Any]] = None
+        if isinstance(variables, YamlObject):
+            _log_invalid_schedule_variables(variables, written["variables"], scope_text)
+            self.variables = variables.to_dict()
 
 
 class ScopeYaml:
-    """One entry of ``scopes``, read without validation.
+    """One entry of ``scopes``. Parsing logs an error for each scope rule the entry breaks, and the readers log a
+    value of the wrong type at its key and read it as None, or as ``{}`` for ``check_attributes``.
 
-    ``key`` is the mapping key exactly as the YAML parser returned it, so it may be a bool, None
-    or an int. Values of the wrong type read as None, or as ``{}`` for ``check_attributes``.
+    ``key`` is the mapping key exactly as the YAML parser returned it, so it may be a bool, None or an int.
     """
 
-    def __init__(self, key: Any, scope_yaml_object: Optional[YamlObject], location: Optional[Location]) -> None:
+    def __init__(
+        self,
+        key: Any,
+        scope_yaml_object: Optional[YamlObject],
+        location: Optional[Location],
+        written: Optional[dict] = None,
+    ) -> None:
         self.key: Any = key
         self.location: Optional[Location] = location
         self.scope_yaml_object: Optional[YamlObject] = scope_yaml_object
@@ -83,31 +86,89 @@ class ScopeYaml:
         if scope_yaml_object is None:
             return
 
-        self.name = _read_field(scope_yaml_object, "name", str)
-        self.description = _read_field(scope_yaml_object, "description", str)
-        filter = _read_field(scope_yaml_object, "filter", str)
+        # Null, required and unknown keys are checked on the mapping as written, before variables resolve, so a
+        # variable that resolves to nothing logs only the resolver's error.
+        written = written if written is not None else scope_yaml_object.yaml_dict
+        scope_text: str = f"scope {_value_text(key)}"
+        _log_unknown_keys(scope_yaml_object, written, SCOPE_YAML_KEYS, scope_text)
+        _log_null_values(scope_yaml_object, written, SCOPE_YAML_KEYS)
+        if "name" not in written:
+            log_scope_error(f"Scope {_value_text(key)} has no 'name'", location)
+        self.name = scope_yaml_object.read_string_opt("name")
+        self.description = scope_yaml_object.read_string_opt("description")
+        filter = scope_yaml_object.read_string_opt("filter")
         if isinstance(filter, str) and filter.strip():
             self.filter = filter.strip()
-        check_attributes = _read_field(scope_yaml_object, "check_attributes", dict)
+        check_attributes = scope_yaml_object.read_object_opt("check_attributes")
         self.check_attributes = check_attributes.to_dict() if isinstance(check_attributes, YamlObject) else {}
-        schedule = _read_field(scope_yaml_object, "schedule", dict)
-        self.schedule = ScheduleYaml(schedule) if isinstance(schedule, YamlObject) else None
+        schedule = scope_yaml_object.read_object_opt("schedule")
+        self.schedule = (
+            ScheduleYaml(schedule, scope_text, written["schedule"]) if isinstance(schedule, YamlObject) else None
+        )
 
     @classmethod
     def parse_scopes(cls, contract_yaml_object: YamlObject) -> dict[Any, ScopeYaml]:
-        """One ``ScopeYaml`` per ``scopes`` key in file order, ``{}`` when ``scopes`` is absent, not
-        a mapping, or nested deeper than a read can copy."""
-        scopes_yaml_object = _read_field(contract_yaml_object, "scopes", dict)
+        """One ``ScopeYaml`` per ``scopes`` key in file order, ``{}`` when ``scopes`` is absent or not a mapping.
+        Logs an error for each rule a key or a scope breaks, at the location of what breaks it."""
+        _log_null_values(contract_yaml_object, contract_yaml_object.yaml_dict, ("scopes",))
+        scopes_yaml_object = contract_yaml_object.read_object_opt("scopes")
         if not isinstance(scopes_yaml_object, YamlObject):
             return {}
         scope_yamls: dict[Any, ScopeYaml] = {}
         for key, scope_yaml_object in scopes_yaml_object.items():
+            # Each body as written: reading the scopes resolves a body that is a lone variable, and wrapping a body
+            # into scope_yaml_object resolves its values.
+            written: Any = contract_yaml_object.yaml_dict["scopes"][key]
+            location = scopes_yaml_object.create_location_from_yaml_dict_key(key)
+            key_error = scope_key_error(key)
+            if key_error:
+                log_scope_error(f"Invalid scope key {_value_text(key)}: {key_error}", location)
+            if not isinstance(written, dict):
+                log_scope_error(
+                    f"Scope {_value_text(key)} must be an object with a 'name', but was {_type_text(written)}", location
+                )
             scope_yamls[key] = cls(
                 key=key,
                 scope_yaml_object=scope_yaml_object if isinstance(scope_yaml_object, YamlObject) else None,
-                location=scopes_yaml_object.create_location_from_yaml_dict_key(key),
+                location=location,
+                written=written if isinstance(written, dict) else None,
             )
         return scope_yamls
+
+
+def _log_null_values(yaml_object: YamlObject, written: dict, keys: tuple[str, ...]) -> None:
+    """Omitting a key already means it is not set, so an explicit null is rejected rather than read as absent."""
+    for key in keys:
+        if key in written and written[key] is None:
+            log_scope_error(f"YAML key '{key}' must not be null", yaml_object.create_location_from_yaml_dict_key(key))
+
+
+def _log_unknown_keys(yaml_object: YamlObject, written: dict, allowed_keys: tuple[str, ...], where: str) -> None:
+    for key in written:
+        if key not in allowed_keys:
+            log_scope_error(
+                f"Unknown key {_value_text(key)} in {where}", yaml_object.create_location_from_yaml_dict_key(key)
+            )
+
+
+def _log_invalid_schedule_variables(variables: YamlObject, written: dict, scope_text: str) -> None:
+    """A schedule's variables map string names to strings or numbers, as the variables of a run do. Checked as
+    written, before variables resolve."""
+    for name, value in written.items():
+        location = variables.create_location_from_yaml_dict_key(name)
+        if not isinstance(name, str):
+            log_scope_error(
+                f"Variable name {_value_text(name)} in the schedule of {scope_text} must be a string, "
+                f"but YAML reads it as {_type_text(name)}",
+                location,
+            )
+        # JSON numbers exclude booleans, which Python counts as numbers.
+        if isinstance(value, bool) or not isinstance(value, (str, Number)):
+            log_scope_error(
+                f"Variable {_value_text(name)} in the schedule of {scope_text} must be a string or a number, "
+                f"but was {_type_text(value)}",
+                location,
+            )
 
 
 def scope_key_error(key: Any) -> Optional[str]:
@@ -129,108 +190,6 @@ def scope_key_error(key: Any) -> Optional[str]:
             "a scope key starts with a lowercase letter, followed by at most 63 lowercase letters, digits, '_' or '-'"
         )
     return None
-
-
-def validate_scopes(contract_yaml_object: YamlObject) -> None:
-    """Logs an error for each rule the ``scopes`` of a contract breaks, at the location of what breaks it.
-
-    Reads the values as written, before variables are resolved, so the same value is checked in every run.
-    """
-    yaml_dict = contract_yaml_object.yaml_dict
-    if "scopes" not in yaml_dict:
-        return
-    scopes = yaml_dict.get("scopes")
-    if not isinstance(scopes, dict):
-        log_scope_error(
-            f"'scopes' must be an object that maps scope keys to scopes, but was {_type_text(scopes)}",
-            contract_yaml_object.create_location_from_yaml_dict_key("scopes"),
-        )
-        return
-    scopes_yaml_object = YamlObject(yaml_source=contract_yaml_object.yaml_source, yaml_dict=scopes)
-    for key, body in scopes.items():
-        location = scopes_yaml_object.create_location_from_yaml_dict_key(key)
-        key_error = scope_key_error(key)
-        if key_error:
-            log_scope_error(f"Invalid scope key {_value_text(key)}: {key_error}", location)
-        _validate_scope_body(scopes_yaml_object.yaml_source, _value_text(key), body, location)
-
-
-def _validate_scope_body(yaml_source: YamlSource, key_text: str, body: Any, location: Optional[Location]) -> None:
-    scope = f"scope {key_text}"
-    if not isinstance(body, dict):
-        log_scope_error(f"Scope {key_text} must be an object with a 'name', but was {_type_text(body)}", location)
-        return
-    body_yaml_object = YamlObject(yaml_source=yaml_source, yaml_dict=body)
-    for key in body:
-        if key not in SCOPE_YAML_KEYS:
-            log_scope_error(
-                f"Unknown key {_value_text(key)} in {scope}", body_yaml_object.create_location_from_yaml_dict_key(key)
-            )
-    if "name" not in body:
-        log_scope_error(f"Scope {key_text} has no 'name'", location)
-    for key in ("name", "description", "filter"):
-        if key in body and not isinstance(body[key], str):
-            log_scope_error(
-                f"'{key}' of {scope} must be a string, but was {_type_text(body[key])}",
-                body_yaml_object.create_location_from_yaml_dict_key(key),
-            )
-    if "check_attributes" in body and not isinstance(body["check_attributes"], dict):
-        log_scope_error(
-            f"'check_attributes' of {scope} must be an object, but was {_type_text(body['check_attributes'])}",
-            body_yaml_object.create_location_from_yaml_dict_key("check_attributes"),
-        )
-    if "schedule" in body:
-        _validate_schedule(
-            yaml_source, scope, body["schedule"], body_yaml_object.create_location_from_yaml_dict_key("schedule")
-        )
-
-
-def _validate_schedule(yaml_source: YamlSource, scope: str, schedule: Any, location: Optional[Location]) -> None:
-    if not isinstance(schedule, dict):
-        log_scope_error(
-            f"'schedule' of {scope} must be an object with a 'cron', but was {_type_text(schedule)}", location
-        )
-        return
-    schedule_yaml_object = YamlObject(yaml_source=yaml_source, yaml_dict=schedule)
-    for key in schedule:
-        if key not in SCHEDULE_YAML_KEYS:
-            log_scope_error(
-                f"Unknown key {_value_text(key)} in the schedule of {scope}",
-                schedule_yaml_object.create_location_from_yaml_dict_key(key),
-            )
-    if "cron" not in schedule:
-        log_scope_error(f"The schedule of {scope} has no 'cron'", location)
-    for key in ("cron", "timezone"):
-        if key in schedule and not isinstance(schedule[key], str):
-            log_scope_error(
-                f"'{key}' in the schedule of {scope} must be a string, but was {_type_text(schedule[key])}",
-                schedule_yaml_object.create_location_from_yaml_dict_key(key),
-            )
-    if "variables" not in schedule:
-        return
-    variables = schedule["variables"]
-    variables_location = schedule_yaml_object.create_location_from_yaml_dict_key("variables")
-    if not isinstance(variables, dict):
-        log_scope_error(
-            f"'variables' in the schedule of {scope} must be an object, but was {_type_text(variables)}",
-            variables_location,
-        )
-        return
-    variables_yaml_object = YamlObject(yaml_source=yaml_source, yaml_dict=variables)
-    for name, value in variables.items():
-        if not isinstance(name, str):
-            log_scope_error(
-                f"Variable name {_value_text(name)} in the schedule of {scope} must be a string, "
-                f"but YAML reads it as {_type_text(name)}",
-                variables_yaml_object.create_location_from_yaml_dict_key(name),
-            )
-        # JSON numbers exclude booleans, which Python counts as numbers.
-        if isinstance(value, bool) or not isinstance(value, (str, Number)):
-            log_scope_error(
-                f"Variable {_value_text(name)} in the schedule of {scope} must be a string or a number, "
-                f"but was {_type_text(value)}",
-                variables_yaml_object.create_location_from_yaml_dict_key(name),
-            )
 
 
 def check_scope_error(scope: Any, scopes: Mapping) -> Optional[str]:
@@ -339,9 +298,7 @@ class ScopeSupport(ScopeHandling):
             collection_yaml_object.yaml_source.unresolved_keys.add("scope")
 
     def parse_scopes(self, collection_yaml_object: YamlObject) -> dict[Any, ScopeYaml]:
-        scope_yamls: dict[Any, ScopeYaml] = ScopeYaml.parse_scopes(collection_yaml_object)
-        validate_scopes(collection_yaml_object)
-        return scope_yamls
+        return ScopeYaml.parse_scopes(collection_yaml_object)
 
     def check_scope_input_error(self, check_yaml_object: Any, scopes: Mapping, kind: Optional[str]) -> Optional[str]:
         if not _sets_scope(check_yaml_object):
