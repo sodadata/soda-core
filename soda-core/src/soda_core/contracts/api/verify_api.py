@@ -3,7 +3,13 @@ from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
+from soda_core.common.exceptions import (
+    ContractFetchFailedException,
+    DatasetQueryException,
+    InvalidArgumentException,
+    SodaCloudAuthenticationFailedException,
+    SodaCloudException,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -302,6 +308,8 @@ def verify_contract(
         soda_cloud_client,
     )
 
+    # A contract that could not be fetched raises ContractFetchFailedException, so the run fails before anything
+    # is verified. verify_contract takes a single dataset_identifier, so a failed fetch is a failed run.
     contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
 
     if len(contract_yaml_sources) == 0:
@@ -395,7 +403,11 @@ def _create_contract_yamls(
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
 ) -> list[ContractYamlSource]:
-    contract_yaml_sources = []
+    """Returns the contract YAML sources to verify.
+
+    Raises ``ContractFetchFailedException`` for a dataset whose contract could not be fetched from Soda Cloud.
+    """
+    contract_yaml_sources: list[ContractYamlSource] = []
 
     if contract_file_paths:
         contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
@@ -403,13 +415,18 @@ def _create_contract_yamls(
     if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
         for dataset_identifier in dataset_identifiers:
             try:
-                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
-            except SodaCloudException as exc:
-                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
-
-    if not contract_yaml_sources:
-        return []
+                contract: Optional[str] = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+            except (SodaCloudException, SodaCloudAuthenticationFailedException) as exc:
+                # A dataset query failure gives its reason without the dataset, so the line names
+                # the dataset once. Any other Soda Cloud failure, such as a rejected API key at
+                # login, falls back to its message.
+                reason: str = exc.reason if isinstance(exc, DatasetQueryException) else str(exc)
+                raise ContractFetchFailedException(dataset_identifier, reason) from exc
+            # Whitespace-only contents count as no contract: the YAML parser would reject them
+            # with an error that does not name the dataset.
+            if not contract or not contract.strip():
+                raise ContractFetchFailedException(dataset_identifier, "Soda Cloud returned no contract")
+            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
 
     return contract_yaml_sources
 

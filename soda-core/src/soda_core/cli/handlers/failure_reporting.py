@@ -2,8 +2,9 @@
 
 When a run errors before producing results, the failure should still land on the
 pre-created Cloud scan with the run's full log records — otherwise the managed
-launcher only sees an exit code and marks the scan failed with a single generic
-line, losing the engine's diagnostics. This module is the stable import point
+launcher only sees an exit code. For dataset scans it then marks the scan failed
+with a single generic line, losing the engine's diagnostics; for verify it marks
+nothing. This module is the stable import point
 for that decision + send step; external result-publishing flows (e.g. in
 soda-extensions) reuse it alongside the discovery handler.
 """
@@ -31,9 +32,10 @@ def report_scan_execution_failure(
     For a managed scan (``SODA_SCAN_ID`` set by the Runner/launcher) the
     pre-created Cloud scan is marked FAILED with the captured log records, and
     ``LOG_ERRORS`` tells the launcher the failure already reached Cloud.
-    ``RESULTS_NOT_SENT_TO_CLOUD`` means nothing reached Cloud: the launcher
-    treats exit codes > 3 as undelivered and marks the scan failed itself
-    (generic message, no engine logs). Ad-hoc runs have no Cloud scan to
+    ``RESULTS_NOT_SENT_TO_CLOUD`` means nothing reached Cloud. For dataset scans
+    the launcher treats exit codes > 3 as undelivered and marks the scan failed
+    itself, with a generic message and no engine logs. For verify it marks
+    nothing. Ad-hoc runs have no Cloud scan to
     update, so they exit ``LOG_ERRORS`` without sending anything.
     """
     scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
