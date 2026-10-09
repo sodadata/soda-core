@@ -128,3 +128,26 @@ def test_yaml_locations():
     value_two: YamlObject = root_object.read_object("two")
     assert value_two.location.line == 5
     assert value_two.location.column == 2
+
+
+def test_yaml_syntax_error_message_and_location():
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="a: [1, 2\nb: 3\n", file_path="syntax.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    # The location is where the unclosed list starts.
+    assert str(raised.value) == "YAML syntax error, in syntax.yml[1,4]"
+
+
+def test_yaml_duplicate_key_names_the_key_at_its_second_occurrence():
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="a: 1\nb:\n  c: 1\n  c: 2\n", file_path="duplicate.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value) == 'YAML syntax error: found duplicate key "c", in duplicate.yml[4,3]'
+
+
+def test_yaml_duplicate_key_message_leaves_out_the_values():
+    # The same parser reads data source files, where a duplicated key can hold a password.
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="type: postgres\npassword: first-secret\npassword: s3cret\n")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value) == 'YAML syntax error: found duplicate key "password", in location[3,1]'

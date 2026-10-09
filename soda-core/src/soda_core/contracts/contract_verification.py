@@ -227,6 +227,8 @@ class Check:
     # threshold). None for fail-only and legacy checks. Defaults keep external
     # Check(...) constructors working.
     warn_threshold: Optional[Threshold] = None
+    # Key of the check's scope; None for the base scope. Not sent to Soda Cloud as a field.
+    scope: Optional[str] = None
 
 
 class CheckResult:

@@ -45,6 +45,7 @@ from soda_core.contracts.impl.contract_yaml import (
     normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope, ScopeHandling, ScopeSupport
 
 logger: logging.Logger = soda_logger
 
@@ -552,6 +553,8 @@ class ContractImpl(CheckCollectionImpl):
     # backend's contract ingestion path doesn't route by
     # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
     requires_collection_id: bool = False
+    # Contracts run declared scopes; see CheckCollectionImpl.scope_support.
+    scope_support: ScopeHandling = ScopeSupport()
 
     # Per-kind extension override slot. Global extensions live on the
     # ``CheckCollectionImpl`` base and apply to every kind; this dict is the
@@ -1301,12 +1304,14 @@ class CheckImpl:
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
+        self.scope: Scope = contract_impl.scope_for(check_yaml)
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
             extra_identity_properties=extra_identity_properties,
+            scope_key=None if self.scope.is_base else self.scope.key,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1325,9 +1330,10 @@ class CheckImpl:
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
-        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+        # A check in an inactive scope is skipped like a deselected one and reports EXCLUDED.
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self) or not self.scope.is_active
         # Set when the data source declares a supported set this check's type is not in. Distinct from
-        # `skip`, which means the user deselected the check and reports EXCLUDED.
+        # `skip`, which means the check is deselected or in an inactive scope and reports EXCLUDED.
         self.unsupported_by_data_source: Optional[str] = None
 
     def get_required_metric_impls(self) -> list["MetricImpl"]:
@@ -1466,6 +1472,7 @@ class CheckImpl:
             warn_threshold=self._build_warn_threshold(),
             attributes=self.attributes,
             location=self.check_yaml.check_yaml_object.location,
+            scope=None if self.scope.is_base else self.scope.key,
         )
 
     @classmethod
@@ -1476,8 +1483,15 @@ class CheckImpl:
         check_type: str,
         qualifier: Optional[str],
         extra_identity_properties: Optional[dict[str, object]] = None,
+        scope_key: Optional[str] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
+
+        # The scope term goes first and ends in ':', which no scope key contains, so a scoped identity never
+        # equals an unscoped one or one in another scope. The base scope adds nothing, so unscoped identities
+        # stay byte-identical.
+        if scope_key is not None and scope_key != BASE_SCOPE_KEY:
+            identity_hash_builder.add_property("scope", f"{scope_key}:")
 
         # Identity-prefix mix-in: contracts inherit ``identity_prefix() == ()``
         # so the loop is a no-op and the hash stays byte-identical to every

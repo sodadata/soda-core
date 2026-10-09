@@ -10,6 +10,7 @@ from numbers import Number
 from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
+from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.error import MarkedYAMLError
 from soda_core.common.exceptions import InvalidDataSourceConfigurationException, YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -94,6 +95,8 @@ class YamlSource:
         self.resolve_on_read_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_soda_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
+        # Keys whose values are read as written, never with their variables resolved.
+        self.unresolved_keys: set[str] = set()
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -192,11 +195,18 @@ class YamlSource:
                 )
 
         except MarkedYAMLError as e:
+            message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
+            if isinstance(e, DuplicateKeyError) and e.problem_mark:
+                # The problem names the key, and its mark is the second occurrence of the key. The context mark
+                # is only where the mapping starts. The problem goes on to print both values, which can be a
+                # password in a data source file, so the message stops at the key.
+                message = f"YAML syntax error: {str(e.problem).split(' with value ', 1)[0]}"
+                mark = e.problem_mark
             line = mark.line + 1
             col = mark.column + 1
             location = Location(file_path=self.file_path, line=line, column=col)
-            raise YamlParserException(f"YAML syntax error", str(location))
+            raise YamlParserException(message, str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
@@ -251,7 +261,7 @@ class YamlValue:
     def __init__(self, yaml_source: YamlSource) -> None:
         self.yaml_source: YamlSource = yaml_source
 
-    def _yaml_wrap(self, value: any, location: Optional[Location] = None):
+    def yaml_wrap(self, value: any, location: Optional[Location] = None, resolve: bool = True):
         # Resolve variables on read if configured to do so.
         # Only resolve one level deep in dicts and lists, we are not building a full template engine here.
 
@@ -259,12 +269,16 @@ class YamlValue:
             return None
 
         # To avoid modifying the original value during variable resolution
-        wrapped_value = copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+        try:
+            wrapped_value = copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+        except RecursionError:
+            logger.error(msg="YAML value is nested too deeply to read", extra={ExtraKeys.LOCATION: location})
+            return None
 
         if isinstance(wrapped_value, dict):
             if self.yaml_source.resolve_on_read:
                 for k, v in wrapped_value.items():
-                    if isinstance(v, str):
+                    if isinstance(v, str) and k not in self.yaml_source.unresolved_keys:
                         wrapped_value[k] = self._resolve_variable(
                             source_text=v,
                             location=location,
@@ -280,7 +294,7 @@ class YamlValue:
                             location=location,
                         )
             return YamlList(yaml_source=self.yaml_source, yaml_list=wrapped_value)
-        elif isinstance(wrapped_value, str) and self.yaml_source.resolve_on_read:
+        elif isinstance(wrapped_value, str) and self.yaml_source.resolve_on_read and resolve:
             wrapped_value = self._resolve_variable(
                 source_text=wrapped_value,
                 location=location,
@@ -321,7 +335,7 @@ class YamlObject(YamlValue):
         self.location: Optional[Location] = get_location(self.yaml_dict, yaml_source.file_path)
 
     def items(self) -> list[tuple]:
-        return [(k, self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
+        return [(k, self.yaml_wrap(v)) for k, v in self.yaml_dict.items()]
 
     def keys(self) -> list[str]:
         return list(self.yaml_dict.keys())
@@ -518,14 +532,19 @@ class YamlObject(YamlValue):
             )
             value = None
 
-        return self._yaml_wrap(value, location=location)
+        return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
-                ruamel_location = self.yaml_dict.lc.value(key)
-                line: int = ruamel_location[0]
-                column: int = ruamel_location[1]
+                try:
+                    ruamel_location = self.yaml_dict.lc.value(key)
+                    line: int = ruamel_location[0]
+                    column: int = ruamel_location[1]
+                except (KeyError, TypeError):
+                    # ruamel keeps no position for a key merged in with '<<', none at all for a mapping of merged
+                    # keys only, and none for a tagged key once the mapping is copied. Point at the mapping then.
+                    return self.location
                 return Location(file_path=self.yaml_source.file_path, line=line, column=column)
 
     def to_dict(self) -> dict:
@@ -539,7 +558,7 @@ class YamlList(YamlValue, Iterable):
         self.location: Optional[Location] = get_location(yaml_list, yaml_source.file_path)
 
     def __iter__(self) -> iter:
-        return iter([self._yaml_wrap(element) for element in self.yaml_list])
+        return iter([self.yaml_wrap(element) for element in self.yaml_list])
 
     def to_list(self) -> list:
         return self.yaml_list
@@ -594,6 +613,9 @@ class VariableResolver:
     # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
     RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
 
+    # A reference to a variable: its namespace and its name.
+    VARIABLE_PATTERN: str = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+
     @classmethod
     def resolve(
         cls,
@@ -605,7 +627,7 @@ class VariableResolver:
     ) -> str:
         if isinstance(source_text, str):
             # First pass: sometimes the value is just the variable with quotes. If so, we can just return the value directly, no casting to string needed.
-            pattern = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+            pattern = cls.VARIABLE_PATTERN
             match = re.fullmatch(pattern, source_text)
             if match:
                 if match.group(1).strip() == "soda" and match.group(2).strip() in cls.RESERVED_SODA_TEMPLATE_SLOTS:
