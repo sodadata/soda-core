@@ -368,7 +368,8 @@ def test_collection_failing_to_build_goes_up_with_its_evaluated_sibling(
     monkeypatch, managed: bool, failing_label: str, error_message: str
 ):
     """A file that never became a collection has no file of its own on Soda Cloud. It
-    still counts: its error rides along in the sibling's upload, which leads it."""
+    stays out of the upload's results, and its records and an error naming it go up
+    with the session's own records, so the sibling's upload has errors."""
     results, exit_code, soda_cloud = _verify(monkeypatch, [failing_label, "healthy-b"], managed)
 
     [insert] = soda_cloud.requests_of_type("sodaCoreInsertScanResults")
@@ -377,6 +378,7 @@ def test_collection_failing_to_build_goes_up_with_its_evaluated_sibling(
     assert insert["defaultDataSource"] == "fake_ds"
     assert [check["checkPath"] for check in insert["checks"]] == ["checks.healthy-b"]
     assert any(error_message in message for message in _log_messages(insert, level="error"))
+    assert any("failed before its checks were built" in message for message in _log_messages(insert, level="error"))
     assert soda_cloud.requests_of_type("sodaCoreMarkScanFailed") == []
     assert exit_code == ExitCode.LOG_ERRORS
 

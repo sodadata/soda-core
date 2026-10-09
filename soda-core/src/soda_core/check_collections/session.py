@@ -91,7 +91,8 @@ def execute_check_collections(
     On a run that publishes, a combined upload never goes up clean after an
     error. A file that errored before it had check results goes up with the
     others, so the upload has errors; a file that never became a collection
-    rides along after them and never leads the upload. When a file of a managed
+    stays out of it, and its records go up with the session's own, after an error
+    that names it. When a file of a managed
     run's group errored before its check results and the files that can go up
     evaluated no check, the scan is marked failed instead of uploading excluded
     checks next to the error. A file that cannot be sent,
@@ -320,12 +321,11 @@ def execute_check_collections(
             else:
                 # Every collection goes up, so the upload has errors when one of them errored, and
                 # carries its records. A file that never became a collection has no dataset, data
-                # source or file of its own: it rides along after the collections and never leads
-                # the upload, whose first result names the scan.
-                upload: list[CheckCollectionResult] = [r for r in member_results if r.error is None] + [
-                    r for r in member_results if r.error is not None
-                ]
-                if not upload or upload[0].error is not None:
+                # source or file of its own, so it stays out like a file that can't be sent, and its
+                # records go up with the session's own.
+                upload: list[CheckCollectionResult] = [r for r in member_results if r.error is None]
+                never_built: list[CheckCollectionResult] = [r for r in member_results if r.error is not None]
+                if not upload:
                     # Nothing to build a scan from. An ad-hoc run has no scan to mark either: the
                     # errors are on the console and the run exits LOG_ERRORS, as when it fails before
                     # it has results, or RESULTS_NOT_SENT_TO_CLOUD when a file could not be sent.
@@ -333,18 +333,21 @@ def execute_check_collections(
                         for result in member_results:
                             result.sending_results_to_soda_cloud_failed = True
                 else:
-                    head_class: type[CheckCollectionImpl] = next(
-                        member_class for member_class, result in reversed(members) if result.error is None
-                    )
-                    # A file that can't be sent stays out of the upload, and its records go up with the
-                    # session's own, after an error that names it, so the upload has errors.
+                    head_class: type[CheckCollectionImpl] = members[0][0]
+                    # A file that can't be sent or never became a collection stays out of the upload, and
+                    # its records go up with the session's own, after an error that names it, so the
+                    # upload has errors.
                     response_json_by_wire_source[
                         head_class.wire_source
                     ] = soda_cloud_impl.send_check_collection_results(
                         results=upload,
                         wire_source=head_class.wire_source,
                         scan_definition_suffix=head_class.scan_definition_suffix,
-                        session_log_records=[*pre_session_records, *_left_out_log_records(unsendable_results)],
+                        session_log_records=[
+                            *pre_session_records,
+                            *_left_out_log_records(unsendable_results, "its results could not be sent to Soda Cloud"),
+                            *_left_out_log_records(never_built, "it failed before its checks were built"),
+                        ],
                     )
                     uploaded_ids.update(id(result) for result in upload)
 
@@ -488,9 +491,10 @@ def _split_unsendable(
     return sendable, unsendable_results
 
 
-def _left_out_log_records(results: list[CheckCollectionResult]) -> list[LogRecord]:
+def _left_out_log_records(results: list[CheckCollectionResult], reason: str) -> list[LogRecord]:
     """The records an upload carries for the results it leaves out: each one's own records,
-    then an error that names its file, so the upload has errors and says what is missing."""
+    then an error that names its file and the reason, so the upload has errors and says what
+    is missing."""
     log_records: list[LogRecord] = []
     for result in results:
         source = result.check_collection.source if result.check_collection else None
@@ -507,7 +511,7 @@ def _left_out_log_records(results: list[CheckCollectionResult]) -> list[LogRecor
                 pathname=__file__,
                 lineno=0,
                 msg=f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} {file_description} is not part of "
-                f"this upload: its results could not be sent to Soda Cloud.",
+                f"this upload: {reason}.",
                 args=None,
                 exc_info=None,
             )

@@ -1486,11 +1486,11 @@ class CheckCollectionImpl:
             error_logs = Logs()
             logger.error(describe_construct_failure(exception, yaml_source))
         # Invariant: this placeholder Contract never has a file on Soda Cloud and
-        # never leads an upload. ``build_error_result`` is only invoked when the
+        # is never among an upload's results. ``build_error_result`` is only invoked when the
         # file failed before a real ``Contract`` could be verified; the result it
         # produces has ERROR status and no ``soda_cloud_file_id`` is ever
-        # attached to ``source``. A combined upload carries it after the
-        # collections, for its ERROR status and error record only, and a mark
+        # attached to ``source``. A combined upload leaves it out and carries its
+        # records with the session's own, after an error naming it, and a mark
         # that reports a managed scan failed carries its record. The
         # empty-string / empty-list / ``None`` values below are inert: they exist
         # solely to satisfy the ``Contract`` dataclass signature on the in-memory
