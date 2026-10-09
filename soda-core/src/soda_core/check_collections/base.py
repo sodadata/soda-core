@@ -184,6 +184,10 @@ class CheckCollectionResult:
     number_of_scopes: int = 0
     number_of_scoped_checks: int = 0
     number_of_unscoped_checks: int = 0
+    # Set when an upload of these results failed without ruling out that Soda Cloud stored
+    # them: a 5xx, a timeout or a 200 without a scan id. Marking the scan failed then could
+    # turn a scan that completed FAILED and replace its logs, so the engine does not.
+    results_may_have_reached_soda_cloud: bool = False
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -209,10 +213,11 @@ class CheckCollectionResult:
 
     @property
     def errored_without_results(self) -> bool:
-        """True when the run errored before producing any check results (e.g. the data
-        source connection failed). Such a scan must be reported to Soda Cloud as FAILED,
-        not sent as results: Cloud maps an errored result batch to COMPLETED_WITH_ERRORS,
-        a transition the backend forbids while the scan is still PENDING."""
+        """True when the run errored before producing any check results, such as when the
+        data source connection failed. A managed run reports such a scan to Soda Cloud as
+        FAILED, with its logs, instead of sending an errored batch with no check results
+        in it: FAILED is the outcome of a run that evaluated nothing, and Soda Cloud takes
+        the mark whatever state the scan is in."""
         return self.has_errors and not self.check_results
 
     @property
@@ -1302,6 +1307,7 @@ class CheckCollectionImpl:
         )
 
         scan_id: Optional[str] = None
+        scan_marked_failed: bool = False
         if soda_cloud_file_id:
             if data_source is None:
                 logger.error(
@@ -1318,29 +1324,30 @@ class CheckCollectionImpl:
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
             elif self.combine_uploads:
-                # Session-level combined upload — executor sends after the loop (and applies
-                # the same errored-without-results -> mark-scan-failed handling there).
+                # Session-level combined upload: the executor sends it after the loop, and marks
+                # a managed scan failed there instead when its results could not be sent or its
+                # session errored and evaluated no check.
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
             elif verification_result.errored_without_results and self.soda_config.soda_scan_id:
-                # A runner-created (still PENDING) Cloud scan errored before producing any
-                # check results. Report it as FAILED instead of sending results: an errored,
-                # result-less batch makes Cloud attempt PENDING -> COMPLETED_WITH_ERRORS, which
-                # the scan-state machine rejects (invalid_scan_state), whereas PENDING ->
-                # FAILED is allowed — so no false RESULTS_NOT_SENT_TO_CLOUD (exit 4) is raised.
-                # Gate on the scan id (what mark_scan_as_failed needs), not is_running_on_runner:
+                # A runner-created Cloud scan errored before producing any check results. Report
+                # it as FAILED with this file's logs instead of sending an errored batch with no
+                # check results in it: FAILED is the outcome of a run that evaluated nothing, and
+                # Soda Cloud takes the mark whatever state the scan is in, even one that never
+                # reported being submitted.
+                # Gate on the scan id, which mark_scan_as_failed needs, not on is_running_on_runner:
                 # without a scan id we fall through to the normal upload below, which creates
                 # the scan and preserves the errored result's Cloud visibility.
                 # Stamp the known scan id on the result so post-processing failure reporting
-                # (run_post_processing_handlers) can update Cloud, and pass it explicitly
+                # in run_post_processing_handlers can update Cloud, and pass it explicitly
                 # rather than have mark_scan_as_failed re-read it from the environment.
                 verification_result.scan_id = self.soda_config.soda_scan_id
+                scan_marked_failed = True
                 marked_as_failed: bool = self.soda_cloud.mark_scan_as_failed(
                     scan_id=verification_result.scan_id, logs=[*self.session_log_records, *(log_records or [])]
                 )
                 if not marked_as_failed:
                     # A rejected mark leaves the failure invisible on Cloud; surface it as a
-                    # send failure so the exit code goes > 3 and the launcher fallback marks
-                    # the scan failed itself.
+                    # send failure, so the run exits RESULTS_NOT_SENT_TO_CLOUD.
                     sending_results_to_soda_cloud_failed = True
                     verification_result.sending_results_to_soda_cloud_failed = True
             else:
@@ -1353,8 +1360,36 @@ class CheckCollectionImpl:
                     scan_definition_suffix=type(self).scan_definition_suffix,
                     session_log_records=list(self.session_log_records),
                 )
+        elif self.soda_cloud and self.publish_results:
+            # Soda Cloud rejected the file upload, which logged why. Without the file there is
+            # no upload, so none of this verification reaches Soda Cloud: flag it as a send
+            # failure, so the CLI exits RESULTS_NOT_SENT_TO_CLOUD instead of exiting as if
+            # Soda Cloud had the results.
+            logger.error(
+                f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                f"The {self.display_name} file did not upload to Soda Cloud."
+            )
+            sending_results_to_soda_cloud_failed = True
+            verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+
+        if (
+            verification_result.sending_results_to_soda_cloud_failed
+            and not verification_result.results_may_have_reached_soda_cloud
+            and not self.combine_uploads
+            and not scan_marked_failed
+            and self.soda_config.soda_scan_id
+        ):
+            # This file's results did not reach a runner-created scan, and the launcher commands
+            # that verify do not mark it on RESULTS_NOT_SENT_TO_CLOUD. Mark it failed once, with
+            # this file's logs, so the reason reaches Soda Cloud. The flag stays: the run still
+            # exits RESULTS_NOT_SENT_TO_CLOUD. A combined upload's session marks its own scan.
+            # After an insert that may have landed, a 5xx or a timeout, there is no mark: it would
+            # turn a completed scan FAILED and replace its logs.
+            self.soda_cloud.mark_scan_as_failed(
+                scan_id=self.soda_config.soda_scan_id, logs=[*self.session_log_records, *(log_records or [])]
+            )
 
         # Post-processing handlers. For combine-upload subtypes, defer to
         # the session executor — handlers need the scan_id and
@@ -1450,15 +1485,16 @@ class CheckCollectionImpl:
         with preserve_active_logs():
             error_logs = Logs()
             logger.error(describe_construct_failure(exception, yaml_source))
-        # Invariant: this placeholder Contract is never uploaded to Soda Cloud.
-        # ``build_error_result`` is only invoked when the YAML failed to parse
-        # before a real ``Contract`` could be constructed; the result it
+        # Invariant: this placeholder Contract never has a file on Soda Cloud and
+        # is never among an upload's results. ``build_error_result`` is only invoked when the
+        # file failed before a real ``Contract`` could be verified; the result it
         # produces has ERROR status and no ``soda_cloud_file_id`` is ever
-        # attached to ``source``, so the engine's "upload if file id present"
-        # gate in ``verify()`` skips it. The empty-string / empty-list /
-        # ``None`` values below are inert: they exist solely to satisfy the
-        # ``Contract`` dataclass signature on the in-memory result returned
-        # to the launcher.
+        # attached to ``source``. A combined upload leaves it out and carries its
+        # records with the session's own, after an error naming it, and a mark
+        # that reports a managed scan failed carries its record. The
+        # empty-string / empty-list / ``None`` values below are inert: they exist
+        # solely to satisfy the ``Contract`` dataclass signature on the in-memory
+        # result returned to the launcher.
         result = cls.result_class(
             check_collection=Contract(
                 data_source_name=None,
