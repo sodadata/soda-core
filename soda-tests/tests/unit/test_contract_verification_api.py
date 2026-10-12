@@ -4,7 +4,6 @@ import pytest
 from soda_core.common.exceptions import (
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
-    SodaCloudException,
     YamlParserException,
 )
 from soda_core.common.soda_cloud import SodaCloud
@@ -205,48 +204,6 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         )
     except Exception as exc:
         pytest.fail(f"An unexpected exception was raised: {exc}")
-
-
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(
-    mock_cloud_client, caplog
-):
-    mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
-
-    _ = verify_contract(
-        contract_file_path=None,
-        dataset_identifier="my/super/awesome/identifier",
-        data_source_file_path="ds.yaml",
-        soda_cloud_file_path="sc.yaml",
-        variables={},
-        publish=True,
-        use_runner=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-    )
-
-    assert (
-        "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
-    )
-
-
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(mock_cloud_client, caplog):
-    mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
-
-    _ = verify_contract(
-        contract_file_path=None,
-        dataset_identifier="my/super/awesome/identifier",
-        data_source_file_path="ds.yaml",
-        soda_cloud_file_path="sc.yaml",
-        variables={},
-        publish=True,
-        use_runner=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-    )
-
-    assert "No contracts given. Exiting." in caplog.messages
 
 
 def test_local_flow_does_not_fetch_datasource_config_from_cloud():

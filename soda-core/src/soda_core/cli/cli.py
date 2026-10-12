@@ -323,7 +323,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
         # The reporting channel resolves first, outside the wrapped command; the wrapper
         # is the single Cloud-marking site for escaped failures (exit 3 delivered or
-        # ad-hoc, 4 undelivered so the launcher's fallback reports). A broken Cloud
+        # ad-hoc, 4 undelivered, which the launcher does not mark for verify). A broken Cloud
         # config resolves to None here; the command re-raises the real config error
         # (verify_contract builds its own client) and the boundary reports it through
         # the None channel.
@@ -636,7 +636,7 @@ def _resolve_soda_cloud_for_discovery_or_exit(soda_cloud_file_path: str) -> Soda
 
     The reporting channel resolves first, before the failure-reporting wrapper:
     without it neither results nor a failure report can reach Cloud, so exit 4
-    and let the managed launcher's fallback mark the scan failed.
+    and let the managed launcher's dataset-scan fallback mark the scan failed.
     """
     try:
         return resolve_soda_cloud(soda_cloud_file_path)
