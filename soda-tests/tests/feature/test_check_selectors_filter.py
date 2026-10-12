@@ -81,7 +81,7 @@ def test_filter_by_type(data_source_test_helper: DataSourceTestHelper):
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
         assert cvr.number_of_checks_excluded == 7
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "missing"
 
@@ -101,7 +101,7 @@ def test_filter_by_column(data_source_test_helper: DataSourceTestHelper):
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
         # 5 column checks on id, 3 dataset-level checks excluded
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 5
         assert all(cr.check.column_name == "id" for cr in non_excluded)
 
@@ -120,7 +120,7 @@ def test_filter_by_attribute(data_source_test_helper: DataSourceTestHelper):
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 2
         assert all(cr.check.attributes.get("severity") == "critical" for cr in non_excluded)
 
@@ -140,7 +140,7 @@ def test_filter_and_across_fields(data_source_test_helper: DataSourceTestHelper)
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
 
@@ -160,7 +160,7 @@ def test_filter_or_within_same_field(data_source_test_helper: DataSourceTestHelp
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 2
         types = {cr.check.type for cr in non_excluded}
         assert types == {"missing", "invalid"}
@@ -181,7 +181,7 @@ def test_filter_wildcard(data_source_test_helper: DataSourceTestHelper):
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "missing"
 
@@ -201,7 +201,7 @@ def test_backward_compat_check_paths(data_source_test_helper: DataSourceTestHelp
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
 
@@ -238,7 +238,7 @@ def test_filter_by_list_attribute_member_match(data_source_test_helper: DataSour
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
 
@@ -258,6 +258,6 @@ def test_filter_by_list_attribute_full_match(data_source_test_helper: DataSource
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
-        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
