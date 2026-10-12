@@ -55,7 +55,6 @@ class ContractVerificationSession:
         **kwargs,
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg
-        from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import ContractVerificationSessionImpl
 
         soda_cloud_use_runner = deprecated_kwarg(
@@ -74,10 +73,6 @@ class ContractVerificationSession:
         if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
             soda_cloud_use_runner_blocking_timeout_in_minutes = 60
 
-        # Merge check_paths into check_selectors for backward compatibility
-        merged_selectors = list(check_selectors) if check_selectors else []
-        merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
-
         # Accept a legacy string (primary-only) or the bundled DiagnosticsWarehouseFiles.
         # Internal layers only see the normalized form, so a bare string keeps the exact
         # pre-existing single-connection behavior.
@@ -95,7 +90,8 @@ class ContractVerificationSession:
             soda_cloud_use_runner=soda_cloud_use_runner,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
-            check_selectors=merged_selectors,
+            check_paths=check_paths,
+            check_selectors=check_selectors,
             dwh_files=dwh_files,
             logs=logs,
         )

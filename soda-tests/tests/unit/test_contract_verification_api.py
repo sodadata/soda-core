@@ -10,6 +10,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.api.verify_api import ContractVerificationSession, all_none_or_empty, verify_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult, SodaException
+from soda_core.contracts.impl.check_selector import CheckSelector
 
 
 def test_contract_verification_file_api():
@@ -272,6 +273,31 @@ def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_clien
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
+
+
+def test_verify_contract_on_runner_forwards_check_paths_and_check_selectors(monkeypatch):
+    from soda_core.contracts.api import verify_api
+
+    called = {}
+
+    def fake_verify_contract(**kwargs):
+        called.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(verify_api, "verify_contract", fake_verify_contract)
+    check_selectors = CheckSelector.parse_all(["scope=eu", "scope!=apac"])
+
+    result = verify_api.verify_contract_on_runner(
+        soda_cloud_file_path="sc.yaml",
+        contract_file_path="c.yaml",
+        check_paths=["a", "b"],
+        check_selectors=check_selectors,
+    )
+
+    assert result == "ok"
+    assert called["use_runner"] is True
+    assert called["check_paths"] == ["a", "b"]
+    assert called["check_selectors"] == check_selectors
 
 
 # Backwards-compat smoke tests for the deprecated public API names.
