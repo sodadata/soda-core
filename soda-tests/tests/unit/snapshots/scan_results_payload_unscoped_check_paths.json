@@ -1,0 +1,688 @@
+{
+  "requests": [
+    "/api/command sodaCoreUploadContractFile",
+    "/api/command sodaCoreInsertScanResults"
+  ],
+  "payload": {
+    "definitionName": "fixture_ds/main/orders",
+    "defaultDataSource": "fixture_ds",
+    "defaultDataSourceProperties": {
+      "type": "duckdb"
+    },
+    "dataTimestamp": "2026-09-28T12:00:00+00:00",
+    "scanStartTimestamp": "<masked>",
+    "scanEndTimestamp": "<masked>",
+    "hasErrors": false,
+    "hasWarnings": false,
+    "hasFailures": true,
+    "checks": [
+      {
+        "identities": {
+          "vc1": "c51b4b5f"
+        },
+        "checkPath": "columns.id.checks.missing",
+        "name": "No missing values",
+        "type": "generic",
+        "checkType": "missing",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: id\n  checks:\n  - {}\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 10,
+          "col": 8
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "id",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "1f20eeb5"
+        },
+        "checkPath": "columns.id.checks.duplicate",
+        "name": "No duplicate values",
+        "type": "generic",
+        "checkType": "duplicate",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: id\n  checks:\n  - {}\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 11,
+          "col": 8
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "id",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "a066ec1c"
+        },
+        "checkPath": "columns.customer_id.checks.missing",
+        "name": "No missing values",
+        "type": "generic",
+        "checkType": "missing",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: customer_id\n  checks:\n  - qualifier: \"\"\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 15,
+          "col": 10
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "customer_id",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "8725d00a"
+        },
+        "checkPath": "columns.amount.checks.invalid",
+        "name": "No invalid values",
+        "type": "generic",
+        "checkType": "invalid",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: amount\n  checks:\n  - valid_min: 0\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 19,
+          "col": 10
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "amount",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "a1716a97"
+        },
+        "checkPath": "columns.amount.checks.invalid.strict",
+        "name": "No invalid values",
+        "type": "generic",
+        "checkType": "invalid",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: amount\n  checks:\n  - qualifier: strict\n    valid_min: 1\n    valid_max: 200\n    filter: country = 'BE'\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 21,
+          "col": 10
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "amount",
+        "outcome": "fail",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 2,
+          "fail": {},
+          "v4": {
+            "type": "invalid",
+            "failedRowsCount": 2,
+            "failedRowsPercent": 66.66666666666667,
+            "datasetRowsTested": 5,
+            "checkRowsTested": 3,
+            "missingCount": 0
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "0be11ccd"
+        },
+        "checkPath": "columns.amount.checks.aggregate",
+        "name": "Metric function meets threshold",
+        "type": "generic",
+        "checkType": "aggregate",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: amount\n  checks:\n  - function: avg\n    threshold:\n      must_be_between:\n        greater_than: 0\n        less_than: 1000\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 26,
+          "col": 10
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "amount",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "greaterThanOrEqual": 1000,
+            "lessThanOrEqual": 0
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "51bc20de"
+        },
+        "checkPath": "columns.country.checks.invalid",
+        "name": "No invalid values",
+        "type": "generic",
+        "checkType": "invalid",
+        "definition": "filter: status <> 'cancelled'\ncolumns:\n- name: country\n  checks:\n  - attributes:\n      owner: geo\n      priority: 1\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "1"
+          },
+          {
+            "name": "owner",
+            "value": "geo"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 37,
+          "col": 10
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "column": "country",
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "1002744d"
+        },
+        "checkPath": "checks.schema",
+        "name": "Schema matches expected structure",
+        "type": "generic",
+        "checkType": "schema",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- {}\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 43,
+          "col": 4
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "greaterThan": 0
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "3a083c70"
+        },
+        "checkPath": "checks.row_count",
+        "name": "Row count meets expected threshold",
+        "type": "generic",
+        "checkType": "row_count",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- {}\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 44,
+          "col": 4
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "lessThanOrEqual": 0
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "56b4b91d"
+        },
+        "checkPath": "checks.row_count.2",
+        "name": "Row count meets expected threshold",
+        "type": "generic",
+        "checkType": "row_count",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: 2\n  threshold:\n    must_be_greater_than: 1\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 46,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "lessThanOrEqual": 1
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "3de39c17"
+        },
+        "checkPath": "checks.row_count.warn",
+        "name": "Row count meets expected threshold",
+        "type": "generic",
+        "checkType": "row_count",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: warn\n  threshold:\n    level: warn\n    must_be_greater_than: 10\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 50,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "warn": {
+            "lessThanOrEqual": 10
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "be62cf4e"
+        },
+        "checkPath": "checks.freshness",
+        "name": "Data is fresh",
+        "type": "generic",
+        "checkType": "freshness",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- column: updated_at\n  threshold:\n    unit: hour\n    must_be_less_than: 24\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 55,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "greaterThanOrEqual": 24
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "f5b49bfa"
+        },
+        "checkPath": "checks.duplicate",
+        "name": "No duplicate values",
+        "type": "generic",
+        "checkType": "duplicate",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- columns: [customer_id, country]\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 60,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "b186a3b7"
+        },
+        "checkPath": "checks.metric",
+        "name": "Metric meets threshold",
+        "type": "generic",
+        "checkType": "metric",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- expression: sum(amount) / count(*)\n  threshold:\n    must_be_greater_than: 0\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 62,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {
+            "lessThanOrEqual": 0
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "bbace44c"
+        },
+        "checkPath": "checks.metric.query",
+        "name": "Metric meets threshold",
+        "type": "generic",
+        "checkType": "metric",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: query\n  query: |\n    SELECT AVG(amount) FROM orders WHERE status <> 'cancelled'\n  threshold:\n    must_be_greater_than: 0\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 66,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "pass",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 119.0,
+          "fail": {
+            "lessThanOrEqual": 0
+          },
+          "v4": {
+            "type": "metric",
+            "datasetRowsTested": 5
+          }
+        }
+      },
+      {
+        "identities": {
+          "vc1": "5da7cccd"
+        },
+        "checkPath": "checks.failed_rows.query",
+        "name": "No rows violating the condition",
+        "type": "generic",
+        "checkType": "failed_rows",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- qualifier: query\n  query: |\n    SELECT * FROM orders WHERE amount < 0\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 72,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      },
+      {
+        "identities": {
+          "vc1": "87eed3b2"
+        },
+        "checkPath": "checks.failed_rows",
+        "name": "No rows violating the condition",
+        "type": "generic",
+        "checkType": "failed_rows",
+        "definition": "filter: status <> 'cancelled'\nchecks:\n- expression: amount > 150\n",
+        "resourceAttributes": [
+          {
+            "name": "team",
+            "value": "data-eng"
+          },
+          {
+            "name": "priority",
+            "value": "2"
+          }
+        ],
+        "location": {
+          "filePath": "yamlstr.yml",
+          "line": 76,
+          "col": 6
+        },
+        "dataSource": "fixture_ds",
+        "table": "orders",
+        "datasetPrefix": [
+          "main"
+        ],
+        "outcome": "excluded",
+        "source": "soda-contract",
+        "diagnostics": {
+          "value": 0,
+          "fail": {}
+        }
+      }
+    ],
+    "sourceOwner": "soda-core",
+    "contract": {
+      "fileId": "fixture-file-id",
+      "metadata": {
+        "source": {
+          "type": "local",
+          "filePath": "REMOTE"
+        }
+      }
+    },
+    "postProcessingStages": [],
+    "resultsIngestionMode": "partial",
+    "tokenUsage": [],
+    "type": "sodaCoreInsertScanResults",
+    "token": "mock-token"
+  }
+}
