@@ -36,7 +36,7 @@ from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_request import RequestStatus
-from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
+from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector, CheckSelectorParseException
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -275,15 +275,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--check-filter",
         action="append",
         type=str,
-        help="Filter checks by attributes. Format: key=value. "
-        # Generated from the parser's own field set so help, error message and
-        # docs cannot drift apart again.
-        f"Supported keys: {', '.join(sorted(CheckSelector.SUPPORTED_FIELDS))}, "
-        f"{CheckSelector.ATTRIBUTES_PREFIX}<key>. "
-        "Multiple filters: AND across fields, OR within same field. "
-        "Wildcards (* and ?) supported in values. "
-        "For list attributes: key=value for member match, key=[a,b] for exact list match. "
-        'Quote values containing shell special characters: -cf "attributes.tags=[a,b]".',
+        help=CHECK_FILTER_HELP,
     )
     # TODO: move into extensions
     verify_parser.add_argument(

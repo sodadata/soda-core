@@ -7,7 +7,7 @@ import pytest
 from soda_core.cli.cli import create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
-from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
 
 # from soda_core.cli.soda import CLI
 
@@ -682,6 +682,18 @@ def test_cli_v3_legacy_commands(legacy_command):
     assert e.value.code == 3
 
 
+def _contract_verify_check_filter_help() -> str:
+    verify_parser = (
+        create_cli_parser()
+        ._subparsers._group_actions[0]
+        .choices["contract"]
+        ._subparsers._group_actions[0]
+        .choices["verify"]
+    )
+    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
+    return check_filter_action.help
+
+
 def test_check_filter_help_lists_every_supported_field():
     """The -cf help text must name every field the selector actually accepts.
 
@@ -691,14 +703,11 @@ def test_check_filter_help_lists_every_supported_field():
     silently matches nothing, and a check selection that matches nothing still
     exits 0.
     """
-    verify_parser = (
-        create_cli_parser()
-        ._subparsers._group_actions[0]
-        .choices["contract"]
-        ._subparsers._group_actions[0]
-        .choices["verify"]
-    )
-    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
+    check_filter_help = _contract_verify_check_filter_help()
 
-    undocumented = sorted(field for field in CheckSelector.SUPPORTED_FIELDS if field not in check_filter_action.help)
+    undocumented = sorted(field for field in CheckSelector.SUPPORTED_FIELDS if field not in check_filter_help)
     assert not undocumented, f"--check-filter accepts {undocumented} but --help does not mention them"
+
+
+def test_check_filter_help_explains_negation():
+    assert "key!=value" in CHECK_FILTER_HELP

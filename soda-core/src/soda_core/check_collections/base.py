@@ -423,6 +423,16 @@ class CheckCollectionYaml:
         )
 
 
+def describe_construct_failure(exception: BaseException, yaml_source) -> str:
+    """The error line for a file that failed to become a collection: the exception's message, followed by the
+    file it came from unless the message already names it, as a YAML parse error does."""
+    source_description = getattr(yaml_source, "file_path", None) or getattr(yaml_source, "description", None)
+    message: str = str(exception) or type(exception).__name__
+    locates_itself: bool = bool(source_description) and str(source_description) in message
+    location: str = f", in {source_description}" if source_description and not locates_itself else ""
+    return f"{message}{location}"
+
+
 def _scope_support_for_kind(kind: Optional[str]) -> ScopeHandling:
     """``scope_support`` of the impl class for ``kind``, found as the session finds it: in the kind registry,
     as ``contract`` when the file names no kind. A kind nobody registered supports no scopes."""
@@ -1408,13 +1418,9 @@ class CheckCollectionImpl:
         # with one. Yaml parse errors also already carry their own
         # ", in <file>[line,column]" suffix, so only name the source when the
         # message does not locate itself.
-        source_description = getattr(yaml_source, "file_path", None) or getattr(yaml_source, "description", None)
-        message = str(exception) or type(exception).__name__
-        locates_itself = bool(source_description) and str(source_description) in message
-        location = f", in {source_description}" if source_description and not locates_itself else ""
         with preserve_active_logs():
             error_logs = Logs()
-            logger.error(f"{message}{location}")
+            logger.error(describe_construct_failure(exception, yaml_source))
         # Invariant: this placeholder Contract is never uploaded to Soda Cloud.
         # ``build_error_result`` is only invoked when the YAML failed to parse
         # before a real ``Contract`` could be constructed; the result it
