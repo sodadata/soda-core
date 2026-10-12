@@ -160,3 +160,31 @@ def test_data_standards_with_same_collection_id_produce_identical_identities():
         qualifier=None,
     )
     assert hash_one == hash_two
+
+
+def _contract_identity(**kwargs) -> str:
+    return CheckImpl._build_identity(
+        contract_impl=_ContractStub(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+        **kwargs,
+    )
+
+
+def test_scope_and_reconciliation_source_both_tell_checks_apart():
+    extras = {"src": "payments"}
+    assert _contract_identity(extra_identity_properties=extras, scope_key="base") == _contract_identity(
+        extra_identity_properties=extras
+    )
+    assert (
+        len(
+            {
+                _contract_identity(extra_identity_properties=extras, scope_key="eu"),
+                _contract_identity(extra_identity_properties=extras, scope_key="us"),
+                _contract_identity(extra_identity_properties={"src": "refunds"}, scope_key="eu"),
+                _contract_identity(extra_identity_properties=extras),
+            }
+        )
+        == 4
+    )
