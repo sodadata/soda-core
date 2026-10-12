@@ -14,6 +14,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ThresholdImpl,
     ThresholdType,
 )
+from soda_core.contracts.impl.scope import Scope
 
 
 class RowCountCheckParser(CheckParser):
@@ -92,15 +93,20 @@ class RowCountMetricImpl(AggregationMetricImpl):
         filter: Optional[str] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
+        scope: Optional[Scope] = None,
     ):
         check_filter = filter if filter else check_impl.check_yaml.filter if check_impl else None
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             metric_type="row_count",
             check_filter=check_filter,
             missing_and_validity=None,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            scope=scope,
         )
 
     def sql_expression(self) -> SqlExpression:

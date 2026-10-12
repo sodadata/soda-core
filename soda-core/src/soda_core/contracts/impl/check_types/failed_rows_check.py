@@ -220,9 +220,12 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.expression: str = check_impl.check_yaml.expression
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
@@ -267,6 +270,7 @@ class RowsTestedQueryMetricImpl(MetricImpl):
     def __init__(self, contract_impl: ContractImpl, check_impl: FailedRowsCheckImpl):
         self.rows_tested_query: str = check_impl.failed_rows_check_yaml.rows_tested_query
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             metric_type="rows_tested_query",
             check_filter=check_impl.check_yaml.filter,
@@ -289,12 +293,15 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
         query: Optional[str] = None,
     ):
         # Carries either the `query` form's SQL or the `keys_query` form's SQL — both count failing
         # rows the same way. The SQL is part of the metric identity, so the two forms never collide.
         self.query: str = query if query is not None else check_impl.check_yaml.query
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,

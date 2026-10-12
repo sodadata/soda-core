@@ -120,9 +120,12 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.function: Optional[str] = function
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,

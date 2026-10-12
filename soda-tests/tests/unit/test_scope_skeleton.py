@@ -1,7 +1,7 @@
 """The scope skeleton: the ``Scope`` model, the parse of ``scopes`` and ``scope``,
 ``scope_for``, the inactive skip and the unscoped identity.
 
-A declared scope stays inactive in core, so its checks go up as EXCLUDED, and a file
+A declared scope stays inactive in core, so its checks go up as NOT_EVALUATED, and a file
 without ``scopes`` and ``scope`` behaves exactly as before. A kind without scope support
 fails a file that sets either. A contract validates its scope input, see
 ``contract_yaml/test_scopes_parsing.py``, and reports what the odd files here get wrong.
@@ -16,12 +16,10 @@ from typing import Optional
 
 import duckdb
 import pytest
-from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.scope_test_kinds import SCOPE_UNSUPPORTED_KIND
 from helpers.scopes_extension_removal import without_scopes_extension  # noqa: F401
 from helpers.test_functions import dedent_and_strip
-from helpers.test_table import TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionYaml
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.filtered_cte import build_filtered_cte
@@ -410,13 +408,13 @@ def test_scope_for():
         assert not placeholder.is_active and not placeholder.is_base
         assert all(placeholder is not scope for scope in impl.scopes.values())
 
-    # A check in an inactive scope is skipped and builds no metrics.
-    assert [check_impl.skip for check_impl in check_impls] == [False] * 2 + [True] * 7
+    # A check in an inactive scope builds no metrics.
+    assert [check_impl.in_inactive_scope for check_impl in check_impls] == [False] * 2 + [True] * 7
     assert [bool(check_impl.metrics) for check_impl in check_impls] == [True] * 2 + [False] * 7
-    # A selector that picks the check in the inactive scope still leaves it skipped.
+    # A selector that picks the check in the inactive scope does not make it build metrics.
     selector = CheckSelector.parse("qualifier=eu")
     selected_impl, _ = _build_impl(ContractImpl, SCOPE_FOR_YAML, [selector])
-    assert all(check_impl.skip for check_impl in selected_impl.all_check_impls)
+    assert not any(check_impl.metrics for check_impl in selected_impl.all_check_impls)
 
     check_infos = [check_impl._build_check_info() for check_impl in check_impls]
     assert [check.scope for check in check_infos] == [None] * 2 + SCOPE_KEYS
@@ -443,7 +441,9 @@ def test_extension_constructor_sees_the_scopes_before_checks_are_parsed():
     assert seen == {"scopes": ["eu", "us"], "base_scope_active": True}
     eu = impl.all_check_impls[3]
     assert eu.scope.is_active and eu.metrics
-    assert [check_impl.skip for check_impl in impl.all_check_impls] == [False, False, True, False] + [True] * 5
+    assert [check_impl.in_inactive_scope for check_impl in impl.all_check_impls] == [False, False, True, False] + [
+        True
+    ] * 5
     assert logs.get_errors() == SCOPE_FOR_ERRORS
 
 
@@ -476,61 +476,6 @@ def _identity(column_name: Optional[str] = None, qualifier: Optional[str] = None
 )
 def test_scoped_identity_never_collides(scoped: dict, other: dict):
     assert _identity(**scoped) != _identity(**other)
-
-
-def test_identical_checks_in_two_scopes_get_different_identities():
-    impl, logs = _build_impl(
-        ContractImpl,
-        """
-        dataset: ds/db/schema/table
-        scopes:
-          eu: {name: EU}
-          us: {name: US}
-        columns: []
-        checks:
-          - row_count:
-          - row_count: {scope: eu}
-          - row_count: {scope: us}
-        """,
-    )
-    identities = [check_impl.identity for check_impl in impl.all_check_impls]
-    assert len(set(identities)) == 3
-    assert not logs.has_errors
-
-    unscoped_file, _ = _build_impl(ContractImpl, "dataset: ds/db/schema/table\ncolumns: []\nchecks:\n  - row_count:\n")
-    assert identities[0] == unscoped_file.all_check_impls[0].identity
-
-
-test_table_specification = (
-    TestTableSpecification.builder()
-    .table_purpose("scope_skeleton")
-    .column_integer("id")
-    .rows(rows=[(1,), (2,), (3,)])
-    .build()
-)
-
-
-def test_inactive_scope_check_is_excluded(data_source_test_helper: DataSourceTestHelper):
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-
-    session_result = data_source_test_helper.verify_contract(
-        test_table=test_table,
-        contract_yaml_str="""
-            scopes:
-              eu: {name: EU, filter: id > 1}
-            checks:
-              - row_count:
-              - row_count: {scope: eu}
-        """,
-    )
-
-    result = session_result.contract_verification_results[0]
-    assert [(check_result.check.scope, check_result.outcome) for check_result in result.check_results] == [
-        (None, CheckOutcome.PASSED),
-        ("eu", CheckOutcome.EXCLUDED),
-    ]
-    assert result.number_of_checks_excluded == 1
-    assert not session_result.has_errors
 
 
 # A value nested deeper than a copy can recurse, built from a chain of anchors so the YAML parser itself never
@@ -649,6 +594,11 @@ CONTRACT_ERRORS_FOR_ODD_SCOPE_FILES: dict[str, list[str]] = {
 }
 
 
+NOT_EVALUATING_ONE_EU_CHECK: str = (
+    "Not evaluating 1 check in scope 'eu': running checks in a scope needs a Soda extension that runs scopes."
+)
+
+
 def _assert_scoped_identity_is_stable(impl_class: type[CheckCollectionImpl], impl, yaml_str: str) -> None:
     unscoped, scoped = impl.all_check_impls
     assert not scoped.scope.is_base
@@ -677,15 +627,16 @@ def test_a_contract_reports_odd_scope_input(monkeypatch, file_key: str):
 
     result, uploads = _verify(monkeypatch, yaml_str)
     assert result.error is None, repr(result.error)
-    assert result.get_errors() == errors
+    assert result.status == CheckCollectionStatus.ERROR
     if errors:
-        assert result.status == CheckCollectionStatus.ERROR
+        assert result.get_errors() == errors
         assert result.check_results == []
         assert _uploaded_checks(uploads) == [[]]
     else:
+        # A valid file: core alone runs no declared scope, so its check is not evaluated, with one error.
+        assert result.get_errors() == [NOT_EVALUATING_ONE_EU_CHECK]
         outcomes = [check_result.outcome for check_result in result.check_results]
-        assert outcomes == [CheckOutcome.PASSED, CheckOutcome.EXCLUDED]
-        assert result.number_of_checks_excluded == 1
+        assert outcomes == [CheckOutcome.PASSED, CheckOutcome.NOT_EVALUATED]
         assert [len(upload["checks"]) for upload in uploads] == [2]
 
 

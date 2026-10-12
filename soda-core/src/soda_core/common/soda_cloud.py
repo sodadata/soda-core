@@ -2238,6 +2238,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "invalid":
         return {
@@ -2247,6 +2248,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "duplicate":
         return {
@@ -2256,6 +2258,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "failed_rows":
         return {
@@ -2264,23 +2267,27 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "aggregate":
         return {
             "type": check_result.check.type,
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "metric":
         return {
             "type": check_result.check.type,
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "row_count":
         return {
             "type": check_result.check.type,
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif isinstance(check_result, SchemaCheckResult):
         return {
@@ -2301,6 +2308,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "expectedTimestamp": convert_datetime_to_str(check_result.data_timestamp),
             "expectedTimestampUtc": convert_datetime_to_str(check_result.data_timestamp_utc),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
             # We skip the checkRowsTested because it causes extra compute.
             # To be re-evaluated when we have users asking for it.
         }
@@ -2314,6 +2322,17 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             return check_result.diagnostic_metric_values.get_soda_cloud_output()
 
     raise SodaException(f"Unrecognized check result type: {type(check_result)}")
+
+
+def _scope_rows_tested_json_dict(check_result: CheckResult) -> dict:
+    """``scopeRowsTested`` when the check result carries ``scope_rows_tested``, else nothing.
+
+    Only a check in a declared scope carries it, so the diagnostics of every unscoped check stay as they were.
+    """
+    diagnostic_metric_values = check_result.diagnostic_metric_values
+    if isinstance(diagnostic_metric_values, dict) and "scope_rows_tested" in diagnostic_metric_values:
+        return {"scopeRowsTested": diagnostic_metric_values["scope_rows_tested"]}
+    return {}
 
 
 def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:

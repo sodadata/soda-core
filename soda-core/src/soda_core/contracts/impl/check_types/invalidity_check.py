@@ -87,6 +87,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
                     contract_impl=contract_impl,
+                    check_impl=self,
                     column_impl=column_impl,
                     check_filter=self.check_yaml.filter,
                     missing_and_validity=self.missing_and_validity,
@@ -99,12 +100,11 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # data_source_impl is None and SQL cannot be generated.
             if contract_impl.data_source_impl is not None:
                 self.ref_query = InvalidReferenceCountQuery(
-                    cte=contract_impl.cte,
+                    cte=self.scope.cte,
                     sampler_type=contract_impl.sampler_type,
                     sampler_limit=contract_impl.sampler_limit,
                     apply_sampling=contract_impl.should_apply_sampling,
                     metric_impl=self.invalid_count_metric_impl,
-                    dataset_filter=self.contract_impl.filter,
                     check_filter=self.check_yaml.filter,
                     data_source_impl=contract_impl.data_source_impl,
                 )
@@ -169,6 +169,7 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
+            check_impl=check_impl,
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type="invalid_count",
@@ -210,9 +211,11 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
         check_filter: Optional[str],
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
+        check_impl: Optional[CheckImpl] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
+            check_impl=check_impl,
             metric_type="invalid_reference_count",
             column_impl=column_impl,
             check_filter=check_filter,
@@ -234,7 +237,6 @@ class InvalidReferenceCountQuery(Query):
         sampler_limit: Optional[Number],
         apply_sampling: bool,
         metric_impl: InvalidReferenceCountMetricImpl,
-        dataset_filter: Optional[str],
         check_filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
     ):
