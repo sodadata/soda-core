@@ -10,7 +10,8 @@ collection's verify/post-processing with it); ``close()`` flushes the gatherer
 and releases the active slot only if this ``Logs`` still holds it. The var is
 per-thread, so worker threads that never set it are not captured. Each captured
 record's ``thread`` is stamped with the active ``label`` — the per-collection
-key Soda Cloud exposes as a log filter.
+key Soda Cloud exposes as a log filter. ``child()`` builds a Logs that keeps
+its own records and hands each one on to its parent.
 """
 
 from __future__ import annotations
@@ -108,6 +109,14 @@ class Logs:
         self._prev: Optional[Logs] = _active_logs.get()
         _active_logs.set(self)
 
+    def child(self) -> Logs:
+        """A new, empty Logs with its own records, label and error count that also
+        hands every record on to this one, so this Logs sees each record once. Like
+        any new Logs it becomes the active capture target. The executor gives one to
+        each file of a multi-file session, so one file's errors never set another
+        file's status."""
+        return Logs(gatherer=_ForwardingCollector(self))
+
     @contextmanager
     def activate(self, label: Optional[str] = None):
         """Re-arm this Logs as the active target for a ``with`` block, optionally
@@ -168,3 +177,17 @@ class Logs:
         if _active_logs.get() is self:
             _active_logs.set(self._prev)
         self.gatherer.close()
+
+
+class _ForwardingCollector(LogsCollector):
+    """The gatherer of a child Logs: keeps the child's records and hands each one on
+    to the parent's gatherer, resolved per record since ``switch_gatherer`` can swap it
+    mid-run."""
+
+    def __init__(self, parent: Logs):
+        super().__init__()
+        self.parent: Logs = parent
+
+    def emit(self, log_record: LogRecord):
+        super().emit(log_record)
+        self.parent.gatherer.emit(log_record)

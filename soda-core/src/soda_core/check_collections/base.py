@@ -238,13 +238,16 @@ class CheckCollectionResult:
 class CheckCollectionSessionResult:
     """Result of verifying multiple check-collection files in one session.
 
-    Per-file results are positional with the input items.
+    Per-file results are positional with the input items. ``session_log_records`` holds
+    what was logged before a multi-file session, which belongs to no one file: the logs,
+    errors and ``has_errors`` of the session count it once, ahead of the files' own.
     """
 
     results: list[CheckCollectionResult] = field(default_factory=list)
+    session_log_records: list[LogRecord] = field(default_factory=list)
 
     def get_logs(self) -> list[str]:
-        logs: list[str] = []
+        logs: list[str] = [r.getMessage() for r in self.session_log_records]
         for result in self.results:
             logs.extend(result.get_logs())
         return logs
@@ -253,7 +256,7 @@ class CheckCollectionSessionResult:
         return "\n".join(self.get_logs())
 
     def get_errors(self) -> list[str]:
-        errors: list[str] = []
+        errors: list[str] = [r.getMessage() for r in self.session_log_records if r.levelno >= ERROR]
         for result in self.results:
             errors.extend(result.get_errors())
         return errors
@@ -279,8 +282,12 @@ class CheckCollectionSessionResult:
 
     @property
     def has_errors(self) -> bool:
-        """True if any per-file result has an engine/parse ERROR status."""
-        return any(r.has_errors for r in self.results)
+        """True if any per-file result has an engine/parse ERROR status, or an error was logged before the session."""
+        return self._session_has_errors or any(r.has_errors for r in self.results)
+
+    @property
+    def _session_has_errors(self) -> bool:
+        return any(r.levelno >= ERROR for r in self.session_log_records)
 
     @property
     def is_failed(self) -> bool:
@@ -304,8 +311,8 @@ class CheckCollectionSessionResult:
 
     @property
     def is_ok(self) -> bool:
-        """True if no per-file result failed or has errors."""
-        return all(r.is_ok for r in self.results)
+        """True if no per-file result failed or has errors, and nothing before the session errored."""
+        return not self._session_has_errors and all(r.is_ok for r in self.results)
 
     def assert_ok(self) -> "CheckCollectionSessionResult":
         if not self.is_ok:
@@ -444,6 +451,10 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
+    # What the caller logged before a multi-file session, set by the session executor. It
+    # belongs to no one file, so it is not in this collection's Logs: it goes into this
+    # collection's own upload or failure mark once, ahead of its records.
+    session_log_records: tuple[LogRecord, ...] = ()
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -1138,7 +1149,7 @@ class CheckCollectionImpl:
                 # rather than have mark_scan_as_failed re-read it from the environment.
                 verification_result.scan_id = self.soda_config.soda_scan_id
                 marked_as_failed: bool = self.soda_cloud.mark_scan_as_failed(
-                    scan_id=verification_result.scan_id, logs=log_records
+                    scan_id=verification_result.scan_id, logs=[*self.session_log_records, *(log_records or [])]
                 )
                 if not marked_as_failed:
                     # A rejected mark leaves the failure invisible on Cloud; surface it as a
@@ -1154,6 +1165,7 @@ class CheckCollectionImpl:
                     [verification_result],
                     wire_source=self.wire_source,
                     scan_definition_suffix=type(self).scan_definition_suffix,
+                    session_log_records=list(self.session_log_records),
                 )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")

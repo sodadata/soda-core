@@ -468,6 +468,7 @@ class SodaCloud:
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
         model_version: Optional[str] = None,
+        session_log_records: Optional[list[LogRecord]] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
 
@@ -492,6 +493,9 @@ class SodaCloud:
             scan-definition name. ``None`` uses the bare qualified name.
         @param model_version: Optional payload model version (the backend's
             dataset-registry routing key); ``None`` omits the field.
+        @param session_log_records: What the caller logged before a multi-file session,
+            which belongs to no one file. It goes into the upload once, ahead of the
+            results' own records.
         """
         if not results:
             return None
@@ -500,6 +504,7 @@ class SodaCloud:
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
             model_version=model_version,
+            session_log_records=session_log_records,
         )
         payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -1976,6 +1981,7 @@ def _build_check_collection_results_json_dict(
     scan_definition_suffix: Optional[str] = None,
     model_version: Optional[str] = None,
     scan_definition_name: Optional[str] = None,
+    session_log_records: Optional[list[LogRecord]] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
 
@@ -1989,7 +1995,8 @@ def _build_check_collection_results_json_dict(
     - ``scanStartTimestamp`` = min of per-result starts
     - ``scanEndTimestamp`` = max of per-result ends
     - ``hasErrors``/``hasWarnings``/``hasFailures`` = ORs over per-result flags
-    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results
+    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results; ``logs``
+      starts with ``session_log_records``, once
     - ``postProcessingStages`` = de-duped by name (the backend tracks
       one ONGOING stage per scan)
     - ``resultsIngestionMode`` = PARTIAL if any check across the batch is
@@ -2011,7 +2018,7 @@ def _build_check_collection_results_json_dict(
         if per_file:
             checks.extend(per_file)
 
-    log_records: list[LogRecord] = []
+    log_records: list[LogRecord] = list(session_log_records or [])
     for r in results:
         if r.log_records:
             log_records.extend(r.log_records)
@@ -2060,7 +2067,8 @@ def _build_check_collection_results_json_dict(
         "dataTimestamp": head.data_timestamp,
         "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
         "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
-        "hasErrors": any(r.has_errors for r in results),
+        "hasErrors": any(r.has_errors for r in results)
+        or any(log_record.levelno >= logging.ERROR for log_record in session_log_records or []),
         "hasWarnings": any(r.is_warned for r in results),
         "hasFailures": any(r.is_failed for r in results),
         # Empty checks list serialises as ``None`` to match the legacy

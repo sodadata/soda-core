@@ -107,8 +107,71 @@ def handle_legacy_commands():
         exit_with_code(ExitCode.LOG_ERRORS)
 
 
+class _TakenOnce:
+    """Mixed into an argparse action: a second use of its flag is a usage error.
+
+    argparse keeps the last use of a repeated flag and drops the others without a word. The first
+    repeat raises, and argparse reports it through the parser's ``error``.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if self.option_strings:
+            if self.dest in parser.flags_given:
+                raise argparse.ArgumentError(None, _describe_repeated_flag(self))
+            parser.flags_given.add(self.dest)
+        super().__call__(parser, namespace, values, option_string)
+
+
+# The actions of the flags a soda command takes once, under the names add_argument knows them by.
+# None is the action add_argument picks when given none. append, extend and count collect every
+# use on purpose, so the flags built on them, like --set and -cf/--check-filter, stay repeatable.
+_ACTIONS_OF_FLAGS_GIVEN_ONCE = {
+    name: type(f"_{action.__name__}TakenOnce", (_TakenOnce, action), {})
+    for name, action in {
+        None: argparse._StoreAction,
+        "store": argparse._StoreAction,
+        "store_const": argparse._StoreConstAction,
+        "store_true": argparse._StoreTrueAction,
+        "store_false": argparse._StoreFalseAction,
+    }.items()
+}
+
+
+class _SodaArgumentParser(ArgumentParser):
+    """Parses like ArgumentParser, but a flag given more than once is a usage error, and every usage
+    error exits 3 instead of 2, since 2 is also the check-warnings code.
+
+    A command line without a repeat parses exactly as with ArgumentParser. add_subparsers builds
+    each subcommand's parser with the class of its parent, so every soda command parses with this
+    class, including the ones extensions add through get_or_create_command_parser.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for action_name, action_class in _ACTIONS_OF_FLAGS_GIVEN_ONCE.items():
+            self.register("action", action_name, action_class)
+        self.flags_given: set = set()
+
+    def parse_known_args(self, args=None, namespace=None):
+        self.flags_given = set()
+        return super().parse_known_args(args, namespace)
+
+    def error(self, message: str):
+        # As ArgumentParser.error, with exit code 3.
+        self.print_usage(sys.stderr)
+        self.exit(ExitCode.LOG_ERRORS, f"{self.prog}: error: {message}\n")
+
+
+def _describe_repeated_flag(action: argparse.Action) -> str:
+    # Like: -d/--dataset given more than once. A flag that takes several values takes them all
+    # after one use. The parser's error puts the command in front.
+    several = action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
+    hint = "Give it once, with all its values after it." if several else "Give it once."
+    return f"{'/'.join(action.option_strings)} given more than once. {hint}"
+
+
 def create_cli_parser() -> ArgumentParser:
-    parser = ArgumentParser(
+    parser = _SodaArgumentParser(
         prog="soda",
         epilog="Run 'soda {resource} {command} -h' for help on a specific command",
     )
