@@ -40,11 +40,9 @@ class ValueComparatorProtocol(Protocol):
     soda-reconciliation)."""
 
     @property
-    def handles_cross_type(self) -> bool:
-        ...
+    def handles_cross_type(self) -> bool: ...
 
-    def equals(self, x: Any, y: Any) -> bool:
-        ...
+    def equals(self, x: Any, y: Any) -> bool: ...
 
 
 class DataSourceImpl(ABC):

@@ -14,14 +14,12 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.user_agent import register_user_agent_product, user_agent
 from soda_core.common.yaml import SodaCloudYamlSource
 
-YAML_SOURCE: SodaCloudYamlSource = SodaCloudYamlSource.from_str(
-    """
+YAML_SOURCE: SodaCloudYamlSource = SodaCloudYamlSource.from_str("""
 soda_cloud:
   host: dev.sodadata.io
   api_key_id: some_key_id
   api_key_secret: some_key_secret
-"""
-)
+""")
 
 
 @pytest.fixture(autouse=True)

@@ -353,8 +353,10 @@ def _run_soda(argv: list[str], parser: ArgumentParser) -> Optional[int]:
     """Runs the soda script's entry point on argv, parsed by the given parser. Returns the exit
     code, or None when the command's handler returned without exiting. The CLI's own logging
     setup is left out so the test session's logging stays as it is."""
-    with patch("soda_core.cli.cli.cli_parser", parser), patch("soda_core.cli.cli._configure_logging"), patch.object(
-        sys, "argv", ["soda", *argv]
+    with (
+        patch("soda_core.cli.cli.cli_parser", parser),
+        patch("soda_core.cli.cli._configure_logging"),
+        patch.object(sys, "argv", ["soda", *argv]),
     ):
         try:
             execute()

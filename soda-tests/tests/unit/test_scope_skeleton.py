@@ -157,9 +157,7 @@ def test_contract_yaml_scopes_without_entries_read_as_no_scopes(scopes_yaml: str
 def test_scope_yaml_fields_and_scope_from_yaml():
     # Read with ScopeYaml alone, without the rest of the contract.
     logs = Logs()
-    yaml_object: YamlObject = ContractYamlSource.from_str(
-        dedent_and_strip(
-            """
+    yaml_object: YamlObject = ContractYamlSource.from_str(dedent_and_strip("""
         dataset: ds/db/schema/table
         scopes:
           eu:
@@ -180,9 +178,7 @@ def test_scope_yaml_fields_and_scope_from_yaml():
           base: {name: B}
           !region us: {name: US}
         columns: []
-        """
-        )
-    ).parse()
+        """)).parse()
     scopes = ScopeYaml.parse_scopes(yaml_object)
     logs.close()
     # Reading scopes logs each bad key and each value of the wrong type, and still reads every scope.
