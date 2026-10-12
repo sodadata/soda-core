@@ -44,6 +44,7 @@ from soda_core.contracts.contract_verification import (
     Measurement,
     PostProcessingStage,
     ScanTokenUsage,
+    SodaException,
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
@@ -225,6 +226,13 @@ class CheckCollectionResult:
             [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
         )
 
+    @property
+    def has_excluded_checks(self) -> bool:
+        """
+        Returns true if there are checks that have been excluded.
+        """
+        return any(check_result.is_excluded for check_result in self.check_results)
+
 
 @dataclass
 class CheckCollectionSessionResult:
@@ -234,6 +242,40 @@ class CheckCollectionSessionResult:
     """
 
     results: list[CheckCollectionResult] = field(default_factory=list)
+
+    def get_logs(self) -> list[str]:
+        logs: list[str] = []
+        for result in self.results:
+            logs.extend(result.get_logs())
+        return logs
+
+    def get_logs_str(self) -> str:
+        return "\n".join(self.get_logs())
+
+    def get_errors(self) -> list[str]:
+        errors: list[str] = []
+        for result in self.results:
+            errors.extend(result.get_errors())
+        return errors
+
+    def get_errors_str(self) -> str:
+        return "\n".join(self.get_errors())
+
+    @property
+    def number_of_checks(self) -> int:
+        return sum(result.number_of_checks for result in self.results)
+
+    @property
+    def number_of_checks_passed(self) -> int:
+        return sum(result.number_of_checks_passed for result in self.results)
+
+    @property
+    def number_of_checks_failed(self) -> int:
+        return sum(result.number_of_checks_failed for result in self.results)
+
+    @property
+    def number_of_checks_excluded(self) -> int:
+        return sum(result.number_of_checks_excluded for result in self.results)
 
     @property
     def has_errors(self) -> bool:
@@ -249,6 +291,26 @@ class CheckCollectionSessionResult:
     def is_warned(self) -> bool:
         """True if any per-file result has at least one WARN check."""
         return any(r.is_warned for r in self.results)
+
+    @property
+    def has_excluded_checks(self) -> bool:
+        """True if any per-file result has at least one EXCLUDED check."""
+        return any(r.has_excluded_checks for r in self.results)
+
+    @property
+    def is_passed(self) -> bool:
+        """True if every per-file result passed. Ignores execution errors in the logs."""
+        return all(r.is_passed for r in self.results)
+
+    @property
+    def is_ok(self) -> bool:
+        """True if no per-file result failed or has errors."""
+        return all(r.is_ok for r in self.results)
+
+    def assert_ok(self) -> "CheckCollectionSessionResult":
+        if not self.is_ok:
+            raise SodaException(message=self.get_errors_str())
+        return self
 
     @property
     def sending_results_to_soda_cloud_failed(self) -> bool:
