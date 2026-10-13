@@ -56,7 +56,7 @@ INDEX = "sqlast_dp_target_name_idx"
 FIXES = "sqlast_dp_fixes"
 
 # The type a JSON object column is created with; a dialect opting in adds its own.
-JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {"postgres": "jsonb", "sqlserver": "nvarchar(max)"}
+JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {"postgres": "jsonb", "sqlserver": "nvarchar(max)", "snowflake": "varchar"}
 
 
 def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTestHelper):
