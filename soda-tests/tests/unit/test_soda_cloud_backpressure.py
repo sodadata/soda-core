@@ -122,14 +122,14 @@ def test_the_same_bad_deferral_budget_is_warned_about_once_not_on_every_request(
         pytest.param("17", 17.0, id="seconds"),
         pytest.param("0", 1.0, id="zero is raised to one second"),
         pytest.param("-5", 1.0, id="negative is raised to one second"),
-        pytest.param("1e9", 600.0, id="huge is cut to ten minutes"),
+        pytest.param("1e9", 1e9, id="huge is kept: the budget caps the wait"),
         pytest.param("inf", 15.0, id="infinite gets the default"),
         pytest.param("nan", 15.0, id="nan gets the default"),
         pytest.param("Wed, 21 Oct 2026 07:28:00 GMT", 15.0, id="a date gets the default"),
         pytest.param(None, 15.0, id="missing gets the default"),
     ],
 )
-def test_retry_after_is_clamped_and_unreadable_values_get_the_default(retry_after, expected_wait_seconds):
+def test_retry_after_is_at_least_one_second_and_unreadable_values_get_the_default(retry_after, expected_wait_seconds):
     assert retry_after_seconds(_busy(retry_after)) == expected_wait_seconds
 
 

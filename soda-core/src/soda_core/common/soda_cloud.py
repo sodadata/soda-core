@@ -213,7 +213,6 @@ DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
 DEFAULT_DEFERRAL_BUDGET_SECONDS: int = 5 * 60
 DEFAULT_RETRY_AFTER_SECONDS: int = 15
 MIN_RETRY_AFTER_SECONDS: int = 1
-MAX_RETRY_AFTER_SECONDS: int = 600
 
 
 def deferral_budget_seconds() -> float:
@@ -241,15 +240,16 @@ def _parse_deferral_budget(raw_budget_seconds: Optional[str]) -> float:
 
 
 def retry_after_seconds(response: Response) -> float:
-    """Retry-After as a number of seconds, clamped to 1..600. Soda Cloud never sends a date here, so anything
-    that is not a number gets the default."""
+    """Retry-After as a number of seconds, at least 1. There is no upper bound here: every wait is already
+    capped by the deferral budget. Soda Cloud never sends a date here, so anything that is not a number gets
+    the default."""
     try:
         header_seconds: float = float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS))
     except (TypeError, ValueError):
         return float(DEFAULT_RETRY_AFTER_SECONDS)
     if not math.isfinite(header_seconds):
         return float(DEFAULT_RETRY_AFTER_SECONDS)
-    return min(float(MAX_RETRY_AFTER_SECONDS), max(float(MIN_RETRY_AFTER_SECONDS), header_seconds))
+    return max(float(MIN_RETRY_AFTER_SECONDS), header_seconds)
 
 
 @dataclass(frozen=True)
