@@ -3,12 +3,12 @@ they compose, and the expressions their values are computed with.
 
 The ANSI expressions render on every dialect. The statements and the dialect-specific expressions
 render only on a dialect class that sets `SUPPORTS_DATA_PLANE_STATEMENTS` in its own body, today
-Postgres and SQL Server. Three things are pinned. The exact Postgres SQL of every node, for an
-application that runs these statements as rendered (SQL Server's is pinned in soda-sqlserver). That
-every other dialect renders the ANSI expressions the same way. And that it refuses the rest with
-`UnsupportedSqlStatementError` instead of rendering, so a dialect nobody has verified never emits a
-statement nobody has run; the optimisations, CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render
-None instead.
+Postgres, SQL Server and Snowflake. Three things are pinned. The exact Postgres SQL of every node, for
+an application that runs these statements as rendered (SQL Server's and Snowflake's are pinned in
+soda-sqlserver and soda-snowflake). That every other dialect renders the ANSI expressions the same
+way. And that it refuses the rest with `UnsupportedSqlStatementError` instead of rendering, so a
+dialect nobody has verified never emits a statement nobody has run; the optimisations,
+CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render None instead.
 """
 
 from __future__ import annotations
@@ -563,12 +563,11 @@ def test_an_added_column_default_can_be_an_expression(postgres_dialect):
 # Every other dialect renders the ANSI expressions and refuses the rest
 # ---------------------------------------------------------------------------
 
-# Every dialect class shipped in soda-core other than Postgres and SQL Server, including the ones
-# derived from another (Hive from Databricks, Fabric and Synapse from SQL Server, SparkDF from
-# Databricks).
+# Every dialect class shipped in soda-core other than Postgres, SQL Server and Snowflake, including
+# the ones derived from another (Hive from Databricks, Fabric and Synapse from SQL Server, SparkDF
+# from Databricks).
 _UNSUPPORTED_DIALECT_CASES = [
     ("duckdb", "soda_duckdb.common.data_sources.duckdb_data_source", "DuckDBSqlDialect"),
-    ("snowflake", "soda_snowflake.common.data_sources.snowflake_data_source", "SnowflakeSqlDialect"),
     ("bigquery", "soda_bigquery.common.data_sources.bigquery_data_source", "BigQuerySqlDialect"),
     ("databricks", "soda_databricks.common.data_sources.databricks_data_source", "DatabricksSqlDialect"),
     ("databricks_hive", "soda_databricks.common.data_sources.databricks_data_source", "DatabricksHiveSqlDialect"),
@@ -793,13 +792,18 @@ def _shipped_dialect_classes() -> set[type]:
     return dialect_classes
 
 
-def test_postgres_and_sqlserver_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
+def test_postgres_sqlserver_and_snowflake_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
     sqlserver_module = pytest.importorskip("soda_sqlserver.common.data_sources.sqlserver_data_source")
+    snowflake_module = pytest.importorskip("soda_snowflake.common.data_sources.snowflake_data_source")
     flagged = {
         dialect_class for dialect_class in _shipped_dialect_classes() if dialect_class.SUPPORTS_DATA_PLANE_STATEMENTS
     }
 
-    assert flagged == {type(postgres_dialect), sqlserver_module.SqlServerSqlDialect}
+    assert flagged == {
+        type(postgres_dialect),
+        sqlserver_module.SqlServerSqlDialect,
+        snowflake_module.SnowflakeSqlDialect,
+    }
 
 
 def test_a_dialect_derived_from_postgres_has_the_flag_only_when_it_sets_it(postgres_dialect):
