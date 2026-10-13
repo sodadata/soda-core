@@ -59,7 +59,10 @@ def test_invalid_product_tokens_are_rejected(name, version):
 def test_headers_reflect_products_registered_after_construction():
     soda_cloud = _soda_cloud()
     register_user_agent_product("soda-extensions", "4.24.0")
-    assert soda_cloud.headers == {"User-Agent": f"soda-core/{SODA_CORE_VERSION} soda-extensions/4.24.0"}
+    assert soda_cloud.headers == {
+        "User-Agent": f"soda-core/{SODA_CORE_VERSION} soda-extensions/4.24.0",
+        "X-Soda-Backpressure": "1",
+    }
 
 
 def test_request_headers_keep_user_agent_next_to_request_specific_headers():
@@ -67,6 +70,7 @@ def test_request_headers_keep_user_agent_next_to_request_specific_headers():
     headers = soda_cloud.request_headers({"Authorization": "some_token", "Content-Type": "application/json"})
     assert headers == {
         "User-Agent": f"soda-core/{SODA_CORE_VERSION}",
+        "X-Soda-Backpressure": "1",
         "Authorization": "some_token",
         "Content-Type": "application/json",
     }
