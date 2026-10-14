@@ -196,6 +196,29 @@ class TestSnapshotRegionPinning:
         impl.data_source_connection.client.list_datasets.assert_not_called()
         impl.data_source_connection.client.get_dataset.assert_not_called()
 
+    def test_pinned_unscoped_query_reads_nothing_but_sql_from_the_connection(self, monkeypatch):
+        from soda_bigquery.test_helpers.bigquery_data_source_test_helper import BigQueryDataSourceTestHelper
+
+        monkeypatch.setenv("BIGQUERY_LOCATION", "EU")
+        monkeypatch.setenv("BIGQUERY_ACCOUNT_INFO_JSON", '{"project_id": "account-project"}')
+        impl = _make_impl()
+        # In replay, reading any other attribute of the connection opens a real one. This connection
+        # can only run SQL, so such a read fails the test instead.
+        impl.data_source_connection = MagicMock(spec=["execute_query"])
+        impl.data_source_connection.execute_query.return_value = QueryResult(rows=[], columns=None)
+        helper = BigQueryDataSourceTestHelper.__new__(BigQueryDataSourceTestHelper)
+        helper._snapshot_pin_metadata_lookups(impl)
+        query = BigQueryMetadataTablesQuery(
+            sql_dialect=BigQuerySqlDialect(),
+            data_source_connection=impl.data_source_connection,
+            data_source_impl=impl,
+        )
+
+        query.execute()
+
+        executed_sql = impl.data_source_connection.execute_query.call_args.args[0]
+        assert "`account-project`.`region-EU`" in executed_sql
+
 
 class TestGetLocationRemoved:
     def test_get_location_is_gone(self):

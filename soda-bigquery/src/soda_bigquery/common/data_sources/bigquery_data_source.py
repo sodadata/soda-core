@@ -103,7 +103,7 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
             # No project in scope (as in unscoped discovery): list the storage project, where the data lives, and
             # name it in front of the region views. A region view without a project reads the project that runs the
             # query job, which is the compute project.
-            project_id = self.data_source_impl.data_source_connection.storage_project_id
+            project_id = self.data_source_impl.storage_project_id()
             project_qualifier = [project_id]
         results: list[FullyQualifiedObjectName] = []
         for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
@@ -132,6 +132,14 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return BigQueryDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def storage_project_id(self) -> Optional[str]:
+        """The project that holds the data. The connection falls back to the compute project when none is configured.
+
+        Read it here, not from the connection: snapshot tests pin this method, and on a replay connection the
+        attribute read would open a real connection.
+        """
+        return self.data_source_connection.storage_project_id
 
     def region_for_dataset(self, project_id: Optional[str], dataset_id: str) -> str:
         """Get the BigQuery location of a dataset from its metadata (a REST call, not a query job)."""

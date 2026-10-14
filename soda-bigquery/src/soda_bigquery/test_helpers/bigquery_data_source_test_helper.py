@@ -45,6 +45,9 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         # passthrough did for the probe this replaced. Not through the `location`
         # connection property — that model is frozen, and it also pins the real client.
         region = os.getenv("BIGQUERY_LOCATION", "US")
+        # The storage project is an attribute of the real connection, so replay would open one to read it too.
+        # The test connection sets no storage project, so it is the project of the service account.
+        account_project_id = self._create_database_name()
 
         def region_for_dataset(project_id: str | None = None, dataset_id: str | None = None) -> str:
             return region
@@ -52,5 +55,9 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         def regions_in_scope(project_id: str | None = None, dataset_id: str | None = None) -> list[str]:
             return [region]
 
+        def storage_project_id() -> str | None:
+            return account_project_id
+
         data_source_impl.region_for_dataset = region_for_dataset
         data_source_impl.regions_in_scope = regions_in_scope
+        data_source_impl.storage_project_id = storage_project_id
