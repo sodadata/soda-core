@@ -97,9 +97,17 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
         exclude_table_name_like_filters: Optional[list[str]] = None,
         types_to_return: Optional[list[TableType]] = None,
     ) -> list[FullyQualifiedObjectName]:
+        project_id: Optional[str] = database_name
+        project_qualifier: list[str] = []
+        if not project_id:
+            # No project in scope (as in unscoped discovery): list the storage project, where the data lives, and
+            # name it in front of the region views. A region view without a project reads the project that runs the
+            # query job, which is the compute project.
+            project_id = self.data_source_impl.data_source_connection.storage_project_id
+            project_qualifier = [project_id]
         results: list[FullyQualifiedObjectName] = []
-        for region in self.data_source_impl.regions_in_scope(project_id=database_name, dataset_id=schema_name):
-            self.prefixes = [f"region-{region}"]
+        for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
+            self.prefixes = [*project_qualifier, f"region-{region}"]
             results.extend(
                 super().execute(
                     database_name=database_name,

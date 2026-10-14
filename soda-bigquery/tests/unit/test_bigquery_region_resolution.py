@@ -11,9 +11,10 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import Bi
 from soda_core.common.data_source_results import QueryResult
 
 PROJECT = "test-project"
+STORAGE_PROJECT = "storage-project"
 
 
-def _make_impl(location: str | None = None) -> BigQueryDataSourceImpl:
+def _make_impl(location: str | None = None, storage_project_id: str = PROJECT) -> BigQueryDataSourceImpl:
     impl = BigQueryDataSourceImpl.__new__(BigQueryDataSourceImpl)
     impl.data_source_model = MagicMock()
     # The real connection properties, not a mock: the model is frozen, so anything
@@ -21,6 +22,7 @@ def _make_impl(location: str | None = None) -> BigQueryDataSourceImpl:
     impl.data_source_model.connection_properties = BigQueryJSONStringAuth(account_info_json="{}", location=location)
     impl.data_source_connection = MagicMock()
     impl.data_source_connection.project_id = PROJECT
+    impl.data_source_connection.storage_project_id = storage_project_id
     impl._dataset_region_cache = {}
     return impl
 
@@ -137,6 +139,35 @@ class TestMetadataTablesQuery:
 
         assert results == []
         impl.data_source_connection.execute_query.assert_not_called()
+
+    def test_without_project_in_scope_lists_and_reads_the_storage_project(self):
+        impl = _make_impl(storage_project_id=STORAGE_PROJECT)
+        _mock_datasets(impl, {"dataset_eu": "EU"})
+
+        def rows_for_sql(sql: str):
+            if f"`{STORAGE_PROJECT}`.`region-EU`" in sql:
+                return [(STORAGE_PROJECT, "dataset_eu", "orders", "BASE TABLE")]
+            raise AssertionError(f"unexpected SQL: {sql}")
+
+        query = self._make_query(impl, rows_for_sql)
+        results = query.execute()
+
+        assert [(fully_qualified.database_name, fully_qualified.get_object_name()) for fully_qualified in results] == [
+            (STORAGE_PROJECT, "orders")
+        ]
+        impl.data_source_connection.client.list_datasets.assert_called_once_with(project=STORAGE_PROJECT)
+        impl.data_source_connection.client.get_dataset.assert_called_once_with(f"{STORAGE_PROJECT}.dataset_eu")
+
+    def test_project_in_scope_wins_over_the_storage_project(self):
+        impl = _make_impl(storage_project_id=STORAGE_PROJECT)
+        _mock_datasets(impl, {"dataset_eu": "EU"})
+
+        query = self._make_query(impl, lambda sql: [(PROJECT, "dataset_eu", "orders", "BASE TABLE")])
+        query.execute(database_name=PROJECT)
+
+        impl.data_source_connection.client.list_datasets.assert_called_once_with(project=PROJECT)
+        executed_sql = impl.data_source_connection.execute_query.call_args.args[0]
+        assert STORAGE_PROJECT not in executed_sql
 
 
 class TestCreateMetadataTablesQuery:
