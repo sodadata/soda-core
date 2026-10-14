@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -20,9 +22,23 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
             connection:
                 account: {os.getenv("SNOWFLAKE_ACCOUNT")}
                 user: {os.getenv("SNOWFLAKE_USER")}
-                password: {os.getenv("SNOWFLAKE_PASSWORD")}
+                {self._auth_yaml_str()}
                 database: {self.dataset_prefix[0]}
         """
+
+    @staticmethod
+    def _auth_yaml_str() -> str:
+        # Prefer key-pair auth (CI); fall back to password for local setups.
+        # Values are JSON-encoded so the multi-line PEM stays a valid single-line YAML scalar.
+        private_key_b64 = os.getenv("SNOWFLAKE_PRIVATE_KEY_ENCRYPTED")
+        if private_key_b64:
+            private_key = base64.b64decode(private_key_b64).decode()
+            passphrase = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+            auth = f"private_key: {json.dumps(private_key)}"
+            if passphrase:
+                auth += f"\n                private_key_passphrase: {json.dumps(passphrase)}"
+            return auth
+        return f"password: {os.getenv('SNOWFLAKE_PASSWORD')}"
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name.upper()
