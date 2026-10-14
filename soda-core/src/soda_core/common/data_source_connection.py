@@ -38,12 +38,14 @@ class MemoryOptimizedDriverSettings:
     time so it can be toggled per-process (or per-test via ``monkeypatch.setenv``).
 
     Operator guidance: enable this (set ``MEMORY_OPTIMIZED_DRIVER_ENABLED=true``)
-    when reads of very wide source rows run out of memory — without it the source
-    read buffers the whole result client-side. Two sources honour it today: postgres,
-    via the streaming fetch selected in ``execute_query_one_by_one_prefer_streaming``,
-    and Salesforce, whose connector streams its REST reads directly. Every other
-    adapter buffers regardless. Expect a throughput cost on postgres (~14% slower
-    @100k rows) in exchange for bounded peak memory.
+    when reads of very wide source rows, or of very many rows, run out of memory —
+    without it the source read buffers the whole result client-side (snowflake:
+    several result batches ahead of the reader). Three sources honour it today:
+    postgres and snowflake, via the streaming fetch selected in
+    ``execute_query_one_by_one_prefer_streaming``, and Salesforce, whose connector
+    streams its REST reads directly. Every other adapter buffers regardless. Expect a
+    throughput cost on postgres (~14% slower @100k rows) and on snowflake (no
+    parallel batch downloads) in exchange for bounded peak memory.
     """
 
     ENV_VAR: str = "MEMORY_OPTIMIZED_DRIVER_ENABLED"
@@ -430,7 +432,7 @@ class DataSourceConnection(ABC):
     def supports_streaming_fetch(self) -> bool:
         """Whether this adapter implements a real bounded-memory streaming fetch
         (i.e. overrides ``_execute_query_one_by_one_streaming``). Base: ``False``;
-        postgres returns ``True``. Used by
+        postgres and snowflake return ``True``. Used by
         ``execute_query_one_by_one_prefer_streaming`` to decide whether the
         streaming impl is worth dispatching to."""
         return False
@@ -452,10 +454,10 @@ class DataSourceConnection(ABC):
         *guaranteeing*: streaming engages only when the driver is enabled
         (``MEMORY_OPTIMIZED_DRIVER_ENABLED`` env var or the Soda Cloud override)
         AND this adapter advertises a streaming impl (``supports_streaming_fetch``).
-        Today only postgres advertises one (server-side named cursor, byte-budgeted
-        batches, bounding peak memory to ~one batch plus the largest single row);
-        every other adapter — and every adapter when the driver is disabled — is sent
-        down the buffered fetch here.
+        Today postgres (server-side named cursor, byte-budgeted batches, bounding peak
+        memory to ~one batch plus the largest single row) and snowflake (one result
+        batch at a time, no read-ahead) advertise one; every other adapter — and every
+        adapter when the driver is disabled — is sent down the buffered fetch here.
 
         That is a statement about the fetch strategy this method selects, NOT a
         guarantee that the adapter buffers. An adapter whose cursor is lazy in its own

@@ -4,13 +4,18 @@ import logging
 from abc import ABC
 from datetime import timezone, tzinfo
 from pathlib import Path
-from typing import Dict, Literal, Optional
+from typing import Callable, Dict, Iterator, Literal, Optional
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from pydantic import Field, SecretStr, field_validator
 from snowflake import connector
-from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
+from snowflake.connector.errors import OperationalError
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    memory_optimized_driver_settings,
+    parse_session_timezone,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
@@ -171,3 +176,62 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
             )
             return timezone.utc
         return parse_session_timezone(rows[0][value_index])
+
+    def supports_streaming_fetch(self) -> bool:
+        return True
+
+    def _execute_query_one_by_one_streaming(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        """Reads the result one result batch at a time, without read-ahead.
+
+        The cursor's own fetch downloads several batches ahead of the reader
+        (``client_prefetch_threads``, 4 by default), and recent connectors turn each
+        downloaded batch into a full list of Python rows. On a large result that
+        read-ahead alone takes hundreds of MB. Here the next batch is downloaded only
+        once the previous one is used up, so memory stays at about one batch. Each batch
+        goes through the same ``create_iter`` call the cursor's fetch makes, so the rows
+        have the same Python types as on the buffered path.
+        """
+        memory_optimized_driver_settings.log_active_once(type(self).__name__)
+        cursor = self.connection.cursor()
+        try:
+            if log_query:
+                logger.debug(f"SQL query one-by-one (one result batch at a time, no read-ahead):\n{sql}")
+            cursor.execute(sql)
+            description: tuple[tuple] = cursor.description
+            rows: Iterator[tuple] = self._iterate_rows_one_batch_at_a_time(cursor)
+            rows_processed: int = 0
+            while row_limit is None or rows_processed < row_limit:
+                row = next(rows, None)
+                if row is None:
+                    self._raise_if_result_cut_short(cursor, rows_processed)
+                    break
+                rows_processed += 1
+                row_callback(row, description)
+        finally:
+            cursor.close()
+        return description
+
+    def _iterate_rows_one_batch_at_a_time(self, cursor) -> Iterator[tuple]:
+        for result_batch in cursor.get_result_batches():
+            for row in result_batch.create_iter(connection=self.connection):
+                # The connector hands conversion errors over as rows; its own fetchone() raises them.
+                if isinstance(row, Exception):
+                    raise row
+                yield row
+
+    @staticmethod
+    def _raise_if_result_cut_short(cursor, rows_processed: int) -> None:
+        # Walking the batches skips the end-of-result check that the cursor's own fetch
+        # makes, so make it here: a result that ends before the row count Snowflake
+        # reported must fail, not pass on a partial list.
+        if cursor.rowcount is not None and rows_processed < cursor.rowcount:
+            raise OperationalError(
+                msg=f"Incomplete result: the result set produced {rows_processed} row(s) "
+                f"but the server reported {cursor.rowcount}."
+            )
