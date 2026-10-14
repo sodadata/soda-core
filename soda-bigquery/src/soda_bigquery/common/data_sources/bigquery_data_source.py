@@ -78,6 +78,9 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
     region view only contains that region's datasets. The regions to query are derived from
     dataset metadata by the data source impl and the query runs once per region, so the
     region is never guessed from where a probe query happens to run.
+
+    A region view also only contains the datasets of one project, so the query names that
+    project in front of it rather than reading the project that runs the query job.
     """
 
     def __init__(
@@ -97,14 +100,11 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
         exclude_table_name_like_filters: Optional[list[str]] = None,
         types_to_return: Optional[list[TableType]] = None,
     ) -> list[FullyQualifiedObjectName]:
-        project_id: Optional[str] = database_name
-        project_qualifier: list[str] = []
-        if not project_id:
-            # No project in scope (as in unscoped discovery): list the storage project, where the data lives, and
-            # name it in front of the region views. A region view without a project reads the project that runs the
-            # query job, which is the compute project.
-            project_id = self.data_source_impl.storage_project_id()
-            project_qualifier = [project_id]
+        # A region view without a project in front reads the project that runs the query job, which is the compute
+        # project. So name the project in scope, or the storage project, where the data lives, when the scope names
+        # none (as in unscoped discovery). Only with no project known at all does the view stay unqualified.
+        project_id: Optional[str] = database_name or self.data_source_impl.storage_project_id()
+        project_qualifier: list[str] = [project_id] if project_id else []
         results: list[FullyQualifiedObjectName] = []
         for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
             self.prefixes = [*project_qualifier, f"region-{region}"]

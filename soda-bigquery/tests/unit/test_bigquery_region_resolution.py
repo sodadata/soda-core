@@ -14,7 +14,7 @@ PROJECT = "test-project"
 STORAGE_PROJECT = "storage-project"
 
 
-def _make_impl(location: str | None = None, storage_project_id: str = PROJECT) -> BigQueryDataSourceImpl:
+def _make_impl(location: str | None = None, storage_project_id: str | None = PROJECT) -> BigQueryDataSourceImpl:
     impl = BigQueryDataSourceImpl.__new__(BigQueryDataSourceImpl)
     impl.data_source_model = MagicMock()
     # The real connection properties, not a mock: the model is frozen, so anything
@@ -167,7 +167,40 @@ class TestMetadataTablesQuery:
 
         impl.data_source_connection.client.list_datasets.assert_called_once_with(project=PROJECT)
         executed_sql = impl.data_source_connection.execute_query.call_args.args[0]
+        assert f"`{PROJECT}`.`region-EU`" in executed_sql
         assert STORAGE_PROJECT not in executed_sql
+
+    def test_known_dataset_in_another_project_is_read_from_that_project(self):
+        # Jobs run in PROJECT while the scope names a dataset in STORAGE_PROJECT, as the diagnostics
+        # warehouse does when it writes to the storage project.
+        impl = _make_impl(storage_project_id=STORAGE_PROJECT)
+        impl.data_source_connection.client.get_dataset.return_value = SimpleNamespace(location="EU")
+
+        def rows_for_sql(sql: str):
+            if f"`{STORAGE_PROJECT}`.`region-EU`" in sql:
+                return [(STORAGE_PROJECT, "diagnostics", "scans", "BASE TABLE")]
+            # The region view of the project that runs the job holds none of the storage project's tables.
+            return []
+
+        query = self._make_query(impl, rows_for_sql)
+        results = query.execute(database_name=STORAGE_PROJECT, schema_name="diagnostics")
+
+        assert [(fully_qualified.database_name, fully_qualified.get_object_name()) for fully_qualified in results] == [
+            (STORAGE_PROJECT, "scans")
+        ]
+        impl.data_source_connection.client.get_dataset.assert_called_once_with(f"{STORAGE_PROJECT}.diagnostics")
+
+    def test_without_any_project_the_region_view_stays_unqualified(self):
+        impl = _make_impl(storage_project_id=None)
+        impl.data_source_connection.project_id = None
+        _mock_datasets(impl, {"dataset_eu": "EU"})
+
+        query = self._make_query(impl, lambda sql: [])
+        query.execute()
+
+        executed_sql = impl.data_source_connection.execute_query.call_args.args[0]
+        assert "FROM `region-EU`.`INFORMATION_SCHEMA`" in executed_sql
+        impl.data_source_connection.client.list_datasets.assert_called_once_with(project=None)
 
 
 class TestCreateMetadataTablesQuery:
