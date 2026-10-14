@@ -126,7 +126,9 @@ class BigQueryDataSourceConnection(DataSourceConnection):
 
         # Diagnostics-warehouse writes are qualified with the storage project (see
         # BigQueryDataSourceExtension.build_dwh_prefixes); it defaults to the compute project
-        # when not configured. Reads target the project carried by the contract's DQN.
+        # when not configured. Reads target the project carried by the contract's DQN, except
+        # discovery with no project in scope, which lists and reads the storage project (see
+        # BigQueryMetadataTablesQuery.execute).
         self.storage_project_id = config.storage_project_id if config.storage_project_id else self.project_id
 
         self.labels = config.labels
