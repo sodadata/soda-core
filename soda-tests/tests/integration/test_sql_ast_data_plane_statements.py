@@ -31,6 +31,7 @@ from soda_core.common.sql_ast import (
     EQ,
     FROM,
     GT,
+    IN_SELECT,
     INSERT_INTO,
     IS_NULL,
     JOIN,
@@ -59,7 +60,21 @@ INDEX = "sqlast_dp_target_name_idx"
 FIXES = "sqlast_dp_fixes"
 
 # The type a JSON object column is created with; a dialect opting in adds its own.
-JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {"postgres": "jsonb", "sqlserver": "nvarchar(max)", "snowflake": "varchar"}
+JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {
+    "postgres": "jsonb",
+    "sqlserver": "nvarchar(max)",
+    "snowflake": "varchar",
+    "athena": "varchar",
+}
+
+# The type a timestamp literal is cast to where the dialect's own type would drop its microseconds or its
+# offset: Athena's timestamp holds milliseconds, and its TIMESTAMP_TZ is a timestamp.
+LITERAL_TYPE_NAMES_BY_DATA_SOURCE_TYPE = {
+    "athena": {
+        SodaDataTypeName.TIMESTAMP: "timestamp(6)",
+        SodaDataTypeName.TIMESTAMP_TZ: "timestamp with time zone",
+    }
+}
 
 
 def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTestHelper):
@@ -125,6 +140,7 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
                     ],
                     primary_key_column_names=["id"],
                     update_heavy=True,
+                    transactional=True,
                 )
             )
         )
@@ -196,6 +212,7 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
                         CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))),
                         CREATE_TABLE_COLUMN(name="n", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))),
                     ],
+                    transactional=True,
                 )
             )
         )
@@ -239,8 +256,9 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
         assert upserted_rows == 2
         assert target_rows() == [(1, "a2", 100), (2, "b", 20), (3, "c", 30), (4, None, 400)]
 
-        data_source_impl.execute_update(
-            sql_dialect.build_delete_sql(
+        # A dialect whose DELETE reads no other table reads the source in a subquery instead.
+        try:
+            delete_sql: str = sql_dialect.build_delete_sql(
                 DELETE(
                     fully_qualified_table_name=target_table,
                     alias="tgt",
@@ -250,7 +268,23 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
                     ),
                 )
             )
-        )
+        except UnsupportedSqlStatementError:
+            delete_sql = sql_dialect.build_delete_sql(
+                DELETE(
+                    fully_qualified_table_name=target_table,
+                    where=WHERE(
+                        IN_SELECT(
+                            COLUMN("id"),
+                            [
+                                SELECT([COLUMN("id")]),
+                                FROM(SOURCE, table_prefix=dataset_prefixes),
+                                WHERE(GT(COLUMN("n"), LITERAL(200))),
+                            ],
+                        )
+                    ),
+                )
+            )
+        data_source_impl.execute_update(delete_sql)
         assert target_rows() == [(1, "a2", 100), (2, "b", 20), (3, "c", 30)]
 
         data_source_impl.execute_update(
@@ -350,6 +384,10 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
     def type_name(soda_type: SodaDataTypeName) -> str:
         return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[soda_type]
 
+    def literal_type_name(soda_type: SodaDataTypeName) -> str:
+        literal_type_names: dict = LITERAL_TYPE_NAMES_BY_DATA_SOURCE_TYPE.get(data_source_impl.type_name, {})
+        return literal_type_names.get(soda_type, type_name(soda_type))
+
     def select_row(*expressions) -> tuple:
         return data_source_impl.execute_query(sql_dialect.build_select_sql([SELECT(list(expressions))])).rows[0]
 
@@ -389,14 +427,52 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
 
     merges_json: bool = renders(JSON_MERGE(COLUMN("attrs", "cur"), SOURCE_COLUMN("attrs")))
 
+    def create_fixes_table_sql(created_at_default) -> str:
+        return sql_dialect.build_create_table_sql(
+            CREATE_TABLE_IF_NOT_EXISTS(
+                fully_qualified_table_name=fixes_table,
+                columns=[
+                    CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))),
+                    CREATE_TABLE_COLUMN(name="fix_count", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))),
+                    CREATE_TABLE_COLUMN(name="attrs", type=SqlDataType(name=json_type_name)),
+                    CREATE_TABLE_COLUMN(
+                        name="created_at",
+                        type=SqlDataType(name=type_name(SodaDataTypeName.TIMESTAMP_TZ)),
+                        default=created_at_default,
+                    ),
+                    CREATE_TABLE_COLUMN(
+                        name="fixed_at", type=SqlDataType(name=type_name(SodaDataTypeName.TIMESTAMP_TZ))
+                    ),
+                ],
+                primary_key_column_names=["id"],
+                update_heavy=True,
+                transactional=True,
+            )
+        )
+
+    # created_at comes from a column default, or from the first insert where the table can have none.
+    try:
+        fixes_table_sql: str = create_fixes_table_sql(CURRENT_TIMESTAMP())
+        inserts_created_at: bool = False
+    except UnsupportedSqlStatementError:
+        fixes_table_sql = create_fixes_table_sql(None)
+        inserts_created_at = True
+
     def record_fix(fix_id: int, attrs_json: str) -> None:
         # A repeated fix counts up and merges its attributes over the ones already recorded, where the
         # dialect merges JSON; elsewhere it keeps them.
+        created_at: list = [CURRENT_TIMESTAMP()] if inserts_created_at else []
         data_source_impl.execute_update(
             sql_dialect.build_upsert_sql(
                 UPSERT(
                     fully_qualified_table_name=fixes_table,
-                    columns=[COLUMN("id"), COLUMN("fix_count"), COLUMN("attrs"), COLUMN("fixed_at")],
+                    columns=[
+                        COLUMN("id"),
+                        COLUMN("fix_count"),
+                        COLUMN("attrs"),
+                        COLUMN("fixed_at"),
+                        *([COLUMN("created_at")] if inserts_created_at else []),
+                    ],
                     values=[
                         VALUES_ROW(
                             [
@@ -404,6 +480,7 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
                                 LITERAL(1),
                                 CAST(LITERAL(attrs_json), json_type_name),
                                 CURRENT_TIMESTAMP(),
+                                *created_at,
                             ]
                         )
                     ],
@@ -422,11 +499,11 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
             )
         )
 
-    timestamp_type: str = type_name(SodaDataTypeName.TIMESTAMP)
+    timestamp_type: str = literal_type_name(SodaDataTypeName.TIMESTAMP)
     microseconds = CAST(LITERAL("2024-03-05 07:08:09.123456"), timestamp_type)
     whole_second = CAST(LITERAL("2024-03-05 07:08:09"), timestamp_type)
     hour_later = CAST(LITERAL("2024-03-05 08:08:39"), timestamp_type)
-    noon_utc = CAST(LITERAL("2024-03-05 12:00:00+00:00"), type_name(SodaDataTypeName.TIMESTAMP_TZ))
+    noon_utc = CAST(LITERAL("2024-03-05 12:00:00+00:00"), literal_type_name(SodaDataTypeName.TIMESTAMP_TZ))
     a_date = CAST(LITERAL("2024-03-05"), type_name(SodaDataTypeName.DATE))
 
     assert_selects(
@@ -449,10 +526,11 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
         ]
     )
 
+    backslash_backreference = REGEXP_REPLACE(LITERAL("-42"), "^(-?[0-9]+)$", "\\1.0")
     assert_selects(
         [
             (REGEXP_REPLACE(LITERAL("a1b22c333"), "[0-9]+", "#"), "a#b#c#"),
-            (REGEXP_REPLACE(LITERAL("-42"), "^(-?[0-9]+)$", "\\1.0"), "-42.0"),
+            (backslash_backreference, "-42.0"),
             (REGEXP_REPLACE(LITERAL("it's"), "'", "''"), "it''s"),
             (NULLIF(LITERAL(0), LITERAL(0)), None),
             (NULLIF(LITERAL(5), LITERAL(0)), 5),
@@ -461,6 +539,11 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
             (ARITHMETIC("-", ARITHMETIC("+", LITERAL(1), LITERAL(2)), LITERAL(10)), -7),
         ]
     )
+
+    if data_source_impl.type_name == "athena":
+        # Athena writes a backreference $1 and drops a backslash one silently, so it refuses that.
+        assert not renders(backslash_backreference)
+        assert select_row(REGEXP_REPLACE(LITERAL("-42"), "^(-?[0-9]+)$", "$1.0")) == ("-42.0",)
 
     json_merge = JSON_MERGE(
         CAST(LITERAL('{"a": 1, "b": 1}'), json_type_name), CAST(LITERAL('{"b": 2, "c": 3}'), json_type_name)
@@ -491,30 +574,7 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
 
     drop_table()
     try:
-        data_source_impl.execute_update(
-            sql_dialect.build_create_table_sql(
-                CREATE_TABLE_IF_NOT_EXISTS(
-                    fully_qualified_table_name=fixes_table,
-                    columns=[
-                        CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))),
-                        CREATE_TABLE_COLUMN(
-                            name="fix_count", type=SqlDataType(name=type_name(SodaDataTypeName.INTEGER))
-                        ),
-                        CREATE_TABLE_COLUMN(name="attrs", type=SqlDataType(name=json_type_name)),
-                        CREATE_TABLE_COLUMN(
-                            name="created_at",
-                            type=SqlDataType(name=type_name(SodaDataTypeName.TIMESTAMP_TZ)),
-                            default=CURRENT_TIMESTAMP(),
-                        ),
-                        CREATE_TABLE_COLUMN(
-                            name="fixed_at", type=SqlDataType(name=type_name(SodaDataTypeName.TIMESTAMP_TZ))
-                        ),
-                    ],
-                    primary_key_column_names=["id"],
-                    update_heavy=True,
-                )
-            )
-        )
+        data_source_impl.execute_update(fixes_table_sql)
 
         record_fix(1, '{"a": 1, "b": 1}')
         record_fix(2, '{"z": 0}')
@@ -538,9 +598,14 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
         rows = fixes_rows()
         first_attrs: dict = {"a": 1, "b": 2, "c": 3} if merges_json else {"a": 1, "b": 1}
         assert [(row[0], row[1], json_value(row[2])) for row in rows] == [(1, 2, first_attrs), (2, 6, {"z": 0})]
-        # created_at comes from the column default, fixed_at from a CURRENT_TIMESTAMP value.
+        # created_at comes from the column default or the first insert, fixed_at from a CURRENT_TIMESTAMP value.
         for _, _, _, created_at, fixed_at in rows:
             assert isinstance(created_at, datetime) and isinstance(fixed_at, datetime)
             assert fixed_at >= created_at
     finally:
         drop_table()
+
+    if data_source_impl.type_name == "athena":
+        # Athena keeps a TIMESTAMP_TZ value in a timestamp column, in UTC, and TO_TIMEZONE reads it so.
+        naive_noon_utc = CAST(LITERAL("2024-03-05 12:00:00"), type_name(SodaDataTypeName.TIMESTAMP_TZ))
+        assert select_row(TO_TIMEZONE(naive_noon_utc, "Europe/Brussels")) == (datetime(2024, 3, 5, 13, 0),)
