@@ -822,6 +822,7 @@
     "postProcessingStages": [],
     "resultsIngestionMode": "full",
     "tokenUsage": [],
+    "version": "4",
     "metadata": [
       {
         "datasetQualifiedName": "fixture_ds/main/orders",

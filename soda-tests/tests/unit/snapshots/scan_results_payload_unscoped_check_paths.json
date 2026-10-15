@@ -682,6 +682,7 @@
     "postProcessingStages": [],
     "resultsIngestionMode": "partial",
     "tokenUsage": [],
+    "version": "4",
     "type": "sodaCoreInsertScanResults",
     "token": "mock-token"
   }
