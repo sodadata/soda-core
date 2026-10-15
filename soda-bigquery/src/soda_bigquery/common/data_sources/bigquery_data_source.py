@@ -80,8 +80,8 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
     dataset metadata by the data source impl and the query runs once per region, so the
     region is never guessed from where a probe query happens to run.
 
-    A region view also only contains the datasets of one project, so the query names that
-    project in front of it rather than reading the project that runs the query job.
+    Each region view is read from the project in scope, or from ``storage_project_id`` when
+    the scope names no project.
     """
 
     def __init__(
