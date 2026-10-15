@@ -79,10 +79,11 @@ _DIALECT_CASES = [
 # SQL stays valid and self-consistent — the old and new hashes only disagree with each other.
 #
 # Captured from the rendering that predates `comparison_mode`, so these are literally the
-# pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel and the
-# separator, Redshift concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected:
-# this file's job is to detect drift, not to fix it. Changing one deliberately means migrating every
-# stored key.
+# pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel, Redshift
+# concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected: this file's job is
+# to detect drift, not to fix it. Changing one deliberately means migrating every stored key. The
+# BigQuery separator was the exception: it was rendered as `''||''`, an empty string, so it did not
+# separate the operands at all, and it is now `'||'`.
 _EXPECTED_SQL = {
     "postgres": (
         "MD5(COALESCE(\"a\"::varchar, '__SODA_NULL__'))",
@@ -105,7 +106,7 @@ _EXPECTED_SQL = {
     ),
     "bigquery": (
         "to_hex(MD5(COALESCE(CAST(`a` AS string), '''__SODA_NULL__''')))",
-        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), ''||'', "
+        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), '||', "
         "COALESCE(CAST(`b` AS string), '''__SODA_NULL__'''))))",
     ),
     "databricks": (
