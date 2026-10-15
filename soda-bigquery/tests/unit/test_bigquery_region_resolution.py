@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from google.api_core.exceptions import NotFound
+from google.cloud.bigquery.dataset import DatasetListItem
 from soda_bigquery.common.data_sources.bigquery_data_source import (
     BigQueryDataSourceImpl,
     BigQueryMetadataTablesQuery,
@@ -25,9 +26,16 @@ def _make_impl(location: str | None = None) -> BigQueryDataSourceImpl:
     return impl
 
 
+def _dataset_list_item(dataset_id: str, location: str | None = None) -> DatasetListItem:
+    resource = {"datasetReference": {"projectId": PROJECT, "datasetId": dataset_id}}
+    if location:
+        resource["location"] = location
+    return DatasetListItem(resource)
+
+
 def _mock_datasets(impl: BigQueryDataSourceImpl, locations_by_dataset_id: dict[str, str]) -> None:
     impl.data_source_connection.client.list_datasets.return_value = [
-        SimpleNamespace(dataset_id=dataset_id) for dataset_id in locations_by_dataset_id
+        _dataset_list_item(dataset_id) for dataset_id in locations_by_dataset_id
     ]
     impl.data_source_connection.client.get_dataset.side_effect = lambda reference: SimpleNamespace(
         location=locations_by_dataset_id[reference.split(".")[-1]]
@@ -56,6 +64,28 @@ class TestRegionsInScope:
 
         assert impl.regions_in_scope(project_id=PROJECT) == ["EU", "US"]
         impl.data_source_connection.client.list_datasets.assert_called_once_with(project=PROJECT)
+
+    def test_listed_dataset_locations_spare_the_per_dataset_lookup(self):
+        impl = _make_impl()
+        impl.data_source_connection.client.list_datasets.return_value = [
+            _dataset_list_item("dataset_eu", location="EU"),
+            _dataset_list_item("dataset_us", location="US"),
+        ]
+
+        assert impl.regions_in_scope(project_id=PROJECT) == ["EU", "US"]
+        assert impl.region_for_dataset(PROJECT, "dataset_eu") == "EU"
+        impl.data_source_connection.client.get_dataset.assert_not_called()
+
+    def test_listed_dataset_without_location_is_looked_up(self):
+        impl = _make_impl()
+        impl.data_source_connection.client.list_datasets.return_value = [
+            _dataset_list_item("dataset_eu", location="EU"),
+            _dataset_list_item("dataset_unknown"),
+        ]
+        impl.data_source_connection.client.get_dataset.return_value = SimpleNamespace(location="US")
+
+        assert impl.regions_in_scope(project_id=PROJECT) == ["EU", "US"]
+        impl.data_source_connection.client.get_dataset.assert_called_once_with(f"{PROJECT}.dataset_unknown")
 
     def test_dataset_region_lookups_are_cached(self):
         impl = _make_impl()

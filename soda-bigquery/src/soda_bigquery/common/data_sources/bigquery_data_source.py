@@ -161,6 +161,11 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         project_id = project_id or self.data_source_connection.project_id
         regions: list[str] = []
         for dataset_item in self.data_source_connection.client.list_datasets(project=project_id):
+            # DatasetListItem has no location property, but the raw listing resource carries it.
+            # Seeding the cache with it spares a datasets.get per dataset.
+            listed_location = dataset_item._properties.get("location")
+            if listed_location:
+                self._dataset_region_cache[(project_id, dataset_item.dataset_id)] = listed_location
             region = self.region_for_dataset(project_id, dataset_item.dataset_id)
             if region not in regions:
                 regions.append(region)
