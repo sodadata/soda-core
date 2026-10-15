@@ -9,6 +9,7 @@ from soda_athena.common.data_sources.athena_data_source_connection import Athena
 from soda_athena.common.data_sources.athena_data_source_connection import AthenaDataSourceConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl, FullyQualifiedTableName
+from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
@@ -19,10 +20,23 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    DATE_ISO_TEXT,
+    DATE_TRUNC,
+    DELETE,
+    EPOCH_SECONDS,
+    FROM,
     INSERT_INTO_VIA_SELECT,
+    JSON_MERGE,
     PERCENTILE_WITHIN_GROUP,
+    REGEXP_REPLACE,
+    SOURCE_COLUMN,
     STRING_HASH,
     TIME_DELTA,
+    TIMESTAMP_ISO_TEXT,
+    TO_TIMEZONE,
+    UPDATE,
+    UPSERT,
+    UPSERT_VIA_SELECT,
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -178,6 +192,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     SUPPORTS_DROP_TABLE_CASCADE = False
     # Athena (Trino engine) requires OFFSET before LIMIT.
     OFFSET_BEFORE_LIMIT: bool = True
+    SUPPORTS_DATA_PLANE_STATEMENTS = True
 
     # Primary-key introspection stays opt-out (supports_primary_keys inherits False from the
     # base dialect): Athena runs over Glue/Hive-style catalogs that neither declare primary keys
@@ -373,6 +388,8 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     ) -> str:
         if self.get_table_storage_location is None:
             raise ValueError("get_table_storage_location function must be provided to build create table SQL")
+        if create_table.transactional and self.SUPPORTS_DATA_PLANE_STATEMENTS:
+            return self._build_iceberg_create_table_sql(create_table, add_semicolon)
         create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
@@ -521,3 +538,211 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             + "\n"  # Athena does not like the parenthesis around the select statement.
         )
         return insert_into_sql + (";" if add_semicolon else "")
+
+    ###
+    # Data plane statements
+    ###
+    # Row-level UPDATE, DELETE and MERGE run on an Iceberg table only, which CREATE TABLE creates for a
+    # transactional table; Athena refuses them on a Hive table. Athena has no transactions, so there is no
+    # read-only transaction to begin or roll back: every statement commits on its own. Nor does it create
+    # an index or refresh statistics on request. Those render None; CREATE SCHEMA is the base statement.
+
+    # MERGE names its incoming rows; SOURCE_COLUMN renders as this alias.
+    _MERGE_SOURCE_ALIAS = "src"
+    _MERGE_DEFAULT_TARGET_ALIAS = "tgt"
+
+    # Athena's Iceberg DDL refuses CHAR, and INTEGER, which it names INT; Iceberg has no bounded VARCHAR,
+    # TINYINT, SMALLINT, TIME or zoned timestamp. A timestamp column is timestamp(6) whatever precision it
+    # declares.
+    _ICEBERG_COLUMN_TYPE_NAMES: dict[str, str] = {
+        "char": "string",
+        "varchar": "string",
+        "integer": "int",
+        "tinyint": "int",
+        "smallint": "int",
+        "time": "string",
+        "timestamp": "timestamp",
+        "timestamp with time zone": "timestamp",
+    }
+
+    def _build_iceberg_create_table_sql(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool
+    ) -> str:
+        """Without NOT NULL or a primary key, which Athena's Iceberg DDL lacks."""
+        if_not_exists_sql: str = " IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
+        table_name: str = self._convert_fqn_for_ddl(create_table.fully_qualified_table_name)
+        columns_sql: str = ",\n".join(
+            self._build_iceberg_create_table_column(column) for column in create_table.columns
+        )
+        location: str = self.get_table_storage_location(create_table.fully_qualified_table_name)
+        create_table_sql: str = (
+            f"CREATE TABLE{if_not_exists_sql} {table_name} (\n{columns_sql}\n)\n"
+            f"LOCATION '{location}'\n"
+            "TBLPROPERTIES ('table_type'='ICEBERG', 'format'='parquet')"
+        )
+        return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_iceberg_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        if create_table_column.default is not None:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support a column DEFAULT on a transactional table: "
+                f"Athena's Iceberg DDL has none, got one on {create_table_column.name!r}"
+            )
+        column_name_sql: str = self._quote_column_for_create_table(create_table_column.name)
+        iceberg_type_name: Optional[str] = self._ICEBERG_COLUMN_TYPE_NAMES.get(
+            self.format_metadata_data_type(create_table_column.type.name)
+        )
+        column_type_sql: str = iceberg_type_name or self._build_create_table_column_type(create_table_column)
+        return f"\t{column_name_sql} {column_type_sql}"
+
+    def _build_update_sql(self, update: UPDATE) -> str:
+        if update.from_elements:
+            return self._build_update_from_sql(update)
+        if update.alias:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support UPDATE with an alias and no from_elements: "
+                f"Athena's UPDATE takes no target alias"
+            )
+        return super()._build_update_sql(update)
+
+    def _build_update_from_sql(self, update: UPDATE) -> str:
+        """Athena's UPDATE reads no other table, so this one is a MERGE from it on the WHERE. The caller
+        guarantees at most one of its rows per target row: a target row matching two fails the MERGE with
+        MERGE_TARGET_ROW_MULTIPLE_MATCHES."""
+        if len(update.from_elements) != 1 or type(update.from_elements[0]) is not FROM:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support UPDATE with from_elements other than one table: "
+                f"it renders as a MERGE, which reads one"
+            )
+        if update.where is None:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support UPDATE with from_elements and no where: "
+                f"the where is the MERGE's join condition"
+            )
+        lines: list[str] = [
+            f"MERGE INTO {self._build_statement_target_sql(update.fully_qualified_table_name, update.alias)}",
+            f"USING {self._build_from_part(update.from_elements[0])}",
+            f"ON ({self.build_expression_sql(update.where.condition)})",
+            f"WHEN MATCHED THEN UPDATE SET {self._build_assignments_sql(update.assignments)}",
+        ]
+        return "\n".join(lines)
+
+    def _build_delete_sql(self, delete: DELETE) -> str:
+        if delete.using_elements:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support DELETE with using_elements: "
+                f"Athena's DELETE has no USING clause"
+            )
+        if delete.alias:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support DELETE with an alias: Athena's DELETE takes no target alias"
+            )
+        return super()._build_delete_sql(delete)
+
+    def _build_upsert_sql(self, upsert: UPSERT) -> str:
+        return self._build_merge_sql(upsert, self._build_upsert_rows_sql(upsert))
+
+    def _build_upsert_via_select_sql(self, upsert_via_select: UPSERT_VIA_SELECT) -> str:
+        # A WITH stays inside the USING subquery.
+        select_sql: str = self.build_select_sql(upsert_via_select.select_elements, add_semicolon=False)
+        return self._build_merge_sql(upsert_via_select, select_sql)
+
+    def _build_upsert_rows_sql(self, upsert: UPSERT) -> str:
+        """The rows as VALUES, each value rendered as INSERT INTO renders it: Trino's VALUES takes
+        expressions."""
+        if not upsert.values:
+            raise ValueError("An upsert must have at least one row")
+        for index, row in enumerate(upsert.values):
+            # Athena would refuse the statement without naming the row.
+            if len(row.values) != len(upsert.columns):
+                raise ValueError(
+                    f"An upsert row must have one value per column, got {len(row.values)} for "
+                    f"{len(upsert.columns)} in values[{index}]"
+                )
+        return self._build_insert_into_values_sql(upsert).strip()
+
+    def _build_merge_sql(self, upsert: UPSERT | UPSERT_VIA_SELECT, source_sql: str) -> str:
+        """Unmatched duplicate keys all insert, as an Iceberg table enforces no key; with update assignments, a
+        target row two incoming rows match fails the MERGE with MERGE_TARGET_ROW_MULTIPLE_MATCHES."""
+        target_alias: str = upsert.alias or self._MERGE_DEFAULT_TARGET_ALIAS
+        if target_alias.lower() == self._MERGE_SOURCE_ALIAS:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support an upsert target alias {target_alias!r}: "
+                f"it names the incoming rows"
+            )
+        target: str = self.quote_default(target_alias)
+        source: str = self.quote_default(self._MERGE_SOURCE_ALIAS)
+        column_names: list[str] = [self.quote_default(self._upsert_column_name(column)) for column in upsert.columns]
+        columns_sql: str = ", ".join(column_names)
+        key_condition_sql: str = " AND ".join(
+            f"{target}.{key} = {source}.{key}"
+            for key in (self.quote_default(self._upsert_column_name(column)) for column in upsert.key_columns)
+        )
+        lines: list[str] = [
+            f"MERGE INTO {upsert.fully_qualified_table_name} AS {target}",
+            f"USING (\n{source_sql}\n) AS {source} ({columns_sql})",
+            f"ON ({key_condition_sql})",
+        ]
+        if upsert.update_assignments:
+            lines.append(f"WHEN MATCHED THEN UPDATE SET {self._build_assignments_sql(upsert.update_assignments)}")
+        source_values_sql: str = ", ".join(f"{source}.{column_name}" for column_name in column_names)
+        lines.append(f"WHEN NOT MATCHED THEN INSERT ({columns_sql}) VALUES ({source_values_sql})")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _upsert_column_name(column: COLUMN | str) -> str:
+        column_name = column.name if isinstance(column, COLUMN) else column
+        if not isinstance(column_name, str):
+            raise ValueError(f"An upsert column must be named, got {column_name!r}")
+        return column_name
+
+    def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
+        return f"{self.quote_default(self._MERGE_SOURCE_ALIAS)}.{self.quote_default(source_column.name)}"
+
+    def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
+        expression_sql: str = self.build_expression_sql(timestamp_iso_text.expression)
+        iso_text_sql: str
+        if timestamp_iso_text.fractional_seconds:
+            # date_format prints milliseconds only. The text of a timestamp(6) has the microseconds, and its one
+            # space becomes the T; a date or a millisecond timestamp casts up exactly.
+            iso_text_sql = f"replace(CAST(CAST({expression_sql} AS timestamp(6)) AS varchar), ' ', 'T')"
+        else:
+            # MySQL's format specifiers: %i is the minutes, %s the seconds.
+            iso_text_sql = f"date_format({expression_sql}, '%Y-%m-%dT%H:%i:%s')"
+        if timestamp_iso_text.utc_suffix:
+            # || propagates NULL.
+            return f"({iso_text_sql} || '+00:00')"
+        return iso_text_sql
+
+    def _build_date_iso_text_sql(self, date_iso_text: DATE_ISO_TEXT) -> str:
+        return f"date_format({self.build_expression_sql(date_iso_text.expression)}, '%Y-%m-%d')"
+
+    def _build_to_timezone_sql(self, to_timezone: TO_TIMEZONE) -> str:
+        # Athena casts a timestamp with time zone to its UTC wall clock, not the zone's, so the zone's is read
+        # back from its text: to the millisecond, the finest field format_datetime prints.
+        expression_sql: str = self.build_expression_sql(to_timezone.expression)
+        zoned_sql: str = f"at_timezone({expression_sql}, {self.literal_string(to_timezone.timezone)})"
+        return f"CAST(format_datetime({zoned_sql}, 'yyyy-MM-dd HH:mm:ss.SSSSSS') AS timestamp)"
+
+    def _build_date_trunc_sql(self, date_trunc: DATE_TRUNC) -> str:
+        return f"date_trunc({self.literal_string(date_trunc.unit)}, {self.build_expression_sql(date_trunc.expression)})"
+
+    def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
+        # Every match is replaced. A backreference is $1: Athena drops a backslash one without an error.
+        if "\\" in regexp_replace.replacement:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support a REGEXP_REPLACE replacement with a backslash: "
+                f"Athena drops it silently, a backreference is written $1"
+            )
+        expression_sql: str = self.build_expression_sql(regexp_replace.expression)
+        pattern_sql: str = self.literal_string(regexp_replace.pattern)
+        replacement_sql: str = self.literal_string(regexp_replace.replacement)
+        return f"regexp_replace({expression_sql}, {pattern_sql}, {replacement_sql})"
+
+    def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
+        # Athena's interval holds milliseconds, so a microsecond fraction would be cut.
+        raise self._unsupported_sql_statement_error("EPOCH_SECONDS")
+
+    def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
+        # No built-in merges two JSON objects, and an Iceberg table keeps JSON as a string.
+        raise self._unsupported_sql_statement_error("JSON_MERGE")
