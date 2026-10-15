@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cached_property
 from typing import Optional
 
 from google.api_core.exceptions import NotFound
@@ -78,6 +79,9 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
     region view only contains that region's datasets. The regions to query are derived from
     dataset metadata by the data source impl and the query runs once per region, so the
     region is never guessed from where a probe query happens to run.
+
+    Each region view is read from the project in scope, or from ``storage_project_id`` when
+    the scope names no project.
     """
 
     def __init__(
@@ -97,9 +101,14 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
         exclude_table_name_like_filters: Optional[list[str]] = None,
         types_to_return: Optional[list[TableType]] = None,
     ) -> list[FullyQualifiedObjectName]:
+        # A region view without a project in front reads the project that runs the query job, which is the compute
+        # project. So name the project in scope, or the storage project, where the data lives, when the scope names
+        # none (as in unscoped discovery). Only with no project known at all does the view stay unqualified.
+        project_id: Optional[str] = database_name or self.data_source_impl.storage_project_id
+        project_qualifier: list[str] = [project_id] if project_id else []
         results: list[FullyQualifiedObjectName] = []
-        for region in self.data_source_impl.regions_in_scope(project_id=database_name, dataset_id=schema_name):
-            self.prefixes = [f"region-{region}"]
+        for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
+            self.prefixes = [*project_qualifier, f"region-{region}"]
             results.extend(
                 super().execute(
                     database_name=database_name,
@@ -124,6 +133,16 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return BigQueryDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    @cached_property
+    def storage_project_id(self) -> Optional[str]:
+        """The project that holds the data. The connection falls back to the compute project when none is configured.
+
+        Read it here, not from the connection: on a replay connection the attribute read would open a real
+        connection, so snapshot tests pin this value on the impl instead. That is why this is a cached_property:
+        unlike a plain property, a test can set it on the instance.
+        """
+        return self.data_source_connection.storage_project_id
 
     def region_for_dataset(self, project_id: Optional[str], dataset_id: str) -> str:
         """Get the BigQuery location of a dataset from its metadata (a REST call, not a query job)."""
