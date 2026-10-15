@@ -283,3 +283,17 @@ def test_send_check_collection_results_marks_all_failed_when_response_omits_scan
     assert out == {"cloudUrl": "https://cloud.example/dataset"}
     assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
     assert all(r.scan_id is None for r in results)
+
+
+def test_contract_upload_carries_version_4():
+    cloud = SodaCloud.__new__(SodaCloud)
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"scanId": "scan-1"}
+    cloud._execute_command = MagicMock(return_value=response)
+
+    cloud.send_check_collection_results(results=[_make_result(label="solo")])
+
+    sent = cloud._execute_command.call_args.kwargs["command_json_dict"]
+    assert sent["type"] == "sodaCoreInsertScanResults"
+    assert sent["version"] == "4"
