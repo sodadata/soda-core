@@ -20,6 +20,11 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
+try:
+    from snowflake.connector.errorcode import ER_INCOMPLETE_RESULT_CHUNK
+except ImportError:  # connectors before 4.8.0 do not define it
+    ER_INCOMPLETE_RESULT_CHUNK = 252013
+
 logger: logging.Logger = soda_logger
 
 USER_DESCRIPTION = "Username for authentication"
@@ -218,7 +223,8 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
         return description
 
     def _iterate_rows_one_batch_at_a_time(self, cursor) -> Iterator[tuple]:
-        for result_batch in cursor.get_result_batches():
+        # get_result_batches() returns None when the query left no result set.
+        for result_batch in cursor.get_result_batches() or []:
             for row in result_batch.create_iter(connection=self.connection):
                 # The connector hands conversion errors over as rows; its own fetchone() raises them.
                 if isinstance(row, Exception):
@@ -233,5 +239,6 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
         if cursor.rowcount is not None and rows_processed < cursor.rowcount:
             raise OperationalError(
                 msg=f"Incomplete result: the result set produced {rows_processed} row(s) "
-                f"but the server reported {cursor.rowcount}."
+                f"but the server reported {cursor.rowcount}.",
+                errno=ER_INCOMPLETE_RESULT_CHUNK,
             )

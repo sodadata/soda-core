@@ -10,6 +10,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from snowflake.connector.errorcode import ER_INCOMPLETE_RESULT_CHUNK
 from snowflake.connector.errors import OperationalError
 from soda_core.common.data_source_connection import memory_optimized_driver_settings
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import SnowflakeDataSourceConnection
@@ -150,9 +151,21 @@ class TestReadErrors:
     def test_result_ending_before_the_reported_row_count_raises(self):
         cursor = _FakeSnowflakeCursor([[(1,)], [(2,)]], rowcount=3)
 
-        with pytest.raises(OperationalError, match="produced 2 row"):
+        with pytest.raises(OperationalError, match="produced 2 row") as raised:
             _stream(cursor)
 
+        # Same errno as the connector's own check, so both fetch paths fail the same way.
+        assert raised.value.errno == ER_INCOMPLETE_RESULT_CHUNK
+        assert cursor.closed
+
+    def test_cursor_without_a_result_set_reads_no_rows(self):
+        cursor = _FakeSnowflakeCursor([])
+        # The connector's get_result_batches() returns None when there is no result set.
+        cursor.result_batches = None
+
+        _stream(cursor)
+
+        assert cursor.events == []
         assert cursor.closed
 
     def test_stopping_at_the_row_limit_is_not_a_short_result(self):
