@@ -3,12 +3,13 @@ they compose, and the expressions their values are computed with.
 
 The ANSI expressions render on every dialect. The statements and the dialect-specific expressions
 render only on a dialect class that sets `SUPPORTS_DATA_PLANE_STATEMENTS` in its own body, today
-Postgres, SQL Server and Snowflake. Three things are pinned. The exact Postgres SQL of every node, for
-an application that runs these statements as rendered (SQL Server's and Snowflake's are pinned in
-soda-sqlserver and soda-snowflake). That every other dialect renders the ANSI expressions the same
-way. And that it refuses the rest with `UnsupportedSqlStatementError` instead of rendering, so a
-dialect nobody has verified never emits a statement nobody has run; the optimisations,
-CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render None instead.
+Postgres, SQL Server, Snowflake and Athena. Three things are pinned. The exact Postgres SQL of every
+node, for an application that runs these statements as rendered (SQL Server's, Snowflake's and
+Athena's are pinned in soda-sqlserver, soda-snowflake and soda-athena). That every other dialect
+renders the ANSI expressions the same way. And that it refuses the rest with
+`UnsupportedSqlStatementError` instead of rendering, so a dialect nobody has verified never emits a
+statement nobody has run; the optimisations, CREATE_INDEX_IF_NOT_EXISTS and ANALYZE_TABLE, render None
+instead.
 """
 
 from __future__ import annotations
@@ -382,12 +383,16 @@ def test_create_schema_is_the_existing_statement(postgres_dialect):
 
 
 # ---------------------------------------------------------------------------
-# CREATE TABLE update_heavy
+# CREATE TABLE update_heavy, transactional
 # ---------------------------------------------------------------------------
 
 
-def _create_table(update_heavy: bool | None = None, node: type = CREATE_TABLE_IF_NOT_EXISTS):
+def _create_table(
+    update_heavy: bool | None = None, node: type = CREATE_TABLE_IF_NOT_EXISTS, transactional: bool | None = None
+):
     kwargs = {} if update_heavy is None else {"update_heavy": update_heavy}
+    if transactional is not None:
+        kwargs["transactional"] = transactional
     return node(
         fully_qualified_table_name=TABLE,
         columns=[
@@ -423,6 +428,27 @@ def test_create_table_default_is_unchanged(postgres_dialect, update_heavy):
         '\t"name" varchar(255),\n'
         '\tPRIMARY KEY ("id")\n'
         ");"
+    )
+
+
+# Athena's tables take row-level writes only when created as Iceberg tables; every other flagged dialect's do.
+_FLAGGED_DIALECT_CASES_BUT_ATHENA = [
+    ("postgres", "soda_postgres.common.data_sources.postgres_data_source", "PostgresSqlDialect"),
+    ("sqlserver", "soda_sqlserver.common.data_sources.sqlserver_data_source", "SqlServerSqlDialect"),
+    ("snowflake", "soda_snowflake.common.data_sources.snowflake_data_source", "SnowflakeSqlDialect"),
+]
+
+
+@pytest.mark.parametrize(
+    "module_path, class_name",
+    [case[1:] for case in _FLAGGED_DIALECT_CASES_BUT_ATHENA],
+    ids=[case[0] for case in _FLAGGED_DIALECT_CASES_BUT_ATHENA],
+)
+def test_a_flagged_dialect_other_than_athena_ignores_transactional(module_path, class_name):
+    sql_dialect: SqlDialect = getattr(pytest.importorskip(module_path), class_name)()
+
+    assert sql_dialect.build_create_table_sql(_create_table(transactional=True)) == sql_dialect.build_create_table_sql(
+        _create_table()
     )
 
 
@@ -588,16 +614,15 @@ def test_an_added_column_default_can_be_an_expression(postgres_dialect):
 # Every other dialect renders the ANSI expressions and refuses the rest
 # ---------------------------------------------------------------------------
 
-# Every dialect class shipped in soda-core other than Postgres, SQL Server and Snowflake, including
-# the ones derived from another (Hive from Databricks, Fabric and Synapse from SQL Server, SparkDF
-# from Databricks).
+# Every dialect class shipped in soda-core other than Postgres, SQL Server, Snowflake and Athena,
+# including the ones derived from another (Hive from Databricks, Fabric and Synapse from SQL Server,
+# SparkDF from Databricks).
 _UNSUPPORTED_DIALECT_CASES = [
     ("duckdb", "soda_duckdb.common.data_sources.duckdb_data_source", "DuckDBSqlDialect"),
     ("bigquery", "soda_bigquery.common.data_sources.bigquery_data_source", "BigQuerySqlDialect"),
     ("databricks", "soda_databricks.common.data_sources.databricks_data_source", "DatabricksSqlDialect"),
     ("databricks_hive", "soda_databricks.common.data_sources.databricks_data_source", "DatabricksHiveSqlDialect"),
     ("redshift", "soda_redshift.common.data_sources.redshift_data_source", "RedshiftSqlDialect"),
-    ("athena", "soda_athena.common.data_sources.athena_data_source", "AthenaSqlDialect"),
     ("fabric", "soda_fabric.common.data_sources.fabric_data_source", "FabricSqlDialect"),
     ("synapse", "soda_synapse.common.data_sources.synapse_data_source", "SynapseSqlDialect"),
     ("sparkdf", "soda_sparkdf.common.data_sources.sparkdf_data_source", "SparkDataFrameSqlDialect"),
@@ -734,8 +759,6 @@ def test_an_opted_in_dialect_without_an_override_renders_no_optional_statement(r
 
 
 def test_other_dialects_ignore_update_heavy(unsupported_dialect):
-    if type(unsupported_dialect).__name__ == "AthenaSqlDialect":
-        pytest.skip("Athena renders CREATE TABLE only with a storage location")
     assert unsupported_dialect.build_create_table_sql(
         _create_table(update_heavy=True)
     ) == unsupported_dialect.build_create_table_sql(_create_table())
@@ -744,6 +767,18 @@ def test_other_dialects_ignore_update_heavy(unsupported_dialect):
 def test_the_base_and_an_opted_out_derivative_ignore_update_heavy(unsupported_core_dialect):
     assert unsupported_core_dialect.build_create_table_sql(
         _create_table(update_heavy=True)
+    ) == unsupported_core_dialect.build_create_table_sql(_create_table())
+
+
+def test_other_dialects_ignore_transactional(unsupported_dialect):
+    assert unsupported_dialect.build_create_table_sql(
+        _create_table(transactional=True)
+    ) == unsupported_dialect.build_create_table_sql(_create_table())
+
+
+def test_the_base_and_an_opted_out_derivative_ignore_transactional(unsupported_core_dialect):
+    assert unsupported_core_dialect.build_create_table_sql(
+        _create_table(transactional=True)
     ) == unsupported_core_dialect.build_create_table_sql(_create_table())
 
 
@@ -816,9 +851,10 @@ def _shipped_dialect_classes() -> set[type]:
     return dialect_classes
 
 
-def test_postgres_sqlserver_and_snowflake_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
+def test_postgres_sqlserver_snowflake_and_athena_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
     sqlserver_module = pytest.importorskip("soda_sqlserver.common.data_sources.sqlserver_data_source")
     snowflake_module = pytest.importorskip("soda_snowflake.common.data_sources.snowflake_data_source")
+    athena_module = pytest.importorskip("soda_athena.common.data_sources.athena_data_source")
     flagged = {
         dialect_class for dialect_class in _shipped_dialect_classes() if dialect_class.SUPPORTS_DATA_PLANE_STATEMENTS
     }
@@ -827,6 +863,7 @@ def test_postgres_sqlserver_and_snowflake_are_the_only_shipped_dialects_with_the
         type(postgres_dialect),
         sqlserver_module.SqlServerSqlDialect,
         snowflake_module.SnowflakeSqlDialect,
+        athena_module.AthenaSqlDialect,
     }
 
 
