@@ -55,9 +55,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         def regions_in_scope(project_id: str | None = None, dataset_id: str | None = None) -> list[str]:
             return [region]
 
-        def storage_project_id() -> str | None:
-            return account_project_id
-
         data_source_impl.region_for_dataset = region_for_dataset
         data_source_impl.regions_in_scope = regions_in_scope
-        data_source_impl.storage_project_id = storage_project_id
+        data_source_impl.storage_project_id = account_project_id

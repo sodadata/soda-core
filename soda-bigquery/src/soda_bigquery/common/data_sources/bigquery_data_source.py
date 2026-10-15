@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cached_property
 from typing import Optional
 
 from google.api_core.exceptions import NotFound
@@ -103,7 +104,7 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
         # A region view without a project in front reads the project that runs the query job, which is the compute
         # project. So name the project in scope, or the storage project, where the data lives, when the scope names
         # none (as in unscoped discovery). Only with no project known at all does the view stay unqualified.
-        project_id: Optional[str] = database_name or self.data_source_impl.storage_project_id()
+        project_id: Optional[str] = database_name or self.data_source_impl.storage_project_id
         project_qualifier: list[str] = [project_id] if project_id else []
         results: list[FullyQualifiedObjectName] = []
         for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
@@ -133,11 +134,13 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    @cached_property
     def storage_project_id(self) -> Optional[str]:
         """The project that holds the data. The connection falls back to the compute project when none is configured.
 
-        Read it here, not from the connection: snapshot tests pin this method, and on a replay connection the
-        attribute read would open a real connection.
+        Read it here, not from the connection: on a replay connection the attribute read would open a real
+        connection, so snapshot tests pin this value on the impl instead. That is why this is a cached_property:
+        unlike a plain property, a test can set it on the instance.
         """
         return self.data_source_connection.storage_project_id
 
