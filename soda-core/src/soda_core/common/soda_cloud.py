@@ -63,6 +63,10 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
+# The ``version`` field on every scan start and results upload. Soda Cloud routes uploads by it, and
+# everything this codebase sends is v4.
+PAYLOAD_VERSION = "4"
+
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -464,14 +468,14 @@ class SodaCloud:
         response carried no reference.
 
         The name, data source and timestamp fields are backend-mandatory; ``data_timestamp``
-        defaults to now. ``version`` is the payload model version (this codebase is v4-only).
+        defaults to now.
         A successful start also moves the scan into its log-accepting state: the scan-id-keyed
         ``batchV4`` log stream only accepts uploads after this command.
         """
         command: dict = {
             "type": "sodaCoreScanStart",
             "scanId": scan_id,
-            "version": "4",
+            "version": PAYLOAD_VERSION,
             "definitionName": definition_name,
             "defaultDataSource": default_data_source,
             "dataTimestamp": convert_datetime_to_str(
@@ -519,7 +523,6 @@ class SodaCloud:
         results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
-        model_version: Optional[str] = None,
         session_log_records: Optional[list[LogRecord]] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
@@ -543,8 +546,6 @@ class SodaCloud:
         @param scan_definition_suffix: Optional suffix appended to the
             head result's qualified name to derive the Soda Cloud
             scan-definition name. ``None`` uses the bare qualified name.
-        @param model_version: Optional payload model version (the backend's
-            dataset-registry routing key); ``None`` omits the field.
         @param session_log_records: What the caller logged before a multi-file session,
             which belongs to no one file. It goes into the upload once, ahead of the
             results' own records.
@@ -555,7 +556,6 @@ class SodaCloud:
             results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
-            model_version=model_version,
             session_log_records=session_log_records,
         )
         payload["type"] = "sodaCoreInsertScanResults"
@@ -2091,15 +2091,10 @@ def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
-    model_version: Optional[str] = None,
     scan_definition_name: Optional[str] = None,
     session_log_records: Optional[list[LogRecord]] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
-
-    ``model_version`` stamps the payload's ``version`` field — the backend's dataset-registry
-    routing key. Subtypes that build the payload themselves (metric monitoring's batched path)
-    pass their wire model version; None omits the field, matching the legacy builder output.
 
     Session-level fields (scanId, definitionName, data source, dataTimestamp)
     come from the first result; per-batch fields aggregate:
@@ -2198,9 +2193,8 @@ def _build_check_collection_results_json_dict(
         "postProcessingStages": post_processing_stages,
         "resultsIngestionMode": ingestion_mode.value,
         "tokenUsage": token_usage,
+        "version": PAYLOAD_VERSION,
     }
-    if model_version is not None:
-        payload["version"] = model_version
     # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
     # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
     # the ``metrics`` subscript-assign below is on a known-subscriptable type.
