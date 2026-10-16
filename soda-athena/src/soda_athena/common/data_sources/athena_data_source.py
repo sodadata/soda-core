@@ -543,9 +543,8 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     # Data plane statements
     ###
     # Row-level UPDATE, DELETE and MERGE run on an Iceberg table only, which CREATE TABLE creates for a
-    # transactional table; Athena refuses them on a Hive table. Athena has no transactions, so there is no
-    # read-only transaction to begin or roll back: every statement commits on its own. Nor does it create
-    # an index or refresh statistics on request. Those render None; CREATE SCHEMA is the base statement.
+    # transactional table; Athena refuses them on a Hive table. It creates no index and refreshes no
+    # statistics on request. Those render None; CREATE SCHEMA is the base statement.
 
     # MERGE names its incoming rows; SOURCE_COLUMN renders as this alias.
     _MERGE_SOURCE_ALIAS = "src"
