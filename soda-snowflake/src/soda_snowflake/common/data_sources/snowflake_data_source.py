@@ -473,15 +473,6 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
         return f"{self.quote_default(self._MERGE_SOURCE_ALIAS)}.{self.quote_default(source_column.name)}"
 
-    def _begin_read_only_transaction_sql(self) -> Optional[str]:
-        # No read-only transaction: rollback_sql undoes the DML written in this one, until a DDL statement
-        # commits it, leaving the session in autocommit (AUTOCOMMIT on, the default): DML after it commits at
-        # once and ROLLBACK does nothing.
-        return "BEGIN TRANSACTION"
-
-    def _rollback_sql(self) -> Optional[str]:
-        return "ROLLBACK"
-
     def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
         # Double-quoted text in a TO_CHAR format is output verbatim. FF6 truncates to microseconds.
         iso_format: str = 'YYYY-MM-DD"T"HH24:MI:SS'
