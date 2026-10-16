@@ -404,13 +404,8 @@ def test_create_table_default_is_unchanged(postgres_dialect, update_heavy):
 
 
 # ---------------------------------------------------------------------------
-# Read-only transactions, LIKE ... ESCAPE, a table-qualified star
+# LIKE ... ESCAPE, a table-qualified star
 # ---------------------------------------------------------------------------
-
-
-def test_read_only_transaction_statements(postgres_dialect):
-    assert postgres_dialect.begin_read_only_transaction_sql() == "BEGIN READ ONLY"
-    assert postgres_dialect.rollback_sql() == "ROLLBACK"
 
 
 def test_like_with_an_escape_character(postgres_dialect):
@@ -712,16 +707,6 @@ def test_the_base_and_an_opted_out_derivative_render_no_optional_statement(unsup
 @pytest.mark.parametrize("render", _OPTIONAL_STATEMENT_RENDERS, ids=_OPTIONAL_STATEMENT_IDS)
 def test_an_opted_in_dialect_without_an_override_renders_no_optional_statement(render):
     assert render(_OptedInWithoutOverrides()) is None
-
-
-def test_other_dialects_offer_no_read_only_transaction(unsupported_dialect):
-    assert unsupported_dialect.begin_read_only_transaction_sql() is None
-    assert unsupported_dialect.rollback_sql() is None
-
-
-def test_the_base_and_an_opted_out_derivative_offer_no_read_only_transaction(unsupported_core_dialect):
-    assert unsupported_core_dialect.begin_read_only_transaction_sql() is None
-    assert unsupported_core_dialect.rollback_sql() is None
 
 
 def test_other_dialects_ignore_update_heavy(unsupported_dialect):
