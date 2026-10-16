@@ -312,12 +312,6 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         # jsonb ||: the union of both objects' keys, the right one's value winning on a duplicate.
         return f"({self.build_expression_sql(json_merge.left)} || {self.build_expression_sql(json_merge.right)})"
 
-    def _begin_read_only_transaction_sql(self) -> Optional[str]:
-        return "BEGIN READ ONLY"
-
-    def _rollback_sql(self) -> Optional[str]:
-        return "ROLLBACK"
-
     ###
     # Tables and columns metadata queries
     ###
