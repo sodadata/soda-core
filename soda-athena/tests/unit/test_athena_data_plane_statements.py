@@ -4,8 +4,8 @@ Every node is pinned to its exact Athena SQL. A transactional table is created a
 only kind Athena updates, deletes from and merges into row by row; any other CREATE TABLE is the Hive one,
 unchanged. UPDATE and DELETE are the base forms without a target alias, and an UPDATE reading another
 table is a MERGE from it. The upserts are a MERGE whose source is a subquery: the rows of an UPSERT as
-VALUES, the SELECT of an UPSERT_VIA_SELECT with any WITH kept inside it. Athena has no transactions, no
-index to create and no statistics to refresh, so those render None, and it refuses EPOCH_SECONDS,
+VALUES, the SELECT of an UPSERT_VIA_SELECT with any WITH kept inside it. Athena has no index to create
+and no statistics to refresh, so those render None, and it refuses EPOCH_SECONDS,
 JSON_MERGE and a REGEXP_REPLACE replacement with a backslash.
 """
 
@@ -747,14 +747,8 @@ def test_a_table_needs_a_storage_location_either_way():
 
 
 # ---------------------------------------------------------------------------
-# Transactions, LIKE ... ESCAPE
+# LIKE ... ESCAPE
 # ---------------------------------------------------------------------------
-
-
-def test_no_read_only_transaction(dialect):
-    # Athena has no transactions: every statement commits on its own.
-    assert dialect.begin_read_only_transaction_sql() is None
-    assert dialect.rollback_sql() is None
 
 
 def test_like_with_an_escape_character(dialect):
