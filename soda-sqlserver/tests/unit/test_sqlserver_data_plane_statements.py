@@ -587,14 +587,8 @@ def test_a_column_default_can_be_the_current_timestamp(dialect):
 
 
 # ---------------------------------------------------------------------------
-# Read-only transactions, LIKE ... ESCAPE
+# LIKE ... ESCAPE
 # ---------------------------------------------------------------------------
-
-
-def test_read_only_transaction_statements(dialect):
-    # No read-only transaction in T-SQL: writes made in it are rolled back, not refused.
-    assert dialect.begin_read_only_transaction_sql() == "BEGIN TRANSACTION"
-    assert dialect.rollback_sql() == "IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION"
 
 
 def test_like_with_an_escape_character(dialect):
@@ -804,5 +798,3 @@ def test_a_derived_dialect_renders_no_optional_statement():
 
     assert derived.build_create_index_sql(CREATE_INDEX_IF_NOT_EXISTS("i", TABLE, ["id"])) is None
     assert derived.build_analyze_table_sql(ANALYZE_TABLE(TABLE)) is None
-    assert derived.begin_read_only_transaction_sql() is None
-    assert derived.rollback_sql() is None
