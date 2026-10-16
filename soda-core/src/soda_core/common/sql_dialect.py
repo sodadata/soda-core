@@ -1033,7 +1033,7 @@ class SqlDialect:
     #########################################################
     # For an application that maintains its own tables through the dialect. Each builder renders
     # only when SUPPORTS_DATA_PLANE_STATEMENTS is set, and raises otherwise; the optional ones
-    # (index, statistics, read-only transaction) render None instead. The UPDATE and DELETE bodies
+    # (index, statistics) render None instead. The UPDATE and DELETE bodies
     # below are the form Postgres renders; the vendor-specific statements raise or render None here
     # and are overridden per dialect.
 
@@ -1092,26 +1092,6 @@ class SqlDialect:
         self._require_data_plane_statement_support("CREATE_SCHEMA_IF_NOT_EXISTS")
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         return self._build_create_schema_sql(create_schema) + (";" if add_semicolon else "")
-
-    def begin_read_only_transaction_sql(self) -> Optional[str]:
-        """Statement opening a transaction in which the data source refuses writes, or None when the
-        dialect offers none. For an application running user-authored reads; ``rollback_sql`` ends it.
-        """
-        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
-            return None
-        return self._begin_read_only_transaction_sql()
-
-    def rollback_sql(self) -> Optional[str]:
-        """Statement ending the current transaction without committing it, or None."""
-        if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
-            return None
-        return self._rollback_sql()
-
-    def _begin_read_only_transaction_sql(self) -> Optional[str]:
-        return None
-
-    def _rollback_sql(self) -> Optional[str]:
-        return None
 
     def _require_data_plane_statement_support(self, node_name: str) -> None:
         if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
