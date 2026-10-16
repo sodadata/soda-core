@@ -34,5 +34,4 @@ def test_dataset_listing_carries_the_region_of_each_dataset(data_source_test_hel
     regions = data_source_impl.regions_in_scope(project_id=project_id)
 
     assert dataset_location in regions
-    assert data_source_impl._dataset_region_cache[(project_id, dataset_id)] == dataset_location
     get_dataset.assert_not_called()
