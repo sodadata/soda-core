@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import ColumnMetadata, DataSourceNamespace, SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import (
@@ -12,15 +13,25 @@ from soda_core.common.sql_ast import (
     AND,
     COLUMN,
     COUNT,
+    DATE_ISO_TEXT,
+    DATE_TRUNC,
     DISTINCT,
+    EPOCH_SECONDS,
     EQ,
     FROM,
     IN,
+    JSON_MERGE,
     LITERAL,
     RANDOM,
+    REGEXP_REPLACE,
     SELECT,
+    SOURCE_COLUMN,
     TIME_DELTA,
+    TIMESTAMP_ISO_TEXT,
+    TO_TIMEZONE,
     TUPLE,
+    UPSERT,
+    UPSERT_VIA_SELECT,
     VALUES,
     WHERE,
     seconds_per_time_bucket,
@@ -199,6 +210,7 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         ),
         (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
     )
+    SUPPORTS_DATA_PLANE_STATEMENTS = True
 
     def escape_string(self, value: str):
         # Snowflake treats backslash as an escape character in SQL string
@@ -383,3 +395,117 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
             return f"TABLESAMPLE ({sample_size})"
         else:
             raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
+
+    ###
+    # Data plane statements
+    ###
+
+    # MERGE names its incoming rows; SOURCE_COLUMN renders as this alias.
+    _MERGE_SOURCE_ALIAS = "src"
+    _MERGE_DEFAULT_TARGET_ALIAS = "tgt"
+
+    def _build_upsert_sql(self, upsert: UPSERT) -> str:
+        return self._build_merge_sql(upsert, self._build_upsert_rows_sql(upsert), name_source_columns=False)
+
+    def _build_upsert_via_select_sql(self, upsert_via_select: UPSERT_VIA_SELECT) -> str:
+        # A WITH stays inside the USING subquery: Snowflake refuses one in front of a MERGE.
+        select_sql: str = self.build_select_sql(upsert_via_select.select_elements, add_semicolon=False)
+        return self._build_merge_sql(upsert_via_select, select_sql, name_source_columns=True)
+
+    def _build_upsert_rows_sql(self, upsert: UPSERT) -> str:
+        """The rows as SELECTs joined by UNION ALL, the first naming the columns. Snowflake documents VALUES
+        in an INSERT or a FROM as refusing some expressions, PARSE_JSON among them; a SELECT takes them, so
+        whether a MERGE's VALUES does is moot."""
+        if not upsert.values:
+            raise ValueError("An upsert must have at least one row")
+        column_names: list[str] = [self.quote_default(self._upsert_column_name(column)) for column in upsert.columns]
+        selects_sql: list[str] = []
+        for index, row in enumerate(upsert.values):
+            # Only the first row names its columns, so a later row of another length would still render.
+            if len(row.values) != len(column_names):
+                raise ValueError(
+                    f"An upsert row must have one value per column, got {len(row.values)} for "
+                    f"{len(column_names)} in values[{index}]"
+                )
+            values_sql: list[str] = [self.literal(value) for value in row.values]
+            if index == 0:
+                values_sql = [
+                    f"{value_sql} AS {column_name}" for value_sql, column_name in zip(values_sql, column_names)
+                ]
+            selects_sql.append("SELECT " + ", ".join(values_sql))
+        return "\nUNION ALL ".join(selects_sql)
+
+    def _build_merge_sql(self, upsert: UPSERT | UPSERT_VIA_SELECT, source_sql: str, name_source_columns: bool) -> str:
+        # Unmatched duplicate keys all insert; matched ones fail only on UPDATE with ERROR_ON_NONDETERMINISTIC_MERGE.
+        target_alias: str = upsert.alias or self._MERGE_DEFAULT_TARGET_ALIAS
+        if target_alias.lower() == self._MERGE_SOURCE_ALIAS:
+            raise UnsupportedSqlStatementError(
+                f"{type(self).__name__} does not support an upsert target alias {target_alias!r}: "
+                f"it names the incoming rows"
+            )
+        target: str = self.quote_default(target_alias)
+        source: str = self.quote_default(self._MERGE_SOURCE_ALIAS)
+        column_names: list[str] = [self.quote_default(self._upsert_column_name(column)) for column in upsert.columns]
+        columns_sql: str = ", ".join(column_names)
+        key_condition_sql: str = " AND ".join(
+            f"{target}.{key} = {source}.{key}"
+            for key in (self.quote_default(self._upsert_column_name(column)) for column in upsert.key_columns)
+        )
+        source_columns_sql: str = f" ({columns_sql})" if name_source_columns else ""
+        lines: list[str] = [
+            f"MERGE INTO {upsert.fully_qualified_table_name} AS {target}",
+            f"USING (\n{source_sql}\n) AS {source}{source_columns_sql}",
+            f"ON ({key_condition_sql})",
+        ]
+        if upsert.update_assignments:
+            lines.append(f"WHEN MATCHED THEN UPDATE SET {self._build_assignments_sql(upsert.update_assignments)}")
+        source_values_sql: str = ", ".join(f"{source}.{column_name}" for column_name in column_names)
+        lines.append(f"WHEN NOT MATCHED THEN INSERT ({columns_sql}) VALUES ({source_values_sql})")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _upsert_column_name(column: COLUMN | str) -> str:
+        column_name = column.name if isinstance(column, COLUMN) else column
+        if not isinstance(column_name, str):
+            raise ValueError(f"An upsert column must be named, got {column_name!r}")
+        return column_name
+
+    def _build_source_column_sql(self, source_column: SOURCE_COLUMN) -> str:
+        return f"{self.quote_default(self._MERGE_SOURCE_ALIAS)}.{self.quote_default(source_column.name)}"
+
+    def _build_timestamp_iso_text_sql(self, timestamp_iso_text: TIMESTAMP_ISO_TEXT) -> str:
+        # Double-quoted text in a TO_CHAR format is output verbatim. FF6 truncates to microseconds.
+        iso_format: str = 'YYYY-MM-DD"T"HH24:MI:SS'
+        if timestamp_iso_text.fractional_seconds:
+            iso_format += ".FF6"
+        if timestamp_iso_text.utc_suffix:
+            iso_format += '"+00:00"'
+        expression_sql: str = self.build_expression_sql(timestamp_iso_text.expression)
+        return f"TO_CHAR({expression_sql}, {self.literal_string(iso_format)})"
+
+    def _build_date_iso_text_sql(self, date_iso_text: DATE_ISO_TEXT) -> str:
+        return f"TO_CHAR({self.build_expression_sql(date_iso_text.expression)}, {self.literal_string('YYYY-MM-DD')})"
+
+    def _build_to_timezone_sql(self, to_timezone: TO_TIMEZONE) -> str:
+        # The two-argument CONVERT_TIMEZONE returns a TIMESTAMP_TZ in the zone; the cast keeps its wall clock.
+        expression_sql: str = self.build_expression_sql(to_timezone.expression)
+        return f"CAST(CONVERT_TIMEZONE({self.literal_string(to_timezone.timezone)}, {expression_sql}) AS TIMESTAMP_NTZ)"
+
+    def _build_date_trunc_sql(self, date_trunc: DATE_TRUNC) -> str:
+        return f"DATE_TRUNC({self.literal_string(date_trunc.unit)}, {self.build_expression_sql(date_trunc.expression)})"
+
+    def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
+        # Every match is replaced by default. escape_string doubles a backreference's backslash, which
+        # Snowflake reads back as one.
+        expression_sql: str = self.build_expression_sql(regexp_replace.expression)
+        pattern_sql: str = self.literal_string(regexp_replace.pattern)
+        replacement_sql: str = self.literal_string(regexp_replace.replacement)
+        return f"REGEXP_REPLACE({expression_sql}, {pattern_sql}, {replacement_sql})"
+
+    def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
+        # Snowflake has no interval type: a timestamp difference is TIMESTAMPDIFF's count of one unit.
+        raise self._unsupported_sql_statement_error("EPOCH_SECONDS")
+
+    def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
+        # No built-in merges two OBJECT values without casting them to MAP; a caller sets the keys one by one.
+        raise self._unsupported_sql_statement_error("JSON_MERGE")

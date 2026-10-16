@@ -1144,6 +1144,8 @@ class UPSERT(BaseSqlExpression):
     Source rows must be unique on ``key_columns``: a MERGE-based dialect rejects duplicates, and so
     does Postgres when there are update assignments. An assignment that reads the existing row must
     qualify the column with ``alias``; ``SOURCE_COLUMN`` is the incoming row.
+    Snowflake (keys not enforced) inserts unmatched duplicates; matched ones fail only when there are
+    assignments, under ERROR_ON_NONDETERMINISTIC_MERGE (on by default).
     """
 
     fully_qualified_table_name: str
