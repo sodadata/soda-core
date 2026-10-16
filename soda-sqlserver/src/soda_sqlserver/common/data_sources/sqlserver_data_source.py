@@ -741,14 +741,6 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def _build_analyze_table_sql(self, analyze_table: ANALYZE_TABLE) -> Optional[str]:
         return f"UPDATE STATISTICS {self._convert_fqn_for_ddl(analyze_table.fully_qualified_table_name)}"
 
-    def _begin_read_only_transaction_sql(self) -> Optional[str]:
-        # T-SQL has no read-only transaction; rollback_sql undoes whatever was written in this one.
-        return "BEGIN TRANSACTION"
-
-    def _rollback_sql(self) -> Optional[str]:
-        # An error can already have ended the transaction, and a ROLLBACK without one fails (error 3903).
-        return "IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION"
-
     def _build_current_timestamp_sql(self, current_timestamp: CURRENT_TIMESTAMP) -> str:
         if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
             return super()._build_current_timestamp_sql(current_timestamp)
