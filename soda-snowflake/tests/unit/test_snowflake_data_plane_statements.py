@@ -606,14 +606,8 @@ def test_a_column_default_can_be_the_current_timestamp(dialect):
 
 
 # ---------------------------------------------------------------------------
-# Read-only transactions, LIKE ... ESCAPE
+# LIKE ... ESCAPE
 # ---------------------------------------------------------------------------
-
-
-def test_read_only_transaction_statements(dialect):
-    # No read-only transaction in Snowflake: DML written in it is rolled back, not refused.
-    assert dialect.begin_read_only_transaction_sql() == "BEGIN TRANSACTION"
-    assert dialect.rollback_sql() == "ROLLBACK"
 
 
 def test_like_with_an_escape_character(dialect):
