@@ -230,6 +230,11 @@ def test_check_paths_and_check_filters_combine(
         )
     cvr: ContractVerificationResult = result.contract_verification_results[0]
     assert [cr.check.type for cr in cvr.check_results if not cr.is_excluded] == expected_types
+    selected = len(expected_types)
+    assert (
+        f"Check filters: {check_filter}, check_path=columns.id.checks.aggregate. {selected} of 8 checks selected."
+        in cvr.get_logs_str()
+    )
 
 
 def test_no_selectors_runs_all(data_source_test_helper: DataSourceTestHelper):
@@ -247,6 +252,7 @@ def test_no_selectors_runs_all(data_source_test_helper: DataSourceTestHelper):
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
         assert cvr.number_of_checks_excluded == 0
+        assert "Check filters:" not in cvr.get_logs_str()
 
 
 def test_filter_by_list_attribute_member_match(data_source_test_helper: DataSourceTestHelper):
