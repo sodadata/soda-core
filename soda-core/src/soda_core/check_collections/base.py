@@ -1190,7 +1190,7 @@ class CheckCollectionImpl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
+                        logger.info(f"Skipping evaluation of check at path '{check_impl.check_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
