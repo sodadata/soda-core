@@ -929,6 +929,14 @@ class CheckCollectionImpl:
             and any(check_impl.scope is declared for declared in declared_scopes)
         ]
 
+    def _log_check_filters(self) -> None:
+        """One info line naming the check filters this run uses and how many checks they select."""
+        if not self.check_selectors:
+            return
+        filters: str = ", ".join(selector.raw for selector in self.check_selectors)
+        selected: int = sum(1 for check_impl in self.all_check_impls if not check_impl.skip)
+        logger.info(f"Check filters: {filters}. {selected} of {len(self.all_check_impls)} checks selected.")
+
     def _log_checks_in_inactive_scopes(self) -> None:
         """One error for the checks ``checks_in_inactive_scopes`` returns, naming their scopes.
 
@@ -1148,6 +1156,7 @@ class CheckCollectionImpl:
         logger.info(
             f"{verb} {self.display_name} {Emoticons.SCROLL} " f"{self.source_description} {Emoticons.FINGERS_CROSSED}"
         )
+        self._log_check_filters()
 
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
@@ -1181,7 +1190,7 @@ class CheckCollectionImpl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
                     if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.relative_path}'")
+                        logger.info(f"Skipping evaluation of check at path '{check_impl.check_path}'")
                         check_result: CheckResult = CheckResult(
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
