@@ -930,7 +930,7 @@ class CheckCollectionImpl:
         ]
 
     def _log_check_filters(self) -> None:
-        """One info line naming the check filters this run uses, so a Soda Cloud scan log shows them too."""
+        """One info line naming the check filters this run uses and how many checks they select."""
         if not self.check_selectors:
             return
         filters: str = ", ".join(selector.raw for selector in self.check_selectors)
