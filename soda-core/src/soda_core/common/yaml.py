@@ -132,7 +132,7 @@ class YamlSource:
             except OSError as e:
                 if not os.path.exists(self.file_path):
                     logger.error(f"{self.description} does not exist")
-                elif not os.path.isdir(self.file_path):
+                elif os.path.isdir(self.file_path):
                     logger.error(f"{self.description} is a directory")
                 else:
                     logger.error(f"{self.description} can't be read", exc_info=True)
