@@ -350,6 +350,22 @@ def test_the_wait_never_exceeds_what_is_left_of_the_budget(fake_clock, monkeypat
     assert fake_clock == pytest.approx([3.0])
 
 
+def test_a_wait_cut_short_by_the_budget_is_reported_as_the_time_actually_slept(fake_clock, monkeypatch):
+    # Soda Cloud asks for 60s, but only 3s of the budget are left. The loop sleeps 3s, so the resend must say it
+    # waited 3000 ms, not the 60s that were asked for. The header names are written in full on purpose, because
+    # they are what Soda Cloud reads.
+    monkeypatch.setenv(DEFERRAL_BUDGET_ENV_VAR, "3")
+    mock_cloud = MockSodaCloud(responses=[_busy("60"), MockResponse(status_code=200, json_object={"scanId": "scan-1"})])
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert fake_clock == pytest.approx([3.0])
+    assert [
+        (request.headers["X-Soda-Backpressure-Attempt"], request.headers["X-Soda-Backpressure-Waited-Ms"])
+        for request in mock_cloud.requests
+    ] == [("1", "0"), ("2", "3000")]
+
+
 def test_a_token_that_expired_during_the_wait_is_renewed_and_the_request_resent(fake_clock):
     mock_cloud = MockSodaCloud(
         responses=[
