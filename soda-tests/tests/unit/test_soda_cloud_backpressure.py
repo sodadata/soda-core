@@ -1,7 +1,8 @@
 """Backpressure between soda-core and Soda Cloud.
 
 A 429 from Soda Cloud is produced before the request did any work, so the same body is safe to
-resend after Retry-After. soda-core announces that it can wait with X-Soda-Backpressure.
+resend after Retry-After. soda-core announces that it can wait with X-Soda-Backpressure. Each send in
+the wait-and-resend loop also says which attempt it is and how many milliseconds were waited so far.
 """
 
 import copy

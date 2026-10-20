@@ -215,9 +215,11 @@ HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 # Backpressure: Soda Cloud only defers clients that announce they can wait, and every 429 it
 # produces comes before the request did any work, so the same body is safe to send again.
 BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
-# Sent with every send of a command or query, so Soda Cloud can tell a resend from a first send and see how
-# long the request has waited. Attempt is 1 on the first send. Waited-Ms is the time slept so far because of
-# 429s, in whole milliseconds, and is 0 on the first send.
+
+# The wait-and-resend loop (_post_waiting_while_deferred) adds the two headers below to every send. They let
+# Soda Cloud see which send this is and how long the request has already waited. Attempt is 1 on the first
+# send, 2 on the first resend after a 429, and so on. Waited-Ms is the time slept so far because of 429s, in
+# whole milliseconds, and is 0 on the first send. Requests outside the loop, such as login, do not carry them.
 BACKPRESSURE_ATTEMPT_HEADER: str = "X-Soda-Backpressure-Attempt"
 BACKPRESSURE_WAITED_MS_HEADER: str = "X-Soda-Backpressure-Waited-Ms"
 DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
@@ -1637,9 +1639,10 @@ class SodaCloud:
         again, until the deferral deadline passes. The last 429 is then returned and handled like any
         other error.
 
-        Every send carries the attempt number and the milliseconds waited so far. After a 401 and a new
-        login the caller runs this loop again with the same deadline, and the attempt number and the time
-        waited start again at 1 and 0."""
+        Every send also carries BACKPRESSURE_ATTEMPT_HEADER and BACKPRESSURE_WAITED_MS_HEADER. After a 401,
+        _execute_cqrs_request logs in again and calls this method again with the same deadline. The
+        attempt number and the time waited then start again at 1 and 0, because they live only inside
+        one run of this loop."""
         attempts: int = 0
         waited_seconds: float = 0.0
         while True:

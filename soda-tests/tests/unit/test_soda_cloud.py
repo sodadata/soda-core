@@ -87,8 +87,8 @@ EXPECTED_DEFAULT_REQUEST_HEADERS: dict[str, str] = {
     "X-Soda-Backpressure": "1",
 }
 
-# Commands and queries go through the wait-and-resend loop, so their first send also says it is
-# attempt 1 and has waited 0 ms.
+# Commands and queries go through the wait-and-resend loop (the login command does not), so their first
+# send adds attempt 1 and 0 ms waited to the default headers.
 EXPECTED_FIRST_SEND_REQUEST_HEADERS: dict[str, str] = {
     **EXPECTED_DEFAULT_REQUEST_HEADERS,
     "X-Soda-Backpressure-Attempt": "1",
