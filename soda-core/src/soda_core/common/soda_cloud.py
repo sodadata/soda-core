@@ -215,6 +215,11 @@ HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 # Backpressure: Soda Cloud only defers clients that announce they can wait, and every 429 it
 # produces comes before the request did any work, so the same body is safe to send again.
 BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
+# Sent with every send of a command or query, so Soda Cloud can tell a resend from a first send and see how
+# long the request has waited. Attempt is 1 on the first send. Waited-Ms is the time slept so far because of
+# 429s, in whole milliseconds, and is 0 on the first send.
+BACKPRESSURE_ATTEMPT_HEADER: str = "X-Soda-Backpressure-Attempt"
+BACKPRESSURE_WAITED_MS_HEADER: str = "X-Soda-Backpressure-Waited-Ms"
 DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
 DEFAULT_DEFERRAL_BUDGET_SECONDS: int = 5 * 60
 DEFAULT_RETRY_AFTER_SECONDS: int = 15
@@ -1630,13 +1635,22 @@ class SodaCloud:
         """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
         little jitter so many clients do not all resend at the same moment) and send the same body
         again, until the deferral deadline passes. The last 429 is then returned and handled like any
-        other error."""
+        other error.
+
+        Every send carries the attempt number and the milliseconds waited so far. After a 401 and a new
+        login the caller runs this loop again with the same deadline, and the attempt number and the time
+        waited start again at 1 and 0."""
         attempts: int = 0
         waited_seconds: float = 0.0
         while True:
             attempts += 1
+            headers_for_this_send: dict[str, str] = {
+                **self.headers,
+                BACKPRESSURE_ATTEMPT_HEADER: str(attempts),
+                BACKPRESSURE_WAITED_MS_HEADER: str(round(waited_seconds * 1000)),
+            }
             response: Response = self._http_post(
-                url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
+                url=url, headers=headers_for_this_send, json=request_body, request_log_name=request_log_name
             )
             if response.status_code != 429:
                 if attempts > 1 and response.ok:

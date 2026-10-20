@@ -87,6 +87,14 @@ EXPECTED_DEFAULT_REQUEST_HEADERS: dict[str, str] = {
     "X-Soda-Backpressure": "1",
 }
 
+# Commands and queries go through the wait-and-resend loop, so their first send also says it is
+# attempt 1 and has waited 0 ms.
+EXPECTED_FIRST_SEND_REQUEST_HEADERS: dict[str, str] = {
+    **EXPECTED_DEFAULT_REQUEST_HEADERS,
+    "X-Soda-Backpressure-Attempt": "1",
+    "X-Soda-Backpressure-Waited-Ms": "0",
+}
+
 
 def test_soda_cloud_from_yaml_source_with_api_key_auth():
     try:
@@ -716,7 +724,7 @@ def test_fetch_contract(mock_post):
     soda_cloud.fetch_contract(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        headers=EXPECTED_FIRST_SEND_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContracts",
             "filter": {
@@ -746,7 +754,7 @@ def test_poll_contract_skeleton_generation__completed(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        headers=EXPECTED_FIRST_SEND_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContractSkeletonGenerationState",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -797,7 +805,7 @@ def test_trigger_contract_skeleton_generation__success(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        headers=EXPECTED_FIRST_SEND_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -819,7 +827,7 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
 
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        headers=EXPECTED_FIRST_SEND_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -1122,7 +1130,7 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     assert response.status_code == 200
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        headers=EXPECTED_FIRST_SEND_REQUEST_HEADERS,
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.

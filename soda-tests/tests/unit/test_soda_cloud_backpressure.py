@@ -17,11 +17,14 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.common import soda_cloud as soda_cloud_module
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import (
+    BACKPRESSURE_ATTEMPT_HEADER,
     BACKPRESSURE_OPT_IN_HEADER,
+    BACKPRESSURE_WAITED_MS_HEADER,
     DEFERRAL_BUDGET_ENV_VAR,
     deferral_budget_seconds,
     retry_after_seconds,
 )
+from soda_core.common.user_agent import user_agent
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
 
@@ -79,6 +82,106 @@ def test_a_command_request_announces_that_the_client_can_wait():
     mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
 
     assert mock_cloud.requests[0].headers[BACKPRESSURE_OPT_IN_HEADER] == "1"
+
+
+def _attempt_and_waited_ms_per_command_send(mock_cloud: MockSodaCloud) -> list[tuple[str, str]]:
+    """The attempt number and the waited milliseconds that each send of the command carried, in the order
+    they were sent. A login request is left out: it is not part of the wait-and-resend loop."""
+    return [
+        (request.headers[BACKPRESSURE_ATTEMPT_HEADER], request.headers[BACKPRESSURE_WAITED_MS_HEADER])
+        for request in mock_cloud.requests
+        if request.json["type"] == "sodaCoreInsertScanResults"
+    ]
+
+
+def test_the_first_send_says_it_is_attempt_1_and_has_waited_0_ms():
+    mock_cloud = MockSodaCloud()
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert _attempt_and_waited_ms_per_command_send(mock_cloud) == [("1", "0")]
+
+
+def test_each_resend_says_which_attempt_it_is_and_how_many_ms_were_waited_so_far(fake_clock, monkeypatch):
+    # No jitter, so each wait is exactly Retry-After: 12.3456s and 7.0006s, which are 12345.6ms and 7000.6ms.
+    # The header rounds the total once: 19346.2ms gives 19346. Rounding wait by wait would give 19347.
+    monkeypatch.setattr(soda_cloud_module.random, "uniform", lambda low, high: low)
+    mock_cloud = MockSodaCloud(
+        responses=[_busy("12.3456"), _busy("7.0006"), MockResponse(status_code=200, json_object={"scanId": "scan-1"})]
+    )
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert fake_clock == pytest.approx([12.3456, 7.0006])
+    assert _attempt_and_waited_ms_per_command_send(mock_cloud) == [("1", "0"), ("2", "12346"), ("3", "19346")]
+
+
+def test_a_resend_still_carries_the_opt_in_header_and_the_user_agent(fake_clock):
+    mock_cloud = MockSodaCloud(responses=[_busy("7"), MockResponse(status_code=200, json_object={"scanId": "scan-1"})])
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert len(mock_cloud.requests) == 2
+    for request in mock_cloud.requests:
+        assert request.headers[BACKPRESSURE_OPT_IN_HEADER] == "1"
+        assert request.headers["User-Agent"] == user_agent()
+
+
+class _CloudWithOneSharedHeadersDict(MockSodaCloud):
+    """A client whose headers property returns the same dict every time, which a subclass is free to do."""
+
+    def __init__(self, responses):
+        super().__init__(responses=responses)
+        self.shared_headers: dict[str, str] = {"User-Agent": "some-agent", BACKPRESSURE_OPT_IN_HEADER: "1"}
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return self.shared_headers
+
+
+def test_the_attempt_headers_go_on_a_copy_and_the_client_headers_are_left_alone(fake_clock):
+    mock_cloud = _CloudWithOneSharedHeadersDict(
+        responses=[_busy("7"), MockResponse(status_code=200, json_object={"scanId": "scan-1"})]
+    )
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    assert mock_cloud.shared_headers == {"User-Agent": "some-agent", BACKPRESSURE_OPT_IN_HEADER: "1"}
+    # The mock keeps the dict each send used. The second send must not have rewritten what the first one sent.
+    assert [attempt for attempt, _ in _attempt_and_waited_ms_per_command_send(mock_cloud)] == ["1", "2"]
+
+
+def test_after_a_re_login_the_attempt_number_and_the_time_waited_start_again(fake_clock, monkeypatch):
+    monkeypatch.setattr(soda_cloud_module.random, "uniform", lambda low, high: low)
+    mock_cloud = MockSodaCloud(
+        responses=[
+            _busy("7"),
+            MockResponse(status_code=401, json_object={}),
+            MockResponse(status_code=200, json_object={"token": "fresh-token"}),
+            MockResponse(status_code=200, json_object={"scanId": "scan-1"}),
+        ]
+    )
+
+    mock_cloud._execute_command(command_json_dict=_insert_scan_results_command(), request_log_name="send")
+
+    # The deadline is shared (see test_a_re_login_does_not_start_a_new_budget), the counters are not.
+    assert _attempt_and_waited_ms_per_command_send(mock_cloud) == [("1", "0"), ("2", "7000"), ("1", "0")]
+    login_request = mock_cloud.requests[2]
+    assert login_request.json["type"] == "login"
+    assert BACKPRESSURE_ATTEMPT_HEADER not in login_request.headers
+    assert BACKPRESSURE_WAITED_MS_HEADER not in login_request.headers
+
+
+def test_requests_outside_the_wait_and_resend_loop_do_not_carry_the_attempt_headers():
+    mock_cloud = MockSodaCloud()
+
+    mock_cloud._execute_rest_get(relative_url_path="datasets", request_log_name="get_datasets")
+    mock_cloud.logs_batch_v4(scan_id="scan-1", body="{}")
+
+    assert len(mock_cloud.requests) == 2
+    for request in mock_cloud.requests:
+        assert BACKPRESSURE_ATTEMPT_HEADER not in request.headers
+        assert BACKPRESSURE_WAITED_MS_HEADER not in request.headers
 
 
 @pytest.mark.parametrize(
