@@ -25,6 +25,7 @@ from soda_core.common.exceptions import (
     YamlParserException,
 )
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs, _active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
@@ -37,23 +38,31 @@ def resolve_soda_cloud(soda_cloud_file_path: Optional[str]) -> SodaCloud:
 
     Raises ``ScanExecutionFailedException`` carrying the user-facing message
     when the configuration is missing or unusable (missing flag, missing or
-    syntactically invalid YAML file, parse returning None, invalid or
-    validation-rejected config) — nothing is logged here, the caller owns the
-    logging. Pydantic ``ValidationError`` is covered via ``ValueError``, its
-    base class. Genuinely unexpected failures propagate raw so the caller logs
-    them with the traceback.
+    syntactically invalid YAML file, invalid or validation-rejected config) —
+    nothing is logged here, the caller owns the logging. Reading the file can
+    also log errors without raising, such as a ``${var.X}`` that resolves to
+    nothing: those are already on the console, so the exception then only says
+    the file cannot be used, and no client is returned with a host of None.
+    Pydantic ``ValidationError`` is covered via ``ValueError``, its base class.
+    Genuinely unexpected failures propagate raw so the caller logs them with
+    the traceback.
     """
     if not soda_cloud_file_path:
         raise ScanExecutionFailedException("A Soda Cloud configuration file (-sc) is required.")
+    # A child of the active Logs, so a caller that collects this run's records still sees these.
+    outer_logs: Optional[Logs] = _active_logs.get()
+    logs: Logs = outer_logs.child() if outer_logs else Logs()
     try:
         soda_cloud: Optional[SodaCloud] = SodaCloud.from_yaml_source(
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
             provided_variable_values=None,
         )
     except (InvalidSodaCloudConfigurationException, YamlParserException, ValueError) as exc:
-        raise ScanExecutionFailedException(f"Soda Cloud configuration could not be parsed: {exc}") from exc
-    if soda_cloud is None:
-        raise ScanExecutionFailedException("Soda Cloud configuration could not be parsed.")
+        raise ScanExecutionFailedException(str(exc)) from exc
+    finally:
+        logs.close()
+    if soda_cloud is None or logs.has_errors:
+        raise ScanExecutionFailedException(f"Soda Cloud file '{soda_cloud_file_path}' cannot be used")
     return soda_cloud
 
 

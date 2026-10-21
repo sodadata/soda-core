@@ -38,7 +38,7 @@ def test_resolve_soda_cloud_returns_parsed_instance(mock_soda_cloud_cls, mock_sc
 def test_resolve_soda_cloud_with_unparseable_config_raises(mock_soda_cloud_cls, mock_sc_yaml_source_cls):
     mock_soda_cloud_cls.from_yaml_source.return_value = None
 
-    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+    with pytest.raises(ScanExecutionFailedException, match="^Soda Cloud file 'sc.yaml' cannot be used$"):
         resolve_soda_cloud("sc.yaml")
 
 
@@ -51,6 +51,8 @@ def test_resolve_soda_cloud_with_invalid_config_raises_with_cause(mock_soda_clou
     with pytest.raises(ScanExecutionFailedException, match="api_key_id") as excinfo:
         resolve_soda_cloud("sc.yaml")
 
+    # The message is the configuration error as it is, with no prefix.
+    assert str(excinfo.value) == str(original)
     assert excinfo.value.__cause__ is original
     # Nothing is logged at the raise site: the caller owns the logging.
     assert not any("api_key_id" in record.getMessage() for record in caplog.records)
@@ -75,15 +77,38 @@ def test_resolve_soda_cloud_with_yaml_syntax_error_raises_clean(tmp_path):
     config_file.write_text("soda_cloud: [unclosed")
     config_file_path = str(config_file)
 
-    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+    with pytest.raises(ScanExecutionFailedException, match="^YAML syntax error, in .*sc.yml\\[1,13\\]$"):
         resolve_soda_cloud(config_file_path)
 
 
 def test_resolve_soda_cloud_with_missing_file_raises_clean(tmp_path):
     config_file_path = str(tmp_path / "does_not_exist.yml")
 
-    with pytest.raises(ScanExecutionFailedException, match="could not be parsed"):
+    with pytest.raises(ScanExecutionFailedException) as excinfo:
         resolve_soda_cloud(config_file_path)
+
+    # A missing file was never parsed, so the message says only that it does not exist.
+    assert str(excinfo.value) == f"Soda Cloud file '{config_file_path}' does not exist"
+
+
+def test_resolve_soda_cloud_with_a_variable_that_resolves_to_nothing_returns_no_client(tmp_path, monkeypatch):
+    # Reading the file logs the variable and the null host without raising; a client would send to host None.
+    monkeypatch.delenv("SODA_CLOUD_TOKEN", raising=False)
+    config_file = tmp_path / "sc.yml"
+    config_file.write_text("soda_cloud:\n  host: ${var.HOST}\n  api_key_id: i\n  api_key_secret: s\n")
+    logs = Logs()
+    try:
+        with pytest.raises(ScanExecutionFailedException) as excinfo:
+            resolve_soda_cloud(str(config_file))
+    finally:
+        logs.close()
+
+    assert str(excinfo.value) == f"Soda Cloud file '{config_file}' cannot be used"
+    # The caller's Logs still sees each logged line, once.
+    assert [error.split(" |")[0] for error in logs.get_errors()] == [
+        "Variable 'HOST' was used and not declared",
+        "YAML key 'host' expected one of ['str'], but was None",
+    ]
 
 
 def test_resolve_soda_cloud_without_soda_cloud_key_raises_clean(tmp_path):
