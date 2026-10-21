@@ -370,10 +370,9 @@ class RegexFormat:
     def read(cls, yaml_object: YamlObject, key: str) -> Optional[RegexFormat]:
         regex_format_yaml_object: Optional[YamlObject] = yaml_object.read_object_opt(key)
         if regex_format_yaml_object:
-            regex: Optional[str] = regex_format_yaml_object.read_string("regex")
-            name: Optional[str] = regex_format_yaml_object.read_string("name")
-            if isinstance(regex, str):
-                return RegexFormat(regex=regex, name=name)
+            regex: str = regex_format_yaml_object.read_string("regex")
+            name: str = regex_format_yaml_object.read_string("name")
+            return RegexFormat(regex=regex, name=name)
         return None
 
 
