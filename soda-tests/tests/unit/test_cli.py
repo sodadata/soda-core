@@ -1,3 +1,4 @@
+import logging
 import sys
 from argparse import ArgumentParser, _SubParsersAction
 from typing import Iterator, Optional
@@ -6,6 +7,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from soda_core.cli.cli import _parse_variables, create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract
 from soda_core.common.logs import Logs
 from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
 
@@ -686,3 +688,24 @@ def test_check_filter_help_lists_every_supported_field():
 
 def test_check_filter_help_explains_negation():
     assert "key!=value" in CHECK_FILTER_HELP
+
+
+@pytest.mark.parametrize(
+    "handle",
+    [
+        lambda path, _: handle_test_contract(path, {}),
+        lambda path, soda_cloud_path: handle_publish_contract(path, soda_cloud_path),
+    ],
+    ids=["test", "publish"],
+)
+def test_a_contract_that_does_not_parse_logs_one_error(handle, tmp_path, caplog):
+    path = tmp_path / "contract.yml"
+    path.write_text("dataset: ds/db/schema/t\ncolumns:\n  - name:\n")
+    soda_cloud_path = tmp_path / "soda-cloud.yml"
+    soda_cloud_path.write_text("soda_cloud:\n  host: h.example\n  api_key_id: i\n  api_key_secret: s\n")
+    assert handle(str(path), str(soda_cloud_path)) == ExitCode.LOG_ERRORS
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert [record.getMessage() for record in errors] == [
+        f"Failed to parse contract: YAML key 'name' must not be null, in {path}[2,4]"
+    ]
+    assert errors[0].exc_info is None

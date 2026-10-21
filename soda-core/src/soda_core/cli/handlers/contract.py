@@ -6,9 +6,9 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.exceptions import (
     ContractFetchFailedException,
-    ContractParserException,
     InvalidArgumentException,
     ScanExecutionFailedException,
+    YamlParserException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
@@ -125,7 +125,7 @@ def handle_publish_contract(
             return ExitCode.LOG_ERRORS
         else:
             return ExitCode.OK
-    except ContractParserException as exc:
+    except YamlParserException as exc:
         soda_logger.error(f"Failed to parse contract: {exc}")
         return ExitCode.LOG_ERRORS
     except Exception as exc:
@@ -137,7 +137,11 @@ def handle_test_contract(
     contract_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
 ) -> ExitCode:
-    contract_verification_result = test_contract(contract_file_path=contract_file_path, variables=variables)
+    try:
+        contract_verification_result = test_contract(contract_file_path=contract_file_path, variables=variables)
+    except YamlParserException as exc:
+        soda_logger.error(f"Failed to parse contract: {exc}")
+        return ExitCode.LOG_ERRORS
     if contract_verification_result.has_errors:
         return ExitCode.LOG_ERRORS
     else:
