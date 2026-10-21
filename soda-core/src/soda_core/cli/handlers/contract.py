@@ -181,7 +181,7 @@ def handle_fetch_contract(
                     action = "Updated"
                 else:
                     action = "Created"
-                with open(contract_file_path, "w") as contract_file:
+                with open(contract_file_path, "w", encoding="utf-8") as contract_file:
                     contract_file.write(contract_yaml.yaml_str)
                 soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
                 return ExitCode.OK
