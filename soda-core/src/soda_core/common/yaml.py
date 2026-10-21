@@ -127,17 +127,17 @@ class YamlSource:
                 with open(self.file_path, encoding="utf-8") as f:
                     self.yaml_str = f.read()
                     self.yaml_str_original = self.yaml_str
+            # The reason comes from the error open() raised, not from a second look at the path, which can differ.
             except UnicodeDecodeError:
                 raise YamlParserException(f"{self.description} is not UTF-8 text") from None
+            except FileNotFoundError:
+                raise YamlParserException(f"{self.description} does not exist") from None
+            except IsADirectoryError:
+                raise YamlParserException(f"{self.description} is a directory") from None
             except OSError as e:
-                if not os.path.exists(self.file_path):
-                    raise YamlParserException(f"{self.description} does not exist") from None
-                elif os.path.isdir(self.file_path):
-                    raise YamlParserException(f"{self.description} is a directory") from None
-                else:
-                    # The OS reason, such as 'Permission denied', never holds file content.
-                    reason: str = e.strerror or type(e).__name__
-                    raise YamlParserException(f"{self.description} can't be read: {reason}") from None
+                # The OS reason, such as 'Permission denied', never holds file content.
+                reason: str = e.strerror or type(e).__name__
+                raise YamlParserException(f"{self.description} can't be read: {reason}") from None
             if len(self.yaml_str) == 0:
                 raise YamlParserException(f"{self.description} is empty")
 

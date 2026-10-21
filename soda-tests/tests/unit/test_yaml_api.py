@@ -92,6 +92,18 @@ def test_a_file_the_os_cannot_read_names_the_os_reason(logs: Logs, tmp_path):
     assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
 
+def test_a_file_the_process_may_not_open_is_not_reported_missing(tmp_path):
+    # A file under a directory the process cannot search fails with EACCES, and os.path.exists() is False for it.
+    path = tmp_path / "locked" / "file.yml"
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
+    with patch(
+        "soda_core.common.yaml.open", create=True, side_effect=PermissionError(errno.EACCES, "Permission denied")
+    ):
+        with pytest.raises(YamlParserException) as raised:
+            yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{path}' can't be read: Permission denied"
+
+
 def test_yaml_error_invalid_top_level_element(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
