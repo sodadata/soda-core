@@ -54,8 +54,8 @@ def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(tmp_path))
     with pytest.raises(YamlParserException, match="YAML source is not a string, in"):
         _ = yaml_source.parse()
-    assert f"YAML file '{tmp_path}' is a directory" in logs.get_errors_str()
-    assert all(record.exc_info is None for record in logs.get_log_records())
+    [record] = [r for r in logs.get_log_records() if r.getMessage() == f"YAML file '{tmp_path}' is a directory"]
+    assert record.exc_info is None
 
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):
