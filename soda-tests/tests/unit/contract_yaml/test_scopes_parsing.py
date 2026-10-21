@@ -23,7 +23,6 @@ from soda_core.cli import cli
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers import contract as contract_handlers
 from soda_core.cli.handlers.contract import handle_test_contract
-from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logging_constants import ExtraKeys
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
@@ -462,9 +461,8 @@ def test_a_duplicate_scope_key_fails_soda_contract_test(monkeypatch, tmp_path):
     contract_file = tmp_path / "contract.yml"
     contract_file.write_text(_contract("scopes:\n  eu: {name: A}\n  us: {name: U}\n  eu: {name: B}\n"))
 
-    # The YAML parser raises, and the CLI turns what the handler raises into exit code 3.
-    with pytest.raises(YamlParserException):
-        handle_test_contract(contract_file_path=str(contract_file), variables=None)
+    # The YAML parser raises, and the handler logs it and returns exit code 3.
+    assert handle_test_contract(contract_file_path=str(contract_file), variables=None) == ExitCode.LOG_ERRORS
 
     monkeypatch.setattr(sys, "argv", ["soda", "contract", "test", "-c", str(contract_file)])
     # The CLI configures logging for the whole process, which the tests after this one rely on.
