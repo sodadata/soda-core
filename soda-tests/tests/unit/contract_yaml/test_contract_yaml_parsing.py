@@ -112,8 +112,24 @@ def test_contract_with_null_columns_raises_the_contract_error():
             """,
             "YAML key 'name' expected one of ['str'], but was int, in location[7,18]",
         ),
+        (
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+              - name: a
+            checks:
+              - duplicate:
+                  columns:
+            """,
+            "YAML key 'columns' must not be null, in location[5,6]",
+        ),
     ],
-    ids=["null column name", "aggregate function not a string", "regex format name not a string"],
+    ids=[
+        "null column name",
+        "aggregate function not a string",
+        "regex format name not a string",
+        "null duplicate columns",
+    ],
 )
 def test_a_required_contract_key_that_is_null_or_of_the_wrong_type_stops_parsing(yaml_str, error):
     with pytest.raises(YamlParserException) as raised:
