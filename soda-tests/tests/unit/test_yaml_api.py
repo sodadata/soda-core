@@ -285,3 +285,12 @@ def test_a_required_key_whose_variable_resolves_to_nothing_is_refused(env_vars: 
     with pytest.raises(YamlParserException) as raised:
         yaml_object.read_dataset_identifier("dqn")
     assert str(raised.value) == "YAML key 'dqn' has no value after resolving its variables, in var.yml[0,5]"
+
+
+@pytest.mark.parametrize("value, shown", [('""', "''"), ("table", "'table'")], ids=["empty", "one name"])
+def test_a_dataset_identifier_without_a_data_source_and_a_dataset_is_logged(value, shown, logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=f"dataset: {value}\n").parse()
+    assert yaml_object.read_dataset_identifier("dataset") is None
+    assert logs.get_errors() == [
+        f"Invalid dataset qualified name in 'dataset': {shown} must be slash-separated, fully qualified dataset name."
+    ]
