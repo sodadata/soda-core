@@ -539,7 +539,11 @@ class YamlObject(YamlValue):
             logger.error(msg=message, extra={ExtraKeys.LOCATION: location})
             value = None
 
-        return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        wrapped_value = self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        # The checks above see the value as written; a lone variable that resolves to nothing only shows here.
+        if required and wrapped_value is None:
+            raise YamlParserException(f"{key_description} has no value after resolving its variables", str(location))
+        return wrapped_value
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
