@@ -212,7 +212,7 @@ class YamlSource:
             return YamlObject(self, root_yaml_object)
         yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
         yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
-        raise YamlParserException(f"{self.description} root must be an object, " f"but was {yaml_type}", str(location))
+        raise YamlParserException(f"{self.description} root must be an object, but was {yaml_type}", str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):

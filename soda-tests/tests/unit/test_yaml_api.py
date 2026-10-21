@@ -73,8 +73,9 @@ def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
 def test_a_file_that_cannot_be_read_raises_its_reason_once(logs: Logs, tmp_path, content, error):
     path = tmp_path / "file.yml"
     path.write_bytes(content)
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
     with pytest.raises(YamlParserException) as raised:
-        YamlSource.from_file_path(file_path=str(path)).parse()
+        yaml_source.parse()
     assert str(raised.value) == f"YAML file '{path}' {error}"
     assert not logs.has_errors
     assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
@@ -83,9 +84,10 @@ def test_a_file_that_cannot_be_read_raises_its_reason_once(logs: Logs, tmp_path,
 def test_a_file_the_os_cannot_read_names_the_os_reason(logs: Logs, tmp_path):
     path = tmp_path / "file.yml"
     path.write_text("a: 1\n")
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
     with patch("soda_core.common.yaml.open", create=True, side_effect=OSError(errno.EIO, "Input/output error")):
         with pytest.raises(YamlParserException) as raised:
-            YamlSource.from_file_path(file_path=str(path)).parse()
+            yaml_source.parse()
     assert str(raised.value) == f"YAML file '{path}' can't be read: Input/output error"
     assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
