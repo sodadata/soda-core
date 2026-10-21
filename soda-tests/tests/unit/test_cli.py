@@ -4,7 +4,7 @@ from typing import Iterator, Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-from soda_core.cli.cli import create_cli_parser, execute, get_or_create_command_parser
+from soda_core.cli.cli import _parse_variables, create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
 from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
@@ -262,7 +262,6 @@ def test_verify_command_raises_exception_when_variables_are_incorrectly_formatte
 
 
 def test_verify_command_handles_variable_types():
-    logs = Logs()
     sys.argv = [
         "soda",
         "contract",
@@ -287,13 +286,12 @@ def test_verify_command_handles_variable_types():
         _ = args.handler_func(args)
 
     assert ExitCode.LOG_ERRORS == e.value.code
-
-    # The first log should be the variable parsing log
-    assert logs.get_logs()[0] == "Variable numeric_var is a number, parsed as float: 100.1234"
-    assert logs.get_logs()[1] == "Variable int_var is a number, parsed as int: 100"
-    # The other values should not be parsed as a specific type, so they should be strings. We verify this by the next log being about the
-    # missing Soda Cloud file, which the CLI reads next. The run's own error is logged inside run_scan's own Logs.
-    assert logs.get_logs()[2].startswith("Could not build the Soda Cloud failure-report channel from 'cloud.yaml'")
+    assert _parse_variables(["numeric_var=100.1234", "int_var=100", "string_var=hello", "bool_var=true"]) == {
+        "numeric_var": 100.1234,
+        "int_var": 100,
+        "string_var": "hello",
+        "bool_var": "true",
+    }
 
 
 @patch("soda_core.cli.cli.handle_publish_contract")

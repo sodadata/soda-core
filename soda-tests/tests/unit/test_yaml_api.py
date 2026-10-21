@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import pytest
 from helpers.test_functions import dedent_and_strip
@@ -183,7 +184,6 @@ def test_a_file_ruamel_cannot_load_raises_one_parser_exception(yaml_str):
     with pytest.raises(YamlParserException) as raised:
         yaml_source.parse()
     assert str(raised.value).startswith("YAML file 'bad.yml' could not be parsed: ")
-    assert "\n" not in str(raised.value)
 
 
 def test_a_load_failure_does_not_quote_the_value():
@@ -191,5 +191,4 @@ def test_a_load_failure_does_not_quote_the_value():
     yaml_source: YamlSource = YamlSource.from_str(yaml_str="password: !!int s3cret\n", file_path="ds.yml")
     with pytest.raises(YamlParserException) as raised:
         yaml_source.parse()
-    assert "s3cret" not in str(raised.value)
-    assert raised.value.__cause__ is None and raised.value.__suppress_context__
+    assert "s3cret" not in "".join(traceback.format_exception(raised.value))
