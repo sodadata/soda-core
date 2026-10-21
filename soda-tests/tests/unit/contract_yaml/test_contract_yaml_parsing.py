@@ -63,6 +63,17 @@ def test_contract_without_columns_raises():
         )
 
 
+def test_contract_with_null_columns_raises_the_contract_error():
+    # A bare 'columns:' reads as absent, so the contract's own error names it, not the generic reader's.
+    with pytest.raises(ContractParserException, match="The contract is missing the required 'columns' property"):
+        _parse_with_dialect(
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+            """
+        )
+
+
 def test_parse_dataset_qualified_name():
     """Test that a 4-part dataset path is parsed correctly."""
     yaml_str = """

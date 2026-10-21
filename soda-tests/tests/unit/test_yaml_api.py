@@ -221,3 +221,52 @@ def test_a_load_failure_does_not_quote_the_value():
     with pytest.raises(YamlParserException) as raised:
         yaml_source.parse()
     assert "s3cret" not in "".join(traceback.format_exception(raised.value))
+
+
+def test_a_required_key_with_a_null_value_is_refused_at_the_key():
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="a: 1\nname:\n", file_path="null.yml").parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_string("name")
+    assert str(raised.value) == "YAML key 'name' must not be null, in null.yml[1,0]"
+
+
+def test_a_required_key_of_the_wrong_type_is_refused(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name: 5\n", file_path="type.yml").parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_string("name")
+    assert str(raised.value) == "YAML key 'name' expected one of ['str'], but was int, in type.yml[0,6]"
+    assert not logs.has_errors
+
+
+def test_an_optional_key_of_the_wrong_type_logs_and_reads_as_absent(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name: 5\nchecks: x\n").parse()
+    assert yaml_object.read_string_opt("name") is None
+    assert yaml_object.read_list_of_objects_opt("checks") is None
+    assert logs.get_errors() == [
+        "YAML key 'name' expected one of ['str'], but was int",
+        "YAML key 'checks' expected one of ['list'], but was str",
+    ]
+
+
+def test_an_optional_key_with_a_null_value_reads_as_absent(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name:\nchecks:\n").parse()
+    assert yaml_object.read_string_opt("name") is None
+    # read_list_of_objects_opt reaches a required read when the key is present; this pins that a null does not.
+    assert yaml_object.read_list_of_objects_opt("checks") is None
+    assert not logs.has_errors
+
+
+@pytest.mark.parametrize(
+    "yaml_str, error",
+    [
+        ("a: 1\n", "YAML key 'dqn' is required, in location[0,0]"),
+        ("dqn:\n", "YAML key 'dqn' must not be null, in location[0,0]"),
+        ("dqn: 5\n", "YAML key 'dqn' expected one of ['str'], but was int, in location[0,5]"),
+    ],
+    ids=["absent", "null", "wrong type"],
+)
+def test_a_required_dataset_identifier_names_its_own_key(yaml_str, error):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=yaml_str).parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_dataset_identifier("dqn")
+    assert str(raised.value) == error
