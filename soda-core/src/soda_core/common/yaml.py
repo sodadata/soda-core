@@ -12,7 +12,12 @@ from typing import Iterable, Optional
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.error import MarkedYAMLError
-from soda_core.common.exceptions import InvalidDataSourceConfigurationException, YamlParserException
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.exceptions import (
+    InvalidDatasetQualifiedNameException,
+    InvalidDataSourceConfigurationException,
+    YamlParserException,
+)
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 
@@ -357,11 +362,11 @@ class YamlObject(YamlValue):
         # A missing, null or wrongly typed required value raises through read_string, naming this key.
         dataset_qualified_name: Optional[str] = self.read_string(yaml_key, required=required)
         if isinstance(dataset_qualified_name, str):
-            parts = dataset_qualified_name.split("/")
-            if len(parts) < 2:
+            try:
+                DatasetIdentifier.parse(dataset_qualified_name)
+            except InvalidDatasetQualifiedNameException as e:
                 logger.error(
-                    msg=f"Invalid dataset qualified name in '{yaml_key}': '{dataset_qualified_name}' "
-                    f"must be slash-separated, fully qualified dataset name.",
+                    msg=f"Invalid dataset qualified name in '{yaml_key}': '{dataset_qualified_name}'. {e}",
                     extra={ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(yaml_key)},
                 )
                 return None

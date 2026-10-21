@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -11,6 +12,9 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
+
+MAX_DATASET_QUALIFIED_NAME_LENGTH = 2048
+CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class DatasetIdentifier:
@@ -23,12 +27,25 @@ class DatasetIdentifier:
     def parse(cls, dataset_qualified_name: Optional[str]) -> DatasetIdentifier:
         from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 
-        if not dataset_qualified_name:
+        if dataset_qualified_name is None:
             raise InvalidDatasetQualifiedNameException("Dataset DQN must be a valid string and cannot be None")
+        if not dataset_qualified_name:
+            raise InvalidDatasetQualifiedNameException("Dataset DQN must not be empty")
 
         parts = dataset_qualified_name.split("/")
         if len(parts) < 2:
             raise InvalidDatasetQualifiedNameException("Dataset DQN must contain at least a data source and a dataset")
+        # The same rule as Soda Cloud's, so a name it refuses fails here first.
+        if "" in parts:
+            raise InvalidDatasetQualifiedNameException(
+                "Dataset DQN must not start or end with '/' or have an empty name between two '/'"
+            )
+        if len(dataset_qualified_name) > MAX_DATASET_QUALIFIED_NAME_LENGTH:
+            raise InvalidDatasetQualifiedNameException(
+                f"Dataset DQN must be at most {MAX_DATASET_QUALIFIED_NAME_LENGTH} characters"
+            )
+        if CONTROL_CHARACTER.search(dataset_qualified_name):
+            raise InvalidDatasetQualifiedNameException("Dataset DQN must not contain control characters")
 
         data_source_name = parts[0]
         dataset_name = parts[-1]
