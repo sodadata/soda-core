@@ -370,7 +370,7 @@ class YamlObject(YamlValue):
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
         Raises YamlParserException if the value is missing, null or not a YAML object.
-        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
+        :return: the YamlObject for the key.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
@@ -385,8 +385,9 @@ class YamlObject(YamlValue):
         self, key: str, expected_element_type: Optional[type] = None, required: bool = True
     ) -> Optional[YamlList]:
         """
-        Raises YamlParserException if the value is missing, null or not a YAML list.
-        :return: a list if the value for the key is a YAML list, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a YAML list. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a list.
+        :return: the list for the key, or None.
         """
         list_value: Optional[YamlList] = self.read_value(
             key=key, expected_type=list, required=required, default_value=None
@@ -449,8 +450,9 @@ class YamlObject(YamlValue):
 
     def read_string(self, key: str, env_var: Optional[str] = None, required: bool = True) -> Optional[str]:
         """
-        Raises YamlParserException if the value is missing, null or not a string.
-        :return: a str if the value for the key is a YAML string, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a string. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a string.
+        :return: the str for the key, or None.
         """
         return self.read_value(key=key, env_var=env_var, expected_type=str, required=required, default_value=None)
 
@@ -466,7 +468,7 @@ class YamlObject(YamlValue):
     def read_bool(self, key: str) -> Optional[bool]:
         """
         Raises YamlParserException if the value is missing, null or not a bool.
-        :return: a bool if the value for the key is a YAML boolean, otherwise None.
+        :return: the bool for the key.
         """
         return self.read_value(key=key, expected_type=bool, required=True, default_value=None)
 
@@ -480,7 +482,7 @@ class YamlObject(YamlValue):
     def read_number(self, key: str) -> Optional[Number]:
         """
         Raises YamlParserException if the value is missing, null or not a number.
-        :return: a bool if the value for the key is a YAML number, otherwise None.
+        :return: the Number for the key.
         """
         return self.read_value(key=key, expected_type=Number, required=True, default_value=None)
 
