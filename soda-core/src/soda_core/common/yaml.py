@@ -120,7 +120,7 @@ class YamlSource:
 
     def _ensure_yaml_str(self) -> None:
         if not isinstance(self.yaml_str, str) and isinstance(self.file_path, str) and not self.is_file_read:
-            # There should be only 1 reading attempt.
+            # There should be only 1 reading attempt, so only the first parse() raises why the file can't be read.
             self.is_file_read = True
             # A file that cannot be read raises its reason, so the caller reports it once.
             try:
@@ -135,7 +135,9 @@ class YamlSource:
                 elif os.path.isdir(self.file_path):
                     raise YamlParserException(f"{self.description} is a directory") from None
                 else:
-                    raise YamlParserException(f"{self.description} can't be read: {type(e).__name__}") from None
+                    # The OS reason, such as 'Permission denied', never holds file content.
+                    reason: str = e.strerror or type(e).__name__
+                    raise YamlParserException(f"{self.description} can't be read: {reason}") from None
             if len(self.yaml_str) == 0:
                 raise YamlParserException(f"{self.description} is empty")
 
