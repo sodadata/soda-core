@@ -223,11 +223,17 @@ def test_a_load_failure_does_not_quote_the_value():
     assert "s3cret" not in "".join(traceback.format_exception(raised.value))
 
 
-def test_a_required_key_with_a_null_value_is_refused_at_the_key():
-    yaml_object: YamlObject = YamlSource.from_str(yaml_str="a: 1\nname:\n", file_path="null.yml").parse()
+@pytest.mark.parametrize(
+    "yaml_str, location",
+    [("a: 1\nname:\n", "null.yml[1,0]"), ("name:\nb: 1\n", "null.yml[0,0]")],
+    ids=["last key", "followed by a key"],
+)
+def test_a_required_key_with_a_null_value_is_refused_at_the_key(yaml_str, location):
+    # ruamel places a null value at the start of the next key, so the position must come from the key itself.
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=yaml_str, file_path="null.yml").parse()
     with pytest.raises(YamlParserException) as raised:
         yaml_object.read_string("name")
-    assert str(raised.value) == "YAML key 'name' must not be null, in null.yml[1,0]"
+    assert str(raised.value) == f"YAML key 'name' must not be null, in {location}"
 
 
 def test_a_required_key_of_the_wrong_type_is_refused(logs: Logs):
