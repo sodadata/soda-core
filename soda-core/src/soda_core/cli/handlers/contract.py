@@ -126,7 +126,8 @@ def handle_publish_contract(
         else:
             return ExitCode.OK
     except YamlParserException as exc:
-        soda_logger.error(f"Failed to parse contract: {exc}")
+        # The contract or the Soda Cloud file, so the message names neither.
+        soda_logger.error(f"Failed to publish contract: {exc}")
         return ExitCode.LOG_ERRORS
     except Exception as exc:
         soda_logger.exception(f"Failed to publish contract: {exc}")
