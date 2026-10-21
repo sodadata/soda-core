@@ -354,7 +354,8 @@ class YamlObject(YamlValue):
 
     # TODO: should we move this into the `ContractYaml` class?
     def read_dataset_identifier(self, yaml_key: str, required: bool = True) -> Optional[str]:
-        dataset_qualified_name: Optional[str] = self.read_string_opt(yaml_key)
+        # A missing, null or wrongly typed required value raises through read_string, naming this key.
+        dataset_qualified_name: Optional[str] = self.read_string(yaml_key, required=required)
         if isinstance(dataset_qualified_name, str):
             parts = dataset_qualified_name.split("/")
             if len(parts) < 2:
@@ -364,8 +365,6 @@ class YamlObject(YamlValue):
                     extra={ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(yaml_key)},
                 )
                 return None
-        elif required:
-            raise YamlParserException("The YAML is missing the required 'dataset' property", str(self.location))
         return dataset_qualified_name
 
     def read_object(self, key: str) -> Optional[YamlObject]:
@@ -420,10 +419,10 @@ class YamlObject(YamlValue):
         return self.read_value(key=key, expected_type=list, required=False, default_value=None)
 
     def read_list_of_objects_opt(self, key: str) -> Optional[YamlList]:
-        return self.read_list_of_objects(key) if key in self.yaml_dict else None
+        return self.read_list_of_objects(key, required=False)
 
-    def read_list_of_objects(self, key: str) -> Optional[YamlList]:
-        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject)
+    def read_list_of_objects(self, key: str, required: bool = True) -> Optional[YamlList]:
+        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject, required=required)
         if isinstance(list_value, YamlList):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
@@ -510,6 +509,8 @@ class YamlObject(YamlValue):
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
+            if value is None and required:
+                raise YamlParserException(f"{key_description} must not be null", str(location))
         else:
             if required:
                 raise YamlParserException(f"{key_description} is required", str(location))
@@ -529,13 +530,13 @@ class YamlObject(YamlValue):
                 actual_type_str = "YAML object"
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
-            logger.error(
-                msg=f"{key_description} expected one of {[et.__name__ for et in expected_types]}, "
-                f"but was {actual_type_str}",
-                extra={
-                    ExtraKeys.LOCATION: location,
-                },
+            message: str = (
+                f"{key_description} expected one of {[et.__name__ for et in expected_types]}, but was {actual_type_str}"
             )
+            # A required value is missing, null or of the wrong type: each one stops reading.
+            if required:
+                raise YamlParserException(message, str(location))
+            logger.error(msg=message, extra={ExtraKeys.LOCATION: location})
             value = None
 
         return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
@@ -544,7 +545,10 @@ class YamlObject(YamlValue):
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
                 try:
-                    ruamel_location = self.yaml_dict.lc.value(key)
+                    # ruamel places a null value at the start of whatever follows it, so a null points at its key.
+                    ruamel_location = (
+                        self.yaml_dict.lc.key(key) if self.yaml_dict[key] is None else self.yaml_dict.lc.value(key)
+                    )
                     line: int = ruamel_location[0]
                     column: int = ruamel_location[1]
                 except (KeyError, TypeError):

@@ -63,7 +63,7 @@ def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHel
 def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
     with pytest.raises(
         YamlParserException,
-        match=re.escape("The YAML is missing the required 'dataset' property, in yaml_string.yml[0,0]"),
+        match=re.escape("YAML key 'dataset' is required, in yaml_string.yml[0,0]"),
     ):
         data_source_test_helper.assert_contract_error(
             contract_yaml_str=f"""
