@@ -364,7 +364,7 @@ class ValidReferenceDataYaml:
 @dataclass
 class RegexFormat:
     regex: str
-    name: Optional[str]
+    name: str
 
     @classmethod
     def read(cls, yaml_object: YamlObject, key: str) -> Optional[RegexFormat]:
