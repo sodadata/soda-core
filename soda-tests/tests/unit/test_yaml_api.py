@@ -281,6 +281,7 @@ def test_a_required_dataset_identifier_names_its_own_key(yaml_str, error):
 def test_a_required_key_whose_variable_resolves_to_nothing_is_refused(env_vars: dict):
     yaml_source: YamlSource = YamlSource.from_str(yaml_str="dqn: ${env.SODA_NO_SUCH_VAR}\n", file_path="var.yml")
     yaml_source.resolve_on_read_value(resolved_variable_values={}, soda_values={}, use_env_vars=True)
+    yaml_object: YamlObject = yaml_source.parse()
     with pytest.raises(YamlParserException) as raised:
-        yaml_source.parse().read_dataset_identifier("dqn")
+        yaml_object.read_dataset_identifier("dqn")
     assert str(raised.value) == "YAML key 'dqn' has no value after resolving its variables, in var.yml[0,5]"
