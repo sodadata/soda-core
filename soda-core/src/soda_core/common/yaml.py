@@ -122,20 +122,22 @@ class YamlSource:
         if not isinstance(self.yaml_str, str) and isinstance(self.file_path, str) and not self.is_file_read:
             # There should be only 1 reading attempt.
             self.is_file_read = True
+            # A file that cannot be read raises its reason, so the caller reports it once.
             try:
-                with open(self.file_path) as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     self.yaml_str = f.read()
                     self.yaml_str_original = self.yaml_str
-                    if len(self.yaml_str) == 0:
-                        logger.error(f"{self.description} is empty")
-
+            except UnicodeDecodeError:
+                raise YamlParserException(f"{self.description} is not UTF-8 text") from None
             except OSError as e:
                 if not os.path.exists(self.file_path):
-                    logger.error(f"{self.description} does not exist")
+                    raise YamlParserException(f"{self.description} does not exist") from None
                 elif os.path.isdir(self.file_path):
-                    logger.error(f"{self.description} is a directory")
+                    raise YamlParserException(f"{self.description} is a directory") from None
                 else:
-                    logger.error(f"{self.description} can't be read", exc_info=True)
+                    raise YamlParserException(f"{self.description} can't be read: {type(e).__name__}") from None
+            if len(self.yaml_str) == 0:
+                raise YamlParserException(f"{self.description} is empty")
 
     def parse_and_resolve(
         self,
@@ -185,15 +187,6 @@ class YamlSource:
 
         try:
             root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
-            if isinstance(root_yaml_object, dict):
-                return YamlObject(self, root_yaml_object)
-            else:
-                yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
-                yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
-                raise YamlParserException(
-                    f"{self.description} root must be an object, " f"but was {yaml_type}", str(location)
-                )
-
         except MarkedYAMLError as e:
             message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
@@ -207,6 +200,17 @@ class YamlSource:
             col = mark.column + 1
             location = Location(file_path=self.file_path, line=line, column=col)
             raise YamlParserException(message, str(location))
+        except Exception as e:
+            # ruamel raises more than MarkedYAMLError on a malformed file: a NUL byte, a tag such as '!!bool maybe'
+            # or nesting too deep. Their text can quote a value, a password in a data source file, so the message
+            # names only the kind of failure and the chain is dropped.
+            raise YamlParserException(f"{self.description} could not be parsed: {type(e).__name__}") from None
+
+        if isinstance(root_yaml_object, dict):
+            return YamlObject(self, root_yaml_object)
+        yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
+        yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
+        raise YamlParserException(f"{self.description} root must be an object, " f"but was {yaml_type}", str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):

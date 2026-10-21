@@ -291,8 +291,9 @@ def test_verify_command_handles_variable_types():
     # The first log should be the variable parsing log
     assert logs.get_logs()[0] == "Variable numeric_var is a number, parsed as float: 100.1234"
     assert logs.get_logs()[1] == "Variable int_var is a number, parsed as int: 100"
-    # The other values should not be parsed as a specific type, so they should be strings. We verify this by the next log being the error log.
-    assert logs.get_logs()[2] == "Soda Cloud file 'cloud.yaml' does not exist"
+    # The other values should not be parsed as a specific type, so they should be strings. We verify this by the next log being about the
+    # missing Soda Cloud file, which the CLI reads next. The run's own error is logged inside run_scan's own Logs.
+    assert logs.get_logs()[2].startswith("Could not build the Soda Cloud failure-report channel from 'cloud.yaml'")
 
 
 @patch("soda_core.cli.cli.handle_publish_contract")

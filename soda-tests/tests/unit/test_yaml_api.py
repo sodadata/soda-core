@@ -46,16 +46,32 @@ def test_yaml_file(logs: Logs):
 def test_yaml_error_file_not_found(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/unexisting.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=test_yaml_api_file_path)
-    with pytest.raises(YamlParserException, match="YAML source is not a string, in"):
+    with pytest.raises(YamlParserException) as raised:
         _ = yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{test_yaml_api_file_path}' does not exist"
+    assert not logs.has_errors
 
 
 def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(tmp_path))
-    with pytest.raises(YamlParserException, match="YAML source is not a string, in"):
+    with pytest.raises(YamlParserException) as raised:
         _ = yaml_source.parse()
-    [record] = [r for r in logs.get_log_records() if r.getMessage() == f"YAML file '{tmp_path}' is a directory"]
-    assert record.exc_info is None
+    assert str(raised.value) == f"YAML file '{tmp_path}' is a directory"
+    assert not logs.has_errors
+
+
+@pytest.mark.parametrize(
+    "content, error",
+    [(b"", "is empty"), ("a: 1\n".encode("utf-16"), "is not UTF-8 text")],
+    ids=["empty", "utf-16"],
+)
+def test_a_file_that_cannot_be_read_raises_its_reason_once(logs: Logs, tmp_path, content, error):
+    path = tmp_path / "file.yml"
+    path.write_bytes(content)
+    with pytest.raises(YamlParserException) as raised:
+        YamlSource.from_file_path(file_path=str(path)).parse()
+    assert str(raised.value) == f"YAML file '{path}' {error}"
+    assert not logs.has_errors
 
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):
@@ -159,3 +175,21 @@ def test_yaml_duplicate_key_message_leaves_out_the_values():
     with pytest.raises(YamlParserException) as raised:
         yaml_source.parse()
     assert str(raised.value) == 'YAML syntax error: found duplicate key "password", in location[3,1]'
+
+
+@pytest.mark.parametrize("yaml_str", ["k: \x00\n", "k: !!bool maybe\n", "k: !!int abc\n"], ids=["nul", "bool", "int"])
+def test_a_file_ruamel_cannot_load_raises_one_parser_exception(yaml_str):
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str, file_path="bad.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value).startswith("YAML file 'bad.yml' could not be parsed: ")
+    assert "\n" not in str(raised.value)
+
+
+def test_a_load_failure_does_not_quote_the_value():
+    # The same parser reads data source files, where the value of a tagged key can be a password.
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="password: !!int s3cret\n", file_path="ds.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert "s3cret" not in str(raised.value)
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__
