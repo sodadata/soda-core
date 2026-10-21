@@ -251,7 +251,7 @@ def test_an_optional_key_of_the_wrong_type_logs_and_reads_as_absent(logs: Logs):
 def test_an_optional_key_with_a_null_value_reads_as_absent(logs: Logs):
     yaml_object: YamlObject = YamlSource.from_str(yaml_str="name:\nchecks:\n").parse()
     assert yaml_object.read_string_opt("name") is None
-    # read_list_of_objects_opt reaches a required read when the key is present; this pins that a null does not.
+    # read_list_of_objects_opt reads its list as optional, so a null logs nothing either.
     assert yaml_object.read_list_of_objects_opt("checks") is None
     assert not logs.has_errors
 
