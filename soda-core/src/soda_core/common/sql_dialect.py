@@ -156,9 +156,10 @@ class SqlDialect:
     SUPPORTS_DROP_TABLE_CASCADE: bool = True
     # Whether the dialect renders the data-plane statements and the dialect-specific expressions of
     # sql_ast. Off, each raises UnsupportedSqlStatementError or, where it is optional, renders
-    # nothing, so no dialect emits SQL that was never run against it. Not inherited: True only on a
-    # dialect class that sets it in its own body (see __init_subclass__), so a dialect derived from
-    # a verified one stays off until it is verified and opts in itself.
+    # nothing, so no dialect emits one of them unverified; the ANSI expressions render everywhere,
+    # flag or not. Not inherited: True only on a dialect class that sets it in its own body (see
+    # __init_subclass__), so a dialect derived from a verified one stays off until it is verified
+    # and opts in itself.
     SUPPORTS_DATA_PLANE_STATEMENTS: bool = False
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()

@@ -565,8 +565,9 @@ class CAST(SqlExpression):
 
 @dataclass
 class CURRENT_TIMESTAMP(SqlExpression):
-    """The current instant, with time zone; dialects whose CURRENT_TIMESTAMP lacks a zone render an
-    equivalent that has one."""
+    """The current instant: with time zone on a dialect that sets SUPPORTS_DATA_PLANE_STATEMENTS (one
+    whose CURRENT_TIMESTAMP lacks a zone renders an equivalent that has one); the data source's own
+    CURRENT_TIMESTAMP, zoned or not, elsewhere."""
 
 
 @dataclass
@@ -714,7 +715,8 @@ class DATE_ISO_TEXT(SqlExpression):
 @dataclass
 class JSON_MERGE(SqlExpression):
     """The JSON object ``left`` with the top-level keys of the JSON object ``right`` set over it.
-    NULL when either is NULL."""
+    NULL when either is NULL. Both operands are JSON values (jsonb on Postgres); a text operand is
+    concatenated, not merged."""
 
     left: SqlExpression | str
     right: SqlExpression | str
