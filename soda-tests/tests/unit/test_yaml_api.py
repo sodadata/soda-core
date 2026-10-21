@@ -53,7 +53,7 @@ def test_yaml_error_file_not_found(logs: Logs):
         _ = yaml_source.parse()
     assert str(raised.value) == f"YAML file '{test_yaml_api_file_path}' does not exist"
     assert not logs.has_errors
-    assert "During handling" not in "".join(traceback.format_exception(raised.value))
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
 
 def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
@@ -62,7 +62,7 @@ def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
         _ = yaml_source.parse()
     assert str(raised.value) == f"YAML file '{tmp_path}' is a directory"
     assert not logs.has_errors
-    assert "During handling" not in "".join(traceback.format_exception(raised.value))
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
 
 @pytest.mark.parametrize(
@@ -77,17 +77,17 @@ def test_a_file_that_cannot_be_read_raises_its_reason_once(logs: Logs, tmp_path,
         YamlSource.from_file_path(file_path=str(path)).parse()
     assert str(raised.value) == f"YAML file '{path}' {error}"
     assert not logs.has_errors
-    assert "During handling" not in "".join(traceback.format_exception(raised.value))
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
 
 def test_a_file_the_os_cannot_read_names_the_os_reason(logs: Logs, tmp_path):
     path = tmp_path / "file.yml"
     path.write_text("a: 1\n")
-    with patch("builtins.open", side_effect=OSError(errno.EIO, "Input/output error")):
+    with patch("soda_core.common.yaml.open", create=True, side_effect=OSError(errno.EIO, "Input/output error")):
         with pytest.raises(YamlParserException) as raised:
             YamlSource.from_file_path(file_path=str(path)).parse()
     assert str(raised.value) == f"YAML file '{path}' can't be read: Input/output error"
-    assert "During handling" not in "".join(traceback.format_exception(raised.value))
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
 
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):

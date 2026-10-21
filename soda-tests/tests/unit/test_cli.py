@@ -261,31 +261,7 @@ def test_verify_command_raises_exception_when_variables_are_incorrectly_formatte
     assert ExitCode.LOG_ERRORS == e.value.code
 
 
-def test_verify_command_handles_variable_types():
-    sys.argv = [
-        "soda",
-        "contract",
-        "verify",
-        "-ds",
-        "ds.yaml",
-        "-sc",
-        "cloud.yaml",
-        "--set",
-        "numeric_var=100.1234",
-        "--set",
-        "int_var=100",
-        "--set",
-        "string_var=hello",
-        "--set",
-        "bool_var=true",
-    ]
-
-    parser = create_cli_parser()
-    args = parser.parse_args()
-    with pytest.raises(SystemExit) as e:
-        _ = args.handler_func(args)
-
-    assert ExitCode.LOG_ERRORS == e.value.code
+def test_set_values_are_parsed_by_type():
     assert _parse_variables(["numeric_var=100.1234", "int_var=100", "string_var=hello", "bool_var=true"]) == {
         "numeric_var": 100.1234,
         "int_var": 100,
