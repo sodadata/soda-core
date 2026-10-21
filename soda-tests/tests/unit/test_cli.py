@@ -691,21 +691,32 @@ def test_check_filter_help_explains_negation():
 
 
 @pytest.mark.parametrize(
-    "handle",
+    "command, contract, soda_cloud, error",
     [
-        lambda path, _: handle_test_contract(path, {}),
-        lambda path, soda_cloud_path: handle_publish_contract(path, soda_cloud_path),
+        ("test", "  - name:\n", None, "Failed to parse contract: YAML key 'name' must not be null, in {contract}[2,4]"),
+        (
+            "publish",
+            "  - name:\n",
+            "",
+            "Failed to publish contract: YAML key 'name' must not be null, in {contract}[2,4]",
+        ),
+        ("publish", "  - name: a\n", None, "Failed to publish contract: Soda Cloud file '{soda_cloud}' does not exist"),
     ],
-    ids=["test", "publish"],
+    ids=["test, null column name", "publish, null column name", "publish, missing Soda Cloud file"],
 )
-def test_a_contract_that_does_not_parse_logs_one_error(handle, tmp_path, caplog):
-    path = tmp_path / "contract.yml"
-    path.write_text("dataset: ds/db/schema/t\ncolumns:\n  - name:\n")
+def test_a_yaml_error_logs_one_error(command, contract, soda_cloud, error, tmp_path, caplog):
+    contract_path = tmp_path / "contract.yml"
+    contract_path.write_text("dataset: ds/db/schema/t\ncolumns:\n" + contract)
     soda_cloud_path = tmp_path / "soda-cloud.yml"
-    soda_cloud_path.write_text("soda_cloud:\n  host: h.example\n  api_key_id: i\n  api_key_secret: s\n")
-    assert handle(str(path), str(soda_cloud_path)) == ExitCode.LOG_ERRORS
+    if soda_cloud is not None:
+        soda_cloud_path.write_text("soda_cloud:\n  host: h.example\n  api_key_id: i\n  api_key_secret: s\n")
+    if command == "test":
+        exit_code = handle_test_contract(str(contract_path), {})
+    else:
+        exit_code = handle_publish_contract(str(contract_path), str(soda_cloud_path))
+    assert exit_code == ExitCode.LOG_ERRORS
     errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
     assert [record.getMessage() for record in errors] == [
-        f"Failed to parse contract: YAML key 'name' must not be null, in {path}[2,4]"
+        error.format(contract=contract_path, soda_cloud=soda_cloud_path)
     ]
     assert errors[0].exc_info is None
