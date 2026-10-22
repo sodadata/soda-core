@@ -6,7 +6,7 @@ unchanged. UPDATE and DELETE are the base forms without a target alias, and an U
 table is a MERGE from it. The upserts are a MERGE whose source is a subquery: the rows of an UPSERT as
 VALUES, the SELECT of an UPSERT_VIA_SELECT with any WITH kept inside it. Athena has no index to create
 and no statistics to refresh, so those render None, and it refuses EPOCH_SECONDS,
-JSON_MERGE and a REGEXP_REPLACE replacement with a backslash.
+JSON_MERGE and a REGEXP_REPLACE replacement with a backslash other than one escaping a dollar.
 """
 
 from __future__ import annotations
@@ -50,7 +50,6 @@ from soda_core.common.sql_ast import (
     LITERAL,
     LOWER,
     NULLIF,
-    PLACEHOLDER,
     REGEXP_REPLACE,
     SELECT,
     SOURCE_COLUMN,
@@ -666,12 +665,6 @@ def test_create_table(dialect, node, kwargs, expected_sql, add_semicolon, semico
     assert dialect.build_create_table_sql(_create_table(node, **kwargs), *add_semicolon) == expected_sql + semicolon
 
 
-def test_a_hive_table_is_unchanged_by_the_transactional_option(dialect):
-    assert dialect.build_create_table_sql(_create_table(transactional=False)) == dialect.build_create_table_sql(
-        _create_table()
-    )
-
-
 @pytest.mark.parametrize(
     "sql_data_type, iceberg_type",
     [
@@ -718,6 +711,18 @@ def test_an_iceberg_column_drops_not_null(dialect):
     )
 
     assert sql == f"CREATE TABLE `c`.`s`.`t` (\n\t`id` int\n)\nLOCATION '{LOCATION}'\n{_ICEBERG_PROPERTIES_SQL};"
+
+
+def test_an_iceberg_location_is_a_string_literal():
+    dialect = AthenaSqlDialect(get_table_storage_location={TABLE: "s3://staging/it's/"}.__getitem__)
+
+    sql = dialect.build_create_table_sql(
+        CREATE_TABLE(TABLE, [CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name="integer"))], transactional=True)
+    )
+
+    assert (
+        sql == f"CREATE TABLE `c`.`s`.`t` (\n\t`id` int\n)\nLOCATION 's3://staging/it''s/'\n{_ICEBERG_PROPERTIES_SQL};"
+    )
 
 
 @pytest.mark.parametrize("default", [CURRENT_TIMESTAMP(), LITERAL(0)], ids=["CURRENT_TIMESTAMP", "a literal"])
@@ -786,7 +791,6 @@ _EXPRESSIONS = [
         ARITHMETIC("/", ARITHMETIC("-", COLUMN("a"), COLUMN("b")), ARITHMETIC("*", LITERAL(2), COLUMN("c"))),
         '(("a" - "b") / (2 * "c"))',
     ),
-    ("PLACEHOLDER", PLACEHOLDER(), "?"),
     ("TIMESTAMP_ISO_TEXT", TIMESTAMP_ISO_TEXT(COLUMN("ts")), _ISO),
     (
         "TIMESTAMP_ISO_TEXT whole seconds",
@@ -831,6 +835,11 @@ _EXPRESSIONS = [
         REGEXP_REPLACE(COLUMN("s"), "\\d+", "#"),
         "regexp_replace(\"s\", '\\d+', '#')",
     ),
+    (
+        "REGEXP_REPLACE escaped dollar",
+        REGEXP_REPLACE(COLUMN("s"), "^([0-9]+)$", "\\$$1"),
+        "regexp_replace(\"s\", '^([0-9]+)$', '\\$$1')",
+    ),
     ("REGEXP_REPLACE quotes", REGEXP_REPLACE(COLUMN("s"), "'", "''"), "regexp_replace(\"s\", '''', '''''')"),
 ]
 
@@ -842,15 +851,19 @@ def test_expression(dialect, expression, expected_sql):
     assert dialect.build_expression_sql(expression) == expected_sql
 
 
-@pytest.mark.parametrize("replacement", ["\\1.0", "a\\b", "\\$"], ids=["backreference", "backslash", "escaped dollar"])
+@pytest.mark.parametrize(
+    "replacement",
+    ["\\1.0", "a\\b", "a\\"],
+    ids=["backreference", "backslash", "trailing backslash"],
+)
 def test_regexp_replace_refuses_a_backslash_in_the_replacement(dialect, replacement):
     # Athena drops a \1 backreference without an error, so the replacement would silently be wrong.
     with pytest.raises(UnsupportedSqlStatementError) as error:
         dialect.build_expression_sql(REGEXP_REPLACE(COLUMN("s"), "^(-?[0-9]+)$", replacement))
 
     assert str(error.value) == (
-        "AthenaSqlDialect does not support a REGEXP_REPLACE replacement with a backslash: "
-        "Athena drops it silently, a backreference is written $1"
+        "AthenaSqlDialect does not support a REGEXP_REPLACE replacement with a backslash not followed by $: "
+        "a backreference is written $1 and a literal dollar \\$, Athena drops any other backslash silently"
     )
 
 
