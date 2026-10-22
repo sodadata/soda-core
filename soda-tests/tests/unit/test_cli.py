@@ -7,11 +7,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from soda_core.cli.cli import _parse_variables, create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import (
-    handle_publish_contract,
-    handle_test_contract,
-    handle_verify_contract,
-)
+from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
 from soda_core.common.exceptions import ScanExecutionFailedException, YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
