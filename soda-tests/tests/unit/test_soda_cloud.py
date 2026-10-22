@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -1159,10 +1160,13 @@ def test_execute_command_and_query_with_an_answer_the_model_cannot_read_raise_a_
     answer.raw = io.BytesIO(body)
     soda_cloud = MockSodaCloud([answer])
     send = getattr(soda_cloud, method)
+    caplog.set_level(logging.DEBUG)
     with pytest.raises(SodaCloudException) as exc:
         send({"type": "sodaCoreSomething"}, "something", _FileAnswer)
     assert str(exc.value) == "Soda Cloud at mock.soda.io sent an answer this version of Soda cannot read"
-    assert "First 500 chars: " + body.decode() in caplog.text
+    [record] = [r for r in caplog.records if "does not fit _FileAnswer" in r.getMessage()]
+    assert record.levelno == (logging.WARNING if body.startswith(b"<") else logging.DEBUG)
+    assert record.getMessage().endswith("First 500 chars: " + body.decode())
     assert type(exc.value) is SodaCloudException
 
 

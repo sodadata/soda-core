@@ -1522,8 +1522,11 @@ class SodaCloud:
         try:
             return response_model.model_validate(body)
         except ValidationError as exc:
-            logger.warning(
-                "Soda Cloud answered with a body %s cannot read (status %s). First 500 chars: %s",
+            # A body that is not JSON, such as a gateway page, goes to the console; a JSON one may carry values
+            # that should stay off it.
+            log = logger.warning if body is None else logger.debug
+            log(
+                "Soda Cloud's answer does not fit %s (status %s). First 500 chars: %s",
                 response_model.__name__,
                 response.status_code,
                 response.text[:500],
