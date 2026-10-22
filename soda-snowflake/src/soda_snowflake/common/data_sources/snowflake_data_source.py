@@ -438,7 +438,7 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     def _build_merge_sql(self, upsert: UPSERT | UPSERT_VIA_SELECT, source_sql: str, name_source_columns: bool) -> str:
         # Unmatched duplicate keys all insert; matched ones fail only on UPDATE with ERROR_ON_NONDETERMINISTIC_MERGE.
         target_alias: str = upsert.alias or self._MERGE_DEFAULT_TARGET_ALIAS
-        if target_alias.lower() == self._MERGE_SOURCE_ALIAS:
+        if target_alias == self._MERGE_SOURCE_ALIAS:
             raise UnsupportedSqlStatementError(
                 f"{type(self).__name__} does not support an upsert target alias {target_alias!r}: "
                 f"it names the incoming rows"
@@ -504,8 +504,8 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
 
     def _build_epoch_seconds_sql(self, epoch_seconds: EPOCH_SECONDS) -> str:
         # Snowflake has no interval type: a timestamp difference is TIMESTAMPDIFF's count of one unit.
-        raise self._unsupported_sql_statement_error("EPOCH_SECONDS")
+        return super()._build_epoch_seconds_sql(epoch_seconds)
 
     def _build_json_merge_sql(self, json_merge: JSON_MERGE) -> str:
         # No built-in merges two OBJECT values without casting them to MAP; a caller sets the keys one by one.
-        raise self._unsupported_sql_statement_error("JSON_MERGE")
+        return super()._build_json_merge_sql(json_merge)

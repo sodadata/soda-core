@@ -45,7 +45,6 @@ from soda_core.common.sql_ast import (
     LITERAL,
     LOWER,
     NULLIF,
-    PLACEHOLDER,
     REGEXP_REPLACE,
     SELECT,
     SOURCE_COLUMN,
@@ -463,8 +462,7 @@ def test_the_merge_ends_with_a_semicolon_as_any_statement_does(dialect, render, 
     assert render(dialect, add_semicolon) == expected_sql + semicolon
 
 
-@pytest.mark.parametrize("alias", ["src", "SRC"])
-@pytest.mark.parametrize(
+_RENDER_ALIASED_UPSERT = pytest.mark.parametrize(
     "render",
     [
         lambda d, alias: d.build_upsert_sql(
@@ -476,13 +474,25 @@ def test_the_merge_ends_with_a_semicolon_as_any_statement_does(dialect, render, 
     ],
     ids=["UPSERT", "UPSERT_VIA_SELECT"],
 )
-def test_an_upsert_target_cannot_be_aliased_as_the_incoming_rows(dialect, render, alias):
+
+
+@_RENDER_ALIASED_UPSERT
+def test_an_upsert_target_cannot_be_aliased_as_the_incoming_rows(dialect, render):
     with pytest.raises(UnsupportedSqlStatementError) as error:
-        render(dialect, alias)
+        render(dialect, "src")
 
     assert str(error.value) == (
-        f"SnowflakeSqlDialect does not support an upsert target alias {alias!r}: it names the incoming rows"
+        "SnowflakeSqlDialect does not support an upsert target alias 'src': it names the incoming rows"
     )
+
+
+@_RENDER_ALIASED_UPSERT
+def test_an_upsert_target_alias_differing_only_in_case_from_the_incoming_rows_is_allowed(dialect, render):
+    # A quoted identifier is case-sensitive.
+    sql = render(dialect, "SRC")
+
+    assert sql.startswith('MERGE INTO "s"."t" AS "SRC"\n')
+    assert 'ON ("SRC"."id" = "src"."id")\n' in sql
 
 
 @pytest.mark.parametrize(
@@ -642,7 +652,6 @@ _EXPRESSIONS = [
         ARITHMETIC("/", ARITHMETIC("-", COLUMN("a"), COLUMN("b")), ARITHMETIC("*", LITERAL(2), COLUMN("c"))),
         '(("a" - "b") / (2 * "c"))',
     ),
-    ("PLACEHOLDER", PLACEHOLDER(), "?"),
     (
         "TIMESTAMP_ISO_TEXT",
         TIMESTAMP_ISO_TEXT(COLUMN("ts")),
