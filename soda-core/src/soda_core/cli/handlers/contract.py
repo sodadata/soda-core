@@ -49,6 +49,8 @@ def handle_verify_contract(
     A contract that could not be fetched for -d/--dataset raises
     ``ContractFetchFailedException``. It becomes a ``ScanExecutionFailedException``
     here, so ``run_scan`` logs its message without a traceback and reports it.
+    A file that fails to parse raises ``YamlParserException`` and is converted
+    the same way.
 
     ``logs`` is the wrapper's collector, threaded into the session so every
     construction/verify record lands in the collector the failure report
@@ -86,7 +88,7 @@ def handle_verify_contract(
             dwh_data_source_file_path=dwh_files,
             logs=logs,
         )
-    except ContractFetchFailedException as exc:
+    except (ContractFetchFailedException, YamlParserException) as exc:
         raise ScanExecutionFailedException(str(exc)) from exc
 
     return interpret_contract_verification_result(contract_verification_result)
