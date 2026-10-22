@@ -1,10 +1,12 @@
+import contextvars
 import hashlib
 import logging
 import os
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, StreamHandler
-from typing import Optional
+from typing import Iterator, Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
@@ -80,7 +82,92 @@ def _prepare_masked_file():
             _masked_values.update({l.strip() for l in read_lines})
 
 
+GROUP_VALUES_REDACTED_MARKER: str = "[group-by details redacted]"
+
+# Process-wide run configuration, like ``verbose_mode``: a run sets it from the org
+# setting it fetched and every record masked afterwards is held against it.
+_group_values_redaction_enabled: bool = False
+
+# Read at mask time on the thread that emits the record. Handlers mask synchronously on
+# the emitting thread, so the caller's scope is the one that counts.
+_group_values_scope: contextvars.ContextVar[bool] = contextvars.ContextVar("soda_group_values_scope", default=False)
+
+
+def set_group_values_redaction(enabled: bool) -> None:
+    """Switch the redaction of log records that carry group-by group keys or values.
+
+    When on, such a record (marked with ``extra={ExtraKeys.GROUP_VALUES: True}`` or emitted
+    inside ``group_values_scope()``) reaches every handler as the bare
+    ``GROUP_VALUES_REDACTED_MARKER``: no message, no args, no traceback, no exception
+    text. Only the exception class survives, as a static identifier it cannot hold a value.
+    """
+    global _group_values_redaction_enabled
+    _group_values_redaction_enabled = enabled
+
+
+def is_group_values_redaction_enabled() -> bool:
+    return _group_values_redaction_enabled
+
+
+@contextmanager
+def group_values_scope() -> Iterator[None]:
+    """Treat every log record emitted in the block as carrying group-by values.
+
+    For the log sites that cannot know they handle group-by data: query result rows,
+    warehouse inserts, driver and connector errors. Nestable and exception-safe.
+
+    The scope is read when the record is masked, on the thread that logged it. Work
+    moved to another thread does not inherit it: carry it over with
+    ``contextvars.copy_context().run(...)``.
+    """
+    token = _group_values_scope.set(True)
+    try:
+        yield
+    finally:
+        _group_values_scope.reset(token)
+
+
+def _carries_group_values(record: LogRecord) -> bool:
+    return bool(getattr(record, ExtraKeys.GROUP_VALUES, False)) or _group_values_scope.get()
+
+
+# Set on a record once it has been redacted: a later pass re-applies the redaction (fail
+# closed) but keeps the exception class the first pass derived from the since-dropped
+# ``exc_info``.
+_GROUP_VALUES_REDACTED_ATTR: str = "group_values_redacted"
+
+
+def _redact_group_values(record: LogRecord) -> None:
+    """Replace the record by the marker, before anything of it is formatted.
+
+    Clears every field a handler renders or uploads: ``msg``/``args`` (the message),
+    ``exc_info``/``exc_text`` (the console traceback) and the ``ExtraKeys.EXCEPTION``
+    extra (the only exception field the Cloud upload carries), keeping the exception
+    class as the one value-free thing worth knowing. Stamps ``ExtraKeys.GROUP_VALUES`` so
+    a later handler, on another thread or replaying the record outside the scope,
+    recognises it without the scope.
+    """
+    exception_class: Optional[str] = None
+    if isinstance(record.exc_info, tuple) and record.exc_info[0] is not None:
+        exc_type = record.exc_info[0]
+        module: str = exc_type.__module__
+        exception_class = exc_type.__qualname__ if module == "builtins" else f"{module}.{exc_type.__qualname__}"
+    record.msg = GROUP_VALUES_REDACTED_MARKER
+    record.args = ()
+    record.exc_info = None
+    record.exc_text = None
+    if exception_class is not None:
+        setattr(record, ExtraKeys.EXCEPTION, exception_class)
+    elif hasattr(record, ExtraKeys.EXCEPTION) and not getattr(record, _GROUP_VALUES_REDACTED_ATTR, False):
+        setattr(record, ExtraKeys.EXCEPTION, None)
+    setattr(record, ExtraKeys.GROUP_VALUES, True)
+    setattr(record, _GROUP_VALUES_REDACTED_ATTR, True)
+
+
 def _mask_record(record: LogRecord):
+    if _group_values_redaction_enabled and _carries_group_values(record):
+        _redact_group_values(record)
+        return
     message = record.getMessage()
     if message:
         for masked in _masked_values:
