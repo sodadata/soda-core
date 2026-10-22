@@ -84,42 +84,33 @@ def _prepare_masked_file():
 
 GROUP_VALUES_REDACTED_MARKER: str = "[group-by details redacted]"
 
-# Process-wide run configuration, like ``verbose_mode``: a run sets it from the org
-# setting it fetched and every record masked afterwards is held against it.
-_group_values_redaction_enabled: bool = False
-
 # Read at mask time on the thread that emits the record. Handlers mask synchronously on
 # the emitting thread, so the caller's scope is the one that counts.
 _group_values_scope: contextvars.ContextVar[bool] = contextvars.ContextVar("soda_group_values_scope", default=False)
 
 
-def set_group_values_redaction(enabled: bool) -> None:
-    """Switch the redaction of log records that carry group-by group keys or values.
-
-    When on, such a record (marked with ``extra={ExtraKeys.GROUP_VALUES: True}`` or emitted
-    inside ``group_values_scope()``) reaches every handler as the bare
-    ``GROUP_VALUES_REDACTED_MARKER``: no message, no args, no traceback, no exception
-    text. Only the exception class survives, as a static identifier it cannot hold a value.
-    """
-    global _group_values_redaction_enabled
-    _group_values_redaction_enabled = enabled
-
-
-def is_group_values_redaction_enabled() -> bool:
-    return _group_values_redaction_enabled
-
-
 @contextmanager
-def group_values_scope() -> Iterator[None]:
-    """Treat every log record emitted in the block as carrying group-by values.
+def group_values_scope(enabled: bool = True) -> Iterator[None]:
+    """Redact every log record emitted in the block as carrying group-by values.
 
     For the log sites that cannot know they handle group-by data: query result rows,
-    warehouse inserts, driver and connector errors. Nestable and exception-safe.
+    warehouse inserts, driver and connector errors. The group-by code that wraps them
+    knows whether its run blocks group-by results, and passes that as ``enabled``: when
+    False the block is left as it is. Nestable and exception-safe; an inner disabled
+    scope does not lift an outer enabled one.
+
+    A redacted record (one emitted in the scope, or marked with a truthy
+    ``extra={ExtraKeys.GROUP_VALUES: ...}``) reaches every handler as the bare
+    ``GROUP_VALUES_REDACTED_MARKER``: no message, no args, no traceback, no exception
+    text. Only the exception class survives, as a static identifier it cannot hold a value.
 
     The scope is read when the record is masked, on the thread that logged it. Work
     moved to another thread does not inherit it: carry it over with
     ``contextvars.copy_context().run(...)``.
     """
+    if not enabled:
+        yield
+        return
     token = _group_values_scope.set(True)
     try:
         yield
@@ -165,7 +156,7 @@ def _redact_group_values(record: LogRecord) -> None:
 
 
 def _mask_record(record: LogRecord):
-    if _group_values_redaction_enabled and _carries_group_values(record):
+    if _carries_group_values(record):
         _redact_group_values(record)
         return
     message = record.getMessage()
