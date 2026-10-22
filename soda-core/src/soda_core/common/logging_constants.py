@@ -23,6 +23,6 @@ class ExtraKeys:
     LOCATION: str = "location"
     DOC: str = "doc"
     EXCEPTION: str = "exception"
-    # Truthy on a record that carries group-by group keys or values; see
-    # ``logging_configuration.set_group_values_redaction``.
+    # Truthy on a record that carries group-by group keys or values and must be redacted;
+    # the log site sets it from its run's setting. See ``logging_configuration.group_values_scope``.
     GROUP_VALUES: str = "group_values"

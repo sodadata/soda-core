@@ -13,8 +13,6 @@ from soda_core.common.logging_configuration import (
     _mask_record,
     _masked_values,
     group_values_scope,
-    is_group_values_redaction_enabled,
-    set_group_values_redaction,
 )
 
 
@@ -174,13 +172,6 @@ def test_console_formatter_output_has_no_secret_when_masking_fails(monkeypatch, 
 # --- Group-values redaction -------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _group_values_redaction_off():
-    """The switch is a module global: never let one test's setting leak into the next."""
-    yield
-    set_group_values_redaction(False)
-
-
 def _record(message: str, *args, level: int = logging.INFO, **extra) -> logging.LogRecord:
     """A record the way ``Logger.makeRecord`` builds one: ``extra`` keys become attributes."""
     record = logging.LogRecord(
@@ -197,7 +188,6 @@ class _MustNotBeFormatted:
 
 
 def test_marked_record_redacted_when_enabled() -> None:
-    set_group_values_redaction(True)
     record = _record("group ['SENTINEL']: 1", group_values=True)
 
     _mask_record(record)
@@ -209,7 +199,6 @@ def test_marked_record_redacted_when_enabled() -> None:
 def test_redaction_does_not_format_args() -> None:
     """The trigger is checked before the message is built: group values passed as ``args``
     are never interpolated, and a broken format can't raise ahead of the redaction."""
-    set_group_values_redaction(True)
     record = _record("group %s: %s", _MustNotBeFormatted(), 1, group_values=True)
 
     _mask_record(record)
@@ -218,8 +207,6 @@ def test_redaction_does_not_format_args() -> None:
 
 
 def test_scope_record_redacted_when_enabled() -> None:
-    set_group_values_redaction(True)
-
     with group_values_scope():
         inside = _record("row SENTINEL | 1")
         _mask_record(inside)
@@ -231,8 +218,6 @@ def test_scope_record_redacted_when_enabled() -> None:
 
 
 def test_nested_scope_restores_outer() -> None:
-    set_group_values_redaction(True)
-
     with group_values_scope():
         with group_values_scope():
             pass
@@ -246,8 +231,6 @@ def test_nested_scope_restores_outer() -> None:
 
 
 def test_scope_reset_on_exception() -> None:
-    set_group_values_redaction(True)
-
     with pytest.raises(RuntimeError):
         with group_values_scope():
             raise RuntimeError("query failed")
@@ -261,7 +244,6 @@ def test_stamped_record_redacted_outside_scope() -> None:
     """A record is masked by every handler it reaches, and a captured record is replayed
     later outside the scope (gatherer switch, forwarding collector). The first pass stamps
     it so the later passes still recognise it."""
-    set_group_values_redaction(True)
     with group_values_scope():
         record = _record("row SENTINEL | 1")
         _mask_record(record)
@@ -277,7 +259,6 @@ def test_redaction_drops_exception() -> None:
     """Console: no traceback. Cloud: the ``exception`` extra is the only exception field
     the upload carries; it keeps the exception class (a static identifier, never a value)
     and nothing else."""
-    set_group_values_redaction(True)
     record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
     record.group_values = True
 
@@ -292,7 +273,6 @@ def test_redaction_drops_exception() -> None:
 def test_redaction_clears_exception_extra() -> None:
     """A stacktrace attached via the ``exception`` extra (without ``exc_info``) is what
     reaches Cloud; it is dropped like the traceback."""
-    set_group_values_redaction(True)
     record = _record("insert failed", group_values=True, exception="Traceback ... VALUES ('SENTINEL')")
 
     _mask_record(record)
@@ -303,7 +283,6 @@ def test_redaction_clears_exception_extra() -> None:
 
 def test_redaction_is_idempotent() -> None:
     """A second pass (next handler) keeps the first pass's result, incl. the exception class."""
-    set_group_values_redaction(True)
     record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
     record.group_values = True
 
@@ -314,21 +293,36 @@ def test_redaction_is_idempotent() -> None:
     assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
 
 
-def test_no_redaction_when_disabled() -> None:
-    assert is_group_values_redaction_enabled() is False
+def test_no_redaction_when_not_marked() -> None:
+    """The log site marks a record with its run's setting: a falsy mark leaves it as is."""
     record = _error_record_with_exception("group SENTINEL failed", _value_error_containing("SENTINEL"))
-    record.group_values = True
+    record.group_values = False
 
-    with group_values_scope():
-        _mask_record(record)
+    _mask_record(record)
 
     assert record.getMessage() == "group SENTINEL failed"
     assert record.exc_info is not None
     assert not hasattr(record, "exception")
 
 
+def test_no_redaction_in_disabled_scope() -> None:
+    with group_values_scope(enabled=False):
+        record = _record("row SENTINEL | 1")
+        _mask_record(record)
+
+    assert record.getMessage() == "row SENTINEL | 1"
+
+
+def test_disabled_scope_does_not_lift_enabled_scope() -> None:
+    with group_values_scope():
+        with group_values_scope(enabled=False):
+            record = _record("row SENTINEL | 1")
+            _mask_record(record)
+
+    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
+
+
 def test_console_formatter_redacts_scope_record() -> None:
-    set_group_values_redaction(True)
     record = _error_record_with_exception("query failed for SENTINEL", _value_error_containing("SENTINEL"))
 
     with group_values_scope():
@@ -343,7 +337,6 @@ def test_cloud_log_dict_of_redacted_record_has_no_values() -> None:
     """The two value-bearing fields of a Cloud log dict are ``message`` and ``exception``."""
     from soda_core.common.soda_cloud import build_log_cloud_json_dict
 
-    set_group_values_redaction(True)
     record = _error_record_with_exception("query failed for SENTINEL", _value_error_containing("SENTINEL"))
     with group_values_scope():
         _mask_record(record)
@@ -356,7 +349,6 @@ def test_cloud_log_dict_of_redacted_record_has_no_values() -> None:
 
 
 def test_secret_masking_unchanged(registered_secret: str) -> None:
-    set_group_values_redaction(True)
     record = _record(f"connecting with {registered_secret}")
 
     _mask_record(record)
