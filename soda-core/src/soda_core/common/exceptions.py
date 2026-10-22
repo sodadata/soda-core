@@ -93,6 +93,21 @@ class SodaCloudException(SodaCoreException):
     """Base class for all SodaCloud related exceptions."""
 
 
+class SodaCloudRequestException(SodaCloudException):
+    """A Soda Cloud command or query got no usable answer.
+
+    ``status`` is None when core got no answer it could read: the request raised, which includes a
+    request that was never sent, such as a payload core cannot serialize, and core logged the cause at
+    CRITICAL. Otherwise ``status`` is the HTTP status of the error answer, and ``code`` is the ``code``
+    of its JSON body, when it has one.
+    """
+
+    def __init__(self, message: str, status: Optional[int] = None, code: Optional[str] = None):
+        super().__init__(message)
+        self.status: Optional[int] = status
+        self.code: Optional[str] = code
+
+
 class DatasetQueryException(SodaCloudException):
     """A dataset-scoped Soda Cloud query failed.
 

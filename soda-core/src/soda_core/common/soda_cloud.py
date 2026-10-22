@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import logging
 import math
@@ -31,6 +32,7 @@ from soda_core.common.exceptions import (
     InvalidSodaCloudConfigurationException,
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
+    SodaCloudRequestException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -1468,6 +1470,43 @@ class SodaCloud:
             request_type="query", request_log_name=request_log_name, request_body=query_json_dict.copy(), is_retry=True
         )
 
+    def execute_command(self, command_json_dict: dict, request_log_name: str) -> dict:
+        """Issue a CQRS command and return the parsed JSON body of a successful answer, or an
+        empty dict when that body is not a JSON object. The command is sent from a deep copy,
+        so the caller's dict and the values nested in it are left as they were.
+
+        Raises ``SodaCloudRequestException`` when no answer came back or the answer is an
+        error status, with the status and Soda Cloud's error code, so a caller can map a
+        feature-specific code. Core has already logged the error answer at ERROR, so inside
+        an active ``Logs`` it counts as an error even when the caller recovers. A refused API
+        key raises ``SodaCloudAuthenticationFailedException`` instead, which is a
+        ``SodaCoreException`` and not a ``SodaCloudException``, so catch it separately.
+        """
+        return self._read_request_answer(self._execute_command(copy.deepcopy(command_json_dict), request_log_name))
+
+    def execute_query(self, query_json_dict: dict, request_log_name: str) -> dict:
+        """Issue a CQRS query and return the parsed JSON body of a successful answer.
+
+        Copies and fails as :meth:`execute_command` does.
+        """
+        return self._read_request_answer(self._execute_query(copy.deepcopy(query_json_dict), request_log_name))
+
+    def _read_request_answer(self, response: Optional[Response]) -> dict:
+        # _execute_cqrs_request returns None after logging a request that raised.
+        if response is None:
+            raise SodaCloudRequestException(f"The request to Soda Cloud at {self.host} did not complete")
+        if not response.ok:
+            try:
+                body = response.json()
+            except ValueError:
+                body = None
+            raise SodaCloudRequestException(
+                f"Soda Cloud at {self.host} answered with status {response.status_code}",
+                status=response.status_code,
+                code=body.get("code") if isinstance(body, dict) else None,
+            )
+        return self._parse_json_body(response)
+
     def execute_dataset_query(
         self,
         query_type: str,
@@ -1478,7 +1517,7 @@ class SodaCloud:
         """Issue a dataset-scoped CQRS query and return the parsed JSON body.
 
         Builds the standard ``{type, dataset: {datasource, prefixes, name}}`` envelope,
-        issues it through :meth:`execute_query`, and maps the failures every dataset
+        issues it through :meth:`_execute_query`, and maps the failures every dataset
         query shares to typed exceptions: a missing data source or dataset
         (``datasource_not_found`` / ``dataset_not_found``), any non-200 status, and
         missing or non-JSON response bodies (e.g. a gateway HTML error page).
@@ -1548,8 +1587,12 @@ class SodaCloud:
         return body if isinstance(body, dict) else {}
 
     def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Optional[Response]:
+        # Copy so the auth token injected downstream doesn't mutate the caller's dict, as _execute_query does.
         return self._execute_cqrs_request(
-            request_type="command", request_log_name=request_log_name, request_body=command_json_dict, is_retry=True
+            request_type="command",
+            request_log_name=request_log_name,
+            request_body=command_json_dict.copy(),
+            is_retry=True,
         )
 
     def _execute_cqrs_request(

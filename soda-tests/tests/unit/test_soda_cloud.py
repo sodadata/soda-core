@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -23,7 +24,9 @@ from soda_core.common.exceptions import (
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     InvalidArgumentException,
+    SodaCloudAuthenticationFailedException,
     SodaCloudException,
+    SodaCloudRequestException,
 )
 from soda_core.common.soda_cloud import (
     ContractSkeletonGenerationState,
@@ -1127,6 +1130,74 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
     assert "token" not in query_json_dict
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_return_the_body_and_leave_the_request_alone(method):
+    soda_cloud = MockSodaCloud([MockResponse(json_object={"fileId": "f1"})])
+    # A nested None and datetime are what core's serializer rewrites in place on the dict it sends.
+    since = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    request = {"type": "sodaCoreSomething", "dataset": {"name": "orders", "prefixes": None, "since": since}}
+    assert getattr(soda_cloud, method)(request, "something") == {"fileId": "f1"}
+    assert soda_cloud.requests[0].json["type"] == "sodaCoreSomething"
+    assert request == {"type": "sodaCoreSomething", "dataset": {"name": "orders", "prefixes": None, "since": since}}
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_return_an_empty_dict_for_a_body_that_is_not_an_object(method):
+    answer = MockResponse()
+    answer.raw = io.BytesIO(b'["not", "an", "object"]')
+    soda_cloud = MockSodaCloud([answer])
+    assert getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something") == {}
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_without_an_answer_raise_with_no_status(method):
+    soda_cloud = MockSodaCloud([])
+    with mock.patch.object(soda_cloud, "_http_post", side_effect=ConnectionError("down")):
+        with pytest.raises(SodaCloudRequestException) as exc:
+            getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something")
+    assert str(exc.value) == "The request to Soda Cloud at mock.soda.io did not complete"
+    assert (exc.value.status, exc.value.code) == (None, None)
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_with_an_error_answer_raise_with_its_status_and_code(method):
+    soda_cloud = MockSodaCloud(
+        [MockResponse(status_code=400, json_object={"code": "invalid_request", "message": "no"})]
+    )
+    with pytest.raises(SodaCloudRequestException) as exc:
+        getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something")
+    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400"
+    assert (exc.value.status, exc.value.code) == (400, "invalid_request")
+
+
+def test_execute_command_with_a_refused_api_key_raises_the_authentication_failure():
+    soda_cloud = MockSodaCloud([MockResponse(status_code=401, json_object={}), MockResponse(status_code=403)])
+    with pytest.raises(SodaCloudAuthenticationFailedException):
+        soda_cloud.execute_command({"type": "sodaCoreSomething"}, "something")
+
+
+def test_execute_command_with_a_401_after_a_fresh_login_raises_with_the_status():
+    soda_cloud = MockSodaCloud(
+        [
+            MockResponse(status_code=401, json_object={}),
+            MockResponse(json_object={"token": "fresh"}),
+            MockResponse(status_code=401, json_object={"code": "nope"}),
+        ]
+    )
+    with pytest.raises(SodaCloudRequestException) as exc:
+        soda_cloud.execute_command({"type": "sodaCoreSomething"}, "something")
+    assert (exc.value.status, exc.value.code) == (401, "nope")
+
+
+def test_execute_query_with_an_html_error_page_raises_with_no_code():
+    gateway = MockResponse(status_code=502)
+    gateway.raw = io.BytesIO(b"<html>Bad gateway</html>")
+    soda_cloud = MockSodaCloud([gateway])
+    with pytest.raises(SodaCloudRequestException) as exc:
+        soda_cloud.execute_query({"type": "sodaCoreSomething"}, "something")
+    assert (exc.value.status, exc.value.code) == (502, None)
 
 
 def _query_response(status_code, json_object=None, json_raises=False):
