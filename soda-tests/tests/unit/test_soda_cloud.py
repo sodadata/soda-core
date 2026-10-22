@@ -1143,10 +1143,11 @@ def test_execute_command_and_query_return_the_body_and_leave_the_request_alone(m
     assert request == {"type": "sodaCoreSomething", "dataset": {"name": "orders", "prefixes": None, "since": since}}
 
 
+@pytest.mark.parametrize("body", [b'["not", "an", "object"]', b"<html>Ok</html>"], ids=["json list", "html"])
 @pytest.mark.parametrize("method", ["execute_command", "execute_query"])
-def test_execute_command_and_query_return_an_empty_dict_for_a_body_that_is_not_an_object(method):
+def test_execute_command_and_query_return_an_empty_dict_for_a_body_that_is_not_an_object(method, body):
     answer = MockResponse()
-    answer.raw = io.BytesIO(b'["not", "an", "object"]')
+    answer.raw = io.BytesIO(body)
     soda_cloud = MockSodaCloud([answer])
     assert getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something") == {}
 
