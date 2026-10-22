@@ -778,8 +778,12 @@ class CheckCollectionImpl:
         self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
+        # Group-by log sites redact group keys and values when set: they mark their records with it
+        # and enter group_values_scope(enabled=...) with it. Without Soda Cloud nothing is blocked.
+        self.block_group_by_results_to_cloud: bool = False
         if self.soda_cloud:
             self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
+            self.block_group_by_results_to_cloud = self.soda_cloud.block_group_by_results_to_cloud
 
         if self.dataset_configuration:
             if (
