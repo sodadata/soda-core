@@ -1189,7 +1189,7 @@ def test_execute_command_and_query_with_an_error_answer_raise_with_its_status_an
     send = getattr(soda_cloud, method)
     with pytest.raises(SodaCloudRequestException) as exc:
         send({"type": "sodaCoreSomething"}, "something", _FileAnswer)
-    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400"
+    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400: no"
     assert (exc.value.status, exc.value.code) == (400, "invalid_request")
 
 
@@ -1219,6 +1219,7 @@ def test_execute_query_with_an_html_error_page_raises_with_no_code():
     with pytest.raises(SodaCloudRequestException) as exc:
         soda_cloud.execute_query({"type": "sodaCoreSomething"}, "something", _FileAnswer)
     assert (exc.value.status, exc.value.code) == (502, None)
+    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 502"
 
 
 def _query_response(status_code, json_object=None, json_raises=False):

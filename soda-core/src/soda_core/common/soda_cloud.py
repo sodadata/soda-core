@@ -1481,7 +1481,8 @@ class SodaCloud:
         they were.
 
         Raises ``SodaCloudRequestException`` when Soda Cloud answers with an error status, with
-        the status and Soda Cloud's error code, so a caller can map a feature-specific code. Core
+        the status and Soda Cloud's error code, so a caller can map a feature-specific code, and
+        Soda Cloud's message in its text when the answer has one. Core
         has already logged the error answer at ERROR, so inside an active ``Logs`` it counts as an
         error even when the caller recovers. Raises ``SodaCloudException`` when core got no answer
         it could read: the request raised, which includes a request that was never sent, such as a
@@ -1514,10 +1515,14 @@ class SodaCloud:
         except ValueError:
             body = None
         if not response.ok:
+            error = body if isinstance(body, dict) else {}
+            # Soda Cloud's own message only: a raw body can be a whole gateway page.
+            message = error.get("message")
             raise SodaCloudRequestException(
-                f"Soda Cloud at {self.host} answered with status {response.status_code}",
+                f"Soda Cloud at {self.host} answered with status {response.status_code}"
+                + (f": {message}" if message else ""),
                 status=response.status_code,
-                code=body.get("code") if isinstance(body, dict) else None,
+                code=error.get("code"),
             )
         try:
             return response_model.model_validate(body)
