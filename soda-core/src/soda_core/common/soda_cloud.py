@@ -1474,7 +1474,7 @@ class SodaCloud:
         )
 
     def execute_command(
-        self, command_json_dict: dict, request_log_name: str, response_model: type[ResponseModel]
+        self, command_json_dict: dict, response_model: type[ResponseModel], *, request_log_name: str
     ) -> ResponseModel:
         """Issue a CQRS command and return the body of a successful answer validated as ``response_model``.
         The command is sent from a deep copy, so the caller's dict and the values nested in it are left as
@@ -1496,7 +1496,7 @@ class SodaCloud:
         )
 
     def execute_query(
-        self, query_json_dict: dict, request_log_name: str, response_model: type[ResponseModel]
+        self, query_json_dict: dict, response_model: type[ResponseModel], *, request_log_name: str
     ) -> ResponseModel:
         """Issue a CQRS query and return the body of a successful answer validated as ``response_model``.
 
