@@ -865,7 +865,8 @@ class REGEX_LIKE(SqlExpression):
 class LIKE(Operator):
     # The character that makes the next `%`, `_` or itself literal in the pattern; renders
     # `ESCAPE '<char>'`. None renders no ESCAPE clause.
-    # On T-SQL `[` opens a character-set wildcard as well, so a caller escapes it there too.
+    # On T-SQL `[` opens a character-set wildcard as well; the SQL Server dialect escapes it in a literal
+    # pattern when `escape` is set, so a caller escapes only `%`, `_` and the escape character.
     escape: Optional[str] = None
 
     def __post_init__(self):

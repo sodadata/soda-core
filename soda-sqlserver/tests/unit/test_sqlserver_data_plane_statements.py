@@ -44,7 +44,6 @@ from soda_core.common.sql_ast import (
     LOWER,
     NULLIF,
     ORDER_BY_ASC,
-    PLACEHOLDER,
     REGEXP_REPLACE,
     SELECT,
     SOURCE_COLUMN,
@@ -516,25 +515,39 @@ def test_analyze_table_updates_the_statistics(dialect):
     assert dialect.build_analyze_table_sql(ANALYZE_TABLE(TABLE)) == "UPDATE STATISTICS [s].[t];"
 
 
-def test_create_schema_if_not_exists(dialect):
-    sql = dialect.build_create_schema_sql(CREATE_SCHEMA_IF_NOT_EXISTS(prefixes=["db", "s"]))
+def test_create_schema_if_not_exists_in_the_current_database(dialect):
+    sql = dialect.build_create_schema_sql(CREATE_SCHEMA_IF_NOT_EXISTS(prefixes=["", "s"]))
 
     assert sql == "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N's') EXEC(N'CREATE SCHEMA [s]');"
 
 
+def test_create_schema_if_not_exists_in_the_named_database(dialect):
+    # sys.schemas lists the current database's schemas alone; sp_executesql runs in the database it belongs to.
+    sql = dialect.build_create_schema_sql(CREATE_SCHEMA_IF_NOT_EXISTS(prefixes=["db", "s"]))
+
+    assert sql == (
+        "IF NOT EXISTS (SELECT 1 FROM [db].sys.schemas WHERE name = N's') "
+        "EXEC [db].sys.sp_executesql N'CREATE SCHEMA [s]';"
+    )
+
+
 @pytest.mark.parametrize(
-    "schema_name, expected_sql",
+    "database_name, expected_sql",
     [
         (
-            "it's",
+            "",
             "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'it''s') EXEC(N'CREATE SCHEMA [it''s]')",
         ),
-        ("a]b", "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'a]b') EXEC(N'CREATE SCHEMA [a]]b]')"),
+        (
+            "db",
+            "IF NOT EXISTS (SELECT 1 FROM [db].sys.schemas WHERE name = N'it''s') "
+            "EXEC [db].sys.sp_executesql N'CREATE SCHEMA [it''s]'",
+        ),
     ],
 )
-def test_create_schema_escapes_the_name(dialect, schema_name, expected_sql):
+def test_create_schema_escapes_the_name(dialect, database_name, expected_sql):
     # The name is a string literal in the lookup, and a bracket-quoted identifier inside the EXEC'd literal.
-    sql = dialect.build_create_schema_sql(CREATE_SCHEMA_IF_NOT_EXISTS(["db", schema_name]), add_semicolon=False)
+    sql = dialect.build_create_schema_sql(CREATE_SCHEMA_IF_NOT_EXISTS([database_name, "it's"]), add_semicolon=False)
 
     assert sql == expected_sql
 
@@ -591,14 +604,29 @@ def test_a_column_default_can_be_the_current_timestamp(dialect):
 # ---------------------------------------------------------------------------
 
 
-def test_like_with_an_escape_character(dialect):
-    sql = dialect.build_expression_sql(LIKE(COLUMN("name"), LITERAL("x!_y![a]%"), escape="!"))
+def test_like_with_an_escape_character_escapes_the_character_set_bracket(dialect):
+    # The caller escapes `%`, `_` and the escape character; T-SQL's `[` wildcard is the dialect's to escape.
+    pattern = LITERAL("x!_y[a]%")
+    sql = dialect.build_expression_sql(LIKE(COLUMN("name"), pattern, escape="!"))
 
     assert sql == "[name] like 'x!_y![a]%' ESCAPE '!'"
+    assert pattern.value == "x!_y[a]%"
+
+
+def test_like_with_a_bracket_escape_character_is_not_escaped_twice(dialect):
+    sql = dialect.build_expression_sql(LIKE(COLUMN("name"), LITERAL("x[_y[[a]%"), escape="["))
+
+    assert sql == "[name] like 'x[_y[[a]%' ESCAPE '['"
+
+
+def test_like_with_an_escape_character_leaves_a_non_literal_pattern_unchanged(dialect):
+    sql = dialect.build_expression_sql(LIKE(COLUMN("name"), COLUMN("pattern"), escape="!"))
+
+    assert sql == "[name] like [pattern] ESCAPE '!'"
 
 
 def test_like_without_an_escape_is_unchanged(dialect):
-    assert dialect.build_expression_sql(LIKE(COLUMN("name"), LITERAL("%a%"))) == "[name] like '%a%'"
+    assert dialect.build_expression_sql(LIKE(COLUMN("name"), LITERAL("%[a]%"))) == "[name] like '%[a]%'"
 
 
 # ---------------------------------------------------------------------------
@@ -615,7 +643,6 @@ _EXPRESSIONS = [
         ARITHMETIC("/", ARITHMETIC("-", COLUMN("a"), COLUMN("b")), ARITHMETIC("*", LITERAL(2), COLUMN("c"))),
         "(([a] - [b]) / (2 * [c]))",
     ),
-    ("PLACEHOLDER", PLACEHOLDER(), "?"),
     (
         "TIMESTAMP_ISO_TEXT",
         TIMESTAMP_ISO_TEXT(COLUMN("ts")),
