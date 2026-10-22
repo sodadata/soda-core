@@ -1522,6 +1522,12 @@ class SodaCloud:
         try:
             return response_model.model_validate(body)
         except ValidationError as exc:
+            logger.warning(
+                "Soda Cloud answered with a body %s cannot read (status %s). First 500 chars: %s",
+                response_model.__name__,
+                response.status_code,
+                response.text[:500],
+            )
             raise SodaCloudException(
                 f"Soda Cloud at {self.host} sent an answer this version of Soda cannot read"
             ) from exc

@@ -1152,7 +1152,9 @@ def test_execute_command_and_query_return_the_validated_body_and_leave_the_reque
     "body", [b'{"fileId": 1}', b'["not", "an", "object"]', b"<html>Ok</html>"], ids=["wrong type", "json list", "html"]
 )
 @pytest.mark.parametrize("method", ["execute_command", "execute_query"])
-def test_execute_command_and_query_with_an_answer_the_model_cannot_read_raise_a_soda_cloud_exception(method, body):
+def test_execute_command_and_query_with_an_answer_the_model_cannot_read_raise_a_soda_cloud_exception(
+    method, body, caplog
+):
     answer = MockResponse()
     answer.raw = io.BytesIO(body)
     soda_cloud = MockSodaCloud([answer])
@@ -1160,7 +1162,8 @@ def test_execute_command_and_query_with_an_answer_the_model_cannot_read_raise_a_
     with pytest.raises(SodaCloudException) as exc:
         send({"type": "sodaCoreSomething"}, "something", _FileAnswer)
     assert str(exc.value) == "Soda Cloud at mock.soda.io sent an answer this version of Soda cannot read"
-    assert not isinstance(exc.value, SodaCloudRequestException)
+    assert "First 500 chars: " + body.decode() in caplog.text
+    assert type(exc.value) is SodaCloudException
 
 
 @pytest.mark.parametrize("method", ["execute_command", "execute_query"])
@@ -1171,8 +1174,7 @@ def test_execute_command_and_query_without_an_answer_raise_a_soda_cloud_exceptio
         with pytest.raises(SodaCloudException) as exc:
             send({"type": "sodaCoreSomething"}, "something", _FileAnswer)
     assert str(exc.value) == "The request to Soda Cloud at mock.soda.io did not complete"
-    # No status to give, so not the error-answer exception.
-    assert not isinstance(exc.value, SodaCloudRequestException)
+    assert type(exc.value) is SodaCloudException
 
 
 @pytest.mark.parametrize("method", ["execute_command", "execute_query"])
