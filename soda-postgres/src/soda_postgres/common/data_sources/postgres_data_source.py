@@ -260,8 +260,12 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         return f"{insert_sql}\n{on_conflict_sql}"
 
     def _build_on_conflict_sql(self, key_columns: list[COLUMN], update_assignments: Optional[list[ASSIGNMENT]]) -> str:
-        # The key columns must carry a unique index or constraint: it is the conflict arbiter.
-        key_columns_sql: str = ", ".join(self.build_expression_sql(column) for column in key_columns)
+        # The key columns must carry a unique index or constraint: it is the conflict arbiter. The
+        # conflict target takes bare column names, so a table alias is dropped.
+        key_columns_sql: str = ", ".join(
+            self.quote_default(column.name) if isinstance(column.name, str) else self.build_expression_sql(column.name)
+            for column in key_columns
+        )
         if not update_assignments:
             return f"ON CONFLICT ({key_columns_sql}) DO NOTHING"
         return f"ON CONFLICT ({key_columns_sql}) DO UPDATE SET {self._build_assignments_sql(update_assignments)}"

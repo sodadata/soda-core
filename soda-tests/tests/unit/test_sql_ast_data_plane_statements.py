@@ -49,7 +49,6 @@ from soda_core.common.sql_ast import (
     LITERAL,
     LOWER,
     NULLIF,
-    PLACEHOLDER,
     REGEXP_REPLACE,
     SELECT,
     SOURCE_COLUMN,
@@ -216,6 +215,25 @@ def test_upsert_without_assignments_skips_a_matching_row(postgres_dialect, updat
     )
 
     assert sql == ('INSERT INTO "s"."t" ("id", "name") VALUES\n' "(1, 'a')\n" 'ON CONFLICT ("id", "name") DO NOTHING;')
+
+
+def test_upsert_conflict_target_drops_the_key_column_alias(postgres_dialect):
+    sql = postgres_dialect.build_upsert_sql(
+        UPSERT(
+            fully_qualified_table_name=TABLE,
+            columns=[COLUMN("id"), COLUMN("n")],
+            values=[VALUES_ROW([LITERAL(1), LITERAL(2)])],
+            key_columns=[COLUMN("id", "cur")],
+            update_assignments=[ASSIGNMENT("n", SOURCE_COLUMN("n"))],
+            alias="cur",
+        )
+    )
+
+    assert sql == (
+        'INSERT INTO "s"."t" AS "cur" ("id", "n") VALUES\n'
+        "(1, 2)\n"
+        'ON CONFLICT ("id") DO UPDATE SET "n" = EXCLUDED."n";'
+    )
 
 
 def test_upsert_via_select(postgres_dialect):
@@ -443,7 +461,6 @@ _POSTGRES_EXPRESSIONS = [
         ARITHMETIC("/", ARITHMETIC("-", COLUMN("a"), COLUMN("b")), ARITHMETIC("*", LITERAL(2), COLUMN("c"))),
         '(("a" - "b") / (2 * "c"))',
     ),
-    ("PLACEHOLDER", PLACEHOLDER(), "?"),
     (
         "REGEXP_REPLACE",
         REGEXP_REPLACE(COLUMN("s"), "^(-?[0-9]+)$", "\\1.0"),
@@ -683,7 +700,6 @@ def _assert_renders_the_ansi_expressions(sql_dialect: SqlDialect) -> None:
             sql_dialect.build_expression_sql(ARITHMETIC(operator, COLUMN("n"), LITERAL(0)))
             == f"({n} {operator} {zero})"
         )
-    assert sql_dialect.build_expression_sql(PLACEHOLDER()) == "?"
 
 
 def test_other_dialects_render_the_ansi_expressions(unsupported_dialect):
