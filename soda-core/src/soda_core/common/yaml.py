@@ -34,6 +34,7 @@ class FileType(str, Enum):
     DATA_SOURCE = "Data Source"
     SODA_CLOUD = "Soda Cloud"
     CONTRACT = "Contract"
+    DATA_PRODUCT = "Data Product"
     YAML = "YAML"
 
 
