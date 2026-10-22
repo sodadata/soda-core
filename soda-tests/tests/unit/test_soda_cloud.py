@@ -1154,9 +1154,10 @@ def test_execute_command_and_query_return_an_empty_dict_for_a_body_that_is_not_a
 @pytest.mark.parametrize("method", ["execute_command", "execute_query"])
 def test_execute_command_and_query_without_an_answer_raise_with_no_status(method):
     soda_cloud = MockSodaCloud([])
+    send = getattr(soda_cloud, method)
     with mock.patch.object(soda_cloud, "_http_post", side_effect=ConnectionError("down")):
         with pytest.raises(SodaCloudRequestException) as exc:
-            getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something")
+            send({"type": "sodaCoreSomething"}, "something")
     assert str(exc.value) == "The request to Soda Cloud at mock.soda.io did not complete"
     assert (exc.value.status, exc.value.code) == (None, None)
 
@@ -1166,8 +1167,9 @@ def test_execute_command_and_query_with_an_error_answer_raise_with_its_status_an
     soda_cloud = MockSodaCloud(
         [MockResponse(status_code=400, json_object={"code": "invalid_request", "message": "no"})]
     )
+    send = getattr(soda_cloud, method)
     with pytest.raises(SodaCloudRequestException) as exc:
-        getattr(soda_cloud, method)({"type": "sodaCoreSomething"}, "something")
+        send({"type": "sodaCoreSomething"}, "something")
     assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400"
     assert (exc.value.status, exc.value.code) == (400, "invalid_request")
 
