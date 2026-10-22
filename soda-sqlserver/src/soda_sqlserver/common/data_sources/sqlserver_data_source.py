@@ -39,7 +39,9 @@ from soda_core.common.sql_ast import (
     JSON_MERGE,
     LEFT_INNER_JOIN,
     LENGTH,
+    LIKE,
     LIMIT,
+    LITERAL,
     OFFSET,
     PERCENTILE_WITHIN_GROUP,
     RANDOM,
@@ -730,9 +732,17 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         return "sys.indexes"
 
     def _build_create_schema_sql(self, create_schema: CREATE_SCHEMA_IF_NOT_EXISTS) -> str:
-        # CREATE SCHEMA must be alone in its batch, hence EXEC; the schema lands in the current database.
+        # CREATE SCHEMA must be alone in its batch, hence EXEC; the schema lands in the named database when
+        # one is given, else in the current one.
+        database: Optional[str] = self.quote_default(create_schema.prefixes[0])
         schema_name: str = create_schema.prefixes[1]
-        create_schema_sql: str = f"CREATE SCHEMA [{schema_name.replace(']', ']]')}]"
+        create_schema_sql: str = f"CREATE SCHEMA {self.quote_default(schema_name)}"
+        if database:
+            return (
+                f"IF NOT EXISTS (SELECT 1 FROM {database}.sys.schemas "
+                f"WHERE name = N{self.literal_string(schema_name)}) "
+                f"EXEC {database}.sys.sp_executesql N{self.literal_string(create_schema_sql)}"
+            )
         return (
             f"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N{self.literal_string(schema_name)}) "
             f"EXEC(N{self.literal_string(create_schema_sql)})"
@@ -740,6 +750,17 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def _build_analyze_table_sql(self, analyze_table: ANALYZE_TABLE) -> Optional[str]:
         return f"UPDATE STATISTICS {self._convert_fqn_for_ddl(analyze_table.fully_qualified_table_name)}"
+
+    def _build_like_escape_sql(self, like: LIKE) -> str:
+        # T-SQL's `[` opens a character-set wildcard, which ANSI LIKE does not have. As the escape character
+        # itself, the caller has escaped it already.
+        if like.escape == "[" or not (isinstance(like.right, LITERAL) and isinstance(like.right.value, str)):
+            return super()._build_like_escape_sql(like)
+        pattern: str = like.right.value.replace("[", f"{like.escape}[")
+        return (
+            f"{self.build_expression_sql(like.left)} like {self.build_expression_sql(LITERAL(pattern))} "
+            f"ESCAPE {self.literal_string(like.escape)}"
+        )
 
     def _build_current_timestamp_sql(self, current_timestamp: CURRENT_TIMESTAMP) -> str:
         if not self.SUPPORTS_DATA_PLANE_STATEMENTS:
