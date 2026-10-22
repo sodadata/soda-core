@@ -10,7 +10,7 @@ def save_to_file(content: str, file_path: str) -> None:
     directory = os.path.dirname(file_path)
     if directory:
         os.makedirs(directory, exist_ok=True)
-    with open(file_path, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write(content)
 
     logger.info(f"Saved file '{file_path}'")

@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.common.exceptions import YamlParserException
@@ -40,8 +42,10 @@ def test_contract_publication_fails_on_missing_contract_file():
         ),
     ]
     mock_cloud = MockSodaCloud(responses)
-    with pytest.raises(YamlParserException):
-        contract_publication_result: ContractPublicationResult = (
+    with pytest.raises(
+        YamlParserException, match=re.escape("Contract file '../soda/mydb/myschema/table.yml' does not exist")
+    ):
+        (
             ContractPublication.builder()
             .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
             .with_soda_cloud_yaml_str(
@@ -55,12 +59,6 @@ def test_contract_publication_fails_on_missing_contract_file():
             .with_soda_cloud(mock_cloud)
             .build()
             .execute()
-        )
-
-        assert contract_publication_result.has_errors
-        assert (
-            "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-            in contract_publication_result.logs.get_errors_str()
         )
 
 

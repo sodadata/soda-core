@@ -1,3 +1,4 @@
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,33 +10,26 @@ from soda_core.common.exceptions import (
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.api.verify_api import ContractVerificationSession, all_none_or_empty, verify_contract
-from soda_core.contracts.contract_verification import ContractVerificationSessionResult, SodaException
+from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
+
+MISSING_CONTRACT_FILE = re.escape("Contract file '../soda/mydb/myschema/table.yml' does not exist")
 
 
 def test_contract_verification_file_api():
-    with pytest.raises(YamlParserException):
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+    with pytest.raises(YamlParserException, match=MISSING_CONTRACT_FILE):
+        ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
             variables={"env": "test"},
         )
 
-        assert (
-            "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-            in contract_verification_session_result.get_errors_str()
-        )
-
 
 def test_contract_verification_file_api_exception_on_error():
-    with pytest.raises(YamlParserException):
-        with pytest.raises(SodaException) as e:
-            ContractVerificationSession.execute(
-                contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
-                variables={"env": "test"},
-            ).assert_ok()
-
-            exception_string = str(e.value)
-            assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
+    with pytest.raises(YamlParserException, match=MISSING_CONTRACT_FILE):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+            variables={"env": "test"},
+        ).assert_ok()
 
 
 def test_contract_provided_and_configured():
