@@ -1879,3 +1879,24 @@ def test_runner_checks_scope_keys_per_file():
         _execute_files_on_runner(cloud, [_SCOPED_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=apac"])
 
     assert len(_runner_commands(cloud)) == 1
+
+
+def test_fetch_datasets_configurations_reads_block_flag():
+    soda_cloud = MockSodaCloud(
+        responses=[MockResponse(status_code=200, json_object={"results": [], "blockGroupByResultsToCloud": True})]
+    )
+
+    dto = soda_cloud.fetch_datasets_configurations([DatasetIdentifier.parse("test/some/schema/CUSTOMERS")])
+
+    assert dto.block_group_by_results_to_cloud is True
+    assert soda_cloud.block_group_by_results_to_cloud is True
+
+
+def test_fetch_datasets_configurations_without_block_flag():
+    soda_cloud = MockSodaCloud(responses=[MockResponse(status_code=200, json_object={"results": []})])
+    soda_cloud.block_group_by_results_to_cloud = True  # left over from an earlier fetch
+
+    dto = soda_cloud.fetch_datasets_configurations([DatasetIdentifier.parse("test/some/schema/CUSTOMERS")])
+
+    assert dto.block_group_by_results_to_cloud is None
+    assert soda_cloud.block_group_by_results_to_cloud is False

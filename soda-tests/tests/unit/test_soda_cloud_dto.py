@@ -1,6 +1,6 @@
 """Unit tests for the raw-passthrough feature configs on DatasetConfigurationDTO."""
 
-from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO, DatasetConfigurationsDTO
 
 
 class TestProfilingConfigurationPassthrough:
@@ -155,3 +155,12 @@ class TestMetricMonitoringConfigurationField:
     def test_empty_monitor_list_is_preserved_not_none(self):
         dto = DatasetConfigurationDTO.model_validate({"metricMonitoringConfiguration": []})
         assert dto.metric_monitoring_configuration == []
+
+
+class TestBlockGroupByResultsToCloud:
+    def test_datasets_configurations_parses_block_flag(self):
+        dto = DatasetConfigurationsDTO.model_validate({"datasetConfigurations": [], "blockGroupByResultsToCloud": True})
+        assert dto.block_group_by_results_to_cloud is True
+
+        dto = DatasetConfigurationsDTO.model_validate({"datasetConfigurations": []})
+        assert dto.block_group_by_results_to_cloud is None

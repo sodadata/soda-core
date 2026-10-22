@@ -406,6 +406,8 @@ class SodaCloud:
         self.token: Optional[str] = token
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+        # Org setting from the latest datasets configurations fetch; see fetch_datasets_configurations.
+        self.block_group_by_results_to_cloud: bool = False
 
     @property
     def headers(self) -> dict[str, str]:
@@ -1125,8 +1127,12 @@ class SodaCloud:
 
         try:
             dataset_configs = DatasetConfigurationsDTO.model_validate(
-                {"datasetConfigurations": response_dict.get("results", [])}
+                {
+                    "datasetConfigurations": response_dict.get("results", []),
+                    "blockGroupByResultsToCloud": response_dict.get("blockGroupByResultsToCloud"),
+                }
             )
+            self.block_group_by_results_to_cloud = bool(dataset_configs.block_group_by_results_to_cloud)
 
             return dataset_configs
         except ValidationError as e:
