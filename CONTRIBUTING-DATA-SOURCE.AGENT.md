@@ -462,8 +462,9 @@ Pick the right base:
 
 Use `check_yaml_object.read_string` / `read_string_opt` / `read_number_opt` /
 `read_bool_opt` / `read_object_opt` for typed parsing with location-aware
-errors. `read_*_opt` returns `None` if the key is absent;
-non-`opt` variants log an error and return `None`.
+errors. `read_*_opt` returns `None` if the key is absent or null, and logs an
+error and returns `None` for a wrong type; non-`opt` variants raise
+`YamlParserException` if the value is missing, null or of the wrong type.
 
 ### 3.2. Two `*_check.py` classes
 

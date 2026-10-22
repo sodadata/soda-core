@@ -1,3 +1,4 @@
+import logging
 import sys
 from argparse import ArgumentParser, _SubParsersAction
 from typing import Iterator, Optional
@@ -6,6 +7,8 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from soda_core.cli.cli import _parse_variables, create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
+from soda_core.common.exceptions import ScanExecutionFailedException, YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
 
@@ -686,3 +689,43 @@ def test_check_filter_help_lists_every_supported_field():
 
 def test_check_filter_help_explains_negation():
     assert "key!=value" in CHECK_FILTER_HELP
+
+
+@pytest.mark.parametrize(
+    "command, contract, soda_cloud, error",
+    [
+        ("test", "  - name:\n", None, "Failed to parse contract: YAML key 'name' must not be null, in {contract}[2,4]"),
+        (
+            "publish",
+            "  - name:\n",
+            "",
+            "Failed to publish contract: YAML key 'name' must not be null, in {contract}[2,4]",
+        ),
+        ("publish", "  - name: a\n", None, "Failed to publish contract: Soda Cloud file '{soda_cloud}' does not exist"),
+    ],
+    ids=["test, null column name", "publish, null column name", "publish, missing Soda Cloud file"],
+)
+def test_a_yaml_error_logs_one_error(command, contract, soda_cloud, error, tmp_path, caplog):
+    contract_path = tmp_path / "contract.yml"
+    contract_path.write_text("dataset: ds/db/schema/t\ncolumns:\n" + contract)
+    soda_cloud_path = tmp_path / "soda-cloud.yml"
+    if soda_cloud is not None:
+        soda_cloud_path.write_text("soda_cloud:\n  host: h.example\n  api_key_id: i\n  api_key_secret: s\n")
+    if command == "test":
+        exit_code = handle_test_contract(str(contract_path), {})
+    else:
+        exit_code = handle_publish_contract(str(contract_path), str(soda_cloud_path))
+    assert exit_code == ExitCode.LOG_ERRORS
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert [record.getMessage() for record in errors] == [
+        error.format(contract=contract_path, soda_cloud=soda_cloud_path)
+    ]
+    assert errors[0].exc_info is None
+
+
+@patch("soda_core.cli.handlers.contract.verify_contract")
+def test_verify_turns_a_yaml_error_into_a_failure_without_traceback(verify_contract):
+    # run_scan logs a ScanExecutionFailedException as one line, and any other exception with a traceback.
+    verify_contract.side_effect = YamlParserException("YAML key 'name' must not be null", "contract.yml[2,4]")
+    with pytest.raises(ScanExecutionFailedException, match=r"YAML key 'name' must not be null, in contract.yml\[2,4\]"):
+        handle_verify_contract("contract.yml", None, None, None, {}, False, False)

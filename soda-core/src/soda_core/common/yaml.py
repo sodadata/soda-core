@@ -354,7 +354,8 @@ class YamlObject(YamlValue):
 
     # TODO: should we move this into the `ContractYaml` class?
     def read_dataset_identifier(self, yaml_key: str, required: bool = True) -> Optional[str]:
-        dataset_qualified_name: Optional[str] = self.read_string_opt(yaml_key)
+        # A missing, null or wrongly typed required value raises through read_string, naming this key.
+        dataset_qualified_name: Optional[str] = self.read_string(yaml_key, required=required)
         if isinstance(dataset_qualified_name, str):
             parts = dataset_qualified_name.split("/")
             if len(parts) < 2:
@@ -364,14 +365,12 @@ class YamlObject(YamlValue):
                     extra={ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(yaml_key)},
                 )
                 return None
-        elif required:
-            raise YamlParserException("The YAML is missing the required 'dataset' property", str(self.location))
         return dataset_qualified_name
 
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
-        An error is generated if the value is missing or not a YAML object.
-        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a YAML object.
+        :return: the YamlObject for the key.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
@@ -386,8 +385,9 @@ class YamlObject(YamlValue):
         self, key: str, expected_element_type: Optional[type] = None, required: bool = True
     ) -> Optional[YamlList]:
         """
-        An error is generated if the value is missing or not a YAML list.
-        :return: a list if the value for the key is a YAML list, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a YAML list. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a list.
+        :return: the list for the key, or None.
         """
         list_value: Optional[YamlList] = self.read_value(
             key=key, expected_type=list, required=required, default_value=None
@@ -420,10 +420,10 @@ class YamlObject(YamlValue):
         return self.read_value(key=key, expected_type=list, required=False, default_value=None)
 
     def read_list_of_objects_opt(self, key: str) -> Optional[YamlList]:
-        return self.read_list_of_objects(key) if key in self.yaml_dict else None
+        return self.read_list_of_objects(key, required=False)
 
-    def read_list_of_objects(self, key: str) -> Optional[YamlList]:
-        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject)
+    def read_list_of_objects(self, key: str, required: bool = True) -> Optional[YamlList]:
+        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject, required=required)
         if isinstance(list_value, YamlList):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
@@ -450,8 +450,9 @@ class YamlObject(YamlValue):
 
     def read_string(self, key: str, env_var: Optional[str] = None, required: bool = True) -> Optional[str]:
         """
-        An error is generated if the value is missing or not a string.
-        :return: a str if the value for the key is a YAML string, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a string. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a string.
+        :return: the str for the key, or None.
         """
         return self.read_value(key=key, env_var=env_var, expected_type=str, required=required, default_value=None)
 
@@ -466,8 +467,8 @@ class YamlObject(YamlValue):
 
     def read_bool(self, key: str) -> Optional[bool]:
         """
-        An appropriate error log is generated if the value is not a bool or if the key is missing
-        :return: a bool if the value for the key is a YAML boolean, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a bool.
+        :return: the bool for the key.
         """
         return self.read_value(key=key, expected_type=bool, required=True, default_value=None)
 
@@ -480,8 +481,8 @@ class YamlObject(YamlValue):
 
     def read_number(self, key: str) -> Optional[Number]:
         """
-        An appropriate error log is generated if the value is not a number or if the key is missing
-        :return: a bool if the value for the key is a YAML number, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a number.
+        :return: the Number for the key.
         """
         return self.read_value(key=key, expected_type=Number, required=True, default_value=None)
 
@@ -510,6 +511,8 @@ class YamlObject(YamlValue):
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
+            if value is None and required:
+                raise YamlParserException(f"{key_description} must not be null", str(location))
         else:
             if required:
                 raise YamlParserException(f"{key_description} is required", str(location))
@@ -529,22 +532,29 @@ class YamlObject(YamlValue):
                 actual_type_str = "YAML object"
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
-            logger.error(
-                msg=f"{key_description} expected one of {[et.__name__ for et in expected_types]}, "
-                f"but was {actual_type_str}",
-                extra={
-                    ExtraKeys.LOCATION: location,
-                },
+            message: str = (
+                f"{key_description} expected one of {[et.__name__ for et in expected_types]}, but was {actual_type_str}"
             )
+            # A required value is missing, null or of the wrong type: each one stops reading.
+            if required:
+                raise YamlParserException(message, str(location))
+            logger.error(msg=message, extra={ExtraKeys.LOCATION: location})
             value = None
 
-        return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        wrapped_value = self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        # The checks above see the value as written; a lone variable that resolves to nothing only shows here.
+        if required and wrapped_value is None:
+            raise YamlParserException(f"{key_description} has no value after resolving its variables", str(location))
+        return wrapped_value
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
                 try:
-                    ruamel_location = self.yaml_dict.lc.value(key)
+                    # ruamel places a null value at the start of whatever follows it, so a null points at its key.
+                    ruamel_location = (
+                        self.yaml_dict.lc.key(key) if self.yaml_dict[key] is None else self.yaml_dict.lc.value(key)
+                    )
                     line: int = ruamel_location[0]
                     column: int = ruamel_location[1]
                 except (KeyError, TypeError):
