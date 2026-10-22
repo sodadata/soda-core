@@ -1475,12 +1475,14 @@ class SodaCloud:
         empty dict when that body is not a JSON object. The command is sent from a deep copy,
         so the caller's dict and the values nested in it are left as they were.
 
-        Raises ``SodaCloudRequestException`` when no answer came back or the answer is an
-        error status, with the status and Soda Cloud's error code, so a caller can map a
-        feature-specific code. Core has already logged the error answer at ERROR, so inside
-        an active ``Logs`` it counts as an error even when the caller recovers. A refused API
-        key raises ``SodaCloudAuthenticationFailedException`` instead, which is a
-        ``SodaCoreException`` and not a ``SodaCloudException``, so catch it separately.
+        Raises ``SodaCloudRequestException`` when Soda Cloud answers with an error status, with
+        the status and Soda Cloud's error code, so a caller can map a feature-specific code. Core
+        has already logged the error answer at ERROR, so inside an active ``Logs`` it counts as an
+        error even when the caller recovers. Raises ``SodaCloudException`` when core got no answer
+        it could read: the request raised, which includes a request that was never sent, such as a
+        payload core cannot serialize, and core logged the cause at CRITICAL. A refused API key
+        raises ``SodaCloudAuthenticationFailedException`` instead, which is a ``SodaCoreException``
+        and not a ``SodaCloudException``, so catch it separately.
         """
         return self._read_request_answer(self._execute_command(copy.deepcopy(command_json_dict), request_log_name))
 
@@ -1494,7 +1496,7 @@ class SodaCloud:
     def _read_request_answer(self, response: Optional[Response]) -> dict:
         # _execute_cqrs_request returns None after logging a request that raised.
         if response is None:
-            raise SodaCloudRequestException(f"The request to Soda Cloud at {self.host} did not complete")
+            raise SodaCloudException(f"The request to Soda Cloud at {self.host} did not complete")
         if not response.ok:
             try:
                 body = response.json()
