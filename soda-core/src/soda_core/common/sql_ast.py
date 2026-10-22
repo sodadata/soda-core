@@ -613,12 +613,6 @@ class ARITHMETIC(SqlExpression):
         self.handle_parent_node_update(self.right)
 
 
-@dataclass
-class PLACEHOLDER(SqlExpression):
-    """A positional parameter marker, ``?`` on every dialect whatever its driver binds with: for an
-    application that records a statement's shape without its values."""
-
-
 # Expressions whose SQL differs per data source. The base dialect raises
 # UnsupportedSqlStatementError; a dialect with SqlDialect.SUPPORTS_DATA_PLANE_STATEMENTS renders its
 # own form.
@@ -1142,9 +1136,10 @@ class UPSERT(BaseSqlExpression):
     """Insert rows; a row whose ``key_columns`` match an existing row applies ``update_assignments``
     to that row instead, or is skipped when there are none.
 
-    Source rows must be unique on ``key_columns``: a MERGE-based dialect rejects duplicates, and so
-    does Postgres when there are update assignments. An assignment that reads the existing row must
-    qualify the column with ``alias``; ``SOURCE_COLUMN`` is the incoming row.
+    Source rows must be unique on ``key_columns``; what a duplicate does is the dialect's: Postgres
+    fails when there are update assignments, SQL Server fails on a keyed target, Snowflake and Athena
+    enforce no keys and insert every unmatched duplicate. An assignment that reads the existing row
+    must qualify the column with ``alias``; ``SOURCE_COLUMN`` is the incoming row.
     """
 
     fully_qualified_table_name: str

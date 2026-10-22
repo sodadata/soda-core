@@ -98,7 +98,6 @@ from soda_core.common.sql_ast import (
     ORDER_BY_DESC,
     ORDINAL_POSITION,
     PERCENTILE_WITHIN_GROUP,
-    PLACEHOLDER,
     RANDOM,
     RAW_SQL,
     REGEX_LIKE,
@@ -1407,8 +1406,6 @@ class SqlDialect:
             return self._build_abs_sql(expression)
         elif isinstance(expression, ARITHMETIC):
             return self._build_arithmetic_sql(expression)
-        elif isinstance(expression, PLACEHOLDER):
-            return self._build_placeholder_sql(expression)
         elif isinstance(expression, REGEXP_REPLACE):
             self._require_data_plane_statement_support("REGEXP_REPLACE")
             return self._build_regexp_replace_sql(expression)
@@ -1839,9 +1836,6 @@ class SqlDialect:
         left_sql: str = self.build_expression_sql(arithmetic.left)
         right_sql: str = self.build_expression_sql(arithmetic.right)
         return f"({left_sql} {arithmetic.operator} {right_sql})"
-
-    def _build_placeholder_sql(self, placeholder: PLACEHOLDER) -> str:
-        return "?"
 
     # The dialect-specific expressions: a data source that supports one overrides its hook.
 
