@@ -93,6 +93,19 @@ class SodaCloudException(SodaCoreException):
     """Base class for all SodaCloud related exceptions."""
 
 
+class SodaCloudRequestException(SodaCloudException):
+    """Soda Cloud answered a command or query with an error status.
+
+    ``status`` is the HTTP status of the answer, and ``code`` is the ``code`` of its JSON body, or None when
+    the body has none, such as an HTML error page.
+    """
+
+    def __init__(self, message: str, status: int, code: Optional[str]):
+        super().__init__(message)
+        self.status: int = status
+        self.code: Optional[str] = code
+
+
 class DatasetQueryException(SodaCloudException):
     """A dataset-scoped Soda Cloud query failed.
 
