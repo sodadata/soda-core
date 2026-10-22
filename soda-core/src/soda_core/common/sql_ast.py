@@ -988,6 +988,7 @@ class CREATE_TABLE(BaseSqlExpression):
     update_heavy: bool = False
     # The table takes row-level UPDATE, DELETE and MERGE: a dialect whose tables do not by default
     # creates one that does (Athena: an Iceberg table), every other dialect ignores it.
+    # Athena's DDL, Hive or Iceberg, has no NOT NULL and no primary key, so its tables have neither.
     transactional: bool = False
 
     def __post_init__(self):

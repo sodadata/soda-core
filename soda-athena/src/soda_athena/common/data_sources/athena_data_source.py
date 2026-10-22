@@ -576,7 +576,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         location: str = self.get_table_storage_location(create_table.fully_qualified_table_name)
         create_table_sql: str = (
             f"CREATE TABLE{if_not_exists_sql} {table_name} (\n{columns_sql}\n)\n"
-            f"LOCATION '{location}'\n"
+            f"LOCATION {self.literal_string(location)}\n"
             "TBLPROPERTIES ('table_type'='ICEBERG', 'format'='parquet')"
         )
         return create_table_sql + (";" if add_semicolon else "")
@@ -727,11 +727,13 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         return f"date_trunc({self.literal_string(date_trunc.unit)}, {self.build_expression_sql(date_trunc.expression)})"
 
     def _build_regexp_replace_sql(self, regexp_replace: REGEXP_REPLACE) -> str:
-        # Every match is replaced. A backreference is $1: Athena drops a backslash one without an error.
-        if "\\" in regexp_replace.replacement:
+        # Every match is replaced. A backreference is $1 and a literal dollar \$: Athena drops any other
+        # backslash without an error.
+        if re.search(r"\\(?!\$)", regexp_replace.replacement):
             raise UnsupportedSqlStatementError(
-                f"{type(self).__name__} does not support a REGEXP_REPLACE replacement with a backslash: "
-                f"Athena drops it silently, a backreference is written $1"
+                f"{type(self).__name__} does not support a REGEXP_REPLACE replacement with a backslash not "
+                r"followed by $: a backreference is written $1 and a literal dollar \$, Athena drops any other "
+                "backslash silently"
             )
         expression_sql: str = self.build_expression_sql(regexp_replace.expression)
         pattern_sql: str = self.literal_string(regexp_replace.pattern)
