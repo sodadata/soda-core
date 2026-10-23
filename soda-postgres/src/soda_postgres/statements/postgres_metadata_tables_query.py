@@ -68,10 +68,7 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
                     ],
                 )
             ),
-            # pg_catalog shows every role all names, so keep only what this role can SELECT * from, as scans do.
-            # shortcut: a role granted SELECT on every column one by one, but not on the table, is hidden too;
-            # check each column instead if that turns up.
-            WHERE(RAW_SQL("has_schema_privilege(n.oid, 'USAGE') AND has_table_privilege(c.oid, 'SELECT')")),
+            WHERE(RAW_SQL(self.sql_dialect.readable_relation_sql_condition())),
         ]
 
         if database_name:

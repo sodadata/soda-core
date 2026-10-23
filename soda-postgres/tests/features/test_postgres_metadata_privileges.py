@@ -56,9 +56,13 @@ def test_metadata_queries_hide_objects_the_role_cannot_read(data_source_test_hel
         data_source_impl.execute_update(f'GRANT USAGE ON SCHEMA "{schema_name}" TO "{role}"')
         data_source_impl.execute_update(f'GRANT SELECT ("id") ON {test_table.qualified_name} TO "{role}"')
         data_source_impl.execute_update(f'GRANT SELECT ON {mv.qualified_name} TO "{role}"')
-        # A column-level grant is not enough: scans SELECT * from the dataset.
+        # Scans SELECT * from the dataset, so a grant on some of its columns is not enough.
         assert as_role() == ([mv.unique_name], [], ["id", "age"])
 
+        data_source_impl.execute_update(f'GRANT SELECT ("age") ON {test_table.qualified_name} TO "{role}"')
+        assert as_role() == ([test_table.unique_name, mv.unique_name], ["id", "age"], ["id", "age"])
+
+        data_source_impl.execute_update(f'REVOKE SELECT ("id", "age") ON {test_table.qualified_name} FROM "{role}"')
         data_source_impl.execute_update(f'GRANT SELECT ON {test_table.qualified_name} TO "{role}"')
         assert as_role() == ([test_table.unique_name, mv.unique_name], ["id", "age"], ["id", "age"])
     finally:
