@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.statements.metadata_tables_query import TableType
@@ -19,8 +18,6 @@ test_table_specification = (
 )
 
 
-# SET ROLE changes the results of identical SQL, which a replayed snapshot cannot tell apart.
-@pytest.mark.no_snapshot
 def test_metadata_queries_hide_objects_the_role_cannot_read(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     # Materialized views are why these queries read pg_catalog, so they must stay discoverable once granted.
