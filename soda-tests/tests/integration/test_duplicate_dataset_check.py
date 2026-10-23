@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
+from helpers.test_fixtures import test_datasource
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import CheckResult, ContractVerificationResult
@@ -173,7 +174,6 @@ _ROW_A = (
     "4567",
     "a" * 30 + "1",
     123456.1,
-    Decimal("1180591620717411303424.0"),
     datetime.date(1926, 3, 1),
     datetime.datetime(2026, 3, 1, 10, 0, 1),
     datetime.datetime(2026, 3, 1, 10, 0, 1, tzinfo=datetime.timezone.utc),
@@ -186,7 +186,6 @@ _ROW_B = (
     "567",
     "a" * 30 + "2",
     123456.2,
-    Decimal("1180591620717411565568.0"),
     datetime.date(2026, 3, 1),
     datetime.datetime(2026, 3, 1, 10, 0, 2),
     datetime.datetime(2026, 3, 1, 10, 0, 2, tzinfo=datetime.timezone.utc),
@@ -204,7 +203,6 @@ distinct_keys_table_specification = (
     .column_varchar("text_b", 400)
     .column_varchar("long_text", 400)
     .column_double("float_value")
-    .column_decimal("decimal_value", 31, 9)
     .column_date("date_value")
     .column_timestamp("timestamp_value")
     .column_timestamp_tz("timestamp_tz_value")
@@ -221,7 +219,6 @@ distinct_keys_table_specification = (
         ["long_text"],
         ["same", "long_text"],
         ["float_value"],
-        ["decimal_value"],
         ["date_value"],
         ["timestamp_value"],
         ["timestamp_tz_value"],
@@ -243,5 +240,43 @@ def test_dataset_duplicate_counts_only_real_duplicates(data_source_test_helper: 
     check_result: CheckResult = result.contract_verification_results[0].check_results[0]
     assert get_diagnostic_value(check_result, "duplicate_count") == 1, (
         f"expected 1 duplicate over {columns}, got {get_diagnostic_value(check_result, 'duplicate_count')}\n"
+        f"{result.get_errors_str()}"
+    )
+
+
+# Its own table: Dremio cannot parse a decimal literal whose unscaled value exceeds a long, and a value
+# needs 21 integer digits to outgrow SQL Server's 30-character cast.
+wide_decimal_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("duplicate_dataset_wide_decimal")
+    .column_decimal("decimal_value", 31, 9)
+    .rows(
+        rows=[
+            (Decimal("1180591620717411303424.0"),),
+            (Decimal("1180591620717411565568.0"),),
+            (Decimal("1180591620717411303424.0"),),
+        ]
+    )
+    .build()
+)
+
+
+def test_dataset_duplicate_counts_only_real_duplicates_on_wide_decimals(data_source_test_helper: DataSourceTestHelper):
+    if test_datasource == "dremio":
+        pytest.skip("Dremio cannot parse a decimal literal whose unscaled value exceeds a long")
+    test_table = data_source_test_helper.ensure_test_table(wide_decimal_table_specification)
+
+    result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - duplicate:
+                  columns: ['decimal_value']
+        """,
+    )
+
+    check_result: CheckResult = result.contract_verification_results[0].check_results[0]
+    assert get_diagnostic_value(check_result, "duplicate_count") == 1, (
+        f"expected 1 duplicate, got {get_diagnostic_value(check_result, 'duplicate_count')}\n"
         f"{result.get_errors_str()}"
     )
