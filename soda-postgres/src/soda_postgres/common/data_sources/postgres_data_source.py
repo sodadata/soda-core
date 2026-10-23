@@ -234,7 +234,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def readable_relation_sql_condition(self) -> str:
         # pg_catalog shows every role all names, so keep only what this role can SELECT * from, as scans do: a table
         # grant, or a grant on every column. has_any_column_privilege hides a table with no columns and no grant, and
-        # dropped columns are skipped because has_column_privilege returns NULL for them.
+        # NOT x.attisdropped skips dropped columns. Expects pg_class aliased as c and pg_namespace as n.
         return """(has_schema_privilege(n.oid, 'USAGE')
             AND (has_table_privilege(c.oid, 'SELECT')
                 OR (has_any_column_privilege(c.oid, 'SELECT')
