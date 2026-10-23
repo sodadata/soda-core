@@ -96,8 +96,7 @@ def test_a_scoped_check_aggregates_over_its_scope(
         result = _verify(
             data_source_test_helper,
             test_table,
-            _scopes_yaml(data_source_test_helper)
-            + """
+            _scopes_yaml(data_source_test_helper) + """
             columns:
               - name: email
                 checks:
@@ -152,8 +151,7 @@ def test_identical_metrics_in_two_scopes_stay_separate(
         result = _verify(
             data_source_test_helper,
             test_table,
-            _scopes_yaml(data_source_test_helper)
-            + """
+            _scopes_yaml(data_source_test_helper) + """
             columns:
               - name: email
                 checks:
@@ -195,8 +193,7 @@ def test_a_scoped_query_check_carries_no_scope_rows_tested(
         result = _verify(
             data_source_test_helper,
             test_table,
-            _scopes_yaml(data_source_test_helper)
-            + f"""
+            _scopes_yaml(data_source_test_helper) + f"""
             columns:
               - name: email
                 checks:
@@ -235,8 +232,7 @@ def test_a_scoped_reference_check_selects_from_its_scope(
         result = _verify(
             data_source_test_helper,
             test_table,
-            _scopes_yaml(data_source_test_helper)
-            + f"""
+            _scopes_yaml(data_source_test_helper) + f"""
             columns:
               - name: email
                 checks:
