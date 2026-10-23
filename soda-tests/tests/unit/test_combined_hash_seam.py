@@ -78,11 +78,12 @@ _DIALECT_CASES = [
 # written before and after would no longer join. Nothing else in the suite would notice, because the
 # SQL stays valid and self-consistent — the old and new hashes only disagree with each other.
 #
-# Captured from the rendering that predates `comparison_mode`, so these are literally the
-# pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel and the
-# separator, Redshift concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected:
-# this file's job is to detect drift, not to fix it. Changing one deliberately means migrating every
-# stored key.
+# Captured from the rendering that predates `comparison_mode`, so these are mostly the pre-flag
+# strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel, Redshift
+# concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected: this file's job is
+# to detect drift, not to fix it. Changing one deliberately means migrating every stored key. That
+# was done once, on purpose, where the key collided: BigQuery and Redshift rendered the separator as
+# `''||''`, an empty string, and the SQL Server family cast to a bare varchar, which is varchar(30).
 _EXPECTED_SQL = {
     "postgres": (
         "MD5(COALESCE(\"a\"::varchar, '__SODA_NULL__'))",
@@ -94,9 +95,9 @@ _EXPECTED_SQL = {
         "COALESCE(CAST(\"b\" AS varchar), '__SODA_NULL__')))",
     ),
     "sqlserver": (
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar), '__SODA_NULL__')), 2)",
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar), "
-        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar), '__SODA_NULL__'))), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS nvarchar(max)), '__SODA_NULL__')), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS nvarchar(max)), "
+        "'__SODA_NULL__'), COALESCE(CAST([b] AS nvarchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "snowflake": (
         "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__'))",
@@ -105,7 +106,7 @@ _EXPECTED_SQL = {
     ),
     "bigquery": (
         "to_hex(MD5(COALESCE(CAST(`a` AS string), '''__SODA_NULL__''')))",
-        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), ''||'', "
+        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), '||', "
         "COALESCE(CAST(`b` AS string), '''__SODA_NULL__'''))))",
     ),
     "databricks": (
@@ -120,7 +121,7 @@ _EXPECTED_SQL = {
     ),
     "redshift": (
         "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__'))",
-        "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__') || ''||'' || "
+        "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__') || '||' || "
         "COALESCE(CAST(\"b\" AS varchar), '__SODA_NULL__'))",
     ),
     "athena": (
@@ -129,14 +130,14 @@ _EXPECTED_SQL = {
         "COALESCE(CAST(\"b\" AS varchar), '__SODA_NULL__')))))",
     ),
     "fabric": (
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar), '__SODA_NULL__')), 2)",
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar), "
-        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar), '__SODA_NULL__'))), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar(max)), '__SODA_NULL__')), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar(max)), "
+        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "synapse": (
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar), '__SODA_NULL__')), 2)",
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar), "
-        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar), '__SODA_NULL__'))), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS nvarchar(max)), '__SODA_NULL__')), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS nvarchar(max)), "
+        "'__SODA_NULL__'), COALESCE(CAST([b] AS nvarchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "sparkdf": (
         "MD5(COALESCE(CAST(`a` AS string), '__SODA_NULL__'))",
