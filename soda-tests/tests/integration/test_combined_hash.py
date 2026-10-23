@@ -94,13 +94,6 @@ _CASES: list[HashCase] = [
     _case("bigint_beyond_double_precision", {"big": 9007199254740993}, {"big": 9007199254740992}),
     _case("float_7_significant_digits", {"float_value": 123456.1}, {"float_value": 123456.2}),
     _case("float_17_significant_digits", {"float_value": 0.1}, {"float_value": 0.10000000000000002}),
-    # 2**70 and 2**70 + 2**18: 32 characters at scale 9, and exact as doubles, which is how some sources
-    # parse an insert literal.
-    _case(
-        "decimal_32_chars_wide",
-        {"decimal_value": Decimal("1180591620717411303424.0")},
-        {"decimal_value": Decimal("1180591620717411565568.0")},
-    ),
     _case(
         "decimal_last_fractional_digit",
         {"decimal_value": Decimal("1.000000001")},
@@ -246,11 +239,15 @@ def _assert_keys(
         assert folding_a == folding_b, f"{test_datasource} gives the equal rows {stored_a} two keys"
 
 
-@pytest.mark.parametrize("case", _CASES, ids=[case.case_id for case in _CASES])
-def test_combined_hash_tells_rows_apart(data_source_test_helper: DataSourceTestHelper, case: HashCase):
+def _assert_keys_in_test_table(
+    data_source_test_helper: DataSourceTestHelper,
+    table_specification: TestTableSpecification,
+    case: HashCase,
+    where: Optional[WHERE] = None,
+) -> None:
     data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
     _skip_without_row_hashing(data_source_impl)
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    test_table = data_source_test_helper.ensure_test_table(table_specification)
     qualified_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
 
     _assert_keys(
@@ -259,8 +256,42 @@ def test_combined_hash_tells_rows_apart(data_source_test_helper: DataSourceTestH
         columns=case.columns,
         rows_differ=case.rows_differ,
         case_id=case.case_id,
+        where=where,
+    )
+
+
+@pytest.mark.parametrize("case", _CASES, ids=[case.case_id for case in _CASES])
+def test_combined_hash_tells_rows_apart(data_source_test_helper: DataSourceTestHelper, case: HashCase):
+    _assert_keys_in_test_table(
+        data_source_test_helper,
+        test_table_specification,
+        case,
         where=WHERE(EQ(COLUMN("case_id"), LITERAL(case.case_id))),
     )
+
+
+# 2**70 and 2**70 + 2**18: 32 characters at scale 9, and exact as doubles, which is how some sources parse
+# an insert literal. A table of its own because Dremio cannot parse a decimal literal whose unscaled value
+# exceeds a long, and a value needs 21 integer digits to outgrow SQL Server's 30-character cast.
+_WIDE_DECIMAL_CASE = _case(
+    "decimal_32_chars_wide",
+    {"decimal_value": Decimal("1180591620717411303424.0")},
+    {"decimal_value": Decimal("1180591620717411565568.0")},
+)
+
+wide_decimal_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("combined_hash_wide_decimal")
+    .column_decimal("decimal_value", 31, 9)
+    .rows(rows=[(_WIDE_DECIMAL_CASE.values_a["decimal_value"],), (_WIDE_DECIMAL_CASE.values_b["decimal_value"],)])
+    .build()
+)
+
+
+def test_combined_hash_tells_wide_decimals_apart(data_source_test_helper: DataSourceTestHelper):
+    if test_datasource == "dremio":
+        pytest.skip("Dremio cannot parse a decimal literal whose unscaled value exceeds a long")
+    _assert_keys_in_test_table(data_source_test_helper, wide_decimal_table_specification, _WIDE_DECIMAL_CASE)
 
 
 @dataclass(frozen=True)
