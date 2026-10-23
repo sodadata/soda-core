@@ -1,10 +1,12 @@
+import contextvars
 import hashlib
 import logging
 import os
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, StreamHandler
-from typing import Optional
+from typing import Iterable, Iterator, Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
@@ -80,7 +82,106 @@ def _prepare_masked_file():
             _masked_values.update({l.strip() for l in read_lines})
 
 
+def redacted_marker(category: str) -> str:
+    """The whole content of a redacted record: no message, no args, no traceback, no
+    exception text. The category still tells the reader what was dropped."""
+    return f"[redacted: {category}]"
+
+
+# Both are read at mask time on the thread that emits the record. Handlers mask synchronously
+# on the emitting thread, so the caller's context is the one that counts. Work moved to
+# another thread does not inherit them: carry them over with ``contextvars.copy_context().run(...)``.
+#
+# What the record carries: the category of the enclosing ``redacted_scope``, for the log
+# sites that cannot know what they handle (query result rows, warehouse inserts, driver
+# and connector errors). The code that wraps them does know.
+_redacted_scope: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("soda_redacted_scope", default=None)
+# What to do with it: the categories the current run redacts, set once by the collection.
+_redaction_policy: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
+    "soda_redaction_policy", default=frozenset()
+)
+
+
+@contextmanager
+def redacted_scope(category: str) -> Iterator[None]:
+    """Mark every log record emitted in the block as carrying ``category`` content.
+
+    Marking says what a record contains, not what happens to it: the record is redacted
+    only when the active ``redaction_policy`` covers the category. Nestable and
+    exception-safe; an inner scope's category applies inside it, the outer one is restored
+    on exit.
+    """
+    token = _redacted_scope.set(category)
+    try:
+        yield
+    finally:
+        _redacted_scope.reset(token)
+
+
+@contextmanager
+def redaction_policy(categories: Iterable[str]) -> Iterator[None]:
+    """Redact, for the block, every record marked with one of ``categories``.
+
+    Set once per run by the check collection from its org settings; the log sites never
+    see those. Nestable and exception-safe, and it only ever adds: an inner policy cannot
+    lift a category the outer one redacts. An empty ``categories`` leaves the block as it is.
+    """
+    outer: frozenset[str] = _redaction_policy.get()
+    token = _redaction_policy.set(outer | frozenset(categories))
+    try:
+        yield
+    finally:
+        _redaction_policy.reset(token)
+
+
+# Set on a record once it has been redacted: a later pass (next handler, a replay outside
+# the scope and policy) re-applies the redaction (fail closed) but keeps the exception class
+# the first pass derived from the since-dropped ``exc_info``.
+_REDACTED_ATTR: str = "redacted"
+
+
+def _category_to_redact(record: LogRecord) -> Optional[str]:
+    """The category the record is to be redacted under, or None to leave it as it is."""
+    category: Optional[str] = getattr(record, ExtraKeys.REDACT, None) or _redacted_scope.get()
+    if category is None:
+        return None
+    if getattr(record, _REDACTED_ATTR, False) or category in _redaction_policy.get():
+        return category
+    return None
+
+
+def _redact(record: LogRecord, category: str) -> None:
+    """Replace the record by the marker, before anything of it is formatted.
+
+    Clears every field a handler renders or uploads: ``msg``/``args`` (the message),
+    ``exc_info``/``exc_text`` (the console traceback) and the ``ExtraKeys.EXCEPTION``
+    extra (the only exception field the Cloud upload carries), keeping the exception
+    class as the one value-free thing worth knowing. Stamps ``ExtraKeys.REDACT`` with the
+    category so a later handler, on another thread or replaying the record outside the
+    scope, recognises it without the scope.
+    """
+    exception_class: Optional[str] = None
+    if isinstance(record.exc_info, tuple) and record.exc_info[0] is not None:
+        exc_type = record.exc_info[0]
+        module: str = exc_type.__module__
+        exception_class = exc_type.__qualname__ if module == "builtins" else f"{module}.{exc_type.__qualname__}"
+    record.msg = redacted_marker(category)
+    record.args = ()
+    record.exc_info = None
+    record.exc_text = None
+    if exception_class is not None:
+        setattr(record, ExtraKeys.EXCEPTION, exception_class)
+    elif hasattr(record, ExtraKeys.EXCEPTION) and not getattr(record, _REDACTED_ATTR, False):
+        setattr(record, ExtraKeys.EXCEPTION, None)
+    setattr(record, ExtraKeys.REDACT, category)
+    setattr(record, _REDACTED_ATTR, True)
+
+
 def _mask_record(record: LogRecord):
+    category: Optional[str] = _category_to_redact(record)
+    if category is not None:
+        _redact(record, category)
+        return
     message = record.getMessage()
     if message:
         for masked in _masked_values:
