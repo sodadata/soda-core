@@ -509,6 +509,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"CONVERT(VARCHAR(32), HASHBYTES('MD5', {self.build_expression_sql(string_hash.expression)}), 2)"
 
+    def _hash_operand_text_type(self) -> SodaDataTypeName | str:
+        # A bare varchar is varchar(30) in a CAST: longer text was cut into one key, and a wider number or a
+        # uniqueidentifier failed the cast. nvarchar also keeps nvarchar text out of the code page.
+        return "nvarchar(max)"
+
     def _get_add_column_sql_expr(self) -> str:
         return "ADD"
 
