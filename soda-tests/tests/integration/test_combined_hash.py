@@ -28,8 +28,10 @@ from soda_core.common.sql_ast import (
     ALIAS,
     COLUMN,
     COMBINED_HASH,
+    COUNT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    DISTINCT,
     DROP_TABLE_IF_EXISTS,
     EQ,
     FROM,
@@ -209,11 +211,12 @@ def _assert_keys(
     operands = [COLUMN(column) for column in columns]
     exact_hash = COMBINED_HASH(operands)
     folding_hash = COMBINED_HASH(operands, comparison_mode="database-equality")
+    filters = [where] if where else []
     select_sql = sql_dialect.build_select_sql(
         [
             SELECT([*operands, ALIAS(exact_hash, "exact_key"), ALIAS(folding_hash, "folding_key")]),
             FROM(from_name),
-            *([where] if where else []),
+            *filters,
         ]
     )
     rows = data_source_impl.execute_query(select_sql).rows
@@ -221,7 +224,11 @@ def _assert_keys(
     assert len(rows) == 2, f"expected the case's two rows, got {rows}"
     stored_a, stored_b = (tuple(row[: len(columns)]) for row in rows)
     if rows_differ and stored_a == stored_b:
-        pytest.skip(f"{test_datasource} stores both rows of {case_id} as {stored_a}")
+        # The driver can round what it reads back (Redshift sends doubles with 15 digits), so a
+        # single column gets a second opinion from the source itself.
+        distinct_sql = sql_dialect.build_select_sql([SELECT([COUNT(DISTINCT(operands[0]))]), FROM(from_name), *filters])
+        if len(columns) > 1 or int(data_source_impl.execute_query(distinct_sql).rows[0][0]) < 2:
+            pytest.skip(f"{test_datasource} stores both rows of {case_id} as {stored_a}")
 
     exact_a, exact_b = rows[0][-2], rows[1][-2]
     folding_a, folding_b = rows[0][-1], rows[1][-1]
