@@ -1698,8 +1698,12 @@ class SqlDialect:
         counterparts follow the collation.
         """
         return COALESCE(
-            [CAST(expression, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())]
+            [CAST(expression, to_type=self._hash_operand_text_type()), LITERAL(self.get_soda_null_string_value())]
         )
+
+    def _hash_operand_text_type(self) -> SodaDataTypeName | str:
+        """The type a hash operand is cast to. It must hold every value of any column whole."""
+        return SodaDataTypeName.VARCHAR
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
