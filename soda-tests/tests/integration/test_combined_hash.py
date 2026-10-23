@@ -8,7 +8,8 @@ operands (#2929: BigQuery joined them with an empty string), the cast of each op
 
 Each case is a pair of rows that differ only where one of those parts can lose the difference.
 A pair the data source itself cannot store apart (Oracle's '' is NULL, a source that keeps only
-milliseconds) is skipped, not counted as a collision.
+milliseconds) is skipped, not counted as a collision. The collisions left unfixed on purpose are
+listed in _KNOWN_COLLISIONS as strict xfails, so fixing one fails the run until its entry goes.
 """
 
 from __future__ import annotations
@@ -187,6 +188,41 @@ test_table_specification = (
 )
 
 
+_EVERY_DATA_SOURCE = "*"
+_SQLSERVER_FAMILY = ("sqlserver", "synapse", "fabric")
+
+# Left unfixed on purpose: the encoding's own ambiguity, and lossy text renderings whose fix is a per-type
+# design decision.
+_KNOWN_COLLISIONS: dict[str, dict[str, str]] = {
+    "separator_inside_a_value": {
+        _EVERY_DATA_SOURCE: "operands are joined with an unescaped '||', so a value containing it moves the boundary"
+    },
+    "null_or_sentinel_text": {_EVERY_DATA_SOURCE: "NULL is hashed as the text '__SODA_NULL__'"},
+    "float_7_significant_digits": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(float AS varchar) keeps 6 significant digits"),
+    "real_7_significant_digits": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(real AS varchar) keeps 6 significant digits"),
+    "float_17_significant_digits": {
+        **dict.fromkeys(_SQLSERVER_FAMILY, "CAST(float AS varchar) keeps 6 significant digits"),
+        **dict.fromkeys(("snowflake", "redshift", "db2"), "CAST(float AS varchar) keeps about 15 significant digits"),
+    },
+    "money_cents_fraction": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(money AS varchar) keeps 2 decimals"),
+    "datetime_seconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),
+    "datetime_milliseconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),
+    "timestamp_microseconds": {"snowflake": "CAST(timestamp AS varchar) follows the output format, milliseconds"},
+    "timestamp_tz_microseconds": {"snowflake": "CAST(timestamp AS varchar) follows the output format, milliseconds"},
+    "time_microseconds": {"snowflake": "CAST(time AS varchar) follows TIME_OUTPUT_FORMAT, seconds"},
+    "date_century": {"oracle": "CAST(date AS varchar2) follows NLS_DATE_FORMAT, a two-digit year"},
+    "timestamp_century": {"oracle": "CAST(timestamp AS varchar2) follows NLS_TIMESTAMP_FORMAT, a two-digit year"},
+    "date_time_of_day": {"oracle": "CAST(date AS varchar2) follows NLS_DATE_FORMAT, which drops the time"},
+}
+
+
+def _expect_known_collision(request: pytest.FixtureRequest, case_id: str) -> None:
+    reasons = _KNOWN_COLLISIONS.get(case_id, {})
+    reason = reasons.get(test_datasource) or reasons.get(_EVERY_DATA_SOURCE)
+    if reason:
+        request.applymarker(pytest.mark.xfail(strict=True, reason=f"known collision on {test_datasource}: {reason}"))
+
+
 def _skip_without_row_hashing(data_source_impl: DataSourceImpl) -> None:
     if not data_source_impl.supports_row_hashing:
         pytest.skip(f"{test_datasource} cannot express a row hash")
@@ -261,7 +297,10 @@ def _assert_keys_in_test_table(
 
 
 @pytest.mark.parametrize("case", _CASES, ids=[case.case_id for case in _CASES])
-def test_combined_hash_tells_rows_apart(data_source_test_helper: DataSourceTestHelper, case: HashCase):
+def test_combined_hash_tells_rows_apart(
+    data_source_test_helper: DataSourceTestHelper, case: HashCase, request: pytest.FixtureRequest
+):
+    _expect_known_collision(request, case.case_id)
     _assert_keys_in_test_table(
         data_source_test_helper,
         test_table_specification,
@@ -371,8 +410,9 @@ _native_cases_here: list[NativeTypeCase] = _NATIVE_TYPE_CASES.get(test_datasourc
 @pytest.mark.skipif(not _native_cases_here, reason=f"no native column types listed for {test_datasource}")
 @pytest.mark.parametrize("case", _native_cases_here, ids=[case.case_id for case in _native_cases_here])
 def test_combined_hash_tells_rows_apart_on_native_types(
-    data_source_test_helper: DataSourceTestHelper, case: NativeTypeCase
+    data_source_test_helper: DataSourceTestHelper, case: NativeTypeCase, request: pytest.FixtureRequest
 ):
+    _expect_known_collision(request, case.case_id)
     data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
     _skip_without_row_hashing(data_source_impl)
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
