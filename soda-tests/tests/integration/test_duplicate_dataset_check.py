@@ -1,3 +1,7 @@
+import datetime
+from decimal import Decimal
+
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
@@ -159,3 +163,85 @@ def test_dataset_duplicate_not_evaluated_without_row_hashing(
     # Names the per-column alternative: the message is the only place a user learns the check can be
     # rewritten rather than dropped.
     assert "under a single column" in caplog.text
+
+
+_ROW_A = (
+    "k",
+    123,
+    4567,
+    "123",
+    "4567",
+    "a" * 30 + "1",
+    123456.1,
+    Decimal("1180591620717411303424.0"),
+    datetime.date(1926, 3, 1),
+    datetime.datetime(2026, 3, 1, 10, 0, 1),
+    datetime.datetime(2026, 3, 1, 10, 0, 1, tzinfo=datetime.timezone.utc),
+)
+_ROW_B = (
+    "k",
+    1234,
+    567,
+    "1234",
+    "567",
+    "a" * 30 + "2",
+    123456.2,
+    Decimal("1180591620717411565568.0"),
+    datetime.date(2026, 3, 1),
+    datetime.datetime(2026, 3, 1, 10, 0, 2),
+    datetime.datetime(2026, 3, 1, 10, 0, 2, tzinfo=datetime.timezone.utc),
+)
+
+# Every column set below sees two distinct rows and one real duplicate (_ROW_A twice), so the check
+# must count exactly one duplicate; a key that loses the difference between _ROW_A and _ROW_B counts two.
+distinct_keys_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("duplicate_dataset_keys")
+    .column_varchar("same", 10)
+    .column_integer("int_a")
+    .column_integer("int_b")
+    .column_varchar("text_a", 400)
+    .column_varchar("text_b", 400)
+    .column_varchar("long_text", 400)
+    .column_double("float_value")
+    .column_decimal("decimal_value", 31, 9)
+    .column_date("date_value")
+    .column_timestamp("timestamp_value")
+    .column_timestamp_tz("timestamp_tz_value")
+    .rows(rows=[_ROW_A, _ROW_B, _ROW_A])
+    .build()
+)
+
+
+@pytest.mark.parametrize(
+    "columns",
+    [
+        ["int_a", "int_b"],
+        ["text_a", "text_b"],
+        ["long_text"],
+        ["same", "long_text"],
+        ["float_value"],
+        ["decimal_value"],
+        ["date_value"],
+        ["timestamp_value"],
+        ["timestamp_tz_value"],
+    ],
+    ids=lambda columns: "-".join(columns),
+)
+def test_dataset_duplicate_counts_only_real_duplicates(data_source_test_helper: DataSourceTestHelper, columns):
+    test_table = data_source_test_helper.ensure_test_table(distinct_keys_table_specification)
+
+    result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - duplicate:
+                  columns: {columns}
+        """,
+    )
+
+    check_result: CheckResult = result.contract_verification_results[0].check_results[0]
+    assert get_diagnostic_value(check_result, "duplicate_count") == 1, (
+        f"expected 1 duplicate over {columns}, got {get_diagnostic_value(check_result, 'duplicate_count')}\n"
+        f"{result.get_errors_str()}"
+    )
