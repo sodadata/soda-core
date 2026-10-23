@@ -364,8 +364,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")],
             ),
             GT(COLUMN("attnum", "a"), LITERAL(0)),
-            # pg_catalog shows every role all names, so keep only the columns this role can read.
-            RAW_SQL("has_schema_privilege(n.oid, 'USAGE') AND has_column_privilege(c.oid, a.attnum, 'SELECT')"),
+            # Same privilege predicate as PostgresMetadataTablesQuery: a table's columns show in full or not at all.
+            RAW_SQL("has_schema_privilege(n.oid, 'USAGE') AND has_table_privilege(c.oid, 'SELECT')"),
         ]
         if table_name:
             where_conditions.append(EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))))
