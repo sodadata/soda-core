@@ -65,6 +65,7 @@ class MockSodaCloud(SodaCloud):
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
         self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
+        self._block_group_by_results_to_cloud_response: bool = False
         # Fixture-driven historic-data responses, keyed by identity.
         # Only consulted when at least one fixture is registered, so existing
         # tests using the `responses` list are unaffected.
@@ -190,6 +191,10 @@ class MockSodaCloud(SodaCloud):
 
         response.set_json_object(new_json_object)
 
+    def set_block_group_by_results_to_cloud(self, value: bool) -> None:
+        """The org setting the next fetch_dataset_configuration reports, as Cloud's response would."""
+        self._block_group_by_results_to_cloud_response = value
+
     def set_dataset_configuration_response(
         self, dataset_identifier: "DatasetIdentifier", dataset_configuration_dto: "DatasetConfigurationDTO"
     ):
@@ -198,6 +203,8 @@ class MockSodaCloud(SodaCloud):
     def fetch_dataset_configuration(
         self, dataset_identifier: "DatasetIdentifier"
     ) -> Optional["DatasetConfigurationDTO"]:
+        # Bypasses fetch_datasets_configurations, so applies the org setting that one would read.
+        self.block_group_by_results_to_cloud = self._block_group_by_results_to_cloud_response
         if str(dataset_identifier) in self.dataset_configurations:
             return self.dataset_configurations[str(dataset_identifier)]
 
