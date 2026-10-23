@@ -22,6 +22,8 @@ def test_metadata_queries_hide_objects_the_role_cannot_read(data_source_test_hel
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     # Materialized views are why these queries read pg_catalog, so they must stay discoverable once granted.
     mv = data_source_test_helper.create_materialized_view_from_test_table(test_table)
+    # Never granted, so never visible: a table without columns has no column to lack a grant on.
+    no_columns_name = f"{test_table.unique_name}_no_columns"
     data_source_impl = data_source_test_helper.data_source_impl
     schema_name = data_source_test_helper.extract_schema_from_prefix()
     role = f"soda_test_no_access_{uuid4().hex[:8]}"
@@ -49,6 +51,10 @@ def test_metadata_queries_hide_objects_the_role_cannot_read(data_source_test_hel
         finally:
             data_source_impl.execute_update("RESET ROLE")
 
+    no_columns = data_source_impl.sql_dialect.qualify_dataset_name(
+        dataset_prefix=data_source_test_helper.dataset_prefix, dataset_name=no_columns_name
+    )
+    data_source_impl.execute_update(f"CREATE TABLE IF NOT EXISTS {no_columns} ()")
     data_source_impl.execute_update(f'CREATE ROLE "{role}" NOLOGIN')
     try:
         assert as_role() == ([], [], [])
@@ -68,3 +74,4 @@ def test_metadata_queries_hide_objects_the_role_cannot_read(data_source_test_hel
     finally:
         data_source_impl.execute_update(f'DROP OWNED BY "{role}"')
         data_source_impl.execute_update(f'DROP ROLE "{role}"')
+        data_source_impl.execute_update(f"DROP TABLE IF EXISTS {no_columns}")
