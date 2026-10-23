@@ -70,7 +70,7 @@ jobs:
 
       - name: Run DE review
         id: de-review
-        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231 (Claude Code 2.1.278)
+        uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259 (Claude Code 2.1.309)
         # Subagents run in the background by default. The action stops at the first
         # result message, so a run whose main agent ends its turn to wait for them
         # finishes "success" before any review is written. Forcing them into the
@@ -168,11 +168,12 @@ jobs:
           # gh search is left out on purpose: its results can include private
           # repositories, and anything a subagent finds can end up in a public review.
           # The model is pinned rather than left to the action's default, which was a
-          # generation behind and made sodadata/soda's reviews shallow. Move it to
-          # claude-opus-5-5 together with the action pin once a tagged release ships
-          # Claude Code 2.1.280 or later; 2.1.278 rejects that id. Effort is explicit
-          # so review depth does not move when a CLI default changes.
-          claude_args: '--model claude-opus-5 --effort high --allowed-tools "Agent,Task,Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr checks:*),Bash(gh run view:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git merge-base:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(jq:*)"'
+          # generation behind and made sodadata/soda's reviews shallow. claude-opus-5-5
+          # needs Claude Code 2.1.280 or later; the action release pinned above installs
+          # 2.1.309. Move the model id and the action pin together whenever either
+          # changes. Effort is explicit because Opus 5.5 defaults to medium and review
+          # depth should not move when a CLI default changes.
+          claude_args: '--model claude-opus-5-5 --effort high --allowed-tools "Agent,Task,Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr checks:*),Bash(gh run view:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git blame:*),Bash(git merge-base:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(jq:*)"'
 
       # The action prints only a few fields of the result event. The file it writes
       # holds every message, including the error text that says why a run stopped.
