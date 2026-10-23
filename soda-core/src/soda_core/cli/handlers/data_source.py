@@ -149,10 +149,10 @@ def _discover_dqns(
     finally:
         data_source_impl.close_connection()
     if not dqns:
-        # Warehouses hide what the connecting user can't access, so missing grants look like an empty data source.
+        # Filters that match nothing and missing grants both look like an empty data source.
         soda_logger.warning(
             f"No datasets discovered in data source '{data_source_impl.name}'. "
-            "Discovery only lists datasets the connecting user can access, so check its grants."
+            "If you expected some, check the include/exclude filters and the connecting user's grants."
         )
     return dqns
 
