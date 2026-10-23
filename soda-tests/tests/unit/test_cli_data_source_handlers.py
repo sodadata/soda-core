@@ -213,6 +213,21 @@ def test_discover_success_sends_results_and_exits_ok(mock_discover_dataset_dqns)
     data_source_impl.close_connection.assert_called_once()
 
 
+@patch("soda_core.discovery.discovery.discover_dataset_dqns", return_value=[])
+def test_discover_nothing_found_warns_about_grants(mock_discover_dataset_dqns, caplog):
+    exit_code = handle_discover_data_source_locally(_data_source_impl_fake())
+
+    assert exit_code == ExitCode.OK
+    assert any(r.levelname == "WARNING" and "check its grants" in r.getMessage() for r in caplog.records)
+
+
+@patch("soda_core.discovery.discovery.discover_dataset_dqns", return_value=["ds/schema/table"])
+def test_discover_something_found_does_not_warn(mock_discover_dataset_dqns, caplog):
+    handle_discover_data_source_locally(_data_source_impl_fake())
+
+    assert not any("check its grants" in r.getMessage() for r in caplog.records)
+
+
 @patch("soda_core.discovery.discovery.discover_dataset_dqns")
 def test_discover_query_failure_propagates_raw(mock_discover_dataset_dqns, caplog):
     data_source_impl = _data_source_impl_fake()
