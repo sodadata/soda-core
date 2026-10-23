@@ -25,7 +25,8 @@ members = [
     "soda-sqlserver",
     "soda-synapse",
     "soda-tests", 
-    "soda-trino"
+    "soda-trino",
+    "soda-odps",
 ]
 
 [dependency-groups]
@@ -58,6 +59,7 @@ soda-sqlserver = { workspace = true }
 soda-synapse = { workspace = true }
 soda-tests = { workspace = true }
 soda-trino = { workspace = true }
+soda-odps = { workspace = true }
 
 [build-system]
 requires = ["setuptools>=45", "wheel"]
