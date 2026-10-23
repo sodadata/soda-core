@@ -2,7 +2,7 @@ import pytest
 from soda_bigquery.common.data_sources.bigquery_data_source import BigQueryMetadataPrimaryKeysQuery, BigQuerySqlDialect
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import SqlDataType
-from soda_core.common.sql_ast import CREATE_TABLE, CREATE_TABLE_COLUMN
+from soda_core.common.sql_ast import COMBINED_HASH, CONCAT_WS, CREATE_TABLE, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT
 
 
@@ -454,3 +454,19 @@ def test_column_metadata_keeps_the_raw_type_as_source_data_type(raw_type, expect
 
     assert column.sql_data_type.name == expected_name
     assert column.source_data_type == raw_type
+
+
+def test_concat_ws_renders_the_separator_as_a_single_string_literal():
+    # The separator reaches the dialect already quoted. Quoting it again gave `''||''`, which
+    # BigQuery reads as the || operator on two empty strings, so the operands ran together and
+    # ('123', '4567') collided with ('1234', '567').
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_expression_sql(CONCAT_WS(separator="'||'", expressions=[COLUMN("a"), COLUMN("b")]))
+    assert sql == "CONCAT(`a`, '||', `b`)"
+
+
+def test_multi_column_combined_hash_separates_the_columns():
+    dialect = BigQuerySqlDialect()
+    sql = dialect.build_expression_sql(COMBINED_HASH([COLUMN("a"), COLUMN("b")]))
+    assert ", '||', " in sql
+    assert "''||''" not in sql
