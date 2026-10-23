@@ -5,15 +5,17 @@ import logging
 import pytest
 from soda_core.common import logging_configuration
 from soda_core.common.logging_configuration import (
-    GROUP_VALUES_REDACTED_MARKER,
     REDACTED_EXCEPTION_MARKER,
     MaskingError,
     SodaConsoleFormatter,
     _mask_exception,
     _mask_record,
     _masked_values,
-    group_values_scope,
+    redacted_marker,
+    redacted_scope,
+    redaction_policy,
 )
+from soda_core.common.logging_constants import RedactionCategory
 
 
 class _FakeRetryingConnection:
@@ -169,7 +171,7 @@ def test_console_formatter_output_has_no_secret_when_masking_fails(monkeypatch, 
     assert REDACTED_EXCEPTION_MARKER in rendered
 
 
-# --- Group-values redaction -------------------------------------------------------------
+# --- Policy redaction ---------------------------------------------------------------------
 
 
 def _record(message: str, *args, level: int = logging.INFO, **extra) -> logging.LogRecord:
@@ -187,52 +189,66 @@ class _MustNotBeFormatted:
         raise AssertionError("a redacted record's args must never be formatted")
 
 
-def test_marked_record_redacted_when_enabled() -> None:
-    record = _record("group ['SENTINEL']: 1", group_values=True)
+GROUP_VALUES = RedactionCategory.GROUP_VALUES
+MARKER = redacted_marker(GROUP_VALUES)
+
+
+@pytest.fixture
+def policy_on():
+    with redaction_policy({GROUP_VALUES}):
+        yield
+
+
+def test_marker_names_the_category() -> None:
+    assert redacted_marker("group_values") == "[redacted: group_values]"
+
+
+def test_marked_record_redacted_under_policy(policy_on) -> None:
+    record = _record("group ['SENTINEL']: 1", redact=GROUP_VALUES)
 
     _mask_record(record)
 
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
+    assert record.getMessage() == MARKER
     assert record.args == ()
 
 
-def test_redaction_does_not_format_args() -> None:
-    """The trigger is checked before the message is built: group values passed as ``args``
-    are never interpolated, and a broken format can't raise ahead of the redaction."""
-    record = _record("group %s: %s", _MustNotBeFormatted(), 1, group_values=True)
+def test_redaction_does_not_format_args(policy_on) -> None:
+    """The trigger is checked before the message is built: values passed as ``args`` are
+    never interpolated, and a broken format can't raise ahead of the redaction."""
+    record = _record("group %s: %s", _MustNotBeFormatted(), 1, redact=GROUP_VALUES)
 
     _mask_record(record)
 
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
+    assert record.getMessage() == MARKER
 
 
-def test_scope_record_redacted_when_enabled() -> None:
-    with group_values_scope():
+def test_scope_record_redacted_under_policy(policy_on) -> None:
+    with redacted_scope(GROUP_VALUES):
         inside = _record("row SENTINEL | 1")
         _mask_record(inside)
     outside = _record("row SENTINEL | 1")
     _mask_record(outside)
 
-    assert inside.getMessage() == GROUP_VALUES_REDACTED_MARKER
+    assert inside.getMessage() == MARKER
     assert outside.getMessage() == "row SENTINEL | 1"
 
 
-def test_nested_scope_restores_outer() -> None:
-    with group_values_scope():
-        with group_values_scope():
+def test_nested_scope_restores_outer(policy_on) -> None:
+    with redacted_scope(GROUP_VALUES):
+        with redacted_scope(GROUP_VALUES):
             pass
         after_inner = _record("SENTINEL")
         _mask_record(after_inner)
     after_outer = _record("SENTINEL")
     _mask_record(after_outer)
 
-    assert after_inner.getMessage() == GROUP_VALUES_REDACTED_MARKER
+    assert after_inner.getMessage() == MARKER
     assert after_outer.getMessage() == "SENTINEL"
 
 
-def test_scope_reset_on_exception() -> None:
+def test_scope_reset_on_exception(policy_on) -> None:
     with pytest.raises(RuntimeError):
-        with group_values_scope():
+        with redacted_scope(GROUP_VALUES):
             raise RuntimeError("query failed")
     record = _record("SENTINEL")
     _mask_record(record)
@@ -240,63 +256,10 @@ def test_scope_reset_on_exception() -> None:
     assert record.getMessage() == "SENTINEL"
 
 
-def test_stamped_record_redacted_outside_scope() -> None:
-    """A record is masked by every handler it reaches, and a captured record is replayed
-    later outside the scope (gatherer switch, forwarding collector). The first pass stamps
-    it so the later passes still recognise it."""
-    with group_values_scope():
-        record = _record("row SENTINEL | 1")
-        _mask_record(record)
-    assert record.group_values is True
-
-    record.msg = "row SENTINEL | 1"  # what a replay would see if the stamp were missing
-    _mask_record(record)
-
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
-
-
-def test_redaction_drops_exception() -> None:
-    """Console: no traceback. Cloud: the ``exception`` extra is the only exception field
-    the upload carries; it keeps the exception class (a static identifier, never a value)
-    and nothing else."""
-    record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
-    record.group_values = True
-
-    _mask_record(record)
-
-    assert record.exc_info is None
-    assert record.exc_text is None
-    assert record.exception == "ValueError"
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
-
-
-def test_redaction_clears_exception_extra() -> None:
-    """A stacktrace attached via the ``exception`` extra (without ``exc_info``) is what
-    reaches Cloud; it is dropped like the traceback."""
-    record = _record("insert failed", group_values=True, exception="Traceback ... VALUES ('SENTINEL')")
-
-    _mask_record(record)
-
-    assert record.exception is None
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
-
-
-def test_redaction_is_idempotent() -> None:
-    """A second pass (next handler) keeps the first pass's result, incl. the exception class."""
-    record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
-    record.group_values = True
-
-    _mask_record(record)
-    _mask_record(record)
-
-    assert record.exception == "ValueError"
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
-
-
-def test_no_redaction_when_not_marked() -> None:
-    """The log site marks a record with its run's setting: a falsy mark leaves it as is."""
+def test_marked_record_unchanged_without_policy() -> None:
+    """Sites always mark; without a policy for the category the record is left as is."""
     record = _error_record_with_exception("group SENTINEL failed", _value_error_containing("SENTINEL"))
-    record.group_values = False
+    record.redact = GROUP_VALUES
 
     _mask_record(record)
 
@@ -305,53 +268,132 @@ def test_no_redaction_when_not_marked() -> None:
     assert not hasattr(record, "exception")
 
 
-def test_no_redaction_in_disabled_scope() -> None:
-    with group_values_scope(enabled=False):
+def test_scope_record_unchanged_without_policy() -> None:
+    with redacted_scope(GROUP_VALUES):
         record = _record("row SENTINEL | 1")
         _mask_record(record)
 
     assert record.getMessage() == "row SENTINEL | 1"
 
 
-def test_disabled_scope_does_not_lift_enabled_scope() -> None:
-    with group_values_scope():
-        with group_values_scope(enabled=False):
-            record = _record("row SENTINEL | 1")
+def test_policy_for_other_category_does_not_redact() -> None:
+    with redaction_policy({"something_else"}):
+        record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
+        _mask_record(record)
+
+    assert record.getMessage() == "row SENTINEL | 1"
+
+
+def test_policy_reset_on_exit() -> None:
+    with redaction_policy({GROUP_VALUES}):
+        pass
+    record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
+    _mask_record(record)
+
+    assert record.getMessage() == "row SENTINEL | 1"
+
+
+def test_inner_policy_does_not_lift_outer() -> None:
+    with redaction_policy({GROUP_VALUES}):
+        with redaction_policy(()):
+            record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
             _mask_record(record)
 
-    assert record.getMessage() == GROUP_VALUES_REDACTED_MARKER
+    assert record.getMessage() == MARKER
 
 
-def test_console_formatter_redacts_scope_record() -> None:
+def test_empty_policy_is_a_no_op() -> None:
+    with redaction_policy(()):
+        record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
+        _mask_record(record)
+
+    assert record.getMessage() == "row SENTINEL | 1"
+
+
+def test_stamped_record_stays_redacted_outside_scope_and_policy() -> None:
+    """A record is masked by every handler it reaches, and a captured record is replayed
+    later outside the scope (gatherer switch, forwarding collector). The first pass stamps
+    it so later passes keep it redacted, even where no policy is active."""
+    with redaction_policy({GROUP_VALUES}):
+        with redacted_scope(GROUP_VALUES):
+            record = _record("row SENTINEL | 1")
+            _mask_record(record)
+    assert record.redact == GROUP_VALUES
+
+    record.msg = "row SENTINEL | 1"  # what a replay would see if the stamp were missing
+    _mask_record(record)
+
+    assert record.getMessage() == MARKER
+
+
+def test_redaction_drops_exception(policy_on) -> None:
+    """Console: no traceback. Cloud: the ``exception`` extra is the only exception field
+    the upload carries; it keeps the exception class (a static identifier, never a value)
+    and nothing else."""
+    record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
+    record.redact = GROUP_VALUES
+
+    _mask_record(record)
+
+    assert record.exc_info is None
+    assert record.exc_text is None
+    assert record.exception == "ValueError"
+    assert record.getMessage() == MARKER
+
+
+def test_redaction_clears_exception_extra(policy_on) -> None:
+    """A stacktrace attached via the ``exception`` extra (without ``exc_info``) is what
+    reaches Cloud; it is dropped like the traceback."""
+    record = _record("insert failed", redact=GROUP_VALUES, exception="Traceback ... VALUES ('SENTINEL')")
+
+    _mask_record(record)
+
+    assert record.exception is None
+    assert record.getMessage() == MARKER
+
+
+def test_redaction_is_idempotent(policy_on) -> None:
+    """A second pass (next handler) keeps the first pass's result, incl. the exception class."""
+    record = _error_record_with_exception("query failed", _value_error_containing("SENTINEL"))
+    record.redact = GROUP_VALUES
+
+    _mask_record(record)
+    _mask_record(record)
+
+    assert record.exception == "ValueError"
+    assert record.getMessage() == MARKER
+
+
+def test_console_formatter_redacts_scope_record(policy_on) -> None:
     record = _error_record_with_exception("query failed for SENTINEL", _value_error_containing("SENTINEL"))
 
-    with group_values_scope():
+    with redacted_scope(GROUP_VALUES):
         rendered = SodaConsoleFormatter().format(record)
 
-    assert GROUP_VALUES_REDACTED_MARKER in rendered
+    assert MARKER in rendered
     assert "SENTINEL" not in rendered
     assert "Traceback" not in rendered
 
 
-def test_cloud_log_dict_of_redacted_record_has_no_values() -> None:
+def test_cloud_log_dict_of_redacted_record_has_no_values(policy_on) -> None:
     """The two value-bearing fields of a Cloud log dict are ``message`` and ``exception``."""
     from soda_core.common.soda_cloud import build_log_cloud_json_dict
 
     record = _error_record_with_exception("query failed for SENTINEL", _value_error_containing("SENTINEL"))
-    with group_values_scope():
+    with redacted_scope(GROUP_VALUES):
         _mask_record(record)
 
     cloud_dict = build_log_cloud_json_dict(record, 0)
 
-    assert cloud_dict["message"] == GROUP_VALUES_REDACTED_MARKER
+    assert cloud_dict["message"] == MARKER
     assert cloud_dict["exception"] == "ValueError"
     assert "SENTINEL" not in str(cloud_dict)
 
 
-def test_secret_masking_unchanged(registered_secret: str) -> None:
+def test_secret_masking_unchanged(registered_secret: str, policy_on) -> None:
     record = _record(f"connecting with {registered_secret}")
 
     _mask_record(record)
 
     assert record.getMessage() == "connecting with ***"
-    assert GROUP_VALUES_REDACTED_MARKER not in record.getMessage()
+    assert MARKER not in record.getMessage()
