@@ -28,7 +28,8 @@ from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.filtered_cte import build_filtered_cte
-from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
+from soda_core.common.logging_configuration import redaction_policy
+from soda_core.common.logging_constants import Emoticons, ExtraKeys, RedactionCategory, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import ColumnMetadata, SamplerType
 from soda_core.common.number_conversions import is_finite_number
@@ -778,8 +779,8 @@ class CheckCollectionImpl:
         self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
-        # Group-by log sites redact group keys and values when set: they mark their records with it
-        # and enter group_values_scope(enabled=...) with it. Without Soda Cloud nothing is blocked.
+        # Org setting: when set, verify() redacts the records the group-by log sites mark as
+        # RedactionCategory.GROUP_VALUES (see redaction_categories). Without Soda Cloud nothing is blocked.
         self.block_group_by_results_to_cloud: bool = False
         if self.soda_cloud:
             self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
@@ -1115,14 +1116,15 @@ class CheckCollectionImpl:
             f"Remove the sampling configuration for this dataset to run them against all rows."
         )
 
-    def verify(self) -> CheckCollectionResult:
-        from soda_core.contracts.impl.contract_verification_impl import (
-            DerivedMetricImpl,
-            MeasurementValues,
-            _get_contract_verification_status,
-            collect_post_processing_stages,
-        )
+    @property
+    def redaction_categories(self) -> frozenset[str]:
+        """The ``RedactionCategory`` values this run's org settings block from the logs."""
+        categories: set[str] = set()
+        if self.block_group_by_results_to_cloud:
+            categories.add(RedactionCategory.GROUP_VALUES)
+        return frozenset(categories)
 
+    def verify(self) -> CheckCollectionResult:
         if not self.wire_source:
             raise ValueError(f"{type(self).__name__} did not declare wire_source class attribute")
 
@@ -1148,6 +1150,20 @@ class CheckCollectionImpl:
             raise ValueError(
                 f"wire_source {self.wire_source!r} must not contain '.' or ':' (reserved check-path delimiters)"
             )
+
+        # The policy is set once here, for every record the verification emits: the log sites
+        # (and the shared data source code they wrap in redacted_scope) only say what a record
+        # carries. The masking runs on the emitting thread, so this scope covers it.
+        with redaction_policy(self.redaction_categories):
+            return self._verify()
+
+    def _verify(self) -> CheckCollectionResult:
+        from soda_core.contracts.impl.contract_verification_impl import (
+            DerivedMetricImpl,
+            MeasurementValues,
+            _get_contract_verification_status,
+            collect_post_processing_stages,
+        )
 
         if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
