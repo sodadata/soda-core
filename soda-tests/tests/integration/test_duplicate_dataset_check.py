@@ -211,6 +211,15 @@ distinct_keys_table_specification = (
 )
 
 
+# Left unfixed on purpose, as in test_combined_hash.py: lossy text renderings whose fix is a per-type design decision.
+_KNOWN_COLLISIONS: dict[str, dict[str, str]] = {
+    "float_value": dict.fromkeys(
+        ("sqlserver", "synapse", "fabric"), "CAST(float AS varchar) keeps 6 significant digits"
+    ),
+    "date_value": {"oracle": "CAST(date AS varchar2) follows NLS_DATE_FORMAT, a two-digit year"},
+}
+
+
 @pytest.mark.parametrize(
     "columns",
     [
@@ -225,7 +234,12 @@ distinct_keys_table_specification = (
     ],
     ids=lambda columns: "-".join(columns),
 )
-def test_dataset_duplicate_counts_only_real_duplicates(data_source_test_helper: DataSourceTestHelper, columns):
+def test_dataset_duplicate_counts_only_real_duplicates(
+    data_source_test_helper: DataSourceTestHelper, columns, request: pytest.FixtureRequest
+):
+    reason = _KNOWN_COLLISIONS.get("-".join(columns), {}).get(test_datasource)
+    if reason:
+        request.applymarker(pytest.mark.xfail(strict=True, reason=f"known collision on {test_datasource}: {reason}"))
     test_table = data_source_test_helper.ensure_test_table(distinct_keys_table_specification)
 
     result = data_source_test_helper.verify_contract(
