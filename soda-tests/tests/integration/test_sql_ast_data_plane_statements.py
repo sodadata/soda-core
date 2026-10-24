@@ -21,6 +21,7 @@ from soda_core.common.sql_ast import (
     CREATE_SCHEMA_IF_NOT_EXISTS,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CTE,
     CURRENT_TIMESTAMP,
     DATE_ISO_TEXT,
     DATE_TRUNC,
@@ -31,6 +32,7 @@ from soda_core.common.sql_ast import (
     FROM,
     GT,
     INSERT_INTO,
+    IS_NULL,
     JOIN,
     JSON_MERGE,
     LIKE,
@@ -47,6 +49,7 @@ from soda_core.common.sql_ast import (
     UPSERT_VIA_SELECT,
     VALUES_ROW,
     WHERE,
+    WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -56,7 +59,7 @@ INDEX = "sqlast_dp_target_name_idx"
 FIXES = "sqlast_dp_fixes"
 
 # The type a JSON object column is created with; a dialect opting in adds its own.
-JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {"postgres": "jsonb", "sqlserver": "nvarchar(max)"}
+JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {"postgres": "jsonb", "sqlserver": "nvarchar(max)", "snowflake": "varchar"}
 
 
 def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTestHelper):
@@ -256,6 +259,61 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
             )
         )
         assert target_rows() == [(1, "a2", 100), (3, "c", 30)]
+
+        # The SELECT may open with a WITH; only the key the CTE keeps reaches the target.
+        upserted_rows = data_source_impl.execute_update(
+            sql_dialect.build_upsert_via_select_sql(
+                UPSERT_VIA_SELECT(
+                    fully_qualified_table_name=target_table,
+                    select_elements=[
+                        WITH(
+                            [
+                                CTE("large").AS(
+                                    [
+                                        SELECT([COLUMN("id"), COLUMN("n")]),
+                                        FROM(SOURCE, table_prefix=dataset_prefixes),
+                                        WHERE(GT(COLUMN("n"), LITERAL(200))),
+                                    ]
+                                )
+                            ]
+                        ),
+                        SELECT([COLUMN("id"), COLUMN("n")]),
+                        FROM("large"),
+                    ],
+                    columns=[COLUMN("id"), COLUMN("n")],
+                    key_columns=[COLUMN("id")],
+                    update_assignments=[ASSIGNMENT("n", SOURCE_COLUMN("n"))],
+                )
+            )
+        )
+        assert upserted_rows == 1
+        assert target_rows() == [(1, "a2", 100), (3, "c", 30), (4, None, 400)]
+
+        # The further tables of a DELETE may hold a JOIN. A dialect whose DELETE reads no other table refuses it.
+        try:
+            delete_join_sql: str | None = sql_dialect.build_delete_sql(
+                DELETE(
+                    fully_qualified_table_name=target_table,
+                    alias="tgt",
+                    using_elements=[
+                        FROM(SOURCE, table_prefix=dataset_prefixes, alias="src"),
+                        JOIN(
+                            TARGET,
+                            table_prefix=dataset_prefixes,
+                            alias="joined",
+                            on_condition=EQ(COLUMN("id", "joined"), COLUMN("id", "src")),
+                        ),
+                    ],
+                    where=WHERE(
+                        AND([EQ(COLUMN("id", "tgt"), COLUMN("id", "joined")), IS_NULL(COLUMN("name", "joined"))])
+                    ),
+                )
+            )
+        except UnsupportedSqlStatementError:
+            delete_join_sql = None
+        if delete_join_sql is not None:
+            data_source_impl.execute_update(delete_join_sql)
+            assert target_rows() == [(1, "a2", 100), (3, "c", 30)]
 
         analyze_table_sql: str | None = sql_dialect.build_analyze_table_sql(ANALYZE_TABLE(target_table))
         if analyze_table_sql is not None:
