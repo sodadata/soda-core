@@ -3,7 +3,9 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import random
 import re
+import time
 
 import pytest
 from dateutil.parser import parse
@@ -40,6 +42,17 @@ METADATA_DWH_TEST_SCHEMA_PATTERN = re.compile(r"soda_diagnostics_metadata_[0-9a-
 
 def _dry_run() -> bool:
     return os.getenv("SODA_SCHEMA_CLEANUP_DRY_RUN", "false").lower() in ("1", "true", "yes")
+
+
+def _force() -> bool:
+    # Runs the cleanup for a data source that is not in DATASOURCES_TO_RUN, e.g. a one-off backlog sweep.
+    return os.getenv("SODA_SCHEMA_CLEANUP_FORCE", "false").lower() in ("1", "true", "yes")
+
+
+def _max_seconds() -> float:
+    # Stop dropping after this long, so a large backlog never outlives the run's credentials (e.g. 1h AWS sessions).
+    # The remaining schemas are left for the next run.
+    return float(os.getenv("SODA_SCHEMA_CLEANUP_MAX_SECONDS", "600"))
 
 
 def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
@@ -103,7 +116,7 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
 
 
 def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
-    if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN:
+    if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN and not _force():
         pytest.skip(
             f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is not in {DATASOURCES_TO_RUN}"
         )
@@ -123,32 +136,42 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     # adapters with nested folder paths (e.g. Dremio) override to keep the two distinct.
     candidates: list[tuple[str, str]] = data_source_test_helper.list_schemas_for_cleanup()
 
-    dry_run_targets: list[str] = []
-    num_deleted_schemas: int = 0
+    drop_targets: list[str] = []
     for drop_target, match_name in candidates:
         if any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
             if not any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
                 if determine_if_schema_needs_to_be_dropped(match_name):
-                    if dry_run:
-                        dry_run_targets.append(drop_target)
-                        logger.info(f"[DRY RUN] Would drop schema: {drop_target}")
-                        continue
-                    logger.info(f"Dropping schema name: {drop_target}")
-                    try:
-                        data_source_test_helper.drop_schema_if_exists(drop_target)
-                        num_deleted_schemas += 1
-                    except (
-                        Exception
-                    ) as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
-                        logger.error(f"Error dropping schema: {e}")
+                    drop_targets.append(drop_target)
                 else:
                     logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
+    logger.info(f"{len(drop_targets)} of {len(candidates)} schemas match the cleanup rules")
+
     if dry_run:
-        if dry_run_targets:
-            target_list: str = "\n  - ".join(dry_run_targets)
-            logger.info(f"[DRY RUN] Would drop {len(dry_run_targets)} schemas:\n  - {target_list}")
+        if drop_targets:
+            target_list: str = "\n  - ".join(sorted(drop_targets))
+            logger.info(f"[DRY RUN] Would drop {len(drop_targets)} schemas:\n  - {target_list}")
         else:
             logger.info("[DRY RUN] No schemas matched the cleanup criteria.")
         logger.info("[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run.")
-    else:
-        logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
+        return
+
+    # Shuffled so cleanup runs sweeping the same catalog in parallel don't all drop the same schemas at once.
+    random.shuffle(drop_targets)
+    max_seconds: float = _max_seconds()
+    start: float = time.monotonic()
+    num_deleted_schemas: int = 0
+    for index, drop_target in enumerate(drop_targets, start=1):
+        elapsed: float = time.monotonic() - start
+        if elapsed > max_seconds:
+            logger.info(
+                f"Stopping after {elapsed:.0f}s (SODA_SCHEMA_CLEANUP_MAX_SECONDS={max_seconds:.0f}): "
+                f"{len(drop_targets) - index + 1} schemas left for a later run"
+            )
+            break
+        logger.info(f"[{index}/{len(drop_targets)}] Dropping schema name: {drop_target} ({elapsed:.0f}s elapsed)")
+        try:
+            data_source_test_helper.drop_schema_if_exists(drop_target)
+            num_deleted_schemas += 1
+        except Exception as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
+            logger.error(f"Error dropping schema: {e}")
+    logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
