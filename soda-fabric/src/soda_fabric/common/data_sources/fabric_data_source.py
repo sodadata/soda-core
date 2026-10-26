@@ -33,10 +33,6 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
 
-    def _hash_operand_text_type(self) -> SodaDataTypeName | str:
-        # Fabric has no nvarchar; its varchar is UTF-8, so varchar(max) already holds any value whole.
-        return "varchar(max)"
-
     def supports_primary_keys(self) -> bool:
         # Fabric Warehouse only supports non-enforced primary keys, and only via
         # ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY NONCLUSTERED (...) NOT ENFORCED —

@@ -7,7 +7,7 @@ operands (#2929: BigQuery joined them with an empty string), the cast of each op
 (width defaults, lossy number and datetime formats) and the NULL sentinel.
 
 Each case is a pair of rows that differ only where one of those parts can lose the difference.
-A pair the data source itself cannot store apart (Oracle's '' is NULL, a source that keeps only
+A pair that reads back equal (Oracle's '' is NULL, a source or an insert literal that keeps only
 milliseconds) is skipped, not counted as a collision. The collisions left unfixed on purpose are
 listed in _KNOWN_COLLISIONS as strict xfails, so fixing one fails the run until its entry goes.
 """
@@ -205,6 +205,10 @@ _KNOWN_COLLISIONS: dict[str, dict[str, str]] = {
         **dict.fromkeys(("snowflake", "redshift", "db2"), "CAST(float AS varchar) keeps about 15 significant digits"),
     },
     "money_cents_fraction": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(money AS varchar) keeps 2 decimals"),
+    "nvarchar_cjk": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(nvarchar AS varchar) folds text outside the code page"),
+    "nvarchar_outside_code_page": dict.fromkeys(
+        _SQLSERVER_FAMILY, "CAST(nvarchar AS varchar) folds text outside the code page"
+    ),
     "datetime_seconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),
     "datetime_milliseconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),
     "timestamp_microseconds": {"snowflake": "CAST(timestamp AS varchar) follows the output format, milliseconds"},
@@ -220,7 +224,8 @@ def _expect_known_collision(request: pytest.FixtureRequest, case_id: str) -> Non
     reasons = _KNOWN_COLLISIONS.get(case_id, {})
     reason = reasons.get(test_datasource) or reasons.get(_EVERY_DATA_SOURCE)
     if reason:
-        request.applymarker(pytest.mark.xfail(strict=True, reason=f"known collision on {test_datasource}: {reason}"))
+        reason = f"known collision on {test_datasource}: {reason}"
+        request.applymarker(pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason))
 
 
 def _skip_without_row_hashing(data_source_impl: DataSourceImpl) -> None:
@@ -257,7 +262,7 @@ def _assert_keys(
         # single column gets a second opinion from the source itself.
         distinct_sql = sql_dialect.build_select_sql([SELECT([COUNT(DISTINCT(operands[0]))]), FROM(from_name), *filters])
         if len(columns) > 1 or int(data_source_impl.execute_query(distinct_sql).rows[0][0]) < 2:
-            pytest.skip(f"{test_datasource} stores both rows of {case_id} as {stored_a}")
+            pytest.skip(f"{test_datasource} reads back both rows of {case_id} as {stored_a}")
 
     exact_a, exact_b = rows[0][-2], rows[1][-2]
     folding_a, folding_b = rows[0][-1], rows[1][-1]
@@ -357,6 +362,7 @@ _NATIVE_TYPE_CASES: dict[str, list[NativeTypeCase]] = {
         NativeTypeCase("nvarchar_cjk", "nvarchar(100)", "N'日本'", "N'中国'"),
         NativeTypeCase("nvarchar_outside_code_page", "nvarchar(100)", "N'Łukasz'", "N'Lukasz'"),
         NativeTypeCase("nvarchar_differs_after_30_chars", "nvarchar(100)", f"N'{'a' * 30}1'", f"N'{'a' * 30}2'"),
+        NativeTypeCase("varbinary_trailing_zero_byte", "varbinary(16)", "0x41", "0x4100"),
         NativeTypeCase(
             "datetime2_microseconds",
             "datetime2(7)",

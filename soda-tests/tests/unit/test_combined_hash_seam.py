@@ -95,9 +95,9 @@ _EXPECTED_SQL = {
         "COALESCE(CAST(\"b\" AS varchar), '__SODA_NULL__')))",
     ),
     "sqlserver": (
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS nvarchar(max)), '__SODA_NULL__')), 2)",
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS nvarchar(max)), "
-        "'__SODA_NULL__'), COALESCE(CAST([b] AS nvarchar(max)), '__SODA_NULL__'))), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar(max)), '__SODA_NULL__')), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar(max)), "
+        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "snowflake": (
         "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__'))",
@@ -135,9 +135,9 @@ _EXPECTED_SQL = {
         "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "synapse": (
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS nvarchar(max)), '__SODA_NULL__')), 2)",
-        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS nvarchar(max)), "
-        "'__SODA_NULL__'), COALESCE(CAST([b] AS nvarchar(max)), '__SODA_NULL__'))), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', COALESCE(CAST([a] AS varchar(max)), '__SODA_NULL__')), 2)",
+        "CONVERT(VARCHAR(32), HASHBYTES('MD5', CONCAT_WS('||', COALESCE(CAST([a] AS varchar(max)), "
+        "'__SODA_NULL__'), COALESCE(CAST([b] AS varchar(max)), '__SODA_NULL__'))), 2)",
     ),
     "sparkdf": (
         "MD5(COALESCE(CAST(`a` AS string), '__SODA_NULL__'))",

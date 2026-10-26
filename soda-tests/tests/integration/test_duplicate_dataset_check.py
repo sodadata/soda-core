@@ -239,7 +239,8 @@ def test_dataset_duplicate_counts_only_real_duplicates(
 ):
     reason = _KNOWN_COLLISIONS.get("-".join(columns), {}).get(test_datasource)
     if reason:
-        request.applymarker(pytest.mark.xfail(strict=True, reason=f"known collision on {test_datasource}: {reason}"))
+        reason = f"known collision on {test_datasource}: {reason}"
+        request.applymarker(pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason))
     test_table = data_source_test_helper.ensure_test_table(distinct_keys_table_specification)
 
     result = data_source_test_helper.verify_contract(
