@@ -24,14 +24,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        worker: [1]
+        worker: [1, 2, 3, 4]
     env:
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
       SODA_TEST_SNAPSHOT: "off"
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
       SODA_SCHEMA_CLEANUP_FORCE: "true"
-      SODA_SCHEMA_CLEANUP_DRY_RUN: "true"
       # 50 minutes: leaves room for the steps between assuming the role and starting the sweep.
       SODA_SCHEMA_CLEANUP_MAX_SECONDS: "3000"
     steps:
@@ -48,9 +47,9 @@ jobs:
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
       # Before "Configure Trino", so the 1h AWS session isn't spent on the sync.
       # --no-build: never build third-party source distributions (our own workspace packages are still built).
-      # docopt and pyspark only ship sdists; their wheels come from the uv cache that setup-uv restores.
+      # docopt (for tbump) and pyspark (for soda-sparkdf) only ship sdists and the sweep needs neither, so skip them.
       - name: Sync locked environment
-        run: uv sync --locked --no-build --all-packages --group dev
+        run: uv sync --locked --no-build --no-install-package docopt --no-install-package pyspark --all-packages --group dev
       - name: Configure Trino
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
