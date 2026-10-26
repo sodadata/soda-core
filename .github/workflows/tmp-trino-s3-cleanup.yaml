@@ -47,8 +47,10 @@ jobs:
       - name: Set up UV
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
       # Before "Configure Trino", so the 1h AWS session isn't spent on the sync.
+      # --no-build: never build third-party source distributions (our own workspace packages are still built).
+      # docopt and pyspark only ship sdists; their wheels come from the uv cache that setup-uv restores.
       - name: Sync locked environment
-        run: uv sync --locked --all-packages --group dev
+        run: uv sync --locked --no-build --all-packages --group dev
       - name: Configure Trino
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
@@ -59,7 +61,7 @@ jobs:
         run: bash scripts/start_trino_ci.sh
       - name: Sweep old schemas
         run: |
-          uv run --no-sync python -m pytest -ra soda-tests/tests/integration/test_drop_old_schema.py \
+          uv run --no-sync --no-build python -m pytest -ra soda-tests/tests/integration/test_drop_old_schema.py \
             -o log_cli=true --log-cli-level=INFO
       - name: Dump Trino logs
         if: always()
