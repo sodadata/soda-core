@@ -1,8 +1,8 @@
 ---
 # TEMPORARY (#2936): drains the backlog of leftover Trino test schemas in the CI Glue catalog (Iceberg on S3).
-# Each matrix job starts its own Trino with a fresh 1h AWS session and sweeps in a random order, so parallel
-# workers rarely drop the same schema at once. SODA_SCHEMA_CLEANUP_MAX_SECONDS stops each sweep before the
-# session expires; re-run the jobs until a run logs "0 of N schemas match the cleanup rules".
+# One job starts Trino with a fresh 1h AWS session and runs SWEEP_PROCESSES sweeps against it at once. Each
+# sweeps in a random order, so they rarely drop the same schema at once. SODA_SCHEMA_CLEANUP_MAX_SECONDS stops
+# each sweep before the session expires; re-run the job until a run logs "0 of N schemas match the cleanup rules".
 # Delete this file before merging.
 name: TEMP trino-s3 schema cleanup
 
@@ -18,14 +18,11 @@ concurrency:
 
 jobs:
   sweep:
-    name: sweep (worker ${{ matrix.worker }})
+    name: sweep
     if: github.head_ref == 'test/trino-drop-old-schemas'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        worker: [1, 2, 3, 4]
     env:
+      SWEEP_PROCESSES: "6"
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
       SODA_TEST_SNAPSHOT: "off"
@@ -58,10 +55,25 @@ jobs:
           TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
           CI_MODULE: trino-s3
         run: bash scripts/start_trino_ci.sh
+      # Each process is its own pytest session; its log lines are prefixed with [pN].
+      # -p no:cacheprovider keeps the processes from writing .pytest_cache at the same time.
       - name: Sweep old schemas
         run: |
-          uv run --no-sync --no-build python -m pytest -ra soda-tests/tests/integration/test_drop_old_schema.py \
-            -o log_cli=true --log-cli-level=INFO
+          pids=""
+          for p in $(seq 1 "$SWEEP_PROCESSES"); do
+            (
+              set -o pipefail
+              uv run --no-sync --no-build python -m pytest -ra -p no:cacheprovider \
+                soda-tests/tests/integration/test_drop_old_schema.py -o log_cli=true --log-cli-level=INFO \
+                2>&1 | sed -u "s/^/[p$p] /"
+            ) &
+            pids="$pids $!"
+          done
+          rc=0
+          for pid in $pids; do
+            wait "$pid" || rc=1
+          done
+          exit $rc
       - name: Dump Trino logs
         if: always()
         run: docker logs trino-ci 2>&1 | tail -100
