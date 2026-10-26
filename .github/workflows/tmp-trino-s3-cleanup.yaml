@@ -1,0 +1,62 @@
+---
+# TEMPORARY (#2936): drains the backlog of leftover Trino test schemas in the CI Glue catalog (Iceberg on S3).
+# Each matrix job starts its own Trino with a fresh 1h AWS session and sweeps in a random order, so parallel
+# workers rarely drop the same schema at once. SODA_SCHEMA_CLEANUP_MAX_SECONDS stops each sweep before the
+# session expires; re-run the jobs until a run logs "0 of N schemas match the cleanup rules".
+# Delete this file before merging.
+name: TEMP trino-s3 schema cleanup
+
+on:
+  pull_request:
+
+concurrency:
+  group: tmp-trino-s3-cleanup
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: sweep (worker ${{ matrix.worker }})
+    if: github.head_ref == 'test/trino-drop-old-schemas'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [1]
+    env:
+      TEST_DATASOURCE: trino
+      TRINO_CATALOG: iceberg
+      SODA_TEST_SNAPSHOT: "off"
+      SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
+      SODA_SCHEMA_CLEANUP_FORCE: "true"
+      SODA_SCHEMA_CLEANUP_DRY_RUN: "true"
+      # 50 minutes: leaves room for the steps between assuming the role and starting the sweep.
+      SODA_SCHEMA_CLEANUP_MAX_SECONDS: "3000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+      # Before "Configure Trino", so the 1h AWS session isn't spent on the sync.
+      - name: Sync locked environment
+        run: uv sync --locked --all-packages --group dev
+      - name: Configure Trino
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+          TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
+          CI_MODULE: trino-s3
+        run: bash scripts/start_trino_ci.sh
+      - name: Sweep old schemas
+        run: |
+          uv run python -m pytest -ra soda-tests/tests/integration/test_drop_old_schema.py \
+            -o log_cli=true --log-cli-level=INFO
+      - name: Dump Trino logs
+        if: always()
+        run: docker logs trino-ci 2>&1 | tail -100
+      - name: Stop Trino container
+        if: always()
+        run: docker rm -f trino-ci 2>/dev/null || true
