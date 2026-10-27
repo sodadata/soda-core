@@ -3,9 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import random
 import re
-import time
 
 import pytest
 from dateutil.parser import parse
@@ -27,6 +25,7 @@ DATASOURCES_TO_RUN = [
     "databricks",
     "dremio",
     "hana",
+    # Not "trino": its S3 CI catalog is swept weekly by .github/workflows/trino-s3-schema-cleanup.yaml instead.
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
@@ -44,21 +43,13 @@ def _dry_run() -> bool:
 
 
 def _force() -> bool:
-    # Runs the cleanup for a data source that is not in DATASOURCES_TO_RUN, e.g. a one-off backlog sweep.
+    # Runs the cleanup for a data source outside DATASOURCES_TO_RUN, e.g. from the weekly trino-s3 cleanup workflow.
     return os.getenv("SODA_SCHEMA_CLEANUP_FORCE", "false").lower() in ("1", "true", "yes")
 
 
-def _max_seconds() -> float:
-    # Stop dropping after this long, so a large backlog never outlives the run's credentials (e.g. 1h AWS sessions).
-    # The remaining schemas are left for the next run.
-    return float(os.getenv("SODA_SCHEMA_CLEANUP_MAX_SECONDS", "600"))
-
-
 def _shard() -> tuple[int, int] | None:
-    # "<index>/<count>", e.g. "3/12": parallel sweeps deal the sorted targets out like cards (every count-th one,
-    # starting at index), so their shares differ by one at most and never overlap. That relies on all sweeps listing
-    # the same schemas, so start them together, before any of them drops one. If a list does differ, a schema is at
-    # worst dropped twice (the second drop logs an error) or left for the next run.
+    # "<index>/<count>", e.g. "3/10": parallel sweeps each take every count-th schema of the sorted targets, starting
+    # at index, so they get equal shares and never drop the same schema. Start them together, so they all list the same.
     shard: str | None = os.getenv("SODA_SCHEMA_CLEANUP_SHARD")
     if not shard:
         return None
@@ -155,36 +146,24 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                     drop_targets.append(drop_target)
                 else:
                     logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
-    logger.info(f"{len(drop_targets)} of {len(candidates)} schemas match the cleanup rules")
     shard: tuple[int, int] | None = _shard()
     if shard:
         shard_index, shard_count = shard
+        logger.info(f"Shard {shard_index}/{shard_count} of {len(drop_targets)} matching schemas")
         drop_targets = sorted(drop_targets)[shard_index - 1 :: shard_count]
-        logger.info(f"Shard {shard_index}/{shard_count} takes {len(drop_targets)} of them")
 
     if dry_run:
         if drop_targets:
-            target_list: str = "\n  - ".join(sorted(drop_targets))
+            target_list: str = "\n  - ".join(drop_targets)
             logger.info(f"[DRY RUN] Would drop {len(drop_targets)} schemas:\n  - {target_list}")
         else:
             logger.info("[DRY RUN] No schemas matched the cleanup criteria.")
         logger.info("[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run.")
         return
 
-    # Shuffled so cleanup runs sweeping the same catalog in parallel don't all drop the same schemas at once.
-    random.shuffle(drop_targets)
-    max_seconds: float = _max_seconds()
-    start: float = time.monotonic()
     num_deleted_schemas: int = 0
-    for index, drop_target in enumerate(drop_targets, start=1):
-        elapsed: float = time.monotonic() - start
-        if elapsed > max_seconds:
-            logger.info(
-                f"Stopping after {elapsed:.0f}s (SODA_SCHEMA_CLEANUP_MAX_SECONDS={max_seconds:.0f}): "
-                f"{len(drop_targets) - index + 1} schemas left for a later run"
-            )
-            break
-        logger.info(f"[{index}/{len(drop_targets)}] Dropping schema name: {drop_target} ({elapsed:.0f}s elapsed)")
+    for drop_target in drop_targets:
+        logger.info(f"Dropping schema name: {drop_target}")
         try:
             data_source_test_helper.drop_schema_if_exists(drop_target)
             num_deleted_schemas += 1

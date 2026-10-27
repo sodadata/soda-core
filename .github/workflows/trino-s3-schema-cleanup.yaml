@@ -1,31 +1,28 @@
 ---
-# Drops old CI test schemas from the trino-s3 CI catalog (Glue, Iceberg on S3) in bulk, using the same rules as
-# soda-tests/tests/integration/test_drop_old_schema.py. One job starts Trino with a fresh 1h AWS session and runs
-# that sweep SWEEP_PROCESSES times at once. The sweeps deal the sorted targets out among themselves like cards, so
-# they get equal shares and never drop the same schema. Each stops after SODA_SCHEMA_CLEANUP_MAX_SECONDS so it ends
-# before the session expires.
-# Run it again until a sweep logs "0 of N schemas match the cleanup rules".
+# Weekly sweep of old CI test schemas in the trino-s3 CI catalog (Glue, Iceberg on S3), using the same rules as
+# soda-tests/tests/integration/test_drop_old_schema.py. Regular CI runs skip Trino in that test: drops on this catalog
+# take half a minute or more each. One job starts Trino with a fresh 1h AWS session and runs the sweep
+# SWEEP_PROCESSES times at once, each on its own equal share of the schemas.
+# A sweep that hits the step timeout means a backlog has built up: run it again until it finishes in time.
 #
 # Manual runs: Actions > "Trino S3 test schema cleanup" > Run workflow (once this file is on main), or
-#   gh workflow run trino-s3-schema-cleanup.yaml -f processes=20 -f dry_run=true
+#   gh workflow run trino-s3-schema-cleanup.yaml -f processes=10 -f dry_run=true
 name: Trino S3 test schema cleanup
 
 on:
+  schedule:
+    - cron: '0 2 * * 1'  # Mondays 2 AM UTC, two hours before soda-extensions' weekly cross-source snapshot recording
   workflow_dispatch:
     inputs:
       processes:
         description: Number of sweeps to run at the same time
         type: number
-        default: 20
+        default: 10
       dry_run:
         description: Only log the schemas that would be dropped
         type: boolean
         default: false
-      max_seconds:
-        description: Stop each sweep after this many seconds (keep it well under the 1h AWS session)
-        type: number
-        default: 3000
-  # Drains the backlog on PR #2936. Remove (and the head_ref condition below) before merging.
+  # Runs the sweep on PR #2936 itself. Remove (and the head_ref condition below) before merging.
   pull_request:
 
 permissions:
@@ -38,19 +35,18 @@ concurrency:
 jobs:
   sweep:
     name: sweep
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'test/trino-drop-old-schemas'
+    if: github.event_name != 'pull_request' || github.head_ref == 'test/trino-drop-old-schemas'
     runs-on: ubuntu-24.04
     env:
-      # Inputs are passed through env, never interpolated into run scripts. Pull request runs use the defaults.
-      SWEEP_PROCESSES: ${{ inputs.processes || 20 }}
+      # Inputs are passed through env, never interpolated into run scripts. Scheduled and pull request runs use the
+      # defaults.
+      SWEEP_PROCESSES: ${{ inputs.processes || 10 }}
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
       SODA_TEST_SNAPSHOT: "off"
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
       SODA_SCHEMA_CLEANUP_FORCE: "true"
       SODA_SCHEMA_CLEANUP_DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-      # 50 minutes by default: leaves room for the steps between assuming the role and starting the sweep.
-      SODA_SCHEMA_CLEANUP_MAX_SECONDS: ${{ inputs.max_seconds || 3000 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
@@ -79,6 +75,8 @@ jobs:
       # Each process is its own pytest session that sweeps shard N of SWEEP_PROCESSES; its log lines are prefixed
       # with [pN]. -p no:cacheprovider keeps the processes from writing .pytest_cache at the same time.
       - name: Sweep old schemas
+        # Ends the sweep before the 1h AWS session from "Configure Trino" expires. A weekly sweep takes minutes.
+        timeout-minutes: 50
         run: |
           pids=""
           for p in $(seq 1 "$SWEEP_PROCESSES"); do
