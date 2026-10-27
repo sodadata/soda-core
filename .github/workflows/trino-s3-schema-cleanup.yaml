@@ -7,7 +7,7 @@
 # Run it again until a sweep logs "0 of N schemas match the cleanup rules".
 #
 # Manual runs: Actions > "Trino S3 test schema cleanup" > Run workflow (once this file is on main), or
-#   gh workflow run trino-s3-schema-cleanup.yaml -f processes=12 -f dry_run=true
+#   gh workflow run trino-s3-schema-cleanup.yaml -f processes=20 -f dry_run=true
 name: Trino S3 test schema cleanup
 
 on:
@@ -16,7 +16,7 @@ on:
       processes:
         description: Number of sweeps to run at the same time
         type: number
-        default: 12
+        default: 20
       dry_run:
         description: Only log the schemas that would be dropped
         type: boolean
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       # Inputs are passed through env, never interpolated into run scripts. Pull request runs use the defaults.
-      SWEEP_PROCESSES: ${{ inputs.processes || 12 }}
+      SWEEP_PROCESSES: ${{ inputs.processes || 20 }}
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
       SODA_TEST_SNAPSHOT: "off"
