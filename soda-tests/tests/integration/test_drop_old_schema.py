@@ -6,7 +6,6 @@ import os
 import random
 import re
 import time
-import zlib
 
 import pytest
 from dateutil.parser import parse
@@ -56,8 +55,10 @@ def _max_seconds() -> float:
 
 
 def _shard() -> tuple[int, int] | None:
-    # "<index>/<count>", e.g. "3/12": parallel sweeps each take only the schemas whose name hashes to their index,
-    # so they never drop the same schema. crc32, not hash(): Python's str hash differs per process.
+    # "<index>/<count>", e.g. "3/12": parallel sweeps deal the sorted targets out like cards (every count-th one,
+    # starting at index), so their shares differ by one at most and never overlap. That relies on all sweeps listing
+    # the same schemas, so start them together, before any of them drops one. If a list does differ, a schema is at
+    # worst dropped twice (the second drop logs an error) or left for the next run.
     shard: str | None = os.getenv("SODA_SCHEMA_CLEANUP_SHARD")
     if not shard:
         return None
@@ -158,9 +159,7 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     shard: tuple[int, int] | None = _shard()
     if shard:
         shard_index, shard_count = shard
-        drop_targets = [
-            target for target in drop_targets if zlib.crc32(target.encode()) % shard_count == shard_index - 1
-        ]
+        drop_targets = sorted(drop_targets)[shard_index - 1 :: shard_count]
         logger.info(f"Shard {shard_index}/{shard_count} takes {len(drop_targets)} of them")
 
     if dry_run:

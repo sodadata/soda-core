@@ -1,8 +1,8 @@
 ---
 # Drops old CI test schemas from the trino-s3 CI catalog (Glue, Iceberg on S3) in bulk, using the same rules as
 # soda-tests/tests/integration/test_drop_old_schema.py. One job starts Trino with a fresh 1h AWS session and runs
-# that sweep SWEEP_PROCESSES times at once. Each sweep takes its own share of the targets (split by a hash of the
-# schema name), so they never drop the same schema, and stops after SODA_SCHEMA_CLEANUP_MAX_SECONDS so it ends
+# that sweep SWEEP_PROCESSES times at once. The sweeps deal the sorted targets out among themselves like cards, so
+# they get equal shares and never drop the same schema. Each stops after SODA_SCHEMA_CLEANUP_MAX_SECONDS so it ends
 # before the session expires.
 # Run it again until a sweep logs "0 of N schemas match the cleanup rules".
 #
