@@ -22,8 +22,6 @@ on:
         description: Only log the schemas that would be dropped
         type: boolean
         default: false
-  # Runs the sweep on PR #2936 itself. Remove (and the head_ref condition below) before merging.
-  pull_request:
 
 permissions:
   contents: read
@@ -35,11 +33,9 @@ concurrency:
 jobs:
   sweep:
     name: sweep
-    if: github.event_name != 'pull_request' || github.head_ref == 'test/trino-drop-old-schemas'
     runs-on: ubuntu-24.04
     env:
-      # Inputs are passed through env, never interpolated into run scripts. Scheduled and pull request runs use the
-      # defaults.
+      # Inputs are passed through env, never interpolated into run scripts. Scheduled runs use the defaults.
       SWEEP_PROCESSES: ${{ inputs.processes || 10 }}
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
