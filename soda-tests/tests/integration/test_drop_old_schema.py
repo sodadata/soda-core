@@ -6,6 +6,7 @@ import os
 import random
 import re
 import time
+import zlib
 
 import pytest
 from dateutil.parser import parse
@@ -52,6 +53,16 @@ def _max_seconds() -> float:
     # Stop dropping after this long, so a large backlog never outlives the run's credentials (e.g. 1h AWS sessions).
     # The remaining schemas are left for the next run.
     return float(os.getenv("SODA_SCHEMA_CLEANUP_MAX_SECONDS", "600"))
+
+
+def _shard() -> tuple[int, int] | None:
+    # "<index>/<count>", e.g. "3/12": parallel sweeps each take only the schemas whose name hashes to their index,
+    # so they never drop the same schema. crc32, not hash(): Python's str hash differs per process.
+    shard: str | None = os.getenv("SODA_SCHEMA_CLEANUP_SHARD")
+    if not shard:
+        return None
+    index, count = (int(part) for part in shard.split("/"))
+    return index, count
 
 
 def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
@@ -144,6 +155,13 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                 else:
                     logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
     logger.info(f"{len(drop_targets)} of {len(candidates)} schemas match the cleanup rules")
+    shard: tuple[int, int] | None = _shard()
+    if shard:
+        shard_index, shard_count = shard
+        drop_targets = [
+            target for target in drop_targets if zlib.crc32(target.encode()) % shard_count == shard_index - 1
+        ]
+        logger.info(f"Shard {shard_index}/{shard_count} takes {len(drop_targets)} of them")
 
     if dry_run:
         if drop_targets:

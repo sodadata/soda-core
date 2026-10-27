@@ -1,8 +1,9 @@
 ---
 # Drops old CI test schemas from the trino-s3 CI catalog (Glue, Iceberg on S3) in bulk, using the same rules as
 # soda-tests/tests/integration/test_drop_old_schema.py. One job starts Trino with a fresh 1h AWS session and runs
-# that sweep SWEEP_PROCESSES times at once. Each sweep drops its targets in a random order, so they rarely drop
-# the same schema at once, and stops after SODA_SCHEMA_CLEANUP_MAX_SECONDS so it ends before the session expires.
+# that sweep SWEEP_PROCESSES times at once. Each sweep takes its own share of the targets (split by a hash of the
+# schema name), so they never drop the same schema, and stops after SODA_SCHEMA_CLEANUP_MAX_SECONDS so it ends
+# before the session expires.
 # Run it again until a sweep logs "0 of N schemas match the cleanup rules".
 #
 # Manual runs: Actions > "Trino S3 test schema cleanup" > Run workflow (once this file is on main), or
@@ -75,15 +76,15 @@ jobs:
           TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
           CI_MODULE: trino-s3
         run: bash scripts/start_trino_ci.sh
-      # Each process is its own pytest session; its log lines are prefixed with [pN].
-      # -p no:cacheprovider keeps the processes from writing .pytest_cache at the same time.
+      # Each process is its own pytest session that sweeps shard N of SWEEP_PROCESSES; its log lines are prefixed
+      # with [pN]. -p no:cacheprovider keeps the processes from writing .pytest_cache at the same time.
       - name: Sweep old schemas
         run: |
           pids=""
           for p in $(seq 1 "$SWEEP_PROCESSES"); do
             (
               set -o pipefail
-              uv run --no-sync --no-build python -m pytest -ra -p no:cacheprovider \
+              SODA_SCHEMA_CLEANUP_SHARD="$p/$SWEEP_PROCESSES" uv run --no-sync --no-build python -m pytest -ra -p no:cacheprovider \
                 soda-tests/tests/integration/test_drop_old_schema.py -o log_cli=true --log-cli-level=INFO \
                 2>&1 | sed -u "s/^/[p$p] /"
             ) &
