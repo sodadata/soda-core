@@ -527,8 +527,10 @@ def test_an_upsert_row_has_one_value_per_column(dialect, rows, message):
 
 
 def test_an_upsert_has_at_least_one_row(dialect):
+    upsert = UPSERT(TABLE, [COLUMN("id")], [], [COLUMN("id")])
+
     with pytest.raises(ValueError) as error:
-        dialect.build_upsert_sql(UPSERT(TABLE, [COLUMN("id")], [], [COLUMN("id")]))
+        dialect.build_upsert_sql(upsert)
 
     assert str(error.value) == "An upsert must have at least one row"
 
