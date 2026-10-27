@@ -217,8 +217,10 @@ def test_delete_without_semicolon(dialect):
 
 
 def test_a_delete_cannot_be_aliased(dialect):
+    delete = DELETE(TABLE, alias="tgt", where=WHERE(EQ(COLUMN("id", "tgt"), LITERAL(1))))
+
     with pytest.raises(UnsupportedSqlStatementError) as error:
-        dialect.build_delete_sql(DELETE(TABLE, alias="tgt", where=WHERE(EQ(COLUMN("id", "tgt"), LITERAL(1)))))
+        dialect.build_delete_sql(delete)
 
     assert str(error.value) == (
         "AthenaSqlDialect does not support DELETE with an alias: Athena's DELETE takes no target alias"
@@ -544,8 +546,10 @@ def test_an_upsert_row_has_one_value_per_column(dialect, rows, message):
 
 
 def test_an_upsert_has_at_least_one_row(dialect):
+    upsert = UPSERT(TABLE, [COLUMN("id")], [], [COLUMN("id")])
+
     with pytest.raises(ValueError) as error:
-        dialect.build_upsert_sql(UPSERT(TABLE, [COLUMN("id")], [], [COLUMN("id")]))
+        dialect.build_upsert_sql(upsert)
 
     assert str(error.value) == "An upsert must have at least one row"
 
@@ -746,9 +750,12 @@ def test_an_iceberg_column_has_no_default(dialect, default):
 
 
 def test_a_table_needs_a_storage_location_either_way():
+    dialect = AthenaSqlDialect()
+
     for transactional in (False, True):
+        create_table = _create_table(transactional=transactional)
         with pytest.raises(ValueError, match="get_table_storage_location function must be provided"):
-            AthenaSqlDialect().build_create_table_sql(_create_table(transactional=transactional))
+            dialect.build_create_table_sql(create_table)
 
 
 # ---------------------------------------------------------------------------
@@ -858,8 +865,10 @@ def test_expression(dialect, expression, expected_sql):
 )
 def test_regexp_replace_refuses_a_backslash_in_the_replacement(dialect, replacement):
     # Athena drops a \1 backreference without an error, so the replacement would silently be wrong.
+    expression = REGEXP_REPLACE(COLUMN("s"), "^(-?[0-9]+)$", replacement)
+
     with pytest.raises(UnsupportedSqlStatementError) as error:
-        dialect.build_expression_sql(REGEXP_REPLACE(COLUMN("s"), "^(-?[0-9]+)$", replacement))
+        dialect.build_expression_sql(expression)
 
     assert str(error.value) == (
         "AthenaSqlDialect does not support a REGEXP_REPLACE replacement with a backslash not followed by $: "
