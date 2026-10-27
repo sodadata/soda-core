@@ -447,7 +447,8 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
         assert [row[:3] for row in rows] == [(1, 2, {"a": 1, "b": 2, "c": 3}), (2, 6, {"z": 0})]
         # created_at comes from the column default, fixed_at from a CURRENT_TIMESTAMP value.
         for _, _, _, created_at, fixed_at in rows:
-            assert isinstance(created_at, datetime) and isinstance(fixed_at, datetime)
+            assert isinstance(created_at, datetime)
+            assert isinstance(fixed_at, datetime)
             assert fixed_at >= created_at
     finally:
         drop_table()

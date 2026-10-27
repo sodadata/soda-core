@@ -137,8 +137,10 @@ def test_update_without_semicolon(postgres_dialect):
 
 def test_an_assignment_target_cannot_be_qualified():
     # Postgres rejects `SET "tgt"."n" = ...`; refusing at construction keeps the node portable.
+    target, value = COLUMN("n", table_alias="tgt"), LITERAL(1)
+
     with pytest.raises(ValueError, match="cannot be qualified"):
-        ASSIGNMENT(COLUMN("n", table_alias="tgt"), LITERAL(1))
+        ASSIGNMENT(target, value)
 
 
 def test_an_assignment_renders_as_an_expression(postgres_dialect):
@@ -349,8 +351,10 @@ def test_create_index_if_not_exists(postgres_dialect):
 
 
 def test_an_index_column_must_be_named(postgres_dialect):
+    create_index = CREATE_INDEX_IF_NOT_EXISTS("i", TABLE, [COLUMN(LOWER(COLUMN("name")))])
+
     with pytest.raises(ValueError, match="must be named"):
-        postgres_dialect.build_create_index_sql(CREATE_INDEX_IF_NOT_EXISTS("i", TABLE, [COLUMN(LOWER(COLUMN("name")))]))
+        postgres_dialect.build_create_index_sql(create_index)
 
 
 def test_analyze_table(postgres_dialect):
@@ -499,13 +503,17 @@ def test_postgres_expression(postgres_dialect, expression, expected_sql):
 
 
 def test_arithmetic_rejects_an_unknown_operator():
+    left, right = COLUMN("a"), LITERAL(2)
+
     with pytest.raises(ValueError, match="Invalid arithmetic operator '%'"):
-        ARITHMETIC("%", COLUMN("a"), LITERAL(2))
+        ARITHMETIC("%", left, right)
 
 
 def test_date_trunc_rejects_an_unknown_unit():
+    expression = COLUMN("ts")
+
     with pytest.raises(ValueError, match="Invalid date_trunc unit 'week'"):
-        DATE_TRUNC("week", COLUMN("ts"))
+        DATE_TRUNC("week", expression)
 
 
 @pytest.mark.parametrize("type_name", ["double precision", "numeric", "jsonb", "text"])
