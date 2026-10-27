@@ -423,7 +423,8 @@ def test_the_merge_always_ends_with_one_semicolon(dialect, render, add_semicolon
     # T-SQL refuses a MERGE without its terminating semicolon (error 10713).
     sql = render(dialect, add_semicolon)
 
-    assert sql.endswith(");") and not sql.endswith(";;")
+    assert sql.endswith(");")
+    assert not sql.endswith(";;")
 
 
 @pytest.mark.parametrize("alias", ["src", "SRC"])
@@ -507,8 +508,10 @@ def test_create_index_looks_the_index_up_in_the_tables_database(dialect, table_n
 
 
 def test_an_index_column_must_be_named(dialect):
+    create_index = CREATE_INDEX_IF_NOT_EXISTS("i", TABLE, [COLUMN(LOWER(COLUMN("name")))])
+
     with pytest.raises(ValueError, match="must be named"):
-        dialect.build_create_index_sql(CREATE_INDEX_IF_NOT_EXISTS("i", TABLE, [COLUMN(LOWER(COLUMN("name")))]))
+        dialect.build_create_index_sql(create_index)
 
 
 def test_analyze_table_updates_the_statistics(dialect):
@@ -749,11 +752,13 @@ def test_newer_functions_render_only_on_an_engine_that_has_them(
 def test_an_engine_without_a_function_names_what_it_lacks(dialect):
     dialect.server_major_version = 15
     dialect.engine_edition = 3
+    date_trunc = DATE_TRUNC("day", COLUMN("ts"))
+    regexp_replace = REGEXP_REPLACE(COLUMN("s"), "[0-9]", "")
 
     with pytest.raises(UnsupportedSqlStatementError) as date_trunc_error:
-        dialect.build_expression_sql(DATE_TRUNC("day", COLUMN("ts")))
+        dialect.build_expression_sql(date_trunc)
     with pytest.raises(UnsupportedSqlStatementError) as regexp_replace_error:
-        dialect.build_expression_sql(REGEXP_REPLACE(COLUMN("s"), "[0-9]", ""))
+        dialect.build_expression_sql(regexp_replace)
 
     assert str(date_trunc_error.value) == (
         "SqlServerSqlDialect does not support DATE_TRUNC on this server (major version 15, engine edition 3): "
@@ -768,9 +773,10 @@ def test_an_engine_without_a_function_names_what_it_lacks(dialect):
 def test_a_managed_instance_is_refused_regexp_replace(dialect):
     dialect.server_major_version = 12
     dialect.engine_edition = 8
+    regexp_replace = REGEXP_REPLACE(COLUMN("s"), "[0-9]", "")
 
     with pytest.raises(UnsupportedSqlStatementError) as error:
-        dialect.build_expression_sql(REGEXP_REPLACE(COLUMN("s"), "[0-9]", ""))
+        dialect.build_expression_sql(regexp_replace)
 
     assert str(error.value) == (
         "SqlServerSqlDialect does not support REGEXP_REPLACE on this server (major version 12, engine edition 8): "
@@ -814,8 +820,10 @@ def test_a_derived_dialect_keeps_the_base_current_timestamp():
     ],
 )
 def test_a_derived_dialect_refuses_the_inherited_statements(node_name, render):
+    derived = _UnverifiedSqlServerDerivative()
+
     with pytest.raises(UnsupportedSqlStatementError) as error:
-        render(_UnverifiedSqlServerDerivative())
+        render(derived)
 
     assert str(error.value) == f"_UnverifiedSqlServerDerivative does not support {node_name}"
 
