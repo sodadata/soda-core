@@ -783,8 +783,12 @@ class CheckCollectionImpl:
         # RedactionCategory.GROUP_VALUES (see redaction_categories). Without Soda Cloud nothing is blocked.
         self.block_group_by_results_to_cloud: bool = False
         if self.soda_cloud:
-            self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
-            self.block_group_by_results_to_cloud = self.soda_cloud.block_group_by_results_to_cloud
+            # One fetch carries both this dataset's configuration and the org setting.
+            datasets_configurations = self.soda_cloud.fetch_datasets_configurations([self.dataset_identifier])
+            self.dataset_configuration = self.soda_cloud.dataset_configuration_from(
+                datasets_configurations, self.dataset_identifier
+            )
+            self.block_group_by_results_to_cloud = bool(datasets_configurations.block_group_by_results_to_cloud)
 
         if self.dataset_configuration:
             if (

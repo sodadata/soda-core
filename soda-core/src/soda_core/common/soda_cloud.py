@@ -406,8 +406,6 @@ class SodaCloud:
         self.token: Optional[str] = token
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
-        # Org setting from the latest datasets configurations fetch; see fetch_datasets_configurations.
-        self.block_group_by_results_to_cloud: bool = False
 
     @property
     def headers(self) -> dict[str, str]:
@@ -1088,6 +1086,13 @@ class SodaCloud:
             DatasetConfigurationDTO or None
         """
         configs: DatasetConfigurationsDTO = self.fetch_datasets_configurations([dataset_identifier])
+        return self.dataset_configuration_from(configs, dataset_identifier)
+
+    @staticmethod
+    def dataset_configuration_from(
+        configs: DatasetConfigurationsDTO, dataset_identifier: DatasetIdentifier
+    ) -> Optional[DatasetConfigurationDTO]:
+        """The configuration a single-dataset fetch returned for that dataset, or None when Cloud has none."""
         if configs and configs.dataset_configurations and len(configs.dataset_configurations) > 0:
             assumed_configuration = configs.dataset_configurations[0]
             if assumed_configuration.dataset_qualified_name != dataset_identifier.to_string():
@@ -1132,7 +1137,6 @@ class SodaCloud:
                     "blockGroupByResultsToCloud": response_dict.get("blockGroupByResultsToCloud"),
                 }
             )
-            self.block_group_by_results_to_cloud = bool(dataset_configs.block_group_by_results_to_cloud)
 
             return dataset_configs
         except ValidationError as e:
