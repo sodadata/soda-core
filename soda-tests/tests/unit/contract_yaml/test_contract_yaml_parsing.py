@@ -6,7 +6,7 @@ import pytest
 from helpers.test_functions import dedent_and_strip
 from helpers.yaml_parsing_helpers import parse_column_check, parse_contract
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
-from soda_core.common.exceptions import ContractParserException
+from soda_core.common.exceptions import ContractParserException, YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.yaml import ContractYamlSource
@@ -61,6 +61,80 @@ def test_contract_without_columns_raises():
             dataset: postgres/db/public/tbl
             """
         )
+
+
+def test_contract_with_null_columns_raises_the_contract_error():
+    # A bare 'columns:' reads as absent, so the contract's own error names it, not the generic reader's.
+    with pytest.raises(ContractParserException, match="The contract is missing the required 'columns' property"):
+        _parse_with_dialect(
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+            """
+        )
+
+
+@pytest.mark.parametrize(
+    "yaml_str, error",
+    [
+        (
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+              - name:
+              - name: b
+            """,
+            "YAML key 'name' must not be null, in location[2,4]",
+        ),
+        (
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+              - name: a
+                checks:
+                  - aggregate:
+                      function: 5
+                      threshold:
+                        must_be: 1
+            """,
+            "YAML key 'function' expected one of ['str'], but was int, in location[5,20]",
+        ),
+        (
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+              - name: a
+                checks:
+                  - invalid:
+                      invalid_format:
+                        regex: ^a$
+                        name: 5
+            """,
+            "YAML key 'name' expected one of ['str'], but was int, in location[7,18]",
+        ),
+        (
+            """
+            dataset: postgres/db/public/tbl
+            columns:
+              - name: a
+            checks:
+              - duplicate:
+                  columns:
+            """,
+            "YAML key 'columns' must not be null, in location[5,6]",
+        ),
+    ],
+    ids=[
+        "null column name",
+        "aggregate function not a string",
+        "regex format name not a string",
+        "null duplicate columns",
+    ],
+)
+def test_a_required_contract_key_that_is_null_or_of_the_wrong_type_stops_parsing(yaml_str, error):
+    with pytest.raises(YamlParserException) as raised:
+        _parse_with_dialect(yaml_str)
+    assert str(raised.value) == error
 
 
 def test_parse_dataset_qualified_name():

@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import re
 
 import pytest
 from dateutil.parser import parse
@@ -29,6 +30,11 @@ DATASOURCES_TO_RUN = [
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
 # Schema's starting with these prefixes are exempt from being dropped.
 LIST_OF_EXEMPTIONS = ["soda_diagnostics_dev_"]
+# Legacy metadata-DWH test schemas (soda_diagnostics_metadata_<8hex>, from older soda-extensions metadata DWH tests)
+# have no date in their name, so they are dropped regardless of age. Exact shape only: the bare production default
+# `soda_diagnostics_metadata` never matches. The tests now use soda_diagnostics_metadata_<YYYYMMDD>_<8hex>, which
+# the cross-source date fallback below drops by age.
+METADATA_DWH_TEST_SCHEMA_PATTERN = re.compile(r"soda_diagnostics_metadata_[0-9a-f]{8}")
 
 
 def _dry_run() -> bool:
@@ -40,6 +46,9 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
     try:
         schema_name = schema_name.lower()
         must_have_date: bool = False
+        if METADATA_DWH_TEST_SCHEMA_PATTERN.fullmatch(schema_name):
+            # Leftover from a failed run of an older test version; current runs use the dated name instead.
+            return True
         if schema_name.lower().startswith("soda_diagnostics_"):
             potential_date_string: str = schema_name[
                 len("soda_diagnostics_") + 9 : -7

@@ -1,5 +1,8 @@
+import io
 import json
+import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest import mock
@@ -9,6 +12,8 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict, matcher_string_contains
 from helpers.mock_soda_cloud import MockHttpMethod, MockRequest, MockResponse, MockSodaCloud
 from helpers.test_table import TestTableSpecification
+from pydantic import BaseModel, Field
+from requests import Request
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import interpret_contract_verification_result
@@ -20,7 +25,10 @@ from soda_core.common.exceptions import (
     DatasetNotFoundException,
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
+    InvalidArgumentException,
+    SodaCloudAuthenticationFailedException,
     SodaCloudException,
+    SodaCloudRequestException,
 )
 from soda_core.common.soda_cloud import (
     ContractSkeletonGenerationState,
@@ -28,6 +36,7 @@ from soda_core.common.soda_cloud import (
     _build_check_collection_results_json_dict,
     _build_diagnostics_json_dict,
     _build_token_usage_dicts,
+    _build_v4_diagnostics_check_type_json_dict,
 )
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -35,12 +44,14 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     ContractVerificationResult,
+    ContractVerificationSession,
     ContractVerificationSessionResult,
     ContractVerificationStatus,
     PostProcessingStage,
     PostProcessingStageState,
     ScanTokenUsage,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     ContractVerificationHandler,
@@ -74,6 +85,12 @@ soda_cloud:
   api_key_secret: some_key_secret
 """
 )
+
+# The headers every request to Soda Cloud starts from (SodaCloud.headers).
+EXPECTED_DEFAULT_REQUEST_HEADERS: dict[str, str] = {
+    "User-Agent": f"soda-core/{SODA_CORE_VERSION}",
+    "X-Soda-Backpressure": "1",
+}
 
 
 def test_soda_cloud_from_yaml_source_with_api_key_auth():
@@ -704,7 +721,7 @@ def test_fetch_contract(mock_post):
     soda_cloud.fetch_contract(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContracts",
             "filter": {
@@ -734,7 +751,7 @@ def test_poll_contract_skeleton_generation__completed(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreContractSkeletonGenerationState",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -785,7 +802,7 @@ def test_trigger_contract_skeleton_generation__success(mock_post):
     )
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -807,7 +824,7 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
 
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -899,6 +916,83 @@ def test_build_diagnostics_json_dict_omits_measure_for_non_time_checks():
     diagnostics = _build_diagnostics_json_dict(check_result)
 
     assert "measure" not in diagnostics
+
+
+# Every check type whose v4 diagnostics carry the dataset rows tested, with the diagnostics its evaluate writes.
+V4_ROWS_TESTED_DIAGNOSTICS: dict[str, dict] = {
+    "missing": {"missing_count": 1, "missing_percent": 50.0, "check_rows_tested": 2, "dataset_rows_tested": 5},
+    "invalid": {
+        "invalid_count": 1,
+        "invalid_percent": 50.0,
+        "check_rows_tested": 2,
+        "missing_count": 0,
+        "dataset_rows_tested": 5,
+    },
+    "duplicate": {
+        "duplicate_count": 1,
+        "duplicate_percent": 50.0,
+        "check_rows_tested": 2,
+        "missing_count": 0,
+        "dataset_rows_tested": 5,
+    },
+    "failed_rows": {
+        "failed_rows_count": 1,
+        "failed_rows_percent": 50.0,
+        "check_rows_tested": 2,
+        "dataset_rows_tested": 5,
+    },
+    "aggregate": {"avg": 1.5, "check_rows_tested": 2, "dataset_rows_tested": 5},
+    "metric": {"dataset_rows_tested": 5},
+    "row_count": {"check_rows_tested": 2, "dataset_rows_tested": 5},
+    "freshness": {"dataset_rows_tested": 5, "check_rows_tested": 6, "freshness_in_hours": 1.0},
+}
+
+
+def _v4_rows_tested_check_result(check_type: str, diagnostic_metric_values: dict) -> CheckResult:
+    if check_type == "freshness":
+        check_result = _build_freshness_check_result(unit="hour", threshold_value=1.0)
+        check_result.diagnostic_metric_values = diagnostic_metric_values
+        return check_result
+    check = mock.MagicMock()
+    check.type = check_type
+    return CheckResult(
+        check=check, outcome=CheckOutcome.PASSED, threshold_value=1, diagnostic_metric_values=diagnostic_metric_values
+    )
+
+
+@pytest.mark.parametrize("check_type", list(V4_ROWS_TESTED_DIAGNOSTICS))
+def test_v4_diagnostics_carry_scope_rows_tested_only_when_present(check_type: str):
+    unscoped_values = dict(V4_ROWS_TESTED_DIAGNOSTICS[check_type])
+    unscoped = _build_v4_diagnostics_check_type_json_dict(_v4_rows_tested_check_result(check_type, unscoped_values))
+    assert unscoped["datasetRowsTested"] == 5
+    assert "scopeRowsTested" not in unscoped
+
+    scoped = _build_v4_diagnostics_check_type_json_dict(
+        _v4_rows_tested_check_result(check_type, {**unscoped_values, "scope_rows_tested": 2})
+    )
+    assert scoped == {**unscoped, "scopeRowsTested": 2}
+
+    # An unmeasured scope count keeps the key; the serializer drops None values later.
+    unmeasured = _build_v4_diagnostics_check_type_json_dict(
+        _v4_rows_tested_check_result(check_type, {**unscoped_values, "scope_rows_tested": None})
+    )
+    assert unmeasured == {**unscoped, "scopeRowsTested": None}
+
+
+def test_autogenerated_v4_diagnostics_camel_case_scope_rows_tested():
+    check = mock.MagicMock()
+    check.type = "some_extension_check"
+    check_result = CheckResult(
+        check=check,
+        outcome=CheckOutcome.PASSED,
+        diagnostic_metric_values={"dataset_rows_tested": 5, "scope_rows_tested": 2},
+        autogenerate_diagnostics_payload=True,
+    )
+    assert _build_v4_diagnostics_check_type_json_dict(check_result) == {
+        "type": "someExtensionCheck",
+        "datasetRowsTested": 5,
+        "scopeRowsTested": 2,
+    }
 
 
 def test_build_token_usage_dicts_serialization():
@@ -1033,11 +1127,99 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     assert response.status_code == 200
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
-        headers={"User-Agent": f"soda-core/{SODA_CORE_VERSION}"},
+        headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
     assert "token" not in query_json_dict
+
+
+class _FileAnswer(BaseModel):
+    file_id: str = Field(..., alias="fileId")
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_return_the_validated_body_and_leave_the_request_alone(method):
+    soda_cloud = MockSodaCloud([MockResponse(json_object={"fileId": "f1"})])
+    # A nested None and datetime are what core's serializer rewrites in place on the dict it sends.
+    since = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    request = {"type": "sodaCoreSomething", "dataset": {"name": "orders", "prefixes": None, "since": since}}
+    assert getattr(soda_cloud, method)(request, _FileAnswer, request_log_name="something") == _FileAnswer(fileId="f1")
+    assert soda_cloud.requests[0].json["type"] == "sodaCoreSomething"
+    assert request == {"type": "sodaCoreSomething", "dataset": {"name": "orders", "prefixes": None, "since": since}}
+
+
+@pytest.mark.parametrize(
+    "body", [b'{"fileId": 1}', b'["not", "an", "object"]', b"<html>Ok</html>"], ids=["wrong type", "json list", "html"]
+)
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_with_an_answer_the_model_cannot_read_raise_a_soda_cloud_exception(
+    method, body, caplog
+):
+    answer = MockResponse()
+    answer.raw = io.BytesIO(body)
+    soda_cloud = MockSodaCloud([answer])
+    send = getattr(soda_cloud, method)
+    caplog.set_level(logging.DEBUG)
+    with pytest.raises(SodaCloudException) as exc:
+        send({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+    assert str(exc.value) == "Soda Cloud at mock.soda.io sent an answer this version of Soda cannot read"
+    [record] = [r for r in caplog.records if "does not fit _FileAnswer" in r.getMessage()]
+    assert record.levelno == (logging.WARNING if body.startswith(b"<") else logging.DEBUG)
+    assert record.getMessage().endswith("First 500 chars: " + body.decode())
+    assert type(exc.value) is SodaCloudException
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_without_an_answer_raise_a_soda_cloud_exception(method):
+    soda_cloud = MockSodaCloud([])
+    send = getattr(soda_cloud, method)
+    with mock.patch.object(soda_cloud, "_http_post", side_effect=ConnectionError("down")):
+        with pytest.raises(SodaCloudException) as exc:
+            send({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+    assert str(exc.value) == "The request to Soda Cloud at mock.soda.io did not complete"
+    assert type(exc.value) is SodaCloudException
+
+
+@pytest.mark.parametrize("method", ["execute_command", "execute_query"])
+def test_execute_command_and_query_with_an_error_answer_raise_with_its_status_and_code(method):
+    soda_cloud = MockSodaCloud(
+        [MockResponse(status_code=400, json_object={"code": "invalid_request", "message": "no"})]
+    )
+    send = getattr(soda_cloud, method)
+    with pytest.raises(SodaCloudRequestException) as exc:
+        send({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400: no"
+    assert (exc.value.status, exc.value.code) == (400, "invalid_request")
+
+
+def test_execute_command_with_a_refused_api_key_raises_the_authentication_failure():
+    soda_cloud = MockSodaCloud([MockResponse(status_code=401, json_object={}), MockResponse(status_code=403)])
+    with pytest.raises(SodaCloudAuthenticationFailedException):
+        soda_cloud.execute_command({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+
+
+def test_execute_command_with_a_401_after_a_fresh_login_raises_with_the_status():
+    soda_cloud = MockSodaCloud(
+        [
+            MockResponse(status_code=401, json_object={}),
+            MockResponse(json_object={"token": "fresh"}),
+            MockResponse(status_code=401, json_object={"code": "nope"}),
+        ]
+    )
+    with pytest.raises(SodaCloudRequestException) as exc:
+        soda_cloud.execute_command({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+    assert (exc.value.status, exc.value.code) == (401, "nope")
+
+
+def test_execute_query_with_an_html_error_page_raises_with_no_code():
+    gateway = MockResponse(status_code=502)
+    gateway.raw = io.BytesIO(b"<html>Bad gateway</html>")
+    soda_cloud = MockSodaCloud([gateway])
+    with pytest.raises(SodaCloudRequestException) as exc:
+        soda_cloud.execute_query({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
+    assert (exc.value.status, exc.value.code) == (502, None)
+    assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 502"
 
 
 def _query_response(status_code, json_object=None, json_raises=False):
@@ -1411,3 +1593,289 @@ def test_verify_contract_on_runner_keeps_polling_through_status_request_failure(
     assert res.status is ContractVerificationStatus.PASSED
     assert calls["count"] == 2
     assert any("retrying" in warning for warning in res.get_warnings())
+
+
+# ---- verify on the runner: check paths and check filters go up as the command's executionOptions ----
+
+_SCOPED_RUNNER_CONTRACT_YAML = """
+dataset: test/some/schema/CUSTOMERS
+scopes:
+  eu:
+    name: EU
+  us:
+    name: US
+  apac:
+    name: APAC
+columns:
+- name: id
+checks:
+- row_count:
+- row_count:
+    scope: eu
+"""
+
+_EU_US_RUNNER_CONTRACT_YAML = """
+dataset: test/some/schema/CUSTOMERS
+scopes:
+  eu:
+    name: EU
+  us:
+    name: US
+columns:
+- name: id
+"""
+
+_RUNNER_COMMAND_TYPES = ("sodaCoreVerifyContract", "sodaCoreTestContract")
+
+
+def _runner_commands(cloud: MockSodaCloud) -> list[dict]:
+    """The runner commands Cloud received, without the token the client adds to every request."""
+    return [
+        {key: value for key, value in request.json.items() if key != "token"}
+        for request in cloud.requests
+        if isinstance(request.json, dict) and request.json.get("type") in _RUNNER_COMMAND_TYPES
+    ]
+
+
+def _runner_completed() -> list[MockResponse]:
+    return [
+        _runner_allowed(),
+        _runner_uploaded(),
+        _runner_scan_created(),
+        _runner_scan_state("completed"),
+        _runner_scan_logs(),
+    ]
+
+
+def _runner_command_rejected(code: str, message: str) -> list[MockResponse]:
+    return [
+        _runner_allowed(),
+        _runner_uploaded(),
+        MockResponse(method=MockHttpMethod.POST, status_code=400, json_object={"code": code, "message": message}),
+    ]
+
+
+def _execute_session_on_runner(
+    cloud: MockSodaCloud,
+    check_paths: Optional[list[str]] = None,
+    check_filters: Optional[list[str]] = None,
+    publish: bool = True,
+    contract_yaml: str = _SCOPED_RUNNER_CONTRACT_YAML,
+) -> ContractVerificationSessionResult:
+    return ContractVerificationSession.execute(
+        contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml)],
+        soda_cloud_impl=cloud,
+        soda_cloud_publish_results=publish,
+        soda_cloud_use_runner=True,
+        check_paths=check_paths,
+        check_selectors=CheckSelector.parse_all(check_filters),
+    )
+
+
+@pytest.mark.parametrize(
+    "check_paths, check_filters",
+    [pytest.param(None, None, id="neither"), pytest.param([], [], id="empty")],
+)
+def test_runner_command_wire_bytes_without_check_paths_and_check_filters(
+    check_paths: Optional[list[str]], check_filters: Optional[list[str]]
+):
+    """Without check paths and check filters the runner command goes out byte for byte as it did before either
+    existed."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud, check_paths=check_paths, check_filters=check_filters)
+
+    [command] = [
+        request.json
+        for request in cloud.requests
+        if isinstance(request.json, dict) and request.json.get("type") in _RUNNER_COMMAND_TYPES
+    ]
+    expected = {
+        "type": "sodaCoreVerifyContract",
+        "contract": {"fileId": "fffileid", "metadata": {"source": {"type": "local", "filePath": "REMOTE"}}},
+        "verbose": False,
+        "variables": {},
+        "token": "mock-token",
+    }
+    wire_bytes = Request(method="post", url="https://mock.soda.io", json=command).prepare().body
+    assert wire_bytes == json.dumps(expected).encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    "check_paths, check_filters, expected_execution_options",
+    [
+        pytest.param(
+            [], ["scope=eu"], {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": False}]}, id="no-paths"
+        ),
+        pytest.param(["a"], None, {"checkPaths": ["a"]}, id="no-filters"),
+    ],
+)
+def test_runner_command_omits_an_empty_list(
+    check_paths: list[str], check_filters: Optional[list[str]], expected_execution_options: Optional[dict]
+):
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(cloud, check_paths=check_paths, check_filters=check_filters)
+
+    [command] = _runner_commands(cloud)
+    assert ("executionOptions" in command) is (expected_execution_options is not None)
+    assert command.get("executionOptions") == expected_execution_options
+
+
+def test_runner_command_has_one_check_filter_per_field_and_polarity():
+    cloud = MockSodaCloud(_runner_completed())
+
+    _execute_session_on_runner(
+        cloud,
+        check_filters=["name=row_count", "scope!=eu", "attributes.team=a", "scope=us", "name=missing", "scope=us"],
+    )
+
+    # In the order of each field and polarity's first filter, values in the order given, a repeated value once.
+    # Fields other than scope go up as written, for Cloud to reject.
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "name", "values": ["row_count", "missing"], "negate": False},
+            {"field": "scope", "values": ["eu"], "negate": True},
+            {"field": "attributes.team", "values": ["a"], "negate": False},
+            {"field": "scope", "values": ["us"], "negate": False},
+        ]
+    }
+
+
+def test_runner_command_sends_base_and_wildcard_scope_values_without_a_local_check():
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_session_on_runner(
+        cloud, check_filters=["scope=base", "scope=e*", "scope!=?u"], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
+    )
+
+    assert interpret_contract_verification_result(session_result) == ExitCode.OK
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "scope", "values": ["base", "e*"], "negate": False},
+            {"field": "scope", "values": ["?u"], "negate": True},
+        ]
+    }
+
+
+def test_runner_command_rejected_by_cloud_ends_in_error_with_the_cloud_message():
+    cloud = MockSodaCloud(
+        _runner_command_rejected("invalid_contract", "checkFilters field is missing or not one of: scope")
+    )
+
+    session_result = _execute_session_on_runner(cloud, check_filters=["name=row_count"])
+
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [{"field": "name", "values": ["row_count"], "negate": False}]
+    }
+    [result] = session_result.contract_verification_results
+    assert result.status is ContractVerificationStatus.ERROR
+    assert result.sending_results_to_soda_cloud_failed is True
+    assert any(
+        "checkFilters field is missing or not one of: scope" in error and "invalid_contract" in error
+        for error in result.get_errors()
+    )
+    assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+def test_runner_sends_a_contradiction_up_unchanged():
+    message = "checkFilters value eu of field scope must not be both included and excluded"
+    cloud = MockSodaCloud(_runner_command_rejected("invalid_contract", message))
+
+    session_result = _execute_session_on_runner(cloud, check_filters=["scope=eu", "scope!=eu"])
+
+    [command] = _runner_commands(cloud)
+    assert command["executionOptions"] == {
+        "checkFilters": [
+            {"field": "scope", "values": ["eu"], "negate": False},
+            {"field": "scope", "values": ["eu"], "negate": True},
+        ]
+    }
+    [result] = session_result.contract_verification_results
+    assert result.status is ContractVerificationStatus.ERROR
+    assert any(message in error for error in result.get_errors())
+    assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+
+
+@pytest.mark.parametrize(
+    "check_filter, unknown_key",
+    [("scope=apac", "apac"), ("scope!=apac", "apac"), ("scope=[eu,us]", "[eu,us]")],
+)
+def test_runner_refuses_an_unknown_scope_key_before_any_cloud_request(check_filter: str, unknown_key: str):
+    cloud = MockSodaCloud([])
+
+    with pytest.raises(InvalidArgumentException, match=re.escape(f"'{unknown_key}'")):
+        _execute_session_on_runner(
+            cloud, check_filters=["scope=eu", check_filter], contract_yaml=_EU_US_RUNNER_CONTRACT_YAML
+        )
+
+    assert cloud.requests == []
+
+
+def _execute_files_on_runner(
+    cloud: MockSodaCloud, contract_yamls: list[str], check_filters: list[str]
+) -> ContractVerificationSessionResult:
+    return ContractVerificationSession.execute(
+        contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml) for contract_yaml in contract_yamls],
+        soda_cloud_impl=cloud,
+        soda_cloud_publish_results=True,
+        soda_cloud_use_runner=True,
+        check_selectors=CheckSelector.parse_all(check_filters),
+    )
+
+
+def test_runner_keeps_an_invalid_argument_while_sending_to_its_own_file(monkeypatch: pytest.MonkeyPatch):
+    """Only the scope key check stops a runner session. Any other error while sending a file, an invalid argument
+    too, becomes that file's ERROR result and the next file still goes up."""
+    verify_on_runner = ContractImpl.verify_on_runner
+    sent_files: list[ContractImpl] = []
+
+    def verify_on_runner_refusing_the_first_file(self: ContractImpl, **kwargs) -> ContractVerificationResult:
+        sent_files.append(self)
+        if len(sent_files) == 1:
+            raise InvalidArgumentException("refused while sending the first file")
+        return verify_on_runner(self, **kwargs)
+
+    monkeypatch.setattr(ContractImpl, "verify_on_runner", verify_on_runner_refusing_the_first_file)
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_files_on_runner(
+        cloud, [_EU_US_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=eu"]
+    )
+
+    first_result, second_result = session_result.contract_verification_results
+    assert first_result.status is ContractVerificationStatus.ERROR
+    assert any("refused while sending the first file" in error for error in first_result.get_errors())
+    assert second_result.status is ContractVerificationStatus.PASSED
+    assert [command["executionOptions"] for command in _runner_commands(cloud)] == [
+        {"checkFilters": [{"field": "scope", "values": ["eu"], "negate": False}]}
+    ]
+
+
+def test_runner_keeps_a_file_that_fails_to_build_to_its_own_error():
+    """A file that fails to build gets an ERROR result and sends nothing, so no scope key check runs for it. The
+    next file's keys are checked on their own and it goes up."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    session_result = _execute_files_on_runner(cloud, ["- not a mapping\n", _EU_US_RUNNER_CONTRACT_YAML], ["scope=eu"])
+
+    first_result, second_result = session_result.contract_verification_results
+    assert first_result.status is ContractVerificationStatus.ERROR
+    assert any("root must be an object" in error for error in first_result.get_errors())
+    assert second_result.status is ContractVerificationStatus.PASSED
+    assert len(_runner_commands(cloud)) == 1
+
+
+def test_runner_checks_scope_keys_per_file():
+    """Soda Cloud checks the scope keys of each contract on its own, so the runner path does too: a key that only
+    another file declares is unknown, and the error stops the session at that file. Files are checked and sent one
+    by one, so the first file's run has already started."""
+    cloud = MockSodaCloud(_runner_completed())
+
+    with pytest.raises(InvalidArgumentException, match=re.escape("'apac'")):
+        _execute_files_on_runner(cloud, [_SCOPED_RUNNER_CONTRACT_YAML, _EU_US_RUNNER_CONTRACT_YAML], ["scope=apac"])
+
+    assert len(_runner_commands(cloud)) == 1

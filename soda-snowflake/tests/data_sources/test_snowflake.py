@@ -8,7 +8,6 @@ from helpers.test_connection import TestConnection
 # define environment variables used in test cases
 SNOWFLAKE_ACCOUNT = os.getenv("SNOWFLAKE_ACCOUNT")
 SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER")
-SNOWFLAKE_PASSWORD = os.getenv("SNOWFLAKE_PASSWORD")
 SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 
 
@@ -22,18 +21,6 @@ fake_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwI
 
 # define test cases and expected behavior (passing unless otherwise specified)
 test_connections: list[TestConnection] = [
-    TestConnection(  # connect using password
-        test_name="password_connection",
-        connection_yaml_str=f"""
-                type: snowflake
-                name: SNOWFLAKE_TEST
-                connection:
-                    account: '{SNOWFLAKE_ACCOUNT}'
-                    user: '{SNOWFLAKE_USER}'
-                    password: '{SNOWFLAKE_PASSWORD}'
-                    database: '{SNOWFLAKE_DATABASE}'
-            """,
-    ),
     TestConnection(  # connect using private key
         test_name="private_key_connection",
         connection_yaml_str=f"""

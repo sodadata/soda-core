@@ -4,7 +4,12 @@ from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common._deprecation import deprecated_kwarg
-from soda_core.common.exceptions import ContractParserException, InvalidArgumentException
+from soda_core.common.exceptions import (
+    ContractFetchFailedException,
+    InvalidArgumentException,
+    ScanExecutionFailedException,
+    YamlParserException,
+)
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
@@ -38,7 +43,14 @@ def handle_verify_contract(
     wiring wraps this command in ``scan.run_scan`` — the single
     Cloud-marking site for escaped exceptions (delivery-aware: exit 3 when
     Cloud has the failure or the run is ad-hoc, 4 when a managed run's failure
-    couldn't reach Cloud so the launcher's fallback reports).
+    couldn't reach Cloud). The contract launcher does not mark a verify scan
+    itself: on an exit above 3 it raises, and its job exits 1.
+
+    A contract that could not be fetched for -d/--dataset raises
+    ``ContractFetchFailedException``. It becomes a ``ScanExecutionFailedException``
+    here, so ``run_scan`` logs its message without a traceback and reports it.
+    A file that fails to parse raises ``YamlParserException`` and is converted
+    the same way.
 
     ``logs`` is the wrapper's collector, threaded into the session so every
     construction/verify record lands in the collector the failure report
@@ -59,22 +71,25 @@ def handle_verify_contract(
             metadata_dwh_file_path=metadata_dwh_file_path,
         )
 
-    contract_verification_result = verify_contract(
-        contract_file_path=contract_file_path,
-        dataset_identifier=dataset_identifier,
-        data_source_file_path=None,
-        data_source_file_paths=data_source_file_paths,
-        soda_cloud_file_path=soda_cloud_file_path,
-        variables=variables,
-        publish=publish,
-        verbose=verbose,
-        use_runner=use_runner,
-        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-        check_paths=check_paths,
-        check_selectors=check_selectors,
-        dwh_data_source_file_path=dwh_files,
-        logs=logs,
-    )
+    try:
+        contract_verification_result = verify_contract(
+            contract_file_path=contract_file_path,
+            dataset_identifier=dataset_identifier,
+            data_source_file_path=None,
+            data_source_file_paths=data_source_file_paths,
+            soda_cloud_file_path=soda_cloud_file_path,
+            variables=variables,
+            publish=publish,
+            verbose=verbose,
+            use_runner=use_runner,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            check_paths=check_paths,
+            check_selectors=check_selectors,
+            dwh_data_source_file_path=dwh_files,
+            logs=logs,
+        )
+    except (ContractFetchFailedException, YamlParserException) as exc:
+        raise ScanExecutionFailedException(str(exc)) from exc
 
     return interpret_contract_verification_result(contract_verification_result)
 
@@ -112,8 +127,9 @@ def handle_publish_contract(
             return ExitCode.LOG_ERRORS
         else:
             return ExitCode.OK
-    except ContractParserException as exc:
-        soda_logger.error(f"Failed to parse contract: {exc}")
+    except YamlParserException as exc:
+        # The contract or the Soda Cloud file, so the message names neither.
+        soda_logger.error(f"Failed to publish contract: {exc}")
         return ExitCode.LOG_ERRORS
     except Exception as exc:
         soda_logger.exception(f"Failed to publish contract: {exc}")
@@ -124,7 +140,11 @@ def handle_test_contract(
     contract_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
 ) -> ExitCode:
-    contract_verification_result = test_contract(contract_file_path=contract_file_path, variables=variables)
+    try:
+        contract_verification_result = test_contract(contract_file_path=contract_file_path, variables=variables)
+    except YamlParserException as exc:
+        soda_logger.error(f"Failed to parse contract: {exc}")
+        return ExitCode.LOG_ERRORS
     if contract_verification_result.has_errors:
         return ExitCode.LOG_ERRORS
     else:
@@ -168,7 +188,7 @@ def handle_fetch_contract(
                     action = "Updated"
                 else:
                     action = "Created"
-                with open(contract_file_path, "w") as contract_file:
+                with open(contract_file_path, "w", encoding="utf-8") as contract_file:
                     contract_file.write(contract_yaml.yaml_str)
                 soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
                 return ExitCode.OK

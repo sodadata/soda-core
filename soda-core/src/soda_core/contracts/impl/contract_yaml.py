@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numbers import Number
-from typing import Optional
+from typing import Any, Optional
 
 from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -15,6 +15,7 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import ContractYamlSource, VariableResolver, YamlList, YamlObject, YamlValue
+from soda_core.contracts.impl.scope import ScopeYaml
 
 logger: logging.Logger = soda_logger
 
@@ -112,6 +113,10 @@ class ContractYaml(CheckCollectionYaml):
         self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
+
+        # Validated while the YAML is parsed, so publishing reports the same errors. A kind without scope
+        # support declares none; the base __init__ logged an error for its ``scopes``.
+        self.scopes: dict[Any, ScopeYaml] = self.scope_support.parse_scopes(self.yaml_object)
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
@@ -325,6 +330,7 @@ class ContractYaml(CheckCollectionYaml):
                         )
                         if check_yaml:
                             checks.append(check_yaml)
+                            self.scope_support.validate_check_scope(check_yaml, self.scopes, self.kind)
                         else:
                             logger.error(
                                 f"Invalid check type '{check_type_name}'. "
@@ -358,16 +364,15 @@ class ValidReferenceDataYaml:
 @dataclass
 class RegexFormat:
     regex: str
-    name: Optional[str]
+    name: str
 
     @classmethod
     def read(cls, yaml_object: YamlObject, key: str) -> Optional[RegexFormat]:
         regex_format_yaml_object: Optional[YamlObject] = yaml_object.read_object_opt(key)
         if regex_format_yaml_object:
-            regex: Optional[str] = regex_format_yaml_object.read_string("regex")
-            name: Optional[str] = regex_format_yaml_object.read_string("name")
-            if isinstance(regex, str):
-                return RegexFormat(regex=regex, name=name)
+            regex: str = regex_format_yaml_object.read_string("regex")
+            name: str = regex_format_yaml_object.read_string("name")
+            return RegexFormat(regex=regex, name=name)
         return None
 
 
@@ -608,6 +613,11 @@ class CheckYamlParser(ABC):
 
 class CheckYaml(ABC):
     check_yaml_parsers: dict[str, CheckYamlParser] = {}
+    # Set once ContractYaml has validated this check's 'scope' while parsing the YAML, so that resolving the scope
+    # of the check does not report the same error again.
+    scope_validated: bool = False
+    # The check's 'scope' as read; set per instance in __init__. None runs the check in the base scope.
+    scope: Any = None
 
     @classmethod
     def register(cls, check_yaml_parser: CheckYamlParser) -> None:
@@ -637,6 +647,8 @@ class CheckYaml(ABC):
         self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
+        # In a contract the scope component keeps 'scope' unresolved, so this is the value as written.
+        self.scope: Any = check_yaml_object.yaml_dict.get("scope") if check_yaml_object else None
         self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
         self.store_failed_rows: Optional[bool] = (
             check_yaml_object.read_bool_opt("store_failed_rows", default_value=False) if check_yaml_object else None

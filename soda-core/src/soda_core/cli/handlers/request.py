@@ -23,7 +23,7 @@ def handle_fetch_proposal(
         directory = os.path.dirname(output_file_path)
         if directory:
             os.makedirs(directory, exist_ok=True)
-        with open(output_file_path, "w") as file:
+        with open(output_file_path, "w", encoding="utf-8") as file:
             file.write(proposal.contents)
         soda_logger.info(
             f"{Emoticons.WHITE_CHECK_MARK} Successfully fetched proposal {proposal.proposal_number} for request {proposal.request_number} and written it to file {output_file_path}."
@@ -42,7 +42,7 @@ def handle_push_proposal(
 ) -> ExitCode:
     try:
         soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
-        with open(file_path) as file:
+        with open(file_path, encoding="utf-8") as file:
             contents = file.read()
         proposal = push_contract_proposal(soda_cloud_client, request_number, contents, message)
         comment_msg = f" with comment: {message}" if message else ""

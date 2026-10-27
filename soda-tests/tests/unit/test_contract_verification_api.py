@@ -1,41 +1,35 @@
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
 from soda_core.common.exceptions import (
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
-    SodaCloudException,
     YamlParserException,
 )
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.api.verify_api import ContractVerificationSession, all_none_or_empty, verify_contract
-from soda_core.contracts.contract_verification import ContractVerificationSessionResult, SodaException
+from soda_core.contracts.contract_verification import ContractVerificationSessionResult
+from soda_core.contracts.impl.check_selector import CheckSelector
+
+MISSING_CONTRACT_FILE = re.escape("Contract file '../soda/mydb/myschema/table.yml' does not exist")
 
 
 def test_contract_verification_file_api():
-    with pytest.raises(YamlParserException):
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+    with pytest.raises(YamlParserException, match=MISSING_CONTRACT_FILE):
+        ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
             variables={"env": "test"},
         )
 
-        assert (
-            "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-            in contract_verification_session_result.get_errors_str()
-        )
-
 
 def test_contract_verification_file_api_exception_on_error():
-    with pytest.raises(YamlParserException):
-        with pytest.raises(SodaException) as e:
-            ContractVerificationSession.execute(
-                contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
-                variables={"env": "test"},
-            ).assert_ok()
-
-            exception_string = str(e.value)
-            assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
+    with pytest.raises(YamlParserException, match=MISSING_CONTRACT_FILE):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+            variables={"env": "test"},
+        ).assert_ok()
 
 
 def test_contract_provided_and_configured():
@@ -207,48 +201,6 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         pytest.fail(f"An unexpected exception was raised: {exc}")
 
 
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(
-    mock_cloud_client, caplog
-):
-    mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
-
-    _ = verify_contract(
-        contract_file_path=None,
-        dataset_identifier="my/super/awesome/identifier",
-        data_source_file_path="ds.yaml",
-        soda_cloud_file_path="sc.yaml",
-        variables={},
-        publish=True,
-        use_runner=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-    )
-
-    assert (
-        "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
-    )
-
-
-@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
-def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(mock_cloud_client, caplog):
-    mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
-
-    _ = verify_contract(
-        contract_file_path=None,
-        dataset_identifier="my/super/awesome/identifier",
-        data_source_file_path="ds.yaml",
-        soda_cloud_file_path="sc.yaml",
-        variables={},
-        publish=True,
-        use_runner=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-    )
-
-    assert "No contracts given. Exiting." in caplog.messages
-
-
 def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     """
     In the local flow (use_runner=False), build_data_source_yaml_sources
@@ -315,6 +267,31 @@ def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_clien
             verbose=False,
             blocking_timeout_in_minutes=10,
         )
+
+
+def test_verify_contract_on_runner_forwards_check_paths_and_check_selectors(monkeypatch):
+    from soda_core.contracts.api import verify_api
+
+    called = {}
+
+    def fake_verify_contract(**kwargs):
+        called.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(verify_api, "verify_contract", fake_verify_contract)
+    check_selectors = CheckSelector.parse_all(["scope=eu", "scope!=apac"])
+
+    result = verify_api.verify_contract_on_runner(
+        soda_cloud_file_path="sc.yaml",
+        contract_file_path="c.yaml",
+        check_paths=["a", "b"],
+        check_selectors=check_selectors,
+    )
+
+    assert result == "ok"
+    assert called["use_runner"] is True
+    assert called["check_paths"] == ["a", "b"]
+    assert called["check_selectors"] == check_selectors
 
 
 # Backwards-compat smoke tests for the deprecated public API names.

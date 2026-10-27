@@ -12,13 +12,19 @@ class MemorySpanExporter(SpanExporter):
     """
 
     __instance = None
-    __spans = []
 
     def __new__(cls):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
             cls.__instance._initialize()
         return cls.__instance
+
+    @classmethod
+    def get_instance(cls) -> "MemorySpanExporter":
+        return cls()
+
+    def _initialize(self):
+        self.__spans: list[ReadableSpan] = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in spans:

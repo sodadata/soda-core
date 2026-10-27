@@ -1,5 +1,8 @@
+import errno
 import logging
 import os
+import traceback
+from unittest.mock import patch
 
 import pytest
 from helpers.test_functions import dedent_and_strip
@@ -46,8 +49,59 @@ def test_yaml_file(logs: Logs):
 def test_yaml_error_file_not_found(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/unexisting.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=test_yaml_api_file_path)
-    with pytest.raises(YamlParserException, match="YAML source is not a string, in"):
+    with pytest.raises(YamlParserException) as raised:
         _ = yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{test_yaml_api_file_path}' does not exist"
+    assert not logs.has_errors
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
+
+
+def test_yaml_error_file_is_a_directory(logs: Logs, tmp_path):
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(tmp_path))
+    with pytest.raises(YamlParserException) as raised:
+        _ = yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{tmp_path}' is a directory"
+    assert not logs.has_errors
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
+
+
+@pytest.mark.parametrize(
+    "content, error",
+    [(b"", "is empty"), ("a: 1\n".encode("utf-16"), "is not UTF-8 text")],
+    ids=["empty", "utf-16"],
+)
+def test_a_file_that_cannot_be_read_raises_its_reason_once(logs: Logs, tmp_path, content, error):
+    path = tmp_path / "file.yml"
+    path.write_bytes(content)
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{path}' {error}"
+    assert not logs.has_errors
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
+
+
+def test_a_file_the_os_cannot_read_names_the_os_reason(logs: Logs, tmp_path):
+    path = tmp_path / "file.yml"
+    path.write_text("a: 1\n")
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
+    with patch("soda_core.common.yaml.open", create=True, side_effect=OSError(errno.EIO, "Input/output error")):
+        with pytest.raises(YamlParserException) as raised:
+            yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{path}' can't be read: Input/output error"
+    assert "".join(traceback.format_exception(raised.value)).count("Traceback (most recent call last)") == 1
+
+
+def test_a_file_the_process_may_not_open_is_not_reported_missing(tmp_path):
+    # A file under a directory the process cannot search fails with EACCES, and os.path.exists() is False for it.
+    path = tmp_path / "locked" / "file.yml"
+    yaml_source: YamlSource = YamlSource.from_file_path(file_path=str(path))
+    with patch(
+        "soda_core.common.yaml.open", create=True, side_effect=PermissionError(errno.EACCES, "Permission denied")
+    ):
+        with pytest.raises(YamlParserException) as raised:
+            yaml_source.parse()
+    assert str(raised.value) == f"YAML file '{path}' can't be read: Permission denied"
 
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):
@@ -128,3 +182,115 @@ def test_yaml_locations():
     value_two: YamlObject = root_object.read_object("two")
     assert value_two.location.line == 5
     assert value_two.location.column == 2
+
+
+def test_yaml_syntax_error_message_and_location():
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="a: [1, 2\nb: 3\n", file_path="syntax.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    # The location is where the unclosed list starts.
+    assert str(raised.value) == "YAML syntax error, in syntax.yml[1,4]"
+
+
+def test_yaml_duplicate_key_names_the_key_at_its_second_occurrence():
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="a: 1\nb:\n  c: 1\n  c: 2\n", file_path="duplicate.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value) == 'YAML syntax error: found duplicate key "c", in duplicate.yml[4,3]'
+
+
+def test_yaml_duplicate_key_message_leaves_out_the_values():
+    # The same parser reads data source files, where a duplicated key can hold a password.
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="type: postgres\npassword: first-secret\npassword: s3cret\n")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value) == 'YAML syntax error: found duplicate key "password", in location[3,1]'
+
+
+@pytest.mark.parametrize("yaml_str", ["k: \x00\n", "k: !!bool maybe\n", "k: !!int abc\n"], ids=["nul", "bool", "int"])
+def test_a_file_ruamel_cannot_load_raises_one_parser_exception(yaml_str):
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str, file_path="bad.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert str(raised.value).startswith("YAML file 'bad.yml' could not be parsed: ")
+
+
+def test_a_load_failure_does_not_quote_the_value():
+    # The same parser reads data source files, where the value of a tagged key can be a password.
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="password: !!int s3cret\n", file_path="ds.yml")
+    with pytest.raises(YamlParserException) as raised:
+        yaml_source.parse()
+    assert "s3cret" not in "".join(traceback.format_exception(raised.value))
+
+
+@pytest.mark.parametrize(
+    "yaml_str, location",
+    [("a: 1\nname:\n", "null.yml[1,0]"), ("name:\nb: 1\n", "null.yml[0,0]")],
+    ids=["last key", "followed by a key"],
+)
+def test_a_required_key_with_a_null_value_is_refused_at_the_key(yaml_str, location):
+    # ruamel places a null value at the start of the next key, so the position must come from the key itself.
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=yaml_str, file_path="null.yml").parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_string("name")
+    assert str(raised.value) == f"YAML key 'name' must not be null, in {location}"
+
+
+def test_a_required_key_of_the_wrong_type_is_refused(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name: 5\n", file_path="type.yml").parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_string("name")
+    assert str(raised.value) == "YAML key 'name' expected one of ['str'], but was int, in type.yml[0,6]"
+    assert not logs.has_errors
+
+
+def test_an_optional_key_of_the_wrong_type_logs_and_reads_as_absent(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name: 5\nchecks: x\n").parse()
+    assert yaml_object.read_string_opt("name") is None
+    assert yaml_object.read_list_of_objects_opt("checks") is None
+    assert logs.get_errors() == [
+        "YAML key 'name' expected one of ['str'], but was int",
+        "YAML key 'checks' expected one of ['list'], but was str",
+    ]
+
+
+def test_an_optional_key_with_a_null_value_reads_as_absent(logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str="name:\nchecks:\n").parse()
+    assert yaml_object.read_string_opt("name") is None
+    # read_list_of_objects_opt reads its list as optional, so a null logs nothing either.
+    assert yaml_object.read_list_of_objects_opt("checks") is None
+    assert not logs.has_errors
+
+
+@pytest.mark.parametrize(
+    "yaml_str, error",
+    [
+        ("a: 1\n", "YAML key 'dqn' is required, in location[0,0]"),
+        ("dqn:\n", "YAML key 'dqn' must not be null, in location[0,0]"),
+        ("dqn: 5\n", "YAML key 'dqn' expected one of ['str'], but was int, in location[0,5]"),
+    ],
+    ids=["absent", "null", "wrong type"],
+)
+def test_a_required_dataset_identifier_names_its_own_key(yaml_str, error):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=yaml_str).parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_dataset_identifier("dqn")
+    assert str(raised.value) == error
+
+
+def test_a_required_key_whose_variable_resolves_to_nothing_is_refused(env_vars: dict):
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="dqn: ${env.SODA_NO_SUCH_VAR}\n", file_path="var.yml")
+    yaml_source.resolve_on_read_value(resolved_variable_values={}, soda_values={}, use_env_vars=True)
+    yaml_object: YamlObject = yaml_source.parse()
+    with pytest.raises(YamlParserException) as raised:
+        yaml_object.read_dataset_identifier("dqn")
+    assert str(raised.value) == "YAML key 'dqn' has no value after resolving its variables, in var.yml[0,5]"
+
+
+@pytest.mark.parametrize("value, shown", [('""', "''"), ("table", "'table'")], ids=["empty", "one name"])
+def test_a_dataset_identifier_without_a_data_source_and_a_dataset_is_logged(value, shown, logs: Logs):
+    yaml_object: YamlObject = YamlSource.from_str(yaml_str=f"dataset: {value}\n").parse()
+    assert yaml_object.read_dataset_identifier("dataset") is None
+    assert logs.get_errors() == [
+        f"Invalid dataset qualified name in 'dataset': {shown} must be slash-separated, fully qualified dataset name."
+    ]

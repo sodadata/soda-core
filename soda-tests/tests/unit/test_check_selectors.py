@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
 
 def _make_check_impl(
@@ -14,6 +15,7 @@ def _make_check_impl(
     attributes=None,
     wire_source="soda-contract",
     collection_id=None,
+    scope_key=BASE_SCOPE_KEY,
 ):
     """Create a mock CheckImpl with the given attributes.
 
@@ -21,6 +23,7 @@ def _make_check_impl(
     ``full_path`` is the wire path including any collection prefix; defaults
     to ``relative_path`` (contract behaviour where both are identical).
     ``wire_source`` and ``collection_id`` are set on ``check_impl.contract_impl``.
+    ``scope_key`` is the key of ``check_impl.scope``; an unscoped check has the base scope.
     """
     check_impl = MagicMock()
     check_impl.type = type
@@ -28,6 +31,7 @@ def _make_check_impl(
     check_impl.relative_path = relative_path
     check_impl.check_path = full_path if full_path is not None else relative_path
     check_impl.attributes = attributes or {}
+    check_impl.scope.key = scope_key
 
     if column_name:
         check_impl.column_impl.column_yaml.name = column_name
@@ -474,3 +478,123 @@ class TestCheckSelectorListAllMatch:
         assert CheckSelector.all_match(selectors, check_match)
         assert not CheckSelector.all_match(selectors, check_wrong_type)
         assert not CheckSelector.all_match(selectors, check_wrong_attr)
+
+
+# --- Scope field ---
+
+
+class TestCheckSelectorScope:
+    def test_parse_scope(self):
+        selector = CheckSelector.parse("scope=eu")
+        assert (selector.field, selector.value, selector.negated) == ("scope", "eu", False)
+
+    def test_match_scope_key(self):
+        selector = CheckSelector.parse("scope=eu")
+        assert selector.matches(_make_check_impl(scope_key="eu"))
+        assert not selector.matches(_make_check_impl(scope_key="us"))
+        assert not selector.matches(_make_check_impl())
+
+    def test_base_selects_unscoped_checks(self):
+        selector = CheckSelector.parse("scope=base")
+        assert selector.matches(_make_check_impl())
+        assert not selector.matches(_make_check_impl(scope_key="eu"))
+
+    def test_scope_wildcard(self):
+        selector = CheckSelector.parse("scope=eu*")
+        assert selector.matches(_make_check_impl(scope_key="eu-west"))
+        assert not selector.matches(_make_check_impl(scope_key="us"))
+
+    def test_or_within_scope(self):
+        selectors = CheckSelector.parse_all(["scope=eu", "scope=us"])
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu"))
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="us"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl())
+
+    def test_scope_and_type(self):
+        selectors = CheckSelector.parse_all(["scope=eu", "type=missing"])
+        assert CheckSelector.all_match(selectors, _make_check_impl(type="missing", scope_key="eu"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(type="invalid", scope_key="eu"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(type="missing"))
+
+
+# --- Negation ---
+
+
+class TestCheckSelectorNegation:
+    def test_parse_negated(self):
+        selector = CheckSelector.parse("scope!=eu")
+        assert (selector.field, selector.value, selector.negated) == ("scope", "eu", True)
+        assert selector.raw == "scope!=eu"
+
+    def test_parse_negated_with_spaces(self):
+        selector = CheckSelector.parse(" scope != eu ")
+        assert (selector.field, selector.value, selector.negated) == ("scope", "eu", True)
+
+    def test_value_containing_not_equals_stays_positive(self):
+        selector = CheckSelector.parse("name=a!=b")
+        assert (selector.field, selector.value, selector.negated) == ("name", "a!=b", False)
+
+    def test_negated_value_containing_equals(self):
+        selector = CheckSelector.parse("name!=a=b")
+        assert (selector.field, selector.value, selector.negated) == ("name", "a=b", True)
+        selector = CheckSelector.parse("name!=a!=b")
+        assert (selector.field, selector.value, selector.negated) == ("name", "a!=b", True)
+
+    def test_negated_attribute(self):
+        selector = CheckSelector.parse("attributes.severity!=critical")
+        assert (selector.field, selector.value, selector.negated) == ("attributes.severity", "critical", True)
+
+    def test_negated_empty_field_raises(self):
+        with pytest.raises(CheckSelectorParseException, match="empty field name"):
+            CheckSelector.parse("!=eu")
+
+    def test_negated_unknown_field_names_the_field_without_the_bang(self):
+        with pytest.raises(CheckSelectorParseException, match="unknown field 'region'"):
+            CheckSelector.parse("region!=eu")
+
+    @pytest.mark.parametrize("expression", ["name!=", "scope != ", "attributes.severity!="])
+    def test_negated_empty_value_raises(self, expression):
+        with pytest.raises(CheckSelectorParseException, match="empty value after '!='"):
+            CheckSelector.parse(expression)
+
+    def test_eq_compares_negated(self):
+        assert CheckSelector.parse("scope!=eu") == CheckSelector.parse(" scope != eu ")
+        assert CheckSelector.parse("scope!=eu") != CheckSelector.parse("scope=eu")
+        assert CheckSelector.parse("scope=eu") == CheckSelector(field="scope", value="eu", raw="scope=eu")
+
+    def test_only_negated_selectors(self):
+        selectors = CheckSelector.parse_all(["scope!=eu"])
+        assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu"))
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="us"))
+        assert CheckSelector.all_match(selectors, _make_check_impl())
+
+    def test_several_negated_selectors_all_exclude(self):
+        selectors = CheckSelector.parse_all(["scope!=eu", "scope!=us"])
+        assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="us"))
+        assert CheckSelector.all_match(selectors, _make_check_impl())
+
+    def test_positive_or_and_no_negated_match(self):
+        # (scope=eu* OR scope=us) AND NOT scope=eu-west
+        selectors = CheckSelector.parse_all(["scope=eu*", "scope=us", "scope!=eu-west"])
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu"))
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="us"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu-west"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl())
+
+    def test_negated_wildcard(self):
+        selectors = CheckSelector.parse_all(["scope!=eu*"])
+        assert not CheckSelector.all_match(selectors, _make_check_impl(scope_key="eu-west"))
+        assert CheckSelector.all_match(selectors, _make_check_impl(scope_key="us"))
+
+    def test_negation_is_per_field(self):
+        selectors = CheckSelector.parse_all(["type=missing", "scope!=eu"])
+        assert CheckSelector.all_match(selectors, _make_check_impl(type="missing"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(type="missing", scope_key="eu"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(type="invalid"))
+
+    def test_negated_field_without_a_value_does_not_exclude(self):
+        selectors = CheckSelector.parse_all(["column!=id"])
+        assert CheckSelector.all_match(selectors, _make_check_impl(column_name=None))
+        assert CheckSelector.all_match(selectors, _make_check_impl(column_name="name"))
+        assert not CheckSelector.all_match(selectors, _make_check_impl(column_name="id"))

@@ -13,9 +13,15 @@ with a 1-element ``contract_yaml_sources`` list) sets
 from __future__ import annotations
 
 from datetime import datetime
+from logging import LogRecord
 from typing import Optional, Union
 
-from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionSessionResult
+from soda_core.check_collections.base import (
+    CheckCollectionImpl,
+    CheckCollectionResult,
+    CheckCollectionSessionResult,
+    describe_construct_failure,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -24,7 +30,9 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.contracts.impl.check_selector import value_matches
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
 logger = soda_logger
 
@@ -100,6 +108,16 @@ def execute_check_collections(
     and the typed return stays honest. Defaults to ``CheckCollectionImpl``
     for callers that genuinely don't know a sensible subtype default.
 
+    ``logs`` is the caller's capture target, e.g. the CLI failure boundary's.
+    With more than one yaml, each file gets a child of it (``Logs.child()``)
+    with its own records, thread label and error count, so one file's errors
+    never set another file's status or reach its upload; the caller's ``logs``
+    still sees every record once. Each child starts empty, so what ``logs`` held
+    before the session sets no file's status. The session keeps those records
+    once and adds them to every upload and failure mark it or a file sends,
+    ahead of the upload's own records. A single yaml uses ``logs`` itself.
+    Without ``logs``, each impl builds its own.
+
     ``expected_kinds`` is an opt-in set of permitted top-level ``kind:``
     values. When set, the executor reads each yaml's ``kind:`` in phase 1
     and — if a yaml declares a kind outside the set — collects it and
@@ -145,8 +163,16 @@ def execute_check_collections(
     # phase 1 kind-dispatch read and raised eagerly after the loop so we
     # never run any verify() for a wrong-kind session.
     kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]] = []
+    # Siblings sharing the caller's Logs would share its error count, so each file
+    # of a multi-file session gets a child of it instead. The child is built before
+    # the parse, so the file's parse records land in it too. What the caller logged
+    # before the session belongs to no one file: the session keeps it once and every
+    # upload and failure mark carries it.
+    child_logs_per_file: bool = logs is not None and len(yaml_sources) > 1
+    pre_session_records: list[LogRecord] = list(logs.get_log_records()) if child_logs_per_file else []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
+        impl_logs: Optional[Logs] = logs.child() if child_logs_per_file else logs
         try:
             # Parse the YAML once for kind dispatch; reuse the parsed
             # object inside the subtype's ``yaml_class.parse(...)`` so the
@@ -182,13 +208,14 @@ def execute_check_collections(
                 check_selectors=check_selectors,
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
-                logs=logs,
+                logs=impl_logs,
                 # ``data_timestamp`` and ``execution_timestamp`` are
                 # first-class fields on ``CheckCollectionYaml``: every
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
             )
+            impl.session_log_records = tuple(pre_session_records)
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
@@ -199,11 +226,12 @@ def execute_check_collections(
             constructed.append((None, impl_class, exc, yaml_source))
 
     # ---- Session-wide invariants — raise before any verify() runs. ----
-    # Both checks are user-input errors at the session boundary, so they
+    # These checks are user-input errors at the session boundary, so they
     # ignore ``abort_on_first_error`` (which gates per-file engine errors).
     _raise_if_kind_offenders(kind_offenders, expected_kinds)
     _raise_if_duplicate_collection_ids(constructed)
     _raise_if_combined_session_spans_multiple_datasets(constructed)
+    raise_if_unknown_scope_keys(constructed, check_selectors)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -302,6 +330,7 @@ def execute_check_collections(
                 results=group,
                 wire_source=wire_source,
                 scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
+                session_log_records=pre_session_records,
             )
 
         # Report the (still-PENDING) scan as FAILED only when the whole scan produced nothing
@@ -328,7 +357,7 @@ def execute_check_collections(
             errored_without_results_result.scan_id = soda_scan_id
             marked_as_failed: bool = soda_cloud_impl.mark_scan_as_failed(
                 scan_id=soda_scan_id,
-                logs=errored_without_results_result.log_records,
+                logs=[*pre_session_records, *(errored_without_results_result.log_records or [])],
                 exc=errored_without_results_result.error,
             )
             if not marked_as_failed:
@@ -433,7 +462,7 @@ def execute_check_collections(
                         contract_verification_handler=handler,
                     )
 
-    return CheckCollectionSessionResult(results)
+    return CheckCollectionSessionResult(results, session_log_records=pre_session_records)
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
@@ -562,3 +591,68 @@ def _raise_if_combined_session_spans_multiple_datasets(
             "Multiple datasets found in a single wire source:\n" + "\n".join(lines) + "\n"
             "Run one dataset per combined session."
         )
+
+
+def _matches_a_known_scope_key(value: str, known_keys: set[str]) -> bool:
+    """Whether a ``scope`` filter value names a known key, or as a pattern matches one, the way a check filter
+    matches it."""
+    return any(value_matches(key, value) for key in known_keys)
+
+
+def raise_if_unknown_scope_keys(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+    check_selectors: Optional[list],
+) -> None:
+    """Raise ``InvalidArgumentException`` if a ``scope`` check filter names a key that
+    no collection in the session declares.
+
+    ``base`` is always known. The other known keys are the declared scopes of every
+    constructed impl; a file that failed construction declares none. Positive and negated values are checked
+    alike, and a value with a ``*`` or ``?`` wildcard must match at least one known key. A collection
+    that does not declare a known key needs nothing here: its checks fail the filter
+    and go up as EXCLUDED, so one session-level error replaces an error per file.
+
+    Runs after phase 1, which may open connections and fetch the dataset
+    configuration, and before any query against a dataset or any upload. When it
+    raises, phase 2 never builds the ERROR placeholders that log construct failures,
+    so those are logged here first. A caller checking one file before handing its
+    filters to a runner passes a one-entry ``constructed`` list.
+    """
+    scope_values: list[str] = [selector.value for selector in check_selectors or [] if selector.field == "scope"]
+    if not scope_values:
+        return
+
+    known_keys: set[str] = {BASE_SCOPE_KEY}
+    for impl, _impl_class, _construct_exc, _yaml_source in constructed:
+        if impl is not None:
+            known_keys.update(impl.scopes)
+
+    unknown_keys: list[str] = list(
+        dict.fromkeys(value for value in scope_values if not _matches_a_known_scope_key(value, known_keys))
+    )
+    if not unknown_keys:
+        return
+
+    for impl, _impl_class, construct_exc, yaml_source in constructed:
+        if impl is None and construct_exc is not None:
+            logger.error(describe_construct_failure(construct_exc, yaml_source))
+
+    # A scope is no list, so '[eu,us]' is read as one key. Repeating the filter selects several scopes.
+    list_hint: str = (
+        " The [a,b] form matches list attributes only. To select several scopes, give one scope filter per key, "
+        "as in scope=eu and scope=us."
+        if any(key.startswith("[") and key.endswith("]") for key in unknown_keys)
+        else ""
+    )
+    raise InvalidArgumentException(
+        f"Unknown scope key(s) in the check filter: {', '.join(repr(key) for key in unknown_keys)}. "
+        "No file in this session declares them. "
+        f"Known scope keys: {', '.join(repr(key) for key in sorted(known_keys))}.{list_hint}"
+    )

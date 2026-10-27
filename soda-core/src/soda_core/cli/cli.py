@@ -36,7 +36,7 @@ from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_request import RequestStatus
-from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
+from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector, CheckSelectorParseException
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -107,8 +107,71 @@ def handle_legacy_commands():
         exit_with_code(ExitCode.LOG_ERRORS)
 
 
+class _TakenOnce:
+    """Mixed into an argparse action: a second use of its flag is a usage error.
+
+    argparse keeps the last use of a repeated flag and drops the others without a word. The first
+    repeat raises, and argparse reports it through the parser's ``error``.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if self.option_strings:
+            if self.dest in parser.flags_given:
+                raise argparse.ArgumentError(None, _describe_repeated_flag(self))
+            parser.flags_given.add(self.dest)
+        super().__call__(parser, namespace, values, option_string)
+
+
+# The actions of the flags a soda command takes once, under the names add_argument knows them by.
+# None is the action add_argument picks when given none. append, extend and count collect every
+# use on purpose, so the flags built on them, like --set and -cf/--check-filter, stay repeatable.
+_ACTIONS_OF_FLAGS_GIVEN_ONCE = {
+    name: type(f"_{action.__name__}TakenOnce", (_TakenOnce, action), {})
+    for name, action in {
+        None: argparse._StoreAction,
+        "store": argparse._StoreAction,
+        "store_const": argparse._StoreConstAction,
+        "store_true": argparse._StoreTrueAction,
+        "store_false": argparse._StoreFalseAction,
+    }.items()
+}
+
+
+class _SodaArgumentParser(ArgumentParser):
+    """Parses like ArgumentParser, but a flag given more than once is a usage error, and every usage
+    error exits 3 instead of 2, since 2 is also the check-warnings code.
+
+    A command line without a repeat parses exactly as with ArgumentParser. add_subparsers builds
+    each subcommand's parser with the class of its parent, so every soda command parses with this
+    class, including the ones extensions add through get_or_create_command_parser.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for action_name, action_class in _ACTIONS_OF_FLAGS_GIVEN_ONCE.items():
+            self.register("action", action_name, action_class)
+        self.flags_given: set = set()
+
+    def parse_known_args(self, args=None, namespace=None):
+        self.flags_given = set()
+        return super().parse_known_args(args, namespace)
+
+    def error(self, message: str):
+        # As ArgumentParser.error, with exit code 3.
+        self.print_usage(sys.stderr)
+        self.exit(ExitCode.LOG_ERRORS, f"{self.prog}: error: {message}\n")
+
+
+def _describe_repeated_flag(action: argparse.Action) -> str:
+    # Like: -d/--dataset given more than once. A flag that takes several values takes them all
+    # after one use. The parser's error puts the command in front.
+    several = action.nargs in (argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE)
+    hint = "Give it once, with all its values after it." if several else "Give it once."
+    return f"{'/'.join(action.option_strings)} given more than once. {hint}"
+
+
 def create_cli_parser() -> ArgumentParser:
-    parser = ArgumentParser(
+    parser = _SodaArgumentParser(
         prog="soda",
         epilog="Run 'soda {resource} {command} -h' for help on a specific command",
     )
@@ -212,15 +275,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--check-filter",
         action="append",
         type=str,
-        help="Filter checks by attributes. Format: key=value. "
-        # Generated from the parser's own field set so help, error message and
-        # docs cannot drift apart again.
-        f"Supported keys: {', '.join(sorted(CheckSelector.SUPPORTED_FIELDS))}, "
-        f"{CheckSelector.ATTRIBUTES_PREFIX}<key>. "
-        "Multiple filters: AND across fields, OR within same field. "
-        "Wildcards (* and ?) supported in values. "
-        "For list attributes: key=value for member match, key=[a,b] for exact list match. "
-        'Quote values containing shell special characters: -cf "attributes.tags=[a,b]".',
+        help=CHECK_FILTER_HELP,
     )
     # TODO: move into extensions
     verify_parser.add_argument(
@@ -268,7 +323,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
         # The reporting channel resolves first, outside the wrapped command; the wrapper
         # is the single Cloud-marking site for escaped failures (exit 3 delivered or
-        # ad-hoc, 4 undelivered so the launcher's fallback reports). A broken Cloud
+        # ad-hoc, 4 undelivered, which the launcher does not mark for verify). A broken Cloud
         # config resolves to None here; the command re-raises the real config error
         # (verify_contract builds its own client) and the boundary reports it through
         # the None channel.
@@ -581,7 +636,7 @@ def _resolve_soda_cloud_for_discovery_or_exit(soda_cloud_file_path: str) -> Soda
 
     The reporting channel resolves first, before the failure-reporting wrapper:
     without it neither results nor a failure report can reach Cloud, so exit 4
-    and let the managed launcher's fallback mark the scan failed.
+    and let the managed launcher's dataset-scan fallback mark the scan failed.
     """
     try:
         return resolve_soda_cloud(soda_cloud_file_path)

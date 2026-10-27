@@ -68,6 +68,7 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
                     ],
                 )
             ),
+            WHERE(RAW_SQL(self.sql_dialect.readable_relation_sql_condition())),
         ]
 
         if database_name:

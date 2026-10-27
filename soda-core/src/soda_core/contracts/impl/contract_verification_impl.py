@@ -8,7 +8,7 @@ from io import StringIO
 from typing import Protocol
 
 from ruamel.yaml import YAML
-from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionSessionResult
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -45,6 +45,7 @@ from soda_core.contracts.impl.contract_yaml import (
     normalize_threshold_level,
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.scope import BASE_SCOPE_KEY, Scope, ScopeHandling, ScopeSupport
 
 logger: logging.Logger = soda_logger
 
@@ -215,6 +216,9 @@ class ContractVerificationSessionImpl:
     @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
     @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
     @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
+    @param check_paths: The check paths to run. A local run adds them to the check selectors, the runner gets them
+        as given.
+    @param check_selectors: The check selectors, without the check paths.
     @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
@@ -232,6 +236,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
+        check_paths: Optional[list[str]] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
@@ -315,10 +320,12 @@ class ContractVerificationSessionImpl:
                 soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 soda_cloud_verbose=soda_cloud_verbose,
+                check_paths=check_paths,
+                check_selectors=check_selectors,
             )
 
         else:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_locally(
+            local_session_result: CheckCollectionSessionResult = cls._execute_locally(
                 logs=logs,
                 contract_yaml_sources=contract_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
@@ -328,8 +335,13 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
-                check_selectors=check_selectors,
+                # A local run matches the check paths as check_path selectors, after the other selectors.
+                check_selectors=[*check_selectors, *CheckSelector.from_check_paths(check_paths)],
                 dwh_files=dwh_files,
+            )
+            return ContractVerificationSessionResult(
+                contract_verification_results=list(local_session_result.results),
+                session_log_records=local_session_result.session_log_records,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -347,7 +359,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
-    ) -> list[ContractVerificationResult]:
+    ) -> CheckCollectionSessionResult:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
 
@@ -404,7 +416,7 @@ class ContractVerificationSessionImpl:
                 ds = data_source_impls_by_name.get(name)
                 if ds is not None and ds.has_open_connection():
                     ds.close_connection()
-        return list(session_result.results)
+        return session_result
 
     @classmethod
     def _build_data_source_impls_by_name(
@@ -449,10 +461,13 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_runner_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
-        contract_verification_results: list[ContractVerificationResult] = []
+        from soda_core.check_collections.session import raise_if_unknown_scope_keys
 
+        contract_verification_results: list[ContractVerificationResult] = []
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -478,13 +493,27 @@ class ContractVerificationSessionImpl:
                 )
                 init_log_records = contract_impl.logs.get_log_records()
                 contract_impl.logs.close()
+            except Exception as exc:
+                logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                # Same per-item isolation as the local path: keep an ERROR placeholder for the
+                # item. Dropping it left the session without a result, and an empty session
+                # reads as a pass.
+                contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
+                continue
 
+            # Soda Cloud refuses a scope key the file does not declare. Refuse it here, as a local run does.
+            # Outside any try, so the error stops the session before this file is sent.
+            raise_if_unknown_scope_keys([(contract_impl, ContractImpl, None, contract_yaml_source)], check_selectors)
+
+            try:
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
+                    check_paths=check_paths,
+                    check_selectors=check_selectors,
                 )
                 if init_log_records:
                     contract_verification_result.log_records = init_log_records + (
@@ -493,9 +522,6 @@ class ContractVerificationSessionImpl:
                 contract_verification_results.append(contract_verification_result)
             except Exception as exc:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
-                # Same per-item isolation as the local path: keep an ERROR placeholder for the
-                # item. Dropping it left the session without a result, and an empty session
-                # reads as a pass.
                 contract_verification_results.append(ContractImpl.build_error_result(contract_yaml_source, exc))
         return contract_verification_results
 
@@ -522,6 +548,10 @@ class ContractVerificationSessionImpl:
 
 
 class CheckCollectionImplExtension(Protocol):
+    # True on an extension that runs declared scopes in activate_scopes. Core then leaves reporting a scope that
+    # stayed inactive to the extension.
+    runs_scopes: bool = False
+
     def __init__(self, contract_impl: CheckCollectionImpl):
         self.contract_impl: CheckCollectionImpl = contract_impl
 
@@ -530,6 +560,9 @@ class CheckCollectionImplExtension(Protocol):
 
     def build_queries(self, contract_impl: CheckCollectionImpl) -> list[Query]:
         return []
+
+    def activate_scopes(self, contract_impl: CheckCollectionImpl) -> None:
+        return None
 
 
 class ContractImpl(CheckCollectionImpl):
@@ -548,6 +581,8 @@ class ContractImpl(CheckCollectionImpl):
     # backend's contract ingestion path doesn't route by
     # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
     requires_collection_id: bool = False
+    # Contracts run declared scopes; see CheckCollectionImpl.scope_support.
+    scope_support: ScopeHandling = ScopeSupport()
 
     # Per-kind extension override slot. Global extensions live on the
     # ``CheckCollectionImpl`` base and apply to every kind; this dict is the
@@ -626,6 +661,8 @@ class ContractImpl(CheckCollectionImpl):
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> ContractVerificationResult:
         return soda_cloud_impl.verify_contract_on_runner(
             contract_yaml=self.yaml,
@@ -633,6 +670,8 @@ class ContractImpl(CheckCollectionImpl):
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             publish_results=publish_results,
             verbose=verbose,
+            check_paths=check_paths,
+            check_selectors=check_selectors,
         )
 
     def verify_on_agent(self, *args, **kwargs) -> ContractVerificationResult:
@@ -1242,7 +1281,7 @@ class CheckImpl:
                     )
                 elif reason := check_impl.unsupported_reason(contract_impl.data_source_impl):
                     check_impl.unsupported_by_data_source = reason
-                elif not check_impl.skip:
+                elif not check_impl.skip and not check_impl.in_inactive_scope:
                     check_impl.setup_metrics(
                         contract_impl=contract_impl,
                         column_impl=column_impl,
@@ -1297,12 +1336,14 @@ class CheckImpl:
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
+        self.scope: Scope = contract_impl.scope_for(check_yaml)
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
             extra_identity_properties=extra_identity_properties,
+            scope_key=None if self.scope.is_base else self.scope.key,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1317,13 +1358,17 @@ class CheckImpl:
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
 
-        # Merge attributes before filtering (selectors may query them)
-        self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+        # Merge attributes before filtering (selectors may query them). The check's own attributes go over the
+        # check attributes of its scope. The base scope holds the top-level ones; a declared scope holds its own.
+        self.attributes: dict[str, any] = {**self.scope.check_attributes, **check_yaml.attributes}
 
-        # Apply check selectors (subsumes old check_paths logic)
+        # Apply check selectors (subsumes old check_paths logic). A deselected check is skipped and reports EXCLUDED.
         self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+        # A check in a scope that no extension activated builds no metrics and reports NOT_EVALUATED: it was asked for
+        # and does not run, which is not the same as being deselected.
+        self.in_inactive_scope: bool = not self.scope.is_active
         # Set when the data source declares a supported set this check's type is not in. Distinct from
-        # `skip`, which means the user deselected the check and reports EXCLUDED.
+        # `skip`, which means the check is deselected and reports EXCLUDED.
         self.unsupported_by_data_source: Optional[str] = None
 
     def get_required_metric_impls(self) -> list["MetricImpl"]:
@@ -1389,9 +1434,12 @@ class CheckImpl:
         prefix and the ``{relative}`` path.
 
         - Contracts (``wire_source == "soda-contract"``): bare
-          ``self.relative_path``, byte-identical to today's emission.
+          ``self.relative_path``, byte-identical to today's emission. A check
+          in a declared scope gets ``f"scope.{key}:{relative_path}"``, with
+          the same single ``:`` delimiter and the wire source unchanged.
         - Non-contract subtypes (e.g. data standards): the full option-3
-          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``.
+          prefix ``f"{wire_source}.{collection_id}:{relative_path}"``. They
+          reject scope input, so their checks are always in the base scope.
         - Defensive fallback (no ``collection_id``): bare ``self.relative_path``.
 
         The ``type`` (wire_source) and ``id`` (collection_id) segments must not
@@ -1400,8 +1448,9 @@ class CheckImpl:
         ``base.py`` guard in ``verify()`` enforces this for ``collection_id``
         (which does come from user-supplied config).
 
-        Selector matching uses ``self.relative_path`` (not ``check_path``) so
-        the prefix never leaks into ``--check-selector`` matching.
+        ``path`` and ``relative_path`` selectors match ``self.relative_path``,
+        so they never see a prefix. ``check_path`` selectors, which ``-cp``
+        builds, match this value, scope prefix included.
         """
         # ``contract_impl`` is the back-ref to the enclosing
         # ``CheckCollectionImpl`` (name preserved during the rename slice;
@@ -1409,6 +1458,8 @@ class CheckImpl:
         # ``ContractImpl.wire_source`` literally so any non-contract
         # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
+            if not self.scope.is_base:
+                return f"scope.{self.scope.key}:{self.relative_path}"
             return self.relative_path
         collection_id: Optional[str] = self.contract_impl.collection_id
         # Non-contract subtypes MUST declare collection_id: the
@@ -1462,6 +1513,7 @@ class CheckImpl:
             warn_threshold=self._build_warn_threshold(),
             attributes=self.attributes,
             location=self.check_yaml.check_yaml_object.location,
+            scope=None if self.scope.is_base else self.scope.key,
         )
 
     @classmethod
@@ -1472,8 +1524,15 @@ class CheckImpl:
         check_type: str,
         qualifier: Optional[str],
         extra_identity_properties: Optional[dict[str, object]] = None,
+        scope_key: Optional[str] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
+
+        # The scope term goes first and ends in ':', which no scope key contains, so a scoped identity never
+        # equals an unscoped one or one in another scope. The base scope adds nothing, so unscoped identities
+        # stay byte-identical.
+        if scope_key is not None and scope_key != BASE_SCOPE_KEY:
+            identity_hash_builder.add_property("scope", f"{scope_key}:")
 
         # Identity-prefix mix-in: contracts inherit ``identity_prefix() == ()``
         # so the loop is a no-op and the hash stays byte-identical to every
@@ -1511,8 +1570,10 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.yaml.filter:
-            contract_dict["filter"] = self.contract_impl.yaml.filter
+        # A scope filter replaces the top-level filter. The base scope's filter is the top-level filter.
+        dataset_filter: Optional[str] = self.scope.filter
+        if dataset_filter:
+            contract_dict["filter"] = dataset_filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 
@@ -1583,6 +1644,12 @@ class MetricImpl:
         dataset_identifier: Optional[DatasetIdentifier] = None,
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
+        # The check the metric is built for. The metric measures the check's scope.
+        check_impl: Optional[CheckImpl] = None,
+        # False for a metric that must stay out of every scope although it is on the collection's dataset, like a
+        # reconciliation source on that same dataset. A metric on another dataset or data source never gets a scope.
+        scoped: bool = True,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1598,8 +1665,30 @@ class MetricImpl:
             self.data_source_impl = data_source_impl
 
         self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
+        # The scope the metric is measured in: the one given, else its check's. Set before the id, which reads it.
+        # Only a metric on the collection's own dataset and data source can be in one, so a builder that forgets
+        # scoped=False for a foreign metric never puts it in a scope's query.
+        self.scope: Optional[Scope] = None
+        if scoped and self._measures_the_collection_dataset():
+            self.scope = scope if scope is not None else (check_impl.scope if check_impl is not None else None)
 
         self.id: str = self._build_id()
+
+    def _measures_the_collection_dataset(self) -> bool:
+        """Whether the metric is on the collection's dataset and data source, compared by value."""
+        collection_dataset: DatasetIdentifier = self.contract_impl.dataset_identifier
+        if not (
+            self.dataset_identifier.data_source_name == collection_dataset.data_source_name
+            and list(self.dataset_identifier.prefixes or []) == list(collection_dataset.prefixes or [])
+            and self.dataset_identifier.dataset_name == collection_dataset.dataset_name
+        ):
+            return False
+        collection_data_source: Optional[DataSourceImpl] = self.contract_impl.data_source_impl
+        return self.data_source_impl is collection_data_source or (
+            self.data_source_impl is not None
+            and collection_data_source is not None
+            and self.data_source_impl.name == collection_data_source.name
+        )
 
     def _build_id(self) -> str:
         hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
@@ -1609,7 +1698,13 @@ class MetricImpl:
         return hash_builder.get_hash()
 
     def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = {"type": self.type}
+        id_properties: dict[str, any] = {}
+        # A declared scope goes first and ends with ':', like the scope term of a check identity, so it can never
+        # run into the next term. Every unscoped id starts with 'type', and the base scope adds nothing, so
+        # unscoped metric ids stay byte-identical.
+        if self.scope is not None and not self.scope.is_base:
+            id_properties["scope"] = f"{self.scope.key}:"
+        id_properties["type"] = self.type
 
         if self.data_source_impl:
             id_properties["data_source"] = self.data_source_impl.name
@@ -1690,6 +1785,9 @@ class AggregationMetricImpl(MetricImpl):
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
+        scope: Optional[Scope] = None,
+        check_impl: Optional[CheckImpl] = None,
+        scoped: bool = True,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1700,6 +1798,9 @@ class AggregationMetricImpl(MetricImpl):
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
             column_expression=column_expression,
+            scope=scope,
+            check_impl=check_impl,
+            scoped=scoped,
         )
 
     @abstractmethod
@@ -1753,6 +1854,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=None,
+            scope=fraction_metric_impl.scope,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:

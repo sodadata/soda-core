@@ -305,6 +305,28 @@ def test_switch_gatherer_replays_history_and_closes_the_old_gatherer():
         logs.close()
 
 
+def test_child_logs_keep_their_own_records_and_forward_to_the_parents_current_gatherer():
+    parent = Logs()
+    soda_logger.error("logged by the parent")
+    child = parent.child()
+    try:
+        soda_logger.warning("logged by the child before the switch")
+        new_gatherer = MagicMock()
+        parent.switch_gatherer(new_gatherer)
+        soda_logger.error("logged by the child after the switch")
+
+        assert child.get_logs() == ["logged by the child before the switch", "logged by the child after the switch"]
+        assert child.get_errors() == ["logged by the child after the switch"]
+        assert [call.args[0].getMessage() for call in new_gatherer.emit.call_args_list] == [
+            "logged by the parent",
+            "logged by the child before the switch",
+            "logged by the child after the switch",
+        ]
+    finally:
+        child.close()
+        parent.close()
+
+
 def test_get_all_logs_returns_empty_list_for_streaming_gatherer():
     logs_queue = _stopped_queue(scan_id="scan-id-123")
     logs_queue.emit(_record(logging.INFO, "streamed away"))

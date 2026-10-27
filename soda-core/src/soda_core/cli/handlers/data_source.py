@@ -140,7 +140,7 @@ def _discover_dqns(
     try:
         data_source_impl.open_connection()
         # Empty prefixes: discover everything visible to the connection.
-        return discover_dataset_dqns(
+        dqns: list[str] = discover_dataset_dqns(
             data_source_impl=data_source_impl,
             prefixes=[],
             include=include,
@@ -148,6 +148,13 @@ def _discover_dqns(
         )
     finally:
         data_source_impl.close_connection()
+    if not dqns:
+        # Filters that match nothing and missing grants both look like an empty data source.
+        soda_logger.warning(
+            f"No datasets discovered in data source '{data_source_impl.name}'. "
+            "If you expected some, check the include/exclude filters and the connecting user's grants."
+        )
+    return dqns
 
 
 def handle_discover_data_source(

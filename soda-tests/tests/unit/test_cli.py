@@ -1,11 +1,16 @@
+import logging
 import sys
-from unittest.mock import ANY, patch
+from argparse import ArgumentParser, _SubParsersAction
+from typing import Iterator, Optional
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-from soda_core.cli.cli import create_cli_parser, execute
+from soda_core.cli.cli import _parse_variables, create_cli_parser, execute, get_or_create_command_parser
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
+from soda_core.common.exceptions import ScanExecutionFailedException, YamlParserException
 from soda_core.common.logs import Logs
-from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.check_selector import CHECK_FILTER_HELP, CheckSelector
 
 # from soda_core.cli.soda import CLI
 
@@ -259,38 +264,13 @@ def test_verify_command_raises_exception_when_variables_are_incorrectly_formatte
     assert ExitCode.LOG_ERRORS == e.value.code
 
 
-def test_verify_command_handles_variable_types():
-    logs = Logs()
-    sys.argv = [
-        "soda",
-        "contract",
-        "verify",
-        "-ds",
-        "ds.yaml",
-        "-sc",
-        "cloud.yaml",
-        "--set",
-        "numeric_var=100.1234",
-        "--set",
-        "int_var=100",
-        "--set",
-        "string_var=hello",
-        "--set",
-        "bool_var=true",
-    ]
-
-    parser = create_cli_parser()
-    args = parser.parse_args()
-    with pytest.raises(SystemExit) as e:
-        _ = args.handler_func(args)
-
-    assert ExitCode.LOG_ERRORS == e.value.code
-
-    # The first log should be the variable parsing log
-    assert logs.get_logs()[0] == "Variable numeric_var is a number, parsed as float: 100.1234"
-    assert logs.get_logs()[1] == "Variable int_var is a number, parsed as int: 100"
-    # The other values should not be parsed as a specific type, so they should be strings. We verify this by the next log being the error log.
-    assert logs.get_logs()[2] == "Soda Cloud file 'cloud.yaml' does not exist"
+def test_set_values_are_parsed_by_type():
+    assert _parse_variables(["numeric_var=100.1234", "int_var=100", "string_var=hello", "bool_var=true"]) == {
+        "numeric_var": 100.1234,
+        "int_var": 100,
+        "string_var": "hello",
+        "bool_var": "true",
+    }
 
 
 @patch("soda_core.cli.cli.handle_publish_contract")
@@ -345,6 +325,194 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
         "a.yaml",
         {},
     )
+
+
+def _run_soda(argv: list[str], parser: ArgumentParser) -> Optional[int]:
+    """Runs the soda script's entry point on argv, parsed by the given parser. Returns the exit
+    code, or None when the command's handler returned without exiting. The CLI's own logging
+    setup is left out so the test session's logging stays as it is."""
+    with patch("soda_core.cli.cli.cli_parser", parser), patch("soda_core.cli.cli._configure_logging"), patch.object(
+        sys, "argv", ["soda", *argv]
+    ):
+        try:
+            execute()
+        except SystemExit as e:
+            return e.code
+    return None
+
+
+def _parser_with_a_mocked_command(resource: str, command: str) -> tuple[ArgumentParser, MagicMock]:
+    parser = create_cli_parser()
+    handler = MagicMock(return_value=None)
+    get_or_create_command_parser(parser, resource, command).set_defaults(handler_func=handler)
+    return parser, handler
+
+
+def _plain_argparse_cli_parser() -> ArgumentParser:
+    """The soda parser as argparse builds it on its own, where a repeated flag keeps its last use."""
+    with patch("soda_core.cli.cli._SodaArgumentParser", ArgumentParser):
+        return create_cli_parser()
+
+
+def _parsers(parser: ArgumentParser) -> Iterator[ArgumentParser]:
+    yield parser
+    for action in parser._actions:
+        if isinstance(action, _SubParsersAction):
+            for subparser in action.choices.values():
+                yield from _parsers(subparser)
+
+
+def _without_handler(args) -> dict:
+    return {key: value for key, value in vars(args).items() if key != "handler_func"}
+
+
+# One repeated flag of each kind argparse has: a single value, short and long; several values in
+# one use; a switch; switches combined; and an optional value.
+REPEATED_FLAGS = [
+    pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "--contract=b.yaml", "-ds", "ds.yaml"],
+        "soda contract verify: error: -c/--contract given more than once. Give it once.",
+        id="single value, short and long",
+    ),
+    pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "-ds", "a.yaml", "-ds", "b.yaml"],
+        "soda contract verify: error: -ds/--data-source given more than once. Give it once, with all its values after it.",
+        id="several values",
+    ),
+    pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "-v", "--verbose"],
+        "soda contract verify: error: -v/--verbose given more than once. Give it once.",
+        id="switch",
+    ),
+    pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "-rr"],
+        "soda contract verify: error: -r/--use-runner given more than once. Give it once.",
+        id="switches combined",
+    ),
+    pytest.param(
+        ["contract", "verify", "-c", "a.yaml", "-dw", "-dw", "b.yml"],
+        "soda contract verify: error: -dw/--diagnostics-warehouse given more than once. Give it once.",
+        id="optional value, once without it",
+    ),
+]
+
+
+def _error_line(stderr: str) -> str:
+    """The last line argparse prints for a usage error, after the usage."""
+    return stderr.strip().splitlines()[-1]
+
+
+@pytest.mark.parametrize("argv, error", REPEATED_FLAGS)
+def test_every_command_refuses_a_repeated_flag_before_it_runs(argv, error, capsys):
+    """argparse keeps the last use of a repeated flag and drops the others without a word, so
+    -ds a.yaml -ds b.yaml verified against b.yaml only. Every soda command now stops with a usage
+    error before its handler runs, naming the first flag it got twice."""
+    parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
+
+    assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
+    assert _error_line(capsys.readouterr().err) == error
+    handler.assert_not_called()
+
+
+def test_a_command_with_several_repeated_flags_names_the_first(capsys):
+    parser, handler = _parser_with_a_mocked_command("contract", "verify")
+    argv = "contract verify -c a.yaml -c b.yaml -v -ds x.yaml -v -ds y.yaml z.yaml".split()
+
+    assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
+    assert _error_line(capsys.readouterr().err) == (
+        "soda contract verify: error: -c/--contract given more than once. Give it once."
+    )
+    handler.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["contract", "verify", "-c", "a.yaml", "--no-such-flag"], ["contract", "verify", "-c"]],
+    ids=["unknown flag", "missing value"],
+)
+def test_every_usage_error_exits_3_not_argparses_2(argv, capsys):
+    """Exit 2 is also the check-warnings code, so a launcher could not tell a usage error from warnings."""
+    parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
+
+    assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
+    assert "error:" in _error_line(capsys.readouterr().err)
+    handler.assert_not_called()
+
+
+ONE_USE_OF_EACH_FLAG = [
+    # fmt: off
+    ["contract", "verify", "-c", "a.yaml", "-d", "x/y", "-ds", "a.yml", "b.yml", "-sc", "sc.yml", "--set", "k=v",
+     "-r", "-a", "-btm", "60", "-p", "-v", "-cp", "p.one", "p.two", "-cf", "name=x", "-dw", "dw.yml", "-mdw", "m.yml"],
+    # fmt: on
+    ["contract", "verify", "-c", "a.yaml", "-vp", "-dw", "-cp"],
+    ["contract", "fetch", "-d", "a", "b", "-f", "x.yaml", "y.yaml", "-sc", "sc.yml", "-v"],
+    ["data-source", "discover", "-ds", "ds.yml", "--include", "a%", "b%", "--exclude", "c%", "-sc", "sc.yml"],
+]
+
+
+def test_every_command_prints_the_help_and_usage_plain_argparse_prints():
+    parsers = list(_parsers(create_cli_parser()))
+    plain_parsers = list(_parsers(_plain_argparse_cli_parser()))
+
+    assert [parser.prog for parser in parsers] == [parser.prog for parser in plain_parsers]
+    assert "soda request transition" in [parser.prog for parser in parsers]
+    for parser, plain_parser in zip(parsers, plain_parsers):
+        assert parser.format_usage() == plain_parser.format_usage()
+        assert parser.format_help() == plain_parser.format_help()
+
+
+@pytest.mark.parametrize("argv", ONE_USE_OF_EACH_FLAG, ids=lambda argv: " ".join(argv))
+def test_one_use_of_each_flag_runs_the_command_with_what_plain_argparse_parses(argv):
+    """execute() sends vars(args) to telemetry and the handlers read the same args, so a command
+    line without a repeat must reach the handler exactly as argparse alone parses it."""
+    logs = Logs()
+    parser, handler = _parser_with_a_mocked_command(argv[0], argv[1])
+
+    assert _run_soda(argv, parser) is None
+    assert logs.get_errors() == []
+    handler.assert_called_once()
+    assert _without_handler(handler.call_args.args[0]) == _without_handler(
+        _plain_argparse_cli_parser().parse_args(argv)
+    )
+
+
+def test_flags_that_collect_every_use_stay_repeatable():
+    logs = Logs()
+    parser, handler = _parser_with_a_mocked_command("contract", "verify")
+    argv = "contract verify -c a.yaml --set a=1 --set b=2 -cf name=x --check-filter y".split()
+
+    assert _run_soda(argv, parser) is None
+    assert logs.get_errors() == []
+    args = handler.call_args.args[0]
+    assert args.set == ["a=1", "b=2"]
+    assert args.check_filter == ["name=x", "y"]
+
+
+@pytest.mark.parametrize("resource", ["data-source", "widget"], ids=["existing resource", "new resource"])
+def test_a_command_an_extension_adds_takes_each_flag_once(resource, capsys):
+    """Extensions hang their commands on the root parser through get_or_create_command_parser and
+    add their flags with plain add_argument calls. They get the rule without any code of their own."""
+    parser = create_cli_parser()
+    command_parser = get_or_create_command_parser(parser, resource, "scan", help_str="Scan it")
+    command_parser.add_argument("-ds", "--data-source", type=str)
+    command_parser.add_argument("--dry-run", action="store_true")
+    command_parser.add_argument("--no-wait", dest="wait", action="store_false")
+    command_parser.add_argument("--dataset", action="append")
+    handler = MagicMock(return_value=None)
+    command_parser.set_defaults(handler_func=handler)
+
+    argv = [resource, *"scan -ds a.yml --data-source b.yml --dry-run --dry-run --no-wait --no-wait".split()]
+    assert _run_soda(argv, parser) == ExitCode.LOG_ERRORS
+    assert _error_line(capsys.readouterr().err) == (
+        f"soda {resource} scan: error: -ds/--data-source given more than once. Give it once."
+    )
+    handler.assert_not_called()
+
+    argv = [resource, *"scan -ds a.yml --dry-run --dataset x --dataset y".split()]
+    assert _run_soda(argv, parser) is None
+    handler.assert_called_once()
+    args = handler.call_args.args[0]
+    assert (args.data_source, args.dry_run, args.wait, args.dataset) == ("a.yml", True, True, ["x", "y"])
 
 
 @patch("soda_core.cli.cli.handle_create_data_source")
@@ -492,6 +660,18 @@ def test_cli_v3_legacy_commands(legacy_command):
     assert e.value.code == 3
 
 
+def _contract_verify_check_filter_help() -> str:
+    verify_parser = (
+        create_cli_parser()
+        ._subparsers._group_actions[0]
+        .choices["contract"]
+        ._subparsers._group_actions[0]
+        .choices["verify"]
+    )
+    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
+    return check_filter_action.help
+
+
 def test_check_filter_help_lists_every_supported_field():
     """The -cf help text must name every field the selector actually accepts.
 
@@ -501,14 +681,51 @@ def test_check_filter_help_lists_every_supported_field():
     silently matches nothing, and a check selection that matches nothing still
     exits 0.
     """
-    verify_parser = (
-        create_cli_parser()
-        ._subparsers._group_actions[0]
-        .choices["contract"]
-        ._subparsers._group_actions[0]
-        .choices["verify"]
-    )
-    check_filter_action = next(action for action in verify_parser._actions if "--check-filter" in action.option_strings)
+    check_filter_help = _contract_verify_check_filter_help()
 
-    undocumented = sorted(field for field in CheckSelector.SUPPORTED_FIELDS if field not in check_filter_action.help)
+    undocumented = sorted(field for field in CheckSelector.SUPPORTED_FIELDS if field not in check_filter_help)
     assert not undocumented, f"--check-filter accepts {undocumented} but --help does not mention them"
+
+
+def test_check_filter_help_explains_negation():
+    assert "key!=value" in CHECK_FILTER_HELP
+
+
+@pytest.mark.parametrize(
+    "command, contract, soda_cloud, error",
+    [
+        ("test", "  - name:\n", None, "Failed to parse contract: YAML key 'name' must not be null, in {contract}[2,4]"),
+        (
+            "publish",
+            "  - name:\n",
+            "",
+            "Failed to publish contract: YAML key 'name' must not be null, in {contract}[2,4]",
+        ),
+        ("publish", "  - name: a\n", None, "Failed to publish contract: Soda Cloud file '{soda_cloud}' does not exist"),
+    ],
+    ids=["test, null column name", "publish, null column name", "publish, missing Soda Cloud file"],
+)
+def test_a_yaml_error_logs_one_error(command, contract, soda_cloud, error, tmp_path, caplog):
+    contract_path = tmp_path / "contract.yml"
+    contract_path.write_text("dataset: ds/db/schema/t\ncolumns:\n" + contract)
+    soda_cloud_path = tmp_path / "soda-cloud.yml"
+    if soda_cloud is not None:
+        soda_cloud_path.write_text("soda_cloud:\n  host: h.example\n  api_key_id: i\n  api_key_secret: s\n")
+    if command == "test":
+        exit_code = handle_test_contract(str(contract_path), {})
+    else:
+        exit_code = handle_publish_contract(str(contract_path), str(soda_cloud_path))
+    assert exit_code == ExitCode.LOG_ERRORS
+    errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert [record.getMessage() for record in errors] == [
+        error.format(contract=contract_path, soda_cloud=soda_cloud_path)
+    ]
+    assert errors[0].exc_info is None
+
+
+@patch("soda_core.cli.handlers.contract.verify_contract")
+def test_verify_turns_a_yaml_error_into_a_failure_without_traceback(verify_contract):
+    # run_scan logs a ScanExecutionFailedException as one line, and any other exception with a traceback.
+    verify_contract.side_effect = YamlParserException("YAML key 'name' must not be null", "contract.yml[2,4]")
+    with pytest.raises(ScanExecutionFailedException, match=r"YAML key 'name' must not be null, in contract.yml\[2,4\]"):
+        handle_verify_contract("contract.yml", None, None, None, {}, False, False)

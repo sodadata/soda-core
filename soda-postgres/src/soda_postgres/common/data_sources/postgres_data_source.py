@@ -231,6 +231,18 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def _current_database(self) -> str:
         return "current_database()"
 
+    def readable_relation_sql_condition(self) -> str:
+        # pg_catalog shows every role all names, so keep only what this role can SELECT * from, as scans do: a table
+        # grant, or a grant on every column. has_any_column_privilege hides a table with no columns and no grant, and
+        # NOT x.attisdropped skips dropped columns. Expects pg_class aliased as c and pg_namespace as n.
+        return """(has_schema_privilege(n.oid, 'USAGE')
+            AND (has_table_privilege(c.oid, 'SELECT')
+                OR (has_any_column_privilege(c.oid, 'SELECT')
+                    AND NOT EXISTS (
+                        SELECT 1 FROM pg_catalog.pg_attribute x
+                        WHERE x.attrelid = c.oid AND x.attnum > 0 AND NOT x.attisdropped
+                            AND NOT has_column_privilege(c.oid, x.attnum, 'SELECT')))))"""
+
     def relkind_table_type_sql_expression(self, table_alias: str = "c", column_alias: str = "table_type") -> str:
         return f"""CASE {table_alias}.relkind
             WHEN 'r' THEN
@@ -364,6 +376,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")],
             ),
             GT(COLUMN("attnum", "a"), LITERAL(0)),
+            # A table's columns show in full or not at all, same as the tables it is discovered with.
+            RAW_SQL(self.readable_relation_sql_condition()),
         ]
         if table_name:
             where_conditions.append(EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))))

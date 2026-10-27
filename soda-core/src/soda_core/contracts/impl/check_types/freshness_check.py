@@ -252,10 +252,13 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        scoped: bool = True,
     ):
         self.now_variable: Optional[str] = now_variable
         self.unit: Optional[str] = unit
         super().__init__(
+            check_impl=check_impl,
+            scoped=scoped,
             contract_impl=contract_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

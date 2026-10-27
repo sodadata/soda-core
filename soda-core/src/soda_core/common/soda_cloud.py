@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import logging
+import math
 import os
+import random
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
+from functools import lru_cache
 from logging import LogRecord
-from time import sleep
-from typing import Any, Dict, Optional, Union
+from time import monotonic, sleep
+from typing import Any, Dict, Optional, TypeVar, Union
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
@@ -22,11 +26,13 @@ from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
+    DatasetQueryException,
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     InvalidSodaCloudConfigurationException,
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
+    SodaCloudRequestException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -54,9 +60,14 @@ from soda_core.contracts.contract_verification import (
     Threshold,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
+
+# The ``version`` field on every scan start and results upload. Soda Cloud routes uploads by it, and
+# everything this codebase sends is v4.
+PAYLOAD_VERSION = "4"
 
 
 class RemoteScanStatus(Enum):
@@ -203,6 +214,52 @@ class VerificationIngestionMode(Enum):
 HISTORIC_IDENTITIES_MAX_BATCH_SIZE: int = 500
 
 
+# Backpressure: Soda Cloud only defers clients that announce they can wait, and every 429 it
+# produces comes before the request did any work, so the same body is safe to send again.
+BACKPRESSURE_OPT_IN_HEADER: str = "X-Soda-Backpressure"
+DEFERRAL_BUDGET_ENV_VAR: str = "SODA_CLOUD_DEFERRAL_BUDGET_SECONDS"
+DEFAULT_DEFERRAL_BUDGET_SECONDS: int = 5 * 60
+DEFAULT_RETRY_AFTER_SECONDS: int = 15
+MIN_RETRY_AFTER_SECONDS: int = 1
+
+
+def deferral_budget_seconds() -> float:
+    """How long one request keeps waiting for Soda Cloud before it gives up and reports the failure.
+    Overridable per runner, e.g. for scans close to their Kubernetes deadline."""
+    return _parse_deferral_budget(os.environ.get(DEFERRAL_BUDGET_ENV_VAR))
+
+
+@lru_cache(maxsize=None)
+def _parse_deferral_budget(raw_budget_seconds: Optional[str]) -> float:
+    """Reads the budget setting. The answer is cached per value, so a bad value is warned about once
+    and not on every request."""
+    if raw_budget_seconds is None or raw_budget_seconds.strip() == "":
+        # Helm renders a setting that was not given as an empty string, so blank means "not set".
+        return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
+    try:
+        budget_seconds: Optional[float] = float(raw_budget_seconds)
+    except ValueError:
+        budget_seconds = None
+    # 0 is fine: it means "do not wait". Negative, infinite and "nan" values are mistakes.
+    if budget_seconds is not None and math.isfinite(budget_seconds) and budget_seconds >= 0:
+        return budget_seconds
+    logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_budget_seconds!r}: not a valid number of seconds")
+    return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
+
+
+def retry_after_seconds(response: Response) -> float:
+    """Retry-After as a number of seconds, at least 1. There is no upper bound here: every wait is already
+    capped by the deferral budget. Soda Cloud never sends a date here, so anything that is not a number gets
+    the default."""
+    try:
+        header_seconds: float = float(response.headers.get("Retry-After", DEFAULT_RETRY_AFTER_SECONDS))
+    except (TypeError, ValueError):
+        return float(DEFAULT_RETRY_AFTER_SECONDS)
+    if not math.isfinite(header_seconds):
+        return float(DEFAULT_RETRY_AFTER_SECONDS)
+    return max(float(MIN_RETRY_AFTER_SECONDS), header_seconds)
+
+
 @dataclass(frozen=True)
 class HistoricDateTimeRange:
     """Scan-time window for historic-data queries."""
@@ -240,6 +297,9 @@ def _command_accepted(response: Optional[Response]) -> bool:
     """Whether Soda Cloud accepted a command. The shared contract of every ``bool``-returning
     command method: no response (the client swallowed the error) counts as a rejection."""
     return response is not None and response.ok
+
+
+ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 
 class SodaCloud:
@@ -350,8 +410,9 @@ class SodaCloud:
     @property
     def headers(self) -> dict[str, str]:
         """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
-        it changes nothing: pass request-specific headers through request_headers() instead."""
-        return {"User-Agent": user_agent()}
+        it changes nothing: pass request-specific headers through request_headers() instead.
+        X-Soda-Backpressure tells Soda Cloud this client waits and resends when asked to (429)."""
+        return {"User-Agent": user_agent(), BACKPRESSURE_OPT_IN_HEADER: "1"}
 
     def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
         """The default headers plus the request-specific ones, so every request identifies
@@ -412,14 +473,14 @@ class SodaCloud:
         response carried no reference.
 
         The name, data source and timestamp fields are backend-mandatory; ``data_timestamp``
-        defaults to now. ``version`` is the payload model version (this codebase is v4-only).
+        defaults to now.
         A successful start also moves the scan into its log-accepting state: the scan-id-keyed
         ``batchV4`` log stream only accepts uploads after this command.
         """
         command: dict = {
             "type": "sodaCoreScanStart",
             "scanId": scan_id,
-            "version": "4",
+            "version": PAYLOAD_VERSION,
             "definitionName": definition_name,
             "defaultDataSource": default_data_source,
             "dataTimestamp": convert_datetime_to_str(
@@ -467,7 +528,7 @@ class SodaCloud:
         results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
-        model_version: Optional[str] = None,
+        session_log_records: Optional[list[LogRecord]] = None,
     ) -> Optional[dict]:
         """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
 
@@ -490,8 +551,9 @@ class SodaCloud:
         @param scan_definition_suffix: Optional suffix appended to the
             head result's qualified name to derive the Soda Cloud
             scan-definition name. ``None`` uses the bare qualified name.
-        @param model_version: Optional payload model version (the backend's
-            dataset-registry routing key); ``None`` omits the field.
+        @param session_log_records: What the caller logged before a multi-file session,
+            which belongs to no one file. It goes into the upload once, ahead of the
+            results' own records.
         """
         if not results:
             return None
@@ -499,7 +561,7 @@ class SodaCloud:
             results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
-            model_version=model_version,
+            session_log_records=session_log_records,
         )
         payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -737,6 +799,8 @@ class SodaCloud:
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.yaml_source.file_path or "REMOTE"  # TODO
@@ -780,6 +844,8 @@ class SodaCloud:
                 blocking_timeout_in_minutes=blocking_timeout_in_minutes,
                 publish_results=publish_results,
                 verbose=verbose,
+                check_paths=check_paths,
+                check_selectors=check_selectors,
             )
         except Exception as e:
             # Caught inside the capture window: the traceback joins the records logged
@@ -803,6 +869,8 @@ class SodaCloud:
         blocking_timeout_in_minutes: int,
         publish_results: bool,
         verbose: bool,
+        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> CheckCollectionStatus:
         """Drive one remote verification and return its status.
 
@@ -842,6 +910,9 @@ class SodaCloud:
             "verbose": verbose,
             "variables": variables,
         }
+        execution_options: Optional[dict] = _build_runner_execution_options(check_paths, check_selectors)
+        if execution_options:
+            verify_contract_command["executionOptions"] = execution_options
         response: Optional[Response] = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
         )
@@ -1073,11 +1144,10 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic measurements for the given metric identities.
 
-        Exactly one of ``date_time_range`` or ``limit`` must be provided (the
-        ``sodaCoreHistoricMeasurements2`` query takes minScanTime/maxScanTime XOR limit).
+        At least one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
-        per identity, newest first.
+        per identity, newest first, taken from inside the range when both are given.
 
         Returns measurements grouped by metric identity (default), or the flat
         result list when ``group_by_identity`` is False. Measurements without a
@@ -1097,23 +1167,6 @@ class SodaCloud:
             return self._group_results_by_key(results, "identity")
         return results
 
-    def get_last_measurement(self, metric_identity: str) -> Optional[dict]:
-        """Fetch the most recent measurement for a single metric identity.
-
-        ``sodaCoreHistoricMeasurements2`` with ``limit: 1``,
-        first-result-or-None. Non-200 raises like the sibling historic-data
-        methods (callers isolate per metric).
-        """
-        results: list[dict] = self._fetch_historic_results(
-            query_type="sodaCoreHistoricMeasurements2",
-            identities_key="metricIdentities",
-            identities=[metric_identity],
-            date_time_range=None,
-            limit=1,
-            request_log_name="get_last_measurement",
-        )
-        return results[0] if results else None
-
     def get_historic_check_results(
         self,
         check_identities: list[str],
@@ -1123,10 +1176,10 @@ class SodaCloud:
     ) -> Union[list[dict], dict[str, list[dict]]]:
         """Fetch historic check results for the given check identities.
 
-        Exactly one of ``date_time_range`` or ``limit`` must be provided.
+        At least one of ``date_time_range`` or ``limit`` must be provided.
         Requests are batched per ``HISTORIC_IDENTITIES_MAX_BATCH_SIZE`` identities and merged.
         ``limit`` applies to each identity: the result holds up to ``limit`` entries
-        per identity, newest first.
+        per identity, newest first, taken from inside the range when both are given.
 
         Returns check results grouped by ``measurementId`` (default), or the flat
         result list when ``group_by_measurement_id`` is False.
@@ -1153,17 +1206,14 @@ class SodaCloud:
         request_log_name: str,
     ) -> list[dict]:
         """Shared query execution for the two historic-data endpoints: builds the
-        date-range XOR limit query args, batches identities, merges ``results``."""
-        if (date_time_range is None) == (limit is None):
-            raise SodaCloudException(
-                f"'{query_type}' requires exactly one of date_time_range or limit "
-                f"(got date_time_range={date_time_range}, limit={limit})"
-            )
+        date-range and/or limit query args, batches identities, merges ``results``."""
+        if date_time_range is None and limit is None:
+            raise SodaCloudException(f"'{query_type}' requires a date_time_range, a limit or both")
         query_args: dict = {}
         if date_time_range is not None:
             query_args["minScanTime"] = _convert_scan_time_to_str(date_time_range.from_date_time)
             query_args["maxScanTime"] = _convert_scan_time_to_str(date_time_range.to_date_time)
-        else:
+        if limit is not None:
             query_args["limit"] = limit
 
         all_results: list[dict] = []
@@ -1423,6 +1473,73 @@ class SodaCloud:
             request_type="query", request_log_name=request_log_name, request_body=query_json_dict.copy(), is_retry=True
         )
 
+    def execute_command(
+        self, command_json_dict: dict, response_model: type[ResponseModel], *, request_log_name: str
+    ) -> ResponseModel:
+        """Issue a CQRS command and return the body of a successful answer validated as ``response_model``.
+        The command is sent from a deep copy, so the caller's dict and the values nested in it are left as
+        they were.
+
+        Raises ``SodaCloudRequestException`` when Soda Cloud answers with an error status, with
+        the status and Soda Cloud's error code, so a caller can map a feature-specific code, and
+        Soda Cloud's message in its text when the answer has one. Core
+        has already logged the error answer at ERROR, so inside an active ``Logs`` it counts as an
+        error even when the caller recovers. Raises ``SodaCloudException`` when core got no answer
+        it could read: the request raised, which includes a request that was never sent, such as a
+        payload core cannot serialize, and core logged the cause at CRITICAL; or a successful answer
+        does not validate as ``response_model``. A refused API key raises
+        ``SodaCloudAuthenticationFailedException`` instead, which is a ``SodaCoreException`` and not a
+        ``SodaCloudException``, so catch it separately.
+        """
+        return self._read_request_answer(
+            self._execute_command(copy.deepcopy(command_json_dict), request_log_name), response_model
+        )
+
+    def execute_query(
+        self, query_json_dict: dict, response_model: type[ResponseModel], *, request_log_name: str
+    ) -> ResponseModel:
+        """Issue a CQRS query and return the body of a successful answer validated as ``response_model``.
+
+        Copies and fails as :meth:`execute_command` does.
+        """
+        return self._read_request_answer(
+            self._execute_query(copy.deepcopy(query_json_dict), request_log_name), response_model
+        )
+
+    def _read_request_answer(self, response: Optional[Response], response_model: type[ResponseModel]) -> ResponseModel:
+        # _execute_cqrs_request returns None after logging a request that raised.
+        if response is None:
+            raise SodaCloudException(f"The request to Soda Cloud at {self.host} did not complete")
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        if not response.ok:
+            error = body if isinstance(body, dict) else {}
+            # Soda Cloud's own message only: a raw body can be a whole gateway page.
+            message = error.get("message")
+            raise SodaCloudRequestException(
+                f"Soda Cloud at {self.host} answered with status {response.status_code}"
+                + (f": {message}" if message else ""),
+                status=response.status_code,
+                code=error.get("code"),
+            )
+        try:
+            return response_model.model_validate(body)
+        except ValidationError as exc:
+            # A body that is not JSON, such as a gateway page, goes to the console; a JSON one may carry values
+            # that should stay off it.
+            log = logger.warning if body is None else logger.debug
+            log(
+                "Soda Cloud's answer does not fit %s (status %s). First 500 chars: %s",
+                response_model.__name__,
+                response.status_code,
+                response.text[:500],
+            )
+            raise SodaCloudException(
+                f"Soda Cloud at {self.host} sent an answer this version of Soda cannot read"
+            ) from exc
+
     def execute_dataset_query(
         self,
         query_type: str,
@@ -1433,7 +1550,7 @@ class SodaCloud:
         """Issue a dataset-scoped CQRS query and return the parsed JSON body.
 
         Builds the standard ``{type, dataset: {datasource, prefixes, name}}`` envelope,
-        issues it through :meth:`execute_query`, and maps the failures every dataset
+        issues it through :meth:`_execute_query`, and maps the failures every dataset
         query shares to typed exceptions: a missing data source or dataset
         (``datasource_not_found`` / ``dataset_not_found``), any non-200 status, and
         missing or non-JSON response bodies (e.g. a gateway HTML error page).
@@ -1441,6 +1558,9 @@ class SodaCloud:
         Feature-specific 400 codes can be mapped via ``error_codes`` (e.g.
         ``{"contract_not_found": ContractNotFoundException}``); payload extraction
         stays with the caller.
+
+        The failures mapped here raise a ``DatasetQueryException``, whose ``reason``
+        leaves the dataset out for a caller that names it itself.
         """
         parsed = DatasetIdentifier.parse(dataset_identifier)
         response = self._execute_query(
@@ -1455,8 +1575,9 @@ class SodaCloud:
             request_log_name=request_log_name,
         )
         if response is None:
-            raise SodaCloudException(
-                f"No response from Soda Cloud for '{query_type}' on dataset '{dataset_identifier}'"
+            raise DatasetQueryException(
+                f"No response from Soda Cloud for '{query_type}' on dataset '{dataset_identifier}'",
+                reason="no response from Soda Cloud",
             )
 
         body = self._parse_json_body(response)
@@ -1471,8 +1592,11 @@ class SodaCloud:
                 raise exception_type(parsed)
 
         if response.status_code != 200:
-            detail = body.get("message") or body.get("code") or response.text or response.status_code
-            raise SodaCloudException(f"Failed '{query_type}' for dataset '{dataset_identifier}': {detail}")
+            detail = body.get("message") or body.get("code") or response.text
+            raise DatasetQueryException(
+                f"Failed '{query_type}' for dataset '{dataset_identifier}': {detail or response.status_code}",
+                reason=f"Soda Cloud returned status {response.status_code}" + (f": {detail}" if detail else ""),
+            )
 
         return body
 
@@ -1496,12 +1620,21 @@ class SodaCloud:
         return body if isinstance(body, dict) else {}
 
     def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Optional[Response]:
+        # Copy so the auth token injected downstream doesn't mutate the caller's dict, as _execute_query does.
         return self._execute_cqrs_request(
-            request_type="command", request_log_name=request_log_name, request_body=command_json_dict, is_retry=True
+            request_type="command",
+            request_log_name=request_log_name,
+            request_body=command_json_dict.copy(),
+            is_retry=True,
         )
 
     def _execute_cqrs_request(
-        self, request_type: str, request_log_name: str, request_body: dict, is_retry: bool
+        self,
+        request_type: str,
+        request_log_name: str,
+        request_body: dict,
+        is_retry: bool,
+        deferral_deadline: Optional[float] = None,
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
@@ -1509,11 +1642,14 @@ class SodaCloud:
             logger.debug(
                 f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
             )
-            response: Response = self._http_post(
+            if deferral_deadline is None:
+                # One budget per request: the retry after a re-login below is handed this same deadline.
+                deferral_deadline = monotonic() + deferral_budget_seconds()
+            response: Response = self._post_waiting_while_deferred(
                 url=f"{self.api_url}/{request_type}",
-                headers=self.headers,
-                json=request_body,
+                request_body=request_body,
                 request_log_name=request_log_name,
+                deferral_deadline=deferral_deadline,
             )
 
             trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
@@ -1528,6 +1664,7 @@ class SodaCloud:
                     request_log_name=request_log_name,
                     request_body=request_body,
                     is_retry=False,
+                    deferral_deadline=deferral_deadline,
                 )
             elif not response.ok:
                 try:
@@ -1562,6 +1699,41 @@ class SodaCloud:
     def _clean_request_from_private_info(self, json_str: str) -> str:
         regex = re.compile(r'"token":\s*"[^"]+"')
         return regex.sub(r'"token": "****"', json_str)
+
+    def _post_waiting_while_deferred(
+        self, url: str, request_body: dict, request_log_name: str, deferral_deadline: float
+    ) -> Response:
+        """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
+        little jitter so many clients do not all resend at the same moment) and send the same body
+        again, until the deferral deadline passes. The last 429 is then returned and handled like any
+        other error."""
+        attempts: int = 0
+        waited_seconds: float = 0.0
+        while True:
+            attempts += 1
+            response: Response = self._http_post(
+                url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
+            )
+            if response.status_code != 429:
+                if attempts > 1 and response.ok:
+                    logger.info(
+                        f"Soda Cloud accepted {request_log_name} after waiting {waited_seconds:.1f}s ({attempts} tries)"
+                    )
+                return response
+            remaining_budget_seconds: float = deferral_deadline - monotonic()
+            if remaining_budget_seconds <= 0:
+                budget_seconds: float = deferral_budget_seconds()
+                logger.error(
+                    f"Soda Cloud was still busy after {budget_seconds:.0f}s, giving up on {request_log_name}. "
+                    f"Set {DEFERRAL_BUDGET_ENV_VAR} to wait longer."
+                )
+                return response
+            wait_seconds: float = min(
+                retry_after_seconds(response) * random.uniform(1.0, 1.3), remaining_budget_seconds
+            )
+            logger.info(f"Soda Cloud is busy, sending {request_log_name} again in {wait_seconds:.1f}s")
+            sleep(wait_seconds)
+            waited_seconds += wait_seconds
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
@@ -1995,14 +2167,10 @@ def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
-    model_version: Optional[str] = None,
     scan_definition_name: Optional[str] = None,
+    session_log_records: Optional[list[LogRecord]] = None,
 ) -> dict:
     """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
-
-    ``model_version`` stamps the payload's ``version`` field — the backend's dataset-registry
-    routing key. Subtypes that build the payload themselves (metric monitoring's batched path)
-    pass their wire model version; None omits the field, matching the legacy builder output.
 
     Session-level fields (scanId, definitionName, data source, dataTimestamp)
     come from the first result; per-batch fields aggregate:
@@ -2010,7 +2178,8 @@ def _build_check_collection_results_json_dict(
     - ``scanStartTimestamp`` = min of per-result starts
     - ``scanEndTimestamp`` = max of per-result ends
     - ``hasErrors``/``hasWarnings``/``hasFailures`` = ORs over per-result flags
-    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results
+    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results; ``logs``
+      starts with ``session_log_records``, once
     - ``postProcessingStages`` = de-duped by name (the backend tracks
       one ONGOING stage per scan)
     - ``resultsIngestionMode`` = PARTIAL if any check across the batch is
@@ -2032,7 +2201,7 @@ def _build_check_collection_results_json_dict(
         if per_file:
             checks.extend(per_file)
 
-    log_records: list[LogRecord] = []
+    log_records: list[LogRecord] = list(session_log_records or [])
     for r in results:
         if r.log_records:
             log_records.extend(r.log_records)
@@ -2081,7 +2250,8 @@ def _build_check_collection_results_json_dict(
         "dataTimestamp": head.data_timestamp,
         "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
         "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
-        "hasErrors": any(r.has_errors for r in results),
+        "hasErrors": any(r.has_errors for r in results)
+        or any(log_record.levelno >= logging.ERROR for log_record in session_log_records or []),
         "hasWarnings": any(r.is_warned for r in results),
         "hasFailures": any(r.is_failed for r in results),
         # Empty checks list serialises as ``None`` to match the legacy
@@ -2099,9 +2269,8 @@ def _build_check_collection_results_json_dict(
         "postProcessingStages": post_processing_stages,
         "resultsIngestionMode": ingestion_mode.value,
         "tokenUsage": token_usage,
+        "version": PAYLOAD_VERSION,
     }
-    if model_version is not None:
-        payload["version"] = model_version
     # Normalize Decimal/datetime/tuple values to JSON-safe forms in place
     # (to_jsonnable mutates the dict and returns it); keeps ``payload`` a dict so
     # the ``metrics`` subscript-assign below is on a known-subscriptable type.
@@ -2251,6 +2420,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "invalid":
         return {
@@ -2260,6 +2430,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "duplicate":
         return {
@@ -2269,6 +2440,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "failed_rows":
         return {
@@ -2277,23 +2449,27 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "aggregate":
         return {
             "type": check_result.check.type,
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "metric":
         return {
             "type": check_result.check.type,
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif check_result.check.type == "row_count":
         return {
             "type": check_result.check.type,
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
         }
     elif isinstance(check_result, SchemaCheckResult):
         return {
@@ -2314,6 +2490,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "expectedTimestamp": convert_datetime_to_str(check_result.data_timestamp),
             "expectedTimestampUtc": convert_datetime_to_str(check_result.data_timestamp_utc),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            **_scope_rows_tested_json_dict(check_result),
             # We skip the checkRowsTested because it causes extra compute.
             # To be re-evaluated when we have users asking for it.
         }
@@ -2327,6 +2504,17 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             return check_result.diagnostic_metric_values.get_soda_cloud_output()
 
     raise SodaException(f"Unrecognized check result type: {type(check_result)}")
+
+
+def _scope_rows_tested_json_dict(check_result: CheckResult) -> dict:
+    """``scopeRowsTested`` when the check result carries ``scope_rows_tested``, else nothing.
+
+    Only a check in a declared scope carries it, so the diagnostics of every unscoped check stay as they were.
+    """
+    diagnostic_metric_values = check_result.diagnostic_metric_values
+    if isinstance(diagnostic_metric_values, dict) and "scope_rows_tested" in diagnostic_metric_values:
+        return {"scopeRowsTested": diagnostic_metric_values["scope_rows_tested"]}
+    return {}
 
 
 def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
@@ -2400,6 +2588,34 @@ def _map_remote_scan_status_to_contract_verification_status(
     # timedOut: Cloud ended the scan without an outcome. None of these evaluated the checks,
     # so none may read as a pass, nor ``failed`` as check failures.
     return CheckCollectionStatus.ERROR
+
+
+def _build_runner_execution_options(
+    check_paths: Optional[list[str]], check_selectors: Optional[list[CheckSelector]]
+) -> Optional[dict]:
+    """The ``executionOptions`` of a runner command, or None when there is neither a check path nor a selector.
+
+    ``checkPaths`` holds the check paths as given. ``checkFilters`` holds one filter per field and polarity, in the
+    order of each pair's first selector, with its values in the order given and a repeated value once. What the CLI
+    can check is checked before this runs: each selector parsed, and each scope key, a pattern included, against the
+    contract files. Which fields and values the runner takes is Soda Cloud's rule: it answers this request with 400
+    before it starts a scan, so nothing reaches the runner. An empty list omits its key, since Soda Cloud rejects an
+    empty one.
+    """
+    execution_options: dict = {}
+    if check_paths:
+        execution_options["checkPaths"] = list(check_paths)
+    values_by_field_and_polarity: dict[tuple[str, bool], list[str]] = {}
+    for check_selector in check_selectors or []:
+        values = values_by_field_and_polarity.setdefault((check_selector.field, bool(check_selector.negated)), [])
+        if check_selector.value not in values:
+            values.append(check_selector.value)
+    if values_by_field_and_polarity:
+        execution_options["checkFilters"] = [
+            {"field": field, "values": values, "negate": negate}
+            for (field, negate), values in values_by_field_and_polarity.items()
+        ]
+    return execution_options or None
 
 
 def _parse_json_dict(response: Response) -> Optional[dict]:
