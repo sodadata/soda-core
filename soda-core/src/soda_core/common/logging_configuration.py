@@ -134,6 +134,17 @@ def redaction_policy(categories: Iterable[str]) -> Iterator[None]:
         _redaction_policy.reset(token)
 
 
+def is_redacted(category: str) -> bool:
+    """Whether the active ``redaction_policy`` redacts ``category``.
+
+    For the output that is not a log record (the Cloud payload, a raised error) and so
+    has to follow the same policy as the logs. Reads the policy of the calling thread's
+    context, like the handlers do: off the verifying thread it is False unless the context
+    was carried over.
+    """
+    return category in _redaction_policy.get()
+
+
 # Set on a record once it has been redacted: a later pass (next handler, a replay outside
 # the scope and policy) re-applies the redaction (fail closed) but keeps the exception class
 # the first pass derived from the since-dropped ``exc_info``.
@@ -145,7 +156,7 @@ def _category_to_redact(record: LogRecord) -> Optional[str]:
     category: Optional[str] = getattr(record, ExtraKeys.REDACT, None) or _redacted_scope.get()
     if category is None:
         return None
-    if getattr(record, _REDACTED_ATTR, False) or category in _redaction_policy.get():
+    if getattr(record, _REDACTED_ATTR, False) or is_redacted(category):
         return category
     return None
 
