@@ -1,7 +1,7 @@
-"""Phase 3 of execute_check_collections: session-level post-processing dispatch.
+"""Session-level post-processing dispatch in execute_check_collections.
 
 Combine-upload subtypes are post-processed AFTER the single combined upload, in
-phase 3 of ``execute_check_collections`` (outside ``verify()``). Handlers run
+``execute_check_collections`` (outside ``verify()``). Handlers run
 ONCE per wire-source group via ``ContractVerificationHandler.handle_session``
 (not once per file), so a session-scoped handler can fetch config once per
 dataset, reuse one connection, and post a single aggregated stage update.
@@ -44,7 +44,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
-_HANDLER_SKIP_KIND = "phase3-handler-skip-stub"
+_HANDLER_SKIP_KIND = "session-handler-skip-stub"
 
 
 @contextmanager
@@ -378,7 +378,7 @@ class _SessionHandlerNeedingHandles(_RecordingHandler):
 
 
 def test_session_handlers_needing_handles_are_not_dispatched_on_a_batched_run():
-    """Phase 3 applies the same rule as the per-file loop: a handler that needs result handles is
+    """Session post-processing applies the same rule as the per-file loop: a handler that needs result handles is
     left out of a run whose context cannot provide them, instead of running against ``None``."""
     from unittest.mock import MagicMock
 
