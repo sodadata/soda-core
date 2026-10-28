@@ -8,7 +8,7 @@
 ./soda/spark[hive]
 ./soda/spark[odbc]
 ./soda/spark[databricks]
-./soda/spark_df
+./soda/spark_df[pyspark]
 ./soda/scientific[simulator]
 ./soda/sqlserver
 ./soda/mysql

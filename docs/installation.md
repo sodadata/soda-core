@@ -52,7 +52,7 @@ If you have not already installed Python, consider using <a href="https://github
 | ----------- | --------------- | 
 | Amazon Athena | `soda-core-athena` |
 | Amazon Redshift | `soda-core-redshift` | 
-| Apache Spark DataFrames <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df` |
+| Apache Spark DataFrames <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df[pyspark]` <br /> On Databricks Connect or a Databricks runtime, which bring their own pyspark: `soda-core-spark-df` |
 | Azure Synapse (Experimental) | `soda-core-sqlserver` |
 | ClickHouse (Experimental) | `soda-core-mysql` |
 | Dask and Pandas (Experimental)  | `soda-core-pandas-dask` |
@@ -100,7 +100,7 @@ deactivate
 | ----------- | --------------- | 
 | Amazon Athena | `soda-core-athena` |
 | Amazon Redshift | `soda-core-redshift` | 
-| Apache Spark DataFrames <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df` |
+| Apache Spark DataFrames <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df[pyspark]` <br /> On Databricks Connect or a Databricks runtime, which bring their own pyspark: `soda-core-spark-df` |
 | Azure Synapse (Experimental) | `soda-core-sqlserver` |
 | ClickHouse (Experimental) | `soda-core-mysql` |
 | Dask and Pandas (Experimental)  | `soda-core-pandas-dask` |
