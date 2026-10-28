@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import TYPE_CHECKING
 
-from pyspark.sql import SparkSession
 from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 
@@ -12,6 +12,9 @@ from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
 
 
 class SparkDfSqlDialect(SqlDialect):
