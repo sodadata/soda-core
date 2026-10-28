@@ -205,9 +205,8 @@ _KNOWN_COLLISIONS: dict[str, dict[str, str]] = {
         **dict.fromkeys(("snowflake", "redshift", "db2"), "CAST(float AS varchar) keeps about 15 significant digits"),
     },
     "money_cents_fraction": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(money AS varchar) keeps 2 decimals"),
-    "nvarchar_cjk": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(nvarchar AS varchar) folds text outside the code page"),
-    "nvarchar_outside_code_page": dict.fromkeys(
-        _SQLSERVER_FAMILY, "CAST(nvarchar AS varchar) folds text outside the code page"
+    "varbinary_trailing_zero_byte": dict.fromkeys(
+        ("sqlserver", "synapse"), "CAST(varbinary AS nvarchar) pads an odd byte count with a zero byte"
     ),
     "datetime_seconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),
     "datetime_milliseconds": dict.fromkeys(_SQLSERVER_FAMILY, "CAST(datetime AS varchar) keeps minutes"),

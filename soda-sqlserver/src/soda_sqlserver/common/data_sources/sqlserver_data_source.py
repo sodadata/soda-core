@@ -511,8 +511,8 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
 
     def _hash_operand_text_type(self) -> SodaDataTypeName | str:
         # A bare varchar in a CAST is varchar(30): it cuts longer text and rejects wider numbers and uniqueidentifier.
-        # Not nvarchar: varchar keeps the key of every value that fits in 30 characters.
-        return "varchar(max)"
+        # nvarchar, not varchar, so nvarchar text outside the database code page is not folded.
+        return "nvarchar(max)"
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD"
