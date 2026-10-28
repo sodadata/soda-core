@@ -823,7 +823,7 @@ class MissingAndValidity:
         if isinstance(self.invalid_values, list):
             literal_values = [LITERAL(value) for value in self.invalid_values if value is not None]
             if None in self.invalid_values:
-                invalid_clauses.append(AND([IN(column_expression, literal_values), IS_NULL(column_expression)]))
+                invalid_clauses.append(OR([IN(column_expression, literal_values), IS_NULL(column_expression)]))
             elif not self.invalid_values:
                 # No value is explicitly invalid -> always-false predicate (1 = 0); see the
                 # valid_values note above on why a bare boolean literal is not portable.
