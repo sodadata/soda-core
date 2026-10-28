@@ -424,3 +424,41 @@ def test_default_handle_session_runs_each_item_under_its_own_redaction_policy():
 
     assert handler.group_values_redacted == {"alpha": False, "blocked": True, "gamma": False}
     assert not is_redacted(RedactionCategory.GROUP_VALUES)
+
+
+def test_default_handle_session_isolates_a_file_whose_redaction_policy_cannot_be_resolved(monkeypatch):
+    """Resolving a file's redaction policy is per-item work too: if it raises for one file, that file
+    fails alone (marked via _handle_post_processing_failure) and ``handle`` still runs for the others."""
+    real_categories = CheckCollectionImpl.redaction_categories.fget
+
+    def categories(self):
+        if getattr(self.yaml.yaml_source, "_label", None) == "unresolvable":
+            raise AttributeError("no org settings")
+        return real_categories(self)
+
+    failed: list[str] = []
+
+    def spy(self, *, scan_id, exc, contract_verification_handler):
+        failed.append(getattr(self.yaml.yaml_source, "_label", "anon"))
+
+    monkeypatch.setattr(_StubImpl, "redaction_categories", property(categories))
+    monkeypatch.setattr(_StubImpl, "_handle_post_processing_failure", spy)
+
+    handler = _DefaultPathHandler()
+    sources = [_StubSource("alpha"), _StubSource("unresolvable"), _StubSource("gamma")]
+    with _registered(handler):
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert handler.handle_labels == ["alpha", "gamma"]
+    assert failed == ["unresolvable"]
+
+
+def test_impl_skipping_base_init_resolves_to_no_redaction():
+    """Subtypes that skip the base ``__init__`` (as these stubs do) still resolve a policy: nothing blocked."""
+
+    class _BareImpl(_StubImpl):
+        def __init__(self, yaml, **kwargs):
+            self.yaml = yaml
+
+    impl = _BareImpl(yaml=None)
+    assert impl.redaction_categories == frozenset()
