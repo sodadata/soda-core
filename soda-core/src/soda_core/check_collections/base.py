@@ -28,11 +28,7 @@ from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.filtered_cte import build_filtered_cte
-from soda_core.common.logging_configuration import (
-    exception_class_name,
-    redacted_marker,
-    redaction_policy,
-)
+from soda_core.common.logging_configuration import exception_class_name, redacted_marker, redaction_policy
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, RedactionCategory, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import ColumnMetadata, SamplerType
