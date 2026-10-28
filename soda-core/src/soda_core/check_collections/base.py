@@ -16,23 +16,24 @@ from __future__ import annotations
 
 import logging
 import reprlib
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
 from numbers import Number
 from types import MappingProxyType
-from typing import Any, Mapping, Optional
+from typing import Any, Iterator, Mapping, Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
-from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
+from soda_core.common.exceptions import SodaCoreException
 from soda_core.common.filtered_cte import build_filtered_cte
-from soda_core.common.logging_configuration import exception_class_name, redacted_marker, redaction_policy
-from soda_core.common.logging_constants import Emoticons, ExtraKeys, RedactionCategory, soda_logger
+from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import ColumnMetadata, SamplerType
 from soda_core.common.number_conversions import is_finite_number
+from soda_core.common.redaction import RedactionPolicy
 from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_ast import SODA_FILTERED_CTE_NAME
@@ -532,9 +533,9 @@ class CheckCollectionImpl:
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
     session_log_records: tuple[LogRecord, ...] = ()
-    # Org setting behind ``redaction_categories``, set per instance in ``__init__``. The class
-    # default keeps subtypes that skip the base ``__init__`` unblocked rather than unresolvable.
-    block_group_by_results_to_cloud: bool = False
+    # What this collection's org blocks from leaving the engine, set per instance in ``__init__``.
+    # The class default keeps subtypes that skip the base ``__init__`` unblocked.
+    redaction_policy: RedactionPolicy = RedactionPolicy()
     # How this kind handles scopes. By default ``scopes`` and a check's ``scope`` are parse errors.
     scope_support: ScopeHandling = NoScopeSupport()
     # Set in __init__ when an extension that runs scopes was called to activate them.
@@ -782,16 +783,15 @@ class CheckCollectionImpl:
         self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
-        # Org setting: when set, verify() redacts the records the group-by log sites mark as
-        # RedactionCategory.GROUP_VALUES (see redaction_categories). Without Soda Cloud nothing is blocked.
-        self.block_group_by_results_to_cloud: bool = False
+        # Applied around everything this collection runs (see activate). Without Soda Cloud nothing is blocked.
+        self.redaction_policy: RedactionPolicy = RedactionPolicy()
         if self.soda_cloud:
-            # One fetch carries both this dataset's configuration and the org setting.
+            # One fetch carries both this dataset's configuration and the org settings.
             datasets_configurations = self.soda_cloud.fetch_datasets_configurations([self.dataset_identifier])
             self.dataset_configuration = self.soda_cloud.dataset_configuration_from(
                 datasets_configurations, self.dataset_identifier
             )
-            self.block_group_by_results_to_cloud = bool(datasets_configurations.block_group_by_results_to_cloud)
+            self.redaction_policy = RedactionPolicy.from_datasets_configurations(datasets_configurations)
 
         if self.dataset_configuration:
             if (
@@ -1125,11 +1125,16 @@ class CheckCollectionImpl:
 
     @property
     def redaction_categories(self) -> frozenset[str]:
-        """The ``RedactionCategory`` values this run's org settings block from the logs."""
-        categories: set[str] = set()
-        if self.block_group_by_results_to_cloud:
-            categories.add(RedactionCategory.GROUP_VALUES)
-        return frozenset(categories)
+        """Deprecated: ``redaction_policy.categories``. Kept for the first cut's callers (soda-extensions)."""
+        return self.redaction_policy.categories
+
+    @contextmanager
+    def activate(self) -> Iterator[None]:
+        """Run the block as this collection: its records go into its own ``Logs``, labelled as this
+        file, and under its own ``redaction_policy``. For work done on its behalf outside ``verify()``,
+        such as session post-processing after every ``verify()`` has returned."""
+        with self.logs.activate(self.thread_label), self.redaction_policy.activate():
+            yield
 
     def verify(self) -> CheckCollectionResult:
         if not self.wire_source:
@@ -1161,7 +1166,7 @@ class CheckCollectionImpl:
         # The policy is set once here, for every record the verification emits: the log sites
         # (and the shared data source code they wrap in redacted_scope) only say what a record
         # carries. The masking runs on the emitting thread, so this scope covers it.
-        with redaction_policy(self.redaction_categories):
+        with self.redaction_policy.activate():
             return self._verify()
 
     def _verify(self) -> CheckCollectionResult:
@@ -1435,7 +1440,9 @@ class CheckCollectionImpl:
                     dwh_files=self.dwh_files,
                 )
             except Exception as e:
-                self._log_post_processing_error(f"Error in {self.display_name} verification handler: {e}", exc=e)
+                self.redaction_policy.log_exception(
+                    logger, f"Error in {self.display_name} verification handler: {e}", e
+                )
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
     def verify_on_runner(
@@ -1708,33 +1715,6 @@ class CheckCollectionImpl:
         verification_result.sending_results_to_soda_cloud_failed = True
         return False
 
-    def _post_processing_error_redaction(self) -> Optional[str]:
-        """The category a post-processing handler's raised error is redacted under, or None.
-
-        No log site marks a handler's exception, yet its text can carry what the org blocks
-        (e.g. group values in a failed-rows query). So it fails closed: any blocked category
-        redacts the whole error, and so does an org setting that cannot be resolved.
-        """
-        try:
-            categories: frozenset[str] = self.redaction_categories
-        except Exception:
-            return RedactionCategory.GROUP_VALUES
-        return min(categories, default=None)
-
-    def _log_post_processing_error(self, message: str, exc: Exception) -> None:
-        """Log a post-processing handler's error, redacted per ``_post_processing_error_redaction``.
-
-        Carries its own policy, so it holds wherever it is called from: inside ``verify()``, the
-        default ``handle_session`` or the session executor's backstop, after every ``verify()``
-        has returned.
-        """
-        category: Optional[str] = self._post_processing_error_redaction()
-        if category is None:
-            logger.error(message, exc_info=exc)
-            return
-        with redaction_policy([category]):
-            logger.error(message, exc_info=exc, extra={ExtraKeys.REDACT: category})
-
     def _handle_post_processing_failure(
         self,
         scan_id: Optional[str],
@@ -1750,12 +1730,7 @@ class CheckCollectionImpl:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
             return
         # The stage error is a Cloud payload, not a log record: redact it here, like the log.
-        category: Optional[str] = self._post_processing_error_redaction()
-        error: Optional[str] = (
-            get_exception_stacktrace(exc)
-            if category is None
-            else f"{redacted_marker(category)} {exception_class_name(type(exc))}"
-        )
+        error: Optional[str] = self.redaction_policy.redact_exception(exc)
         for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
             self.soda_cloud.post_processing_update(
                 stage=post_processing_stage.name,

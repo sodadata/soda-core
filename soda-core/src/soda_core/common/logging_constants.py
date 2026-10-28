@@ -25,13 +25,13 @@ class ExtraKeys:
     EXCEPTION: str = "exception"
     # A ``RedactionCategory`` on a record whose content must not leave the engine when the
     # run's policy covers that category. The log site sets it; it never decides the policy.
-    # See ``logging_configuration.redaction_policy``.
+    # See ``soda_core.common.redaction``.
     REDACT: str = "redact"
 
 
 class RedactionCategory:
     """What a log record carries, as the log site states it with ``extra={ExtraKeys.REDACT: ...}``
-    or ``redacted_scope(...)``. The run's ``redaction_policy`` names the categories to redact."""
+    or ``redacted_scope(...)``. The run's ``RedactionPolicy`` names the categories to redact."""
 
     # Group-by group keys or values (soda-groupby); blocked by the org's blockGroupByResultsToCloud.
     GROUP_VALUES: str = "group_values"

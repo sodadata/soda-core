@@ -11,12 +11,9 @@ from soda_core.common.logging_configuration import (
     _mask_exception,
     _mask_record,
     _masked_values,
-    is_redacted,
-    redacted_marker,
-    redacted_scope,
-    redaction_policy,
 )
 from soda_core.common.logging_constants import RedactionCategory
+from soda_core.common.redaction import RedactionPolicy, redacted_marker, redacted_scope
 
 
 class _FakeRetryingConnection:
@@ -194,9 +191,13 @@ GROUP_VALUES = RedactionCategory.GROUP_VALUES
 MARKER = redacted_marker(GROUP_VALUES)
 
 
+def redaction_policy(*categories: str):
+    return RedactionPolicy(frozenset(categories)).activate()
+
+
 @pytest.fixture
 def policy_on():
-    with redaction_policy({GROUP_VALUES}):
+    with redaction_policy(GROUP_VALUES):
         yield
 
 
@@ -278,7 +279,7 @@ def test_scope_record_unchanged_without_policy() -> None:
 
 
 def test_policy_for_other_category_does_not_redact() -> None:
-    with redaction_policy({"something_else"}):
+    with redaction_policy("something_else"):
         record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
         _mask_record(record)
 
@@ -286,7 +287,7 @@ def test_policy_for_other_category_does_not_redact() -> None:
 
 
 def test_policy_reset_on_exit() -> None:
-    with redaction_policy({GROUP_VALUES}):
+    with redaction_policy(GROUP_VALUES):
         pass
     record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
     _mask_record(record)
@@ -295,8 +296,8 @@ def test_policy_reset_on_exit() -> None:
 
 
 def test_inner_policy_does_not_lift_outer() -> None:
-    with redaction_policy({GROUP_VALUES}):
-        with redaction_policy(()):
+    with redaction_policy(GROUP_VALUES):
+        with redaction_policy():
             record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
             _mask_record(record)
 
@@ -304,37 +305,37 @@ def test_inner_policy_does_not_lift_outer() -> None:
 
 
 def test_empty_policy_is_a_no_op() -> None:
-    with redaction_policy(()):
+    with redaction_policy():
         record = _record("row SENTINEL | 1", redact=GROUP_VALUES)
         _mask_record(record)
 
     assert record.getMessage() == "row SENTINEL | 1"
 
 
-def test_is_redacted_follows_policy() -> None:
-    assert not is_redacted(GROUP_VALUES)
-    with redaction_policy({GROUP_VALUES}):
-        assert is_redacted(GROUP_VALUES)
-    assert not is_redacted(GROUP_VALUES)
+def test_current_policy_follows_activation() -> None:
+    assert not RedactionPolicy.current().covers(GROUP_VALUES)
+    with redaction_policy(GROUP_VALUES):
+        assert RedactionPolicy.current().covers(GROUP_VALUES)
+    assert not RedactionPolicy.current().covers(GROUP_VALUES)
 
 
-def test_is_redacted_false_for_other_category() -> None:
-    with redaction_policy({"something_else"}):
-        assert not is_redacted(GROUP_VALUES)
+def test_current_policy_does_not_cover_other_category() -> None:
+    with redaction_policy("something_else"):
+        assert not RedactionPolicy.current().covers(GROUP_VALUES)
 
 
-def test_is_redacted_keeps_outer_policy() -> None:
+def test_current_policy_keeps_outer_policy() -> None:
     """A run's own empty policy does not lift what a caller's outer policy redacts."""
-    with redaction_policy({GROUP_VALUES}):
-        with redaction_policy(()):
-            assert is_redacted(GROUP_VALUES)
+    with redaction_policy(GROUP_VALUES):
+        with redaction_policy():
+            assert RedactionPolicy.current().covers(GROUP_VALUES)
 
 
 def test_stamped_record_stays_redacted_outside_scope_and_policy() -> None:
     """A record is masked by every handler it reaches, and a captured record is replayed
     later outside the scope (gatherer switch, forwarding collector). The first pass stamps
     it so later passes keep it redacted, even where no policy is active."""
-    with redaction_policy({GROUP_VALUES}):
+    with redaction_policy(GROUP_VALUES):
         with redacted_scope(GROUP_VALUES):
             record = _record("row SENTINEL | 1")
             _mask_record(record)
