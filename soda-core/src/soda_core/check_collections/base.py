@@ -28,7 +28,11 @@ from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.filtered_cte import build_filtered_cte
-from soda_core.common.logging_configuration import redaction_policy
+from soda_core.common.logging_configuration import (
+    exception_class_name,
+    redacted_marker,
+    redaction_policy,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, RedactionCategory, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
 from soda_core.common.metadata_types import ColumnMetadata, SamplerType
@@ -1435,7 +1439,7 @@ class CheckCollectionImpl:
                     dwh_files=self.dwh_files,
                 )
             except Exception as e:
-                logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
+                self._log_post_processing_error(f"Error in {self.display_name} verification handler: {e}", exc=e)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
     def verify_on_runner(
@@ -1708,6 +1712,33 @@ class CheckCollectionImpl:
         verification_result.sending_results_to_soda_cloud_failed = True
         return False
 
+    def _post_processing_error_redaction(self) -> Optional[str]:
+        """The category a post-processing handler's raised error is redacted under, or None.
+
+        No log site marks a handler's exception, yet its text can carry what the org blocks
+        (e.g. group values in a failed-rows query). So it fails closed: any blocked category
+        redacts the whole error, and so does an org setting that cannot be resolved.
+        """
+        try:
+            categories: frozenset[str] = self.redaction_categories
+        except Exception:
+            return RedactionCategory.GROUP_VALUES
+        return min(categories, default=None)
+
+    def _log_post_processing_error(self, message: str, exc: Exception) -> None:
+        """Log a post-processing handler's error, redacted per ``_post_processing_error_redaction``.
+
+        Carries its own policy, so it holds wherever it is called from: inside ``verify()``, the
+        default ``handle_session`` or the session executor's backstop, after every ``verify()``
+        has returned.
+        """
+        category: Optional[str] = self._post_processing_error_redaction()
+        if category is None:
+            logger.error(message, exc_info=exc)
+            return
+        with redaction_policy([category]):
+            logger.error(message, exc_info=exc, extra={ExtraKeys.REDACT: category})
+
     def _handle_post_processing_failure(
         self,
         scan_id: Optional[str],
@@ -1722,12 +1753,19 @@ class CheckCollectionImpl:
         if self.soda_cloud is None:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
             return
+        # The stage error is a Cloud payload, not a log record: redact it here, like the log.
+        category: Optional[str] = self._post_processing_error_redaction()
+        error: Optional[str] = (
+            get_exception_stacktrace(exc)
+            if category is None
+            else f"{redacted_marker(category)} {exception_class_name(type(exc))}"
+        )
         for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
             self.soda_cloud.post_processing_update(
                 stage=post_processing_stage.name,
                 scan_id=scan_id,
                 state=PostProcessingStageState.FAILED,
-                error=get_exception_stacktrace(exc),
+                error=error,
             )
 
 

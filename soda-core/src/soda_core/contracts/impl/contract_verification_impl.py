@@ -151,7 +151,9 @@ class ContractVerificationHandler(ABC):
                 except Exception as e:
                     # Same message shape as the per-file path (run_post_processing_handlers) so log
                     # parsing / monitoring stays consistent across the combine and non-combine paths.
-                    logger.error(f"Error in {item.contract_impl.display_name} verification handler: {e}", exc_info=True)
+                    item.contract_impl._log_post_processing_error(
+                        f"Error in {item.contract_impl.display_name} verification handler: {e}", exc=e
+                    )
                     item.contract_impl._handle_post_processing_failure(
                         scan_id=item.verification_result.scan_id,
                         exc=e,

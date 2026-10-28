@@ -88,6 +88,12 @@ def redacted_marker(category: str) -> str:
     return f"[redacted: {category}]"
 
 
+def exception_class_name(exc_type: type) -> str:
+    """The exception class a redacted record or payload keeps: the one value-free thing worth knowing."""
+    module: str = exc_type.__module__
+    return exc_type.__qualname__ if module == "builtins" else f"{module}.{exc_type.__qualname__}"
+
+
 # Both are read at mask time on the thread that emits the record. Handlers mask synchronously
 # on the emitting thread, so the caller's context is the one that counts. Work moved to
 # another thread does not inherit them: carry them over with ``contextvars.copy_context().run(...)``.
@@ -173,9 +179,7 @@ def _redact(record: LogRecord, category: str) -> None:
     """
     exception_class: Optional[str] = None
     if isinstance(record.exc_info, tuple) and record.exc_info[0] is not None:
-        exc_type = record.exc_info[0]
-        module: str = exc_type.__module__
-        exception_class = exc_type.__qualname__ if module == "builtins" else f"{module}.{exc_type.__qualname__}"
+        exception_class = exception_class_name(record.exc_info[0])
     record.msg = redacted_marker(category)
     record.args = ()
     record.exc_info = None

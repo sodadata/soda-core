@@ -34,6 +34,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     PostProcessingStage,
+    PostProcessingStageState,
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -462,3 +463,101 @@ def test_impl_skipping_base_init_resolves_to_no_redaction():
 
     impl = _BareImpl(yaml=None)
     assert impl.redaction_categories == frozenset()
+
+
+_GROUP_VALUE = "acme-corp"
+
+
+def _messages_by_label(session_result) -> dict[str, list[str]]:
+    return {
+        r.check_collection.dataset_name: [rec.getMessage() for rec in (r.log_records or [])]
+        for r in session_result.results
+        if r.status == CheckCollectionStatus.PASSED
+    }
+
+
+def test_default_handle_session_redacts_a_handler_error_for_a_blocked_file():
+    """A raised handler error is unmarked and may carry group values: for the file whose org blocks them
+    it is logged as the marker only, while the other file keeps the full message."""
+
+    class _RaisingHandler(ContractVerificationHandler):
+        def handle(self, *args, **kwargs):
+            raise RuntimeError(f"failed rows query for group {_GROUP_VALUE}")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    sources = [_StubSource("alpha"), _StubSource("blocked")]
+    with _registered(_RaisingHandler()):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    by_label = _messages_by_label(session_result)
+    assert any(_GROUP_VALUE in message for message in by_label["alpha"])
+    assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
+    assert "[redacted: group_values]" in by_label["blocked"]
+
+
+def test_handle_session_backstop_redacts_the_escaped_error_per_file():
+    """The executor backstop runs after every verify() has returned: it logs the escaped error per file,
+    into that file's Logs and under its own redaction."""
+
+    class _LeakingExplodingHandler(_ExplodingHandler):
+        def handle_session(self, *args, **kwargs) -> None:
+            raise RuntimeError(f"session upload failed for group {_GROUP_VALUE}")
+
+    sources = [_StubSource("alpha"), _StubSource("blocked")]
+    with _registered(_LeakingExplodingHandler()):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    by_label = _messages_by_label(session_result)
+    assert any(_GROUP_VALUE in message for message in by_label["alpha"])
+    assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
+    assert "[redacted: group_values]" in by_label["blocked"]
+
+
+class _RecordingSodaCloud:
+    def __init__(self) -> None:
+        self.errors: list[Optional[str]] = []
+
+    def post_processing_update(self, stage, scan_id, state, error=None, **kwargs) -> None:
+        self.errors.append(error)
+
+
+class _OneStageHandler(ContractVerificationHandler):
+    def handle(self, *args, **kwargs):
+        raise AssertionError("unused")
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        return [PostProcessingStage(name="failed-rows", stage=PostProcessingStageState.ONGOING)]
+
+
+def _impl_with_cloud(label: str) -> tuple[_StubImpl, _RecordingSodaCloud]:
+    impl = _StubImpl(yaml=_StubYaml(yaml_source=_StubSource(label), yaml_object=None))
+    cloud = _RecordingSodaCloud()
+    impl.soda_cloud = cloud
+    return impl, cloud
+
+
+def _raised(message: str) -> RuntimeError:
+    try:
+        raise RuntimeError(message)
+    except RuntimeError as e:
+        return e
+
+
+def test_post_processing_failure_sends_only_the_exception_class_for_a_blocked_org():
+    """The FAILED stage error is a Cloud payload, not a log record: for a blocked org it carries the marker
+    and the exception class, never the stack trace text."""
+    impl, cloud = _impl_with_cloud("blocked")
+    impl._handle_post_processing_failure(
+        scan_id="scan-1", exc=_raised(f"group {_GROUP_VALUE}"), contract_verification_handler=_OneStageHandler()
+    )
+    assert cloud.errors == ["[redacted: group_values] RuntimeError"]
+
+
+def test_post_processing_failure_sends_the_stack_trace_when_nothing_is_blocked():
+    impl, cloud = _impl_with_cloud("alpha")
+    impl._handle_post_processing_failure(
+        scan_id="scan-1", exc=_raised(f"group {_GROUP_VALUE}"), contract_verification_handler=_OneStageHandler()
+    )
+    assert len(cloud.errors) == 1 and _GROUP_VALUE in cloud.errors[0]
