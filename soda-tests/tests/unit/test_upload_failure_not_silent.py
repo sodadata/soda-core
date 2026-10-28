@@ -24,7 +24,6 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
-from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
 _CONTRACT_YAML = """
 dataset: test_ds/main/my_table
@@ -88,14 +87,7 @@ def _requests_of_type(mock_cloud: MockSodaCloud, request_type: str) -> list[dict
     return [r.json for r in mock_cloud.requests if isinstance(r.json, dict) and r.json.get("type") == request_type]
 
 
-@pytest.fixture(params=[False, True], ids=["per-file", "combined"])
-def combine_uploads(request, monkeypatch) -> bool:
-    # Data standards use the combined, session-level upload; contracts upload per file.
-    monkeypatch.setattr(ContractImpl, "combine_uploads", request.param)
-    return request.param
-
-
-def test_rejected_upload_without_scan_id_exits_results_not_sent(monkeypatch, data_source_impl, combine_uploads):
+def test_rejected_upload_without_scan_id_exits_results_not_sent(monkeypatch, data_source_impl):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     mock_cloud = MockSodaCloud()
 
@@ -109,9 +101,7 @@ def test_rejected_upload_without_scan_id_exits_results_not_sent(monkeypatch, dat
     assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
 
-def test_rejected_upload_on_runner_marks_scan_failed_and_exits_log_errors(
-    monkeypatch, data_source_impl, combine_uploads
-):
+def test_rejected_upload_on_runner_marks_scan_failed_and_exits_log_errors(monkeypatch, data_source_impl):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
     mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=200, json_object={})])
 
@@ -129,9 +119,7 @@ def test_rejected_upload_on_runner_marks_scan_failed_and_exits_log_errors(
     assert interpret_contract_verification_result(session_result) == ExitCode.LOG_ERRORS
 
 
-def test_rejected_upload_on_runner_with_rejected_mark_exits_results_not_sent(
-    monkeypatch, data_source_impl, combine_uploads
-):
+def test_rejected_upload_on_runner_with_rejected_mark_exits_results_not_sent(monkeypatch, data_source_impl):
     monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
     mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
 

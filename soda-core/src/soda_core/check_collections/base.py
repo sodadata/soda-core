@@ -527,11 +527,10 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
-    # Whether publishing first uploads the YAML file to Soda Cloud for a fileId. Contracts
-    # need it: the results carry the fileId and Cloud versions the contract from it. A
-    # subtype whose results never reference the file sets False, so its results are sent
-    # without an upload.
-    uploads_yaml_file: bool = True
+    # Whether publishing first uploads the YAML file to Soda Cloud for a fileId. Only
+    # contracts set True: their results carry the fileId and Cloud versions the contract
+    # from it. No other subtype's results reference the file, so they skip the upload.
+    uploads_yaml_file: bool = False
     # What the caller logged before a multi-file session, set by the session executor. It
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.

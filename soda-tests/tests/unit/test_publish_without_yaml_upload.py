@@ -1,6 +1,6 @@
 """
-A check-collection subtype whose results never reference the uploaded YAML file sets
-``uploads_yaml_file = False``. Publishing then skips the file upload and sends the
+Only contracts upload their YAML file to Soda Cloud. Any other check-collection subtype
+leaves ``uploads_yaml_file`` False, so publishing skips the file upload and sends the
 results straight away, on both the per-file and the combined upload path.
 """
 
@@ -36,7 +36,8 @@ def data_source_impl(tmp_path) -> DataSourceImpl:
 
 @pytest.fixture(params=[False, True], ids=["per-file", "combined"])
 def subtype_without_file_upload(request, monkeypatch) -> None:
-    monkeypatch.setattr(ContractImpl, "uploads_yaml_file", False)
+    # Inherit the base default, as every subtype but contracts does.
+    monkeypatch.delattr(ContractImpl, "uploads_yaml_file")
     monkeypatch.setattr(ContractImpl, "wire_source", "test-subtype")
     monkeypatch.setattr(ContractYaml, "columns_required", False)
     monkeypatch.setattr(ContractImpl, "combine_uploads", request.param)

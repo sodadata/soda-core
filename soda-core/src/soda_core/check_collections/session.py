@@ -294,21 +294,16 @@ def execute_check_collections(
         for (_, impl_class, _, _), result in zip(constructed, results):
             if impl_class is None or not impl_class.combine_uploads:
                 continue
-            # Per-file alignment guard, data-source-missing or upload-failure path
-            # already flagged this result; don't include it in the combined upload.
+            # Per-file alignment guard or data-source-missing path already
+            # flagged this result; don't include it in the combined upload.
             if result.sending_results_to_soda_cloud_failed:
                 continue
             if soda_scan_id and result.errored_without_results:
                 if errored_without_results_result is None:
                     errored_without_results_result = result
                 continue
-            file_id = (
-                result.check_collection.source.soda_cloud_file_id
-                if result.check_collection and result.check_collection.source
-                else None
-            )
             # A placeholder for a file that failed before producing output has nothing to send.
-            if result.error is not None or (file_id is None and impl_class.uploads_yaml_file):
+            if result.error is not None:
                 continue
             combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
             combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
