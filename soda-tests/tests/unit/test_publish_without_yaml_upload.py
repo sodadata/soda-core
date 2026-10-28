@@ -79,6 +79,8 @@ def test_publish_sends_results_without_uploading_the_yaml_file(
     assert session_result_to_exit_code(session_result) == ExitCode.OK
 
 
+# Only the combined path filters what it sends. Per file, a raised verify sends nothing anyway.
+@pytest.mark.parametrize("subtype_without_file_upload", [True], ids=["combined"], indirect=True)
 def test_a_file_whose_verify_raised_is_not_sent(monkeypatch, data_source_impl, subtype_without_file_upload):
     monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     verify = ContractImpl.verify

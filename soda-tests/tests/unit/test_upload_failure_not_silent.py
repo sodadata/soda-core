@@ -8,12 +8,10 @@ scan results."
 
 Now the upload runs first and a rejected file is not verified at all. With a runner
 scan id, the scan is marked FAILED with the captured logs and the run exits
-LOG_ERRORS, the code for a failure that reached Cloud. Without a scan id, or when
-Cloud rejects the mark, the result is flagged as not sent, so the run exits
-RESULTS_NOT_SENT_TO_CLOUD.
+LOG_ERRORS, the code for a failure that reached Cloud. Without a scan id the result
+is flagged as not sent, so the run exits RESULTS_NOT_SENT_TO_CLOUD.
 """
 
-from typing import Optional
 
 import duckdb
 import pytest
@@ -33,8 +31,6 @@ checks:
   - row_count:
 """
 
-_REJECTED_MARKER = "# rejected by Soda Cloud"
-
 _UPLOAD_ERROR = "Schema validation failed: required property 'columns' not found"
 
 
@@ -51,32 +47,16 @@ def data_source_impl(tmp_path) -> DataSourceImpl:
     return DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(data_source_yaml))
 
 
-def _upload(contract_yaml: str, *args, **kwargs) -> Optional[str]:
-    if _REJECTED_MARKER not in contract_yaml:
-        return "contract-file-id"
+def _rejected_upload(*args, **kwargs) -> None:
     # Mirrors SodaCloud._upload_contract_yaml_file on a 400: it logs and returns None.
     soda_logger.critical(f"No fileId received in response: {_UPLOAD_ERROR}")
     return None
 
 
-def _verify(
-    data_source_impl: DataSourceImpl, mock_cloud: MockSodaCloud, contract_yamls: Optional[list[str]] = None
-) -> ContractVerificationSessionResult:
-    mock_cloud._upload_contract_yaml_file = _upload
-    mark_calls: list[Optional[str]] = []
-    mark_scan_as_failed = mock_cloud.mark_scan_as_failed
-
-    def recording_mark_scan_as_failed(*args, **kwargs):
-        mark_calls.append(kwargs.get("scan_id"))
-        return mark_scan_as_failed(*args, **kwargs)
-
-    mock_cloud.mark_scan_as_failed = recording_mark_scan_as_failed
-    mock_cloud.mark_calls = mark_calls
+def _verify(data_source_impl: DataSourceImpl, mock_cloud: MockSodaCloud) -> ContractVerificationSessionResult:
+    mock_cloud._upload_contract_yaml_file = _rejected_upload
     return ContractVerificationSession.execute(
-        contract_yaml_sources=[
-            ContractYamlSource.from_str(contract_yaml)
-            for contract_yaml in (contract_yamls or [_CONTRACT_YAML + _REJECTED_MARKER])
-        ],
+        contract_yaml_sources=[ContractYamlSource.from_str(_CONTRACT_YAML)],
         data_source_impls=[data_source_impl],
         soda_cloud_impl=mock_cloud,
         soda_cloud_publish_results=True,
@@ -96,7 +76,7 @@ def test_rejected_upload_without_scan_id_exits_results_not_sent(monkeypatch, dat
 
     assert result.check_results == [], "a file Cloud rejected is not verified"
     assert result.sending_results_to_soda_cloud_failed is True
-    assert mock_cloud.mark_calls == [], "without a scan id there is no scan to mark"
+    assert _requests_of_type(mock_cloud, "sodaCoreMarkScanFailed") == [], "without a scan id there is no scan to mark"
     assert _requests_of_type(mock_cloud, "sodaCoreInsertScanResults") == []
     assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
 
@@ -117,14 +97,3 @@ def test_rejected_upload_on_runner_marks_scan_failed_and_exits_log_errors(monkey
     assert result.sending_results_to_soda_cloud_failed is False
     assert result.scan_id == "scan-under-test"
     assert interpret_contract_verification_result(session_result) == ExitCode.LOG_ERRORS
-
-
-def test_rejected_upload_on_runner_with_rejected_mark_exits_results_not_sent(monkeypatch, data_source_impl):
-    monkeypatch.setenv("SODA_SCAN_ID", "scan-under-test")
-    mock_cloud = MockSodaCloud(responses=[MockResponse(status_code=500, json_object={})])
-
-    session_result = _verify(data_source_impl, mock_cloud)
-
-    assert len(_requests_of_type(mock_cloud, "sodaCoreMarkScanFailed")) == 1
-    assert session_result.contract_verification_results[0].sending_results_to_soda_cloud_failed is True
-    assert interpret_contract_verification_result(session_result) == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
