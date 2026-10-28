@@ -532,6 +532,9 @@ class CheckCollectionImpl:
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
     session_log_records: tuple[LogRecord, ...] = ()
+    # Org setting behind ``redaction_categories``, set per instance in ``__init__``. The class
+    # default keeps subtypes that skip the base ``__init__`` unblocked rather than unresolvable.
+    block_group_by_results_to_cloud: bool = False
     # How this kind handles scopes. By default ``scopes`` and a check's ``scope`` are parse errors.
     scope_support: ScopeHandling = NoScopeSupport()
     # Set in __init__ when an extension that runs scopes was called to activate them.

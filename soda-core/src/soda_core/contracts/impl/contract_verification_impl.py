@@ -135,19 +135,19 @@ class ContractVerificationHandler(ABC):
             # its own collection's gatherer, thread-labelled at emit time — they
             # would otherwise land in whichever Logs happens to be active after
             # phase 2. Each file carries its own org settings, so its handlers run
-            # under its own redaction policy again.
-            with item.contract_impl.logs.activate(item.contract_impl.thread_label), redaction_policy(
-                item.contract_impl.redaction_categories
-            ):
+            # under its own redaction policy again — entered inside the try, so a
+            # file whose policy cannot be resolved fails alone like any other.
+            with item.contract_impl.logs.activate(item.contract_impl.thread_label):
                 try:
-                    self.handle(
-                        contract_impl=item.contract_impl,
-                        data_source_impl=item.contract_impl.data_source_impl,
-                        contract_verification_result=item.verification_result,
-                        soda_cloud=soda_cloud,
-                        soda_cloud_send_results_response_json=item.soda_cloud_send_results_response_json,
-                        dwh_files=dwh_files,
-                    )
+                    with redaction_policy(item.contract_impl.redaction_categories):
+                        self.handle(
+                            contract_impl=item.contract_impl,
+                            data_source_impl=item.contract_impl.data_source_impl,
+                            contract_verification_result=item.verification_result,
+                            soda_cloud=soda_cloud,
+                            soda_cloud_send_results_response_json=item.soda_cloud_send_results_response_json,
+                            dwh_files=dwh_files,
+                        )
                 except Exception as e:
                     # Same message shape as the per-file path (run_post_processing_handlers) so log
                     # parsing / monitoring stays consistent across the combine and non-combine paths.
