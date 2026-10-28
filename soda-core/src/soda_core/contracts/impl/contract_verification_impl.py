@@ -13,6 +13,7 @@ from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.logging_configuration import redaction_policy
 from soda_core.common.logs import Logs
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
@@ -121,7 +122,11 @@ class ContractVerificationHandler(ABC):
         (3) log records an override emits are not attributed to any single file —
         bracket per-item work with
         ``item.contract_impl.logs.activate(item.contract_impl.thread_label)``
-        when per-file log attribution matters.
+        when per-file log attribution matters; (4) the session runs after every
+        ``verify()`` has returned, outside the redaction policy each one sets —
+        bracket per-item work with
+        ``redaction_policy(item.contract_impl.redaction_categories)`` so the
+        records the file's org blocks stay redacted.
         If the override itself raises, the executor marks the handler's stages
         FAILED as a backstop.
         """
@@ -129,8 +134,11 @@ class ContractVerificationHandler(ABC):
             # Capture this item's handler emissions (incl. the failure path) into
             # its own collection's gatherer, thread-labelled at emit time — they
             # would otherwise land in whichever Logs happens to be active after
-            # phase 2.
-            with item.contract_impl.logs.activate(item.contract_impl.thread_label):
+            # phase 2. Each file carries its own org settings, so its handlers run
+            # under its own redaction policy again.
+            with item.contract_impl.logs.activate(item.contract_impl.thread_label), redaction_policy(
+                item.contract_impl.redaction_categories
+            ):
                 try:
                     self.handle(
                         contract_impl=item.contract_impl,

@@ -25,7 +25,8 @@ from typing import Optional
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logging_configuration import is_redacted
+from soda_core.common.logging_constants import RedactionCategory, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
@@ -117,6 +118,8 @@ class _StubImpl(CheckCollectionImpl):
         self.yaml = yaml
         self.logs = Logs()
         self.data_source_impl = None
+        # The org setting behind ``redaction_categories``: blocked for the file labelled "blocked".
+        self.block_group_by_results_to_cloud = getattr(yaml.yaml_source, "_label", None) == "blocked"
 
     @property
     def collection_id(self) -> Optional[str]:
@@ -388,3 +391,36 @@ def test_session_handlers_needing_handles_are_not_dispatched_on_a_batched_run():
             execute_check_collections(yaml_sources=sources, data_source_impl=None)
     assert needing.session_calls == []
     assert [labels for labels, _ in self_contained.session_calls] == [["alpha", "gamma"]]
+
+
+def test_default_handle_session_runs_each_item_under_its_own_redaction_policy():
+    """The session runs after every verify() has returned, outside the policy each one sets: the default
+    per-item ``handle`` runs under that file's policy again, so only the file whose org blocks group values
+    has them redacted."""
+
+    class _PolicyRecordingHandler(ContractVerificationHandler):
+        def __init__(self) -> None:
+            self.group_values_redacted: dict[str, bool] = {}
+
+        def handle(
+            self,
+            contract_impl,
+            data_source_impl,
+            contract_verification_result,
+            soda_cloud,
+            soda_cloud_send_results_response_json,
+            dwh_files=None,
+        ):
+            label = contract_verification_result.check_collection.dataset_name
+            self.group_values_redacted[label] = is_redacted(RedactionCategory.GROUP_VALUES)
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    handler = _PolicyRecordingHandler()
+    sources = [_StubSource("alpha"), _StubSource("blocked"), _StubSource("gamma")]
+    with _registered(handler):
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert handler.group_values_redacted == {"alpha": False, "blocked": True, "gamma": False}
+    assert not is_redacted(RedactionCategory.GROUP_VALUES)
