@@ -40,6 +40,7 @@ dev = [
     "pandas",
     "pyarrow",
     "black>=26.1.0",
+    "soda-sparkdf[pyspark]",
 ]
 
 # Workspace sources - tells UV where to find workspace packages
