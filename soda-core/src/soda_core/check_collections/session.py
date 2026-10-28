@@ -402,10 +402,13 @@ def execute_check_collections(
                     dwh_files=dwh_files,
                 )
             except Exception as e:
-                logger.error(
-                    f"Error in session post-processing handler {type(handler).__name__}: {e}",
-                    exc_info=True,
-                )
+                # Logged per file, into that file's own Logs and under its own redaction: the
+                # error may carry what a file's org blocks, and every verify() has returned.
+                for item in session_items:
+                    with item.contract_impl.logs.activate(item.contract_impl.thread_label):
+                        item.contract_impl._log_post_processing_error(
+                            f"Error in session post-processing handler {type(handler).__name__}: {e}", exc=e
+                        )
                 # Backstop: a well-behaved handle_session isolates per item and posts its own
                 # terminal stage state (the documented overrider contract). If the override
                 # escapes anyway, mark this handler's stages FAILED per file — mirroring the
