@@ -2,7 +2,7 @@
 redaction policy of its verification.
 
 Group-by log sites only mark their records with ``RedactionCategory.GROUP_VALUES``; ``verify()`` sets the
-``redaction_policy`` from ``CheckCollectionImpl.block_group_by_results_to_cloud``. So the setting must be the
+``CheckCollectionImpl.redaction_policy`` built from that setting. So the setting must be the
 one fetched for that verification (never one left over from an earlier run, and off without Soda Cloud), and
 a marked record emitted during the verification must be redacted exactly when it is set.
 """
@@ -14,8 +14,8 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.check_collections.base import CheckCollectionImpl
-from soda_core.common.logging_configuration import redacted_marker
 from soda_core.common.logging_constants import ExtraKeys, RedactionCategory
+from soda_core.common.redaction import redacted_marker
 
 MARKED_MESSAGE = "group ['SENTINEL']: 1"
 
@@ -80,7 +80,7 @@ def test_flag_reaches_check_collection(data_source_test_helper: DataSourceTestHe
 
     _verify(data_source_test_helper, test_table, block=True)
 
-    assert [c.block_group_by_results_to_cloud for c in check_collections] == [True]
+    assert [c.redaction_policy.covers(RedactionCategory.GROUP_VALUES) for c in check_collections] == [True]
 
 
 def test_redaction_follows_latest_flag(data_source_test_helper: DataSourceTestHelper, check_collections):
@@ -90,7 +90,7 @@ def test_redaction_follows_latest_flag(data_source_test_helper: DataSourceTestHe
     _verify(data_source_test_helper, test_table, block=True)
     _verify(data_source_test_helper, test_table, block=False)
 
-    assert [c.block_group_by_results_to_cloud for c in check_collections] == [True, False]
+    assert [c.redaction_policy.covers(RedactionCategory.GROUP_VALUES) for c in check_collections] == [True, False]
 
 
 def test_no_cloud_no_redaction(data_source_test_helper: DataSourceTestHelper, check_collections):
@@ -99,7 +99,7 @@ def test_no_cloud_no_redaction(data_source_test_helper: DataSourceTestHelper, ch
 
     _verify(data_source_test_helper, test_table, block=None)
 
-    assert [c.block_group_by_results_to_cloud for c in check_collections] == [False]
+    assert [c.redaction_policy.covers(RedactionCategory.GROUP_VALUES) for c in check_collections] == [False]
 
 
 def test_marked_record_redacted_when_flag_set(

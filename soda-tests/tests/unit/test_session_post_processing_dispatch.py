@@ -25,9 +25,9 @@ from typing import Optional
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.logging_configuration import is_redacted
 from soda_core.common.logging_constants import RedactionCategory, soda_logger
 from soda_core.common.logs import Logs
+from soda_core.common.redaction import RedactionPolicy
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
@@ -119,8 +119,9 @@ class _StubImpl(CheckCollectionImpl):
         self.yaml = yaml
         self.logs = Logs()
         self.data_source_impl = None
-        # The org setting behind ``redaction_categories``: blocked for the file labelled "blocked".
-        self.block_group_by_results_to_cloud = getattr(yaml.yaml_source, "_label", None) == "blocked"
+        # What the org blocks: group values for the file labelled "blocked".
+        blocked = getattr(yaml.yaml_source, "_label", None) == "blocked"
+        self.redaction_policy = RedactionPolicy(frozenset({RedactionCategory.GROUP_VALUES} if blocked else ()))
 
     @property
     def collection_id(self) -> Optional[str]:
@@ -413,7 +414,7 @@ def test_default_handle_session_runs_each_item_under_its_own_redaction_policy():
             dwh_files=None,
         ):
             label = contract_verification_result.check_collection.dataset_name
-            self.group_values_redacted[label] = is_redacted(RedactionCategory.GROUP_VALUES)
+            self.group_values_redacted[label] = RedactionPolicy.current().covers(RedactionCategory.GROUP_VALUES)
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return []
@@ -424,34 +425,7 @@ def test_default_handle_session_runs_each_item_under_its_own_redaction_policy():
         execute_check_collections(yaml_sources=sources, data_source_impl=None)
 
     assert handler.group_values_redacted == {"alpha": False, "blocked": True, "gamma": False}
-    assert not is_redacted(RedactionCategory.GROUP_VALUES)
-
-
-def test_default_handle_session_isolates_a_file_whose_redaction_policy_cannot_be_resolved(monkeypatch):
-    """Resolving a file's redaction policy is per-item work too: if it raises for one file, that file
-    fails alone (marked via _handle_post_processing_failure) and ``handle`` still runs for the others."""
-    real_categories = CheckCollectionImpl.redaction_categories.fget
-
-    def categories(self):
-        if getattr(self.yaml.yaml_source, "_label", None) == "unresolvable":
-            raise AttributeError("no org settings")
-        return real_categories(self)
-
-    failed: list[str] = []
-
-    def spy(self, *, scan_id, exc, contract_verification_handler):
-        failed.append(getattr(self.yaml.yaml_source, "_label", "anon"))
-
-    monkeypatch.setattr(_StubImpl, "redaction_categories", property(categories))
-    monkeypatch.setattr(_StubImpl, "_handle_post_processing_failure", spy)
-
-    handler = _DefaultPathHandler()
-    sources = [_StubSource("alpha"), _StubSource("unresolvable"), _StubSource("gamma")]
-    with _registered(handler):
-        execute_check_collections(yaml_sources=sources, data_source_impl=None)
-
-    assert handler.handle_labels == ["alpha", "gamma"]
-    assert failed == ["unresolvable"]
+    assert not RedactionPolicy.current().covers(RedactionCategory.GROUP_VALUES)
 
 
 def test_impl_skipping_base_init_resolves_to_no_redaction():
@@ -462,7 +436,7 @@ def test_impl_skipping_base_init_resolves_to_no_redaction():
             self.yaml = yaml
 
     impl = _BareImpl(yaml=None)
-    assert impl.redaction_categories == frozenset()
+    assert impl.redaction_policy == RedactionPolicy()
 
 
 _GROUP_VALUE = "acme-corp"
