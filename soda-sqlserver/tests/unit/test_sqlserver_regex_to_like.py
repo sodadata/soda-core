@@ -50,15 +50,44 @@ def test_optional_prefix_becomes_two_alternatives() -> None:
     )
 
 
+UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
 def test_negative_lookahead_becomes_not_like() -> None:
     """The Dutch rule: four digits, optional space, two letters, but not SA/SD/SS."""
     likes, not_likes = translate(r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$")
-    assert "[1-9][0-9][0-9][0-9][A-Z][A-Z]" in likes
-    assert "[1-9][0-9][0-9][0-9] [A-Z][A-Z]" in likes
+    assert f"[1-9][0-9][0-9][0-9][{UPPER}][{UPPER}]" in likes
+    assert f"[1-9][0-9][0-9][0-9] [{UPPER}][{UPPER}]" in likes
     # one exclusion per excluded pair per prefix variant
     assert "[1-9][0-9][0-9][0-9]SA" in not_likes
     assert "[1-9][0-9][0-9][0-9] SS" in not_likes
     assert len(not_likes) == 6
+
+
+def test_letter_ranges_are_expanded_not_passed_through() -> None:
+    """SQL Server resolves a LIKE range by collation sort order, which interleaves case.
+
+    Measured on SQL Server 2022: 'AA' LIKE '[a-z][a-z]' is TRUE and 'b9c' LIKE
+    '[A-Z][0-9][A-Z]' is TRUE, even under a case-sensitive collation -- the collation
+    governs comparison, not what a range spans. Four patterns disagreed with the regex
+    before ranges were expanded explicitly.
+    """
+    likes, _ = translate(r"^[a-z]{2}$")
+    assert likes == ["[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz]"]
+    likes, _ = translate(r"^[A-Z]$")
+    assert likes == [f"[{UPPER}]"]
+    # a partial range, as in the Canadian postcode alphabet
+    likes, _ = translate(r"^[J-N]$")
+    assert likes == ["[JKLMN]"]
+    # digit ranges are unaffected by collation and stay as they are
+    likes, _ = translate(r"^[0-9]$")
+    assert likes == ["[0-9]"]
+
+
+def test_mixed_case_range_is_refused() -> None:
+    with pytest.raises(RegexNotTranslatable) as exc:
+        translate(r"^[A-z]$")
+    assert "mixed-case range" in str(exc.value)
 
 
 def test_escape_inside_a_character_class_is_expanded() -> None:

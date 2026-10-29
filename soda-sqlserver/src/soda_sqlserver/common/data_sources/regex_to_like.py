@@ -43,15 +43,19 @@ _LIKE_META = {"%": "[%]", "_": "[_]", "[": "[[]"}
 _CLASS_FOR_ESCAPE = {
     "d": "[0-9]",
     "D": "[^0-9]",
-    "w": "[0-9A-Za-z_]",
-    "W": "[^0-9A-Za-z_]",
+    "w": "[0-9" + "".join(chr(c) for c in range(65, 91)) + "".join(chr(c) for c in range(97, 123)) + "_]",
+    "W": "[^0-9" + "".join(chr(c) for c in range(65, 91)) + "".join(chr(c) for c in range(97, 123)) + "_]",
     "s": " ",   # the only whitespace that occurs in practice, and the only one LIKE can match
     "S": "[^ ]",
 }
 
 
 # Inside a class LIKE has no escapes, so these are spliced in as raw set members.
-_IN_CLASS_FOR_ESCAPE = {"d": "0-9", "w": "0-9A-Za-z_", "s": " "}
+_IN_CLASS_FOR_ESCAPE = {
+    "d": "0-9",
+    "w": "0-9" + "".join(chr(c) for c in range(65, 91)) + "".join(chr(c) for c in range(97, 123)) + "_",
+    "s": " ",
+}
 
 
 class RegexNotTranslatable(Exception):
@@ -76,6 +80,39 @@ class _Element:
 
 def _literal(ch: str) -> str:
     return _LIKE_META.get(ch, ch)
+
+
+def _expand_alpha_ranges(class_body: str) -> str:
+    """Rewrite letter ranges inside a class as explicit characters.
+
+    SQL Server resolves a LIKE range by COLLATION SORT ORDER, not by code point, and
+    SQL_Latin1_General interleaves case -- a A b B c C ... So `[A-Z]` also matches
+    lowercase, and `[a-z]` also matches uppercase, EVEN under a case-sensitive collation:
+    the collation governs comparison, not what the range spans. Measured on SQL Server
+    2022: `'AA' LIKE '[a-z][a-z]'` is true, and `'b9c' LIKE '[A-Z][0-9][A-Z]'` is true.
+
+    Digit ranges are unaffected, so they are left alone. Mixed ranges (`A-z`) have no
+    sensible expansion and are refused by the caller.
+    """
+    out, i = [], 0
+    while i < len(class_body):
+        if (
+            i + 2 < len(class_body)
+            and class_body[i + 1] == "-"
+            and class_body[i].isalpha()
+            and class_body[i + 2].isalpha()
+        ):
+            lo, hi = class_body[i], class_body[i + 2]
+            if lo.islower() != hi.islower():
+                raise RegexNotTranslatable(f"the mixed-case range {lo}-{hi}")
+            if ord(lo) > ord(hi):
+                raise RegexNotTranslatable(f"the reversed range {lo}-{hi}")
+            out.append("".join(chr(c) for c in range(ord(lo), ord(hi) + 1)))
+            i += 3
+        else:
+            out.append(class_body[i])
+            i += 1
+    return "".join(out)
 
 
 class _Parser:
@@ -126,6 +163,9 @@ class _Parser:
                     out.append(inner[j])
                     j += 1
             body = "[" + "".join(out) + "]"
+        negated = body.startswith("[^")
+        inner = body[2:-1] if negated else body[1:-1]
+        body = ("[^" if negated else "[") + _expand_alpha_ranges(inner) + "]"
         return _Element([body], 1)
 
     def _read_group(self) -> _Element:
