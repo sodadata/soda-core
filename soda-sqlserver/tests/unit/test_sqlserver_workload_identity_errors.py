@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import functools
+import json
 import logging
 from unittest.mock import MagicMock, patch
 
@@ -7,6 +9,7 @@ import azure.identity
 import pyodbc
 import pytest
 from azure.core.exceptions import ClientAuthenticationError
+from azure.core.pipeline.transport import HttpTransport
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_sqlserver.common.data_sources import sqlserver_data_source_connection as connection_module
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -25,6 +28,13 @@ LOGIN_FAILED = pyodbc.InterfaceError(
     "28000",
     "[28000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Login failed for user "
     "'<token-identified principal>'. (18456) (SQLDriverConnect)",
+)
+HOST_UNREACHABLE = pyodbc.OperationalError(
+    "08001",
+    "[08001] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2749 (10057) (SQLDriverConnect)",
+)
+LOGIN_TIMEOUT = pyodbc.OperationalError(
+    "HYT00", "[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)"
 )
 
 
@@ -54,6 +64,59 @@ def credential_class(monkeypatch) -> MagicMock:
     credential_class.return_value.get_token.return_value.token = ACCESS_TOKEN
     monkeypatch.setattr(azure.identity, "WorkloadIdentityCredential", credential_class)
     return credential_class
+
+
+class FakeEntraResponse:
+    def __init__(self, request, status_code: int, body: dict):
+        self.request = request
+        self.status_code = status_code
+        self.reason = "OK" if status_code == 200 else "Bad Request"
+        self.headers = {"Content-Type": "application/json"}
+        self.content_type = "application/json"
+        self._body = json.dumps(body).encode()
+
+    def body(self) -> bytes:
+        return self._body
+
+    def text(self, encoding=None) -> str:
+        return self._body.decode()
+
+
+class FakeEntraTransport(HttpTransport):
+    """Answers the token endpoint in place of Entra, so the real WorkloadIdentityCredential reads the token
+    file and sends the federated assertion through the azure-core pipeline, its logging policies included."""
+
+    def __init__(self) -> None:
+        self.status_code = 200
+        self.body = {"access_token": ACCESS_TOKEN, "expires_in": 3600, "token_type": "Bearer"}
+        self.request_bodies: list[str] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        pass
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def send(self, request, **kwargs) -> FakeEntraResponse:
+        self.request_bodies.append(str(request.data or request.body))
+        return FakeEntraResponse(request, self.status_code, self.body)
+
+
+@pytest.fixture
+def entra_transport(monkeypatch) -> FakeEntraTransport:
+    transport = FakeEntraTransport()
+    monkeypatch.setattr(
+        azure.identity,
+        "WorkloadIdentityCredential",
+        functools.partial(azure.identity.WorkloadIdentityCredential, transport=transport),
+    )
+    return transport
 
 
 @pytest.fixture
@@ -126,6 +189,21 @@ def test_login_failure_after_token_acquisition_points_at_the_database_user(crede
     assert exc_info.value.__cause__ is LOGIN_FAILED
 
 
+@pytest.mark.parametrize(
+    "error", [pytest.param(HOST_UNREACHABLE, id="unreachable"), pytest.param(LOGIN_TIMEOUT, id="timeout")]
+)
+def test_connect_failure_that_is_not_a_login_failure_is_not_rewritten(error, credential_class, pyodbc_connect) -> None:
+    pyodbc_connect.side_effect = error
+    config = workload_identity_config()
+
+    with pytest.raises(DataSourceConnectionException) as exc_info:
+        unopened_connection(config)._create_connection(config)
+
+    assert "access token was acquired" not in str(exc_info.value)
+    assert "FROM EXTERNAL PROVIDER" not in str(exc_info.value)
+    assert exc_info.value.__cause__ is error
+
+
 def test_login_failure_for_other_authentication_is_not_rewritten(credential_class, pyodbc_connect) -> None:
     pyodbc_connect.side_effect = LOGIN_FAILED
     config = connection_module.SqlServerPasswordAuth(
@@ -147,9 +225,10 @@ def test_login_failure_for_other_authentication_is_not_rewritten(credential_clas
         pytest.param("login", id="login-failure"),
     ],
 )
-def test_debug_logs_contain_neither_assertion_nor_token(caplog, failure, credential_class, pyodbc_connect) -> None:
+def test_debug_logs_contain_neither_assertion_nor_token(caplog, failure, entra_transport, pyodbc_connect) -> None:
     if failure == "entra":
-        credential_class.return_value.get_token.side_effect = ClientAuthenticationError(message=AADSTS_MESSAGE)
+        entra_transport.status_code = 400
+        entra_transport.body = {"error": "invalid_client", "error_description": AADSTS_MESSAGE}
     elif failure == "login":
         pyodbc_connect.side_effect = LOGIN_FAILED
 
@@ -158,8 +237,12 @@ def test_debug_logs_contain_neither_assertion_nor_token(caplog, failure, credent
         # and logs any connect error with its traceback.
         SqlServerDataSourceConnection(name="ds", connection_properties=workload_identity_config())
 
+    # The real credential read the token file and sent the assertion, so it was there to leak.
+    assert [FEDERATED_ASSERTION in body for body in entra_transport.request_bodies] == [True]
     assert "connection properties" in caplog.text
     if failure:
         assert "Could not connect to 'ds'" in caplog.text
+    if failure == "entra":
+        assert "AADSTS700213" in caplog.text
     assert ACCESS_TOKEN not in caplog.text
     assert FEDERATED_ASSERTION not in caplog.text

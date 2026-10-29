@@ -236,6 +236,11 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
         return bool(e.args) and e.args[0] == "40001"
 
+    @staticmethod
+    def _is_login_failed_error(e: pyodbc.Error) -> bool:
+        # 28000 is the invalid authorization SQLSTATE that SQL Server raises for a rejected login (18456).
+        return bool(e.args) and e.args[0] == "28000"
+
     def _execute_with_deadlock_retry(self, operation: Callable[[], T]) -> T:
         """Assumes ``operation`` is a single-statement unit of work: recovery
         issues a connection-wide rollback, discarding any earlier uncommitted
@@ -349,7 +354,9 @@ class SqlServerDataSourceConnection(DataSourceConnection):
                     autocommit=self._get_autocommit_setting(),
                 )
             except pyodbc.Error as e:
-                if isinstance(config, SqlServerWorkloadIdentityAuthentication):
+                # Only a rejected login: an unreachable host, a login timeout or a missing driver also fail
+                # here, and the database user hint would send those down the wrong path.
+                if isinstance(config, SqlServerWorkloadIdentityAuthentication) and self._is_login_failed_error(e):
                     raise DataSourceConnectionException(
                         f"An Entra access token was acquired through workload identity federation, but logging in "
                         f"to database '{config.database}' on '{config.host}' with it failed: {e}. Check that the "
