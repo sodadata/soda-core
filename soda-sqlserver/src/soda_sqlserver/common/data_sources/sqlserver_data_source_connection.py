@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import struct
 import time
@@ -9,7 +10,7 @@ from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pyodbc
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
@@ -27,6 +28,11 @@ T = TypeVar("T")
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 USER_DESCRIPTION = "Username for authentication"
 DEFAULT_PORT = 1433
+
+# Token scope for Azure SQL in the public cloud; sovereign clouds override it with the scope property.
+AZURE_SQL_TOKEN_SCOPE = "https://database.windows.net/.default"
+# msodbcsql pre-connect attribute that carries an Entra access token (17 and 18 alike).
+SQL_COPT_SS_ACCESS_TOKEN = 1256
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -79,7 +85,25 @@ class SqlServerActiveDirectoryServicePrincipalAuthentication(SqlServerActiveDire
     client_secret: SecretStr = Field(..., description="Client secret for authentication")
 
 
+class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
+    """Entra workload identity federation: the pod's projected service-account token is exchanged
+    for an access token of a user-assigned managed identity. No credential is stored."""
+
+    # Rejects leftover credential keys (client_secret, password, ...) instead of keeping them as plain-text extras.
+    model_config = ConfigDict(extra="forbid")
+
+    # Required (no default) so that YAML without an authentication key never resolves to this variant.
+    authentication: Literal["workloadidentity"] = Field(..., description="Authentication type")
+    client_id: Optional[str] = Field(
+        None, description="Client ID of the managed identity; defaults to AZURE_CLIENT_ID from the pod environment"
+    )
+
+
 class SqlServerDataSource(DataSourceBase, ABC):
+    # Keeps resolved secrets out of validation errors: a leftover client_secret or password on the
+    # workloadidentity variant fails with extra_forbidden, whose message would otherwise carry the value.
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     type: Literal["sqlserver"] = Field("sqlserver")
 
     connection_properties: Union[
@@ -87,6 +111,7 @@ class SqlServerDataSource(DataSourceBase, ABC):
         SqlServerActiveDirectoryInteractiveAuthentication,
         SqlServerActiveDirectoryPasswordAuthentication,
         SqlServerActiveDirectoryServicePrincipalAuthentication,
+        SqlServerWorkloadIdentityAuthentication,
     ] = Field(..., alias="connection", description="SQL Server connection configuration")
 
 
@@ -107,6 +132,25 @@ def handle_datetimeoffset(dto_value):
         tup[6] // 1000,
         timezone(timedelta(hours=tup[7], minutes=tup[8])),
     )
+
+
+def pack_access_token(token: str) -> bytes:
+    """Encodes an access token the way msodbcsql expects it in SQL_COPT_SS_ACCESS_TOKEN:
+    UTF-16-LE, prefixed with its byte length as a 4-byte little-endian integer."""
+    encoded = token.encode("utf-16-le")
+    return struct.pack(f"<I{len(encoded)}s", len(encoded), encoded)
+
+
+def acquire_workload_identity_token(config: SqlServerWorkloadIdentityAuthentication) -> str:
+    # Imported here so that azure.identity is only loaded by the variant that needs it.
+    from azure.identity import WorkloadIdentityCredential
+
+    # Construct WorkloadIdentityCredential explicitly, never DefaultAzureCredential, so a scan pod
+    # has no credential chain to fall through. It reads AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE
+    # and AZURE_AUTHORITY_HOST from the environment. The YAML client_id wins over AZURE_CLIENT_ID.
+    client_id = config.client_id or os.environ.get("AZURE_CLIENT_ID")
+    credential = WorkloadIdentityCredential(client_id=client_id)
+    return credential.get_token(config.scope or AZURE_SQL_TOKEN_SCOPE).token
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):
@@ -216,6 +260,9 @@ class SqlServerDataSourceConnection(DataSourceConnection):
             conn_params.append("Authentication=ActiveDirectoryServicePrincipal")
             conn_params.append(f"UID={{{config.client_id}}}")
             conn_params.append(f"PWD={{{config.client_secret.get_secret_value()}}}")
+        elif config.authentication.lower() == "workloadidentity":
+            # The access token goes in as a pre-connect attribute, see _get_pyodbc_attrs.
+            pass
         elif "activedirectory" in config.authentication.lower():
             conn_params.append(f"Authentication={config.authentication}")
 
@@ -231,6 +278,10 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         return conn_str
 
     def _get_pyodbc_attrs(self) -> dict[int, bytes] | None:
+        # Called once per _create_connection, so every connection opens with a fresh token.
+        if isinstance(self.connection_properties, SqlServerWorkloadIdentityAuthentication):
+            token = acquire_workload_identity_token(self.connection_properties)
+            return {SQL_COPT_SS_ACCESS_TOKEN: pack_access_token(token)}
         return None
 
     def _create_connection(

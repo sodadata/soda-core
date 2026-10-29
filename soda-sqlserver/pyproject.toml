@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "soda-core==4.29.1rc0",
     "pyodbc",
+    "azure-identity>=1.17.1,<2",
 ]
 
 [project.entry-points."soda.plugins.data_source.sqlserver"]
