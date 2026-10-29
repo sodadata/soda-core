@@ -100,6 +100,10 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
 
 
 class SqlServerDataSource(DataSourceBase, ABC):
+    # Keeps resolved secrets out of validation errors: a leftover client_secret or password on the
+    # workloadidentity variant fails with extra_forbidden, whose message would otherwise carry the value.
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     type: Literal["sqlserver"] = Field("sqlserver")
 
     connection_properties: Union[

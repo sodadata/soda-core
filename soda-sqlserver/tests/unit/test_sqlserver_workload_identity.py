@@ -102,8 +102,13 @@ def test_connect_passes_the_token_as_pre_connect_attribute(credential_class, pyo
 
 @pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
-    with pytest.raises(ValidationError):
-        parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: "x"})
+    secret = "leftover-secret"
+    with pytest.raises(ValidationError) as exc_info:
+        parse(
+            {**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: secret}
+        )
+
+    assert secret not in str(exc_info.value)
 
 
 def test_scope_overrides_the_default_token_scope(credential_class, pyodbc_connect) -> None:
