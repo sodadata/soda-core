@@ -15,6 +15,7 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
     SqlServerConnectionProperties,
     SqlServerDataSourceConnection,
     SqlServerPasswordAuth,
+    SqlServerWorkloadIdentityAuthentication,
 )
 
 logger: logging.Logger = soda_logger
@@ -54,6 +55,10 @@ class SynapseActiveDirectoryServicePrincipalAuthentication(
     pass
 
 
+class SynapseWorkloadIdentityAuthentication(SqlServerWorkloadIdentityAuthentication, SynapseConnectionProperties):
+    pass
+
+
 class SynapseDataSource(DataSourceBase, ABC):
     type: Literal["synapse"] = Field("synapse")
 
@@ -62,6 +67,7 @@ class SynapseDataSource(DataSourceBase, ABC):
         SynapseActiveDirectoryInteractiveAuthentication,
         SynapseActiveDirectoryPasswordAuthentication,
         SynapseActiveDirectoryServicePrincipalAuthentication,
+        SynapseWorkloadIdentityAuthentication,
     ] = Field(..., alias="connection", description="Synapse connection configuration")
 
 
