@@ -25,7 +25,7 @@ DATASOURCES_TO_RUN = [
     "databricks",
     "dremio",
     "hana",
-    # Not "trino": its S3 CI catalog is swept weekly by .github/workflows/trino-s3-schema-cleanup.yaml instead.
+    # Not "trino": its S3 CI catalog is swept by hand with .github/workflows/trino-s3-schema-cleanup.yaml instead.
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
@@ -43,7 +43,7 @@ def _dry_run() -> bool:
 
 
 def _force() -> bool:
-    # Runs the cleanup for a data source outside DATASOURCES_TO_RUN, e.g. from the weekly trino-s3 cleanup workflow.
+    # Runs the cleanup for a data source outside DATASOURCES_TO_RUN, e.g. from the trino-s3 cleanup workflow.
     return os.getenv("SODA_SCHEMA_CLEANUP_FORCE", "false").lower() in ("1", "true", "yes")
 
 
