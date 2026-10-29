@@ -79,10 +79,15 @@ _DIALECT_CASES = [
 # SQL stays valid and self-consistent — the old and new hashes only disagree with each other.
 #
 # Captured from the rendering that predates `comparison_mode`, so these are literally the
-# pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel and the
-# separator, Redshift concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected:
+# pre-flag strings. Some carry pre-existing quirks — BigQuery triple-quotes the sentinel,
+# Redshift concatenates with `||` instead of CONCAT_WS — reproduced rather than corrected:
 # this file's job is to detect drift, not to fix it. Changing one deliberately means migrating every
 # stored key.
+#
+# One deliberate exception: the BigQuery and Redshift two-column strings no longer carry the
+# old ''||'' separator. That rendered as the empty string, so distinct rows collided onto one
+# key; the corrected strings use the real '||' separator, which changes multi-column hashes on
+# those two dialects (see #2929).
 _EXPECTED_SQL = {
     "postgres": (
         "MD5(COALESCE(\"a\"::varchar, '__SODA_NULL__'))",
@@ -105,7 +110,7 @@ _EXPECTED_SQL = {
     ),
     "bigquery": (
         "to_hex(MD5(COALESCE(CAST(`a` AS string), '''__SODA_NULL__''')))",
-        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), ''||'', "
+        "to_hex(MD5(CONCAT(COALESCE(CAST(`a` AS string), '''__SODA_NULL__'''), '||', "
         "COALESCE(CAST(`b` AS string), '''__SODA_NULL__'''))))",
     ),
     "databricks": (
@@ -120,7 +125,7 @@ _EXPECTED_SQL = {
     ),
     "redshift": (
         "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__'))",
-        "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__') || ''||'' || "
+        "MD5(COALESCE(CAST(\"a\" AS varchar), '__SODA_NULL__') || '||' || "
         "COALESCE(CAST(\"b\" AS varchar), '__SODA_NULL__'))",
     ),
     "athena": (

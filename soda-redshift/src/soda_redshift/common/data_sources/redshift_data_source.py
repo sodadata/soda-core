@@ -222,7 +222,10 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
         return False
 
     def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
-        return f" || '{concat_ws.separator}' || ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        # The separator is already a quoted SQL literal (e.g. "'||'"), as the base
+        # dialect renders it. Wrapping it in quotes again produced ''||'', which
+        # evaluates to the empty string and made multi-column keys collide.
+        return f" || {concat_ws.separator} || ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
 
     def _build_concat_sql(self, concat: CONCAT) -> str:
         return f" || ".join(self.build_expression_sql(e) for e in concat.expressions)
