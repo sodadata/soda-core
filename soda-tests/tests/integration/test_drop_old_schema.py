@@ -25,6 +25,7 @@ DATASOURCES_TO_RUN = [
     "databricks",
     "dremio",
     "hana",
+    # Not "trino": its S3 CI catalog is swept by hand with .github/workflows/trino-s3-schema-cleanup.yaml instead.
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
@@ -39,6 +40,21 @@ METADATA_DWH_TEST_SCHEMA_PATTERN = re.compile(r"soda_diagnostics_metadata_[0-9a-
 
 def _dry_run() -> bool:
     return os.getenv("SODA_SCHEMA_CLEANUP_DRY_RUN", "false").lower() in ("1", "true", "yes")
+
+
+def _force() -> bool:
+    # Runs the cleanup for a data source outside DATASOURCES_TO_RUN, e.g. from the trino-s3 cleanup workflow.
+    return os.getenv("SODA_SCHEMA_CLEANUP_FORCE", "false").lower() in ("1", "true", "yes")
+
+
+def _shard() -> tuple[int, int] | None:
+    # "<index>/<count>", e.g. "3/10": parallel sweeps each take every count-th schema of the sorted targets, starting
+    # at index, so they get equal shares and never drop the same schema. Start them together, so they all list the same.
+    shard: str | None = os.getenv("SODA_SCHEMA_CLEANUP_SHARD")
+    if not shard:
+        return None
+    index, count = (int(part) for part in shard.split("/"))
+    return index, count
 
 
 def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
@@ -102,7 +118,7 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
 
 
 def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
-    if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN:
+    if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN and not _force():
         pytest.skip(
             f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is not in {DATASOURCES_TO_RUN}"
         )
@@ -122,32 +138,35 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     # adapters with nested folder paths (e.g. Dremio) override to keep the two distinct.
     candidates: list[tuple[str, str]] = data_source_test_helper.list_schemas_for_cleanup()
 
-    dry_run_targets: list[str] = []
-    num_deleted_schemas: int = 0
+    drop_targets: list[str] = []
     for drop_target, match_name in candidates:
         if any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
             if not any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
                 if determine_if_schema_needs_to_be_dropped(match_name):
-                    if dry_run:
-                        dry_run_targets.append(drop_target)
-                        logger.info(f"[DRY RUN] Would drop schema: {drop_target}")
-                        continue
-                    logger.info(f"Dropping schema name: {drop_target}")
-                    try:
-                        data_source_test_helper.drop_schema_if_exists(drop_target)
-                        num_deleted_schemas += 1
-                    except (
-                        Exception
-                    ) as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
-                        logger.error(f"Error dropping schema: {e}")
+                    drop_targets.append(drop_target)
                 else:
                     logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
+    shard: tuple[int, int] | None = _shard()
+    if shard:
+        shard_index, shard_count = shard
+        logger.info(f"Shard {shard_index}/{shard_count} of {len(drop_targets)} matching schemas")
+        drop_targets = sorted(drop_targets)[shard_index - 1 :: shard_count]
+
     if dry_run:
-        if dry_run_targets:
-            target_list: str = "\n  - ".join(dry_run_targets)
-            logger.info(f"[DRY RUN] Would drop {len(dry_run_targets)} schemas:\n  - {target_list}")
+        if drop_targets:
+            target_list: str = "\n  - ".join(drop_targets)
+            logger.info(f"[DRY RUN] Would drop {len(drop_targets)} schemas:\n  - {target_list}")
         else:
             logger.info("[DRY RUN] No schemas matched the cleanup criteria.")
         logger.info("[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run.")
-    else:
-        logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
+        return
+
+    num_deleted_schemas: int = 0
+    for drop_target in drop_targets:
+        logger.info(f"Dropping schema name: {drop_target}")
+        try:
+            data_source_test_helper.drop_schema_if_exists(drop_target)
+            num_deleted_schemas += 1
+        except Exception as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
+            logger.error(f"Error dropping schema: {e}")
+    logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
