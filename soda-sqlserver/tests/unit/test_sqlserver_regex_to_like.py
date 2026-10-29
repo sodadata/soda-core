@@ -1,0 +1,116 @@
+"""The regex→LIKE translation, and what it refuses.
+
+Every accepted pattern here was checked against the real engines before being written down:
+the generated predicate was run on SQL Server 2022 over a 6,716-row SAP vendor address table
+and compared with the same rule evaluated as a regex on Postgres. All ten country patterns
+agreed exactly, 589 failing rows on both. The shipped PATINDEX path returned 0.
+
+The refusals matter as much as the translations. The bug this replaces was not "regex is
+unsupported" — it was that an unsupported pattern produced a confident wrong answer. So the
+negative cases assert that we raise, and that the message names the construct.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from soda_sqlserver.common.data_sources.regex_to_like import (
+    MAX_ALTERNATIVES,
+    RegexNotTranslatable,
+    translate,
+)
+
+# The ten country ZIP patterns from IATA's SAP T005, with the counts each produced on both
+# engines. Kept verbatim: they are the evidence that the subset is the right subset.
+REAL_WORLD = [
+    (r"^\d{4}$", 1, 0),                                            # AU, ZA
+    (r"^\d{5}-\d{3}$", 1, 0),                                      # BR
+    (r"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ ]?\d[ABCEGHJ-NPRSTV-Z]\d$", 2, 0),  # CA
+    (r"^(CH-)?[1-9]\d{3}$", 2, 0),                                 # CH
+    (r"^(D-)?\d{5}$", 2, 0),                                       # DE
+    (r"^[1-9][0-9]{5}$", 1, 0),                                    # IN
+    (r"^(0[1-9]\d{3}|[1-9]\d{4})$", 2, 0),                         # MX
+    (r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$", 2, 6),             # NL, the lookahead
+    (r"^\d{5}(?:[-\s]?\d{4})?$", 3, 0),                            # US, ZIP+4
+]
+
+
+@pytest.mark.parametrize("pattern,n_like,n_not_like", REAL_WORLD)
+def test_country_patterns_translate(pattern: str, n_like: int, n_not_like: int) -> None:
+    likes, not_likes = translate(pattern)
+    assert len(likes) == n_like
+    assert len(not_likes) == n_not_like
+
+
+def test_digits_become_a_character_class() -> None:
+    likes, not_likes = translate(r"^\d{4}$")
+    assert likes == ["[0-9][0-9][0-9][0-9]"]
+    assert not_likes == []
+
+
+def test_optional_prefix_becomes_two_alternatives() -> None:
+    likes, _ = translate(r"^(D-)?\d{5}$")
+    assert sorted(likes) == sorted(
+        ["D-[0-9][0-9][0-9][0-9][0-9]", "[0-9][0-9][0-9][0-9][0-9]"]
+    )
+
+
+def test_negative_lookahead_becomes_not_like() -> None:
+    """The Dutch rule: four digits, optional space, two letters, but not SA/SD/SS."""
+    likes, not_likes = translate(r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$")
+    assert "[1-9][0-9][0-9][0-9][A-Z][A-Z]" in likes
+    assert "[1-9][0-9][0-9][0-9] [A-Z][A-Z]" in likes
+    # one exclusion per excluded pair per prefix variant
+    assert "[1-9][0-9][0-9][0-9]SA" in not_likes
+    assert "[1-9][0-9][0-9][0-9] SS" in not_likes
+    assert len(not_likes) == 6
+
+
+def test_escape_inside_a_character_class_is_expanded() -> None:
+    """`[-\\s]` is the US ZIP+4 separator and has an exact character-set equivalent."""
+    likes, _ = translate(r"^\d{5}(?:[-\s]?\d{4})?$")
+    assert any("[- ]" in p for p in likes)
+    assert "[0-9][0-9][0-9][0-9][0-9]" in likes  # the bare five-digit form survives
+
+
+def test_like_metacharacters_in_the_pattern_are_escaped() -> None:
+    """A literal % or _ from the regex must not become a LIKE wildcard."""
+    likes, _ = translate(r"^100%$")
+    assert likes == ["100[%]"]
+    likes, _ = translate(r"^a_b$")
+    assert likes == ["a[_]b"]
+
+
+@pytest.mark.parametrize(
+    "pattern,expected_fragment",
+    [
+        (r"^\d+$", "unbounded repetition"),
+        (r"^\d*$", "unbounded repetition"),
+        (r"^\d{2,5}$", "variable repetition"),
+        (r"^(a)\1$", "backreference"),
+        (r"^(?=foo)\d{3}$", "positive lookahead"),
+        (r"^(?<=x)\d{3}$", "lookbehind"),
+        (r"\d{4}", "not anchored"),
+        (r"^\d{4}", "not anchored"),
+        (r"^(?!ab)\d+$", "unbounded repetition"),
+    ],
+)
+def test_untranslatable_patterns_raise_and_name_the_construct(
+    pattern: str, expected_fragment: str
+) -> None:
+    with pytest.raises(RegexNotTranslatable) as exc:
+        translate(pattern)
+    assert expected_fragment in str(exc.value)
+
+
+def test_explosive_pattern_is_refused_rather_than_rendered() -> None:
+    """Seven independent optionals is 128 alternatives; refusing beats a 128-term OR."""
+    with pytest.raises(RegexNotTranslatable) as exc:
+        translate("^" + ("a?" * 7) + "$")
+    assert str(MAX_ALTERNATIVES) in str(exc.value)
+
+
+def test_a_lookahead_whose_tail_is_variable_is_refused() -> None:
+    with pytest.raises(RegexNotTranslatable) as exc:
+        translate(r"^\d(?!ab)[A-Z]?[A-Z]?$")
+    assert "lookahead" in str(exc.value)

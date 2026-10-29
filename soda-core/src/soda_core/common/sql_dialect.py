@@ -1753,8 +1753,25 @@ class SqlDialect:
         before the escaping rather than instead of it.
         """
         expression: str = self.build_expression_sql(matches.expression)
+        predicate: Optional[str] = self._regex_like_predicate(expression, matches.regex_pattern)
+        if predicate is not None:
+            return predicate
         pattern: str = self.literal_string(self._rewrite_regex_pattern(matches.regex_pattern))
         return self._regex_like_sql(expression, pattern)
+
+    def _regex_like_predicate(self, expression: str, regex_pattern: str) -> Optional[str]:
+        """Whole-predicate seam for engines with NO regex matcher at all.
+
+        The two seams above assume the engine can match a regex given the right syntax, and
+        hand the dialect one escaped pattern. An engine without regex may still be able to
+        express a pattern exactly -- sqlserver translates the fixed-width subset into a
+        disjunction of LIKE terms -- and that needs several literals, not one.
+
+        Return None to take the normal path. A dialect overriding this escapes its own
+        literals with `literal_string`, and raises rather than approximating: a rewrite that
+        silently changes which rows match is the failure this seam exists to end.
+        """
+        return None
 
     def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
         """Adapt the pattern text to what this engine's matcher understands.

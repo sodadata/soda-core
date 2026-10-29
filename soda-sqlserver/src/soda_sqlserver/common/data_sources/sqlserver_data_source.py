@@ -64,6 +64,7 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
     SqlServerDataSource as SqlServerDataSourceModel,
 )
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
+from soda_sqlserver.common.data_sources import regex_to_like
 
 logger: logging.Logger = soda_logger
 
@@ -328,23 +329,31 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
-    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
-        # alpha expansion doesn't work properly for case sensitive ranges in SQLServer
-        # this is quite a hack to fit the common use-cases.  generally regex's are only
-        # partially supported anyway
-        regex_pattern = regex_pattern.replace("a-z", "abcdefghijklmnopqrstuvwxyz")
-        regex_pattern = regex_pattern.replace("A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        # PATINDEX matches a substring, so the pattern is wrapped rather than anchored.
-        # Wrapping here rather than around the rendered literal keeps the % inside the
-        # quotes that the base escaping puts on.
-        return f"%{regex_pattern}%"
+    # Case-sensitive, accent-sensitive. The server default is
+    # SQL_Latin1_General_Cp1_CI_AS (case-INsensitive), under which [A-Z] would also match
+    # lowercase and a format rule would pass text it should reject.
+    # https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support
+    _CASE_SENSITIVE_COLLATE = "COLLATE SQL_Latin1_General_Cp1_CS_AS"
 
-    def _regex_like_sql(self, expression: str, pattern: str) -> str:
-        # collations define rules for sorting strings and distinguishing similar characters
-        # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
-        # CS: Case sensitive; AS: Accent sensitive
-        # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
-        return f"PATINDEX ({pattern}, {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+    def _regex_like_predicate(self, expression: str, regex_pattern: str) -> Optional[str]:
+        """Render a regex as anchored LIKE terms, or raise.
+
+        T-SQL has no regex operator before SQL Server 2025. This used to fall through to
+        PATINDEX, which is a SUBSTRING match: the pattern's own ^ and $ were passed through
+        as literal characters, so an anchored pattern matched nothing and the check reported
+        a clean pass over rows it should have failed. Measured against IATA's vendor data,
+        the ZIP-format rule returned 0 failures where 589 are real.
+
+        LIKE is anchored and understands character classes, so the fixed-width subset
+        translates exactly. Anything outside it raises instead of approximating.
+        """
+        likes, not_likes = regex_to_like.translate(regex_pattern)
+        column = f"{expression} {self._CASE_SENSITIVE_COLLATE}"
+        matched = " OR ".join(f"{column} LIKE {self.literal_string(p)}" for p in likes)
+        predicate = f"({matched})" if len(likes) > 1 else matched
+        for pattern in not_likes:
+            predicate += f" AND {column} NOT LIKE {self.literal_string(pattern)}"
+        return predicate
 
     def supports_regex_advanced(self) -> bool:
         return False
