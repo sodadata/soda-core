@@ -77,6 +77,8 @@ LITERAL_TYPE_NAMES_BY_DATA_SOURCE_TYPE = {
 }
 
 
+# The upserts assert the row count execute_update returns, which a replay never records.
+@pytest.mark.no_snapshot
 def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTestHelper):
     data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
