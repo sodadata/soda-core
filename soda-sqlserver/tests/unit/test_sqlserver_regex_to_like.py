@@ -25,7 +25,7 @@ REAL_WORLD = [
     (r"^(D-)?\d{5}$", 2, 0),                                       # DE
     (r"^[1-9][0-9]{5}$", 1, 0),                                    # IN
     (r"^(0[1-9]\d{3}|[1-9]\d{4})$", 2, 0),                         # MX
-    (r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$", 2, 6),             # NL, the lookahead
+    (r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$", 2, 2),             # NL, the lookahead
     (r"^\d{5}(?:[-\s]?\d{4})?$", 3, 0),                            # US, ZIP+4
 ]
 
@@ -57,11 +57,12 @@ def test_negative_lookahead_becomes_not_like() -> None:
     """The Dutch rule: four digits, optional space, two letters, but not SA/SD/SS."""
     likes, not_likes = translate(r"^[1-9][0-9]{3}\s?(?!SA|SD|SS)[A-Z]{2}$")
     assert f"[1-9][0-9][0-9][0-9][{UPPER}][{UPPER}]" in likes
-    assert f"[1-9][0-9][0-9][0-9] [{UPPER}][{UPPER}]" in likes
-    # one exclusion per excluded pair per prefix variant
-    assert "[1-9][0-9][0-9][0-9]SA" in not_likes
-    assert "[1-9][0-9][0-9][0-9] SS" in not_likes
-    assert len(not_likes) == 6
+    assert f"[1-9][0-9][0-9][0-9][ ][{UPPER}][{UPPER}]" in likes
+    # The parser factors SA|SD|SS into S[ADS], so one exclusion per prefix variant rather
+    # than one per excluded pair.
+    assert "[1-9][0-9][0-9][0-9]S[ADS]" in not_likes
+    assert "[1-9][0-9][0-9][0-9][ ]S[ADS]" in not_likes
+    assert len(not_likes) == 2
 
 
 def test_letter_ranges_are_expanded_not_passed_through() -> None:
@@ -85,9 +86,9 @@ def test_letter_ranges_are_expanded_not_passed_through() -> None:
 
 
 def test_mixed_case_range_is_refused() -> None:
-    with pytest.raises(RegexNotTranslatable) as exc:
+    """[A-z] spans A..z, which includes '[', ']' and '^' -- LIKE cannot carry ']' in a class."""
+    with pytest.raises(RegexNotTranslatable):
         translate(r"^[A-z]$")
-    assert "mixed-case range" in str(exc.value)
 
 
 def test_escape_inside_a_character_class_is_expanded() -> None:
