@@ -528,6 +528,10 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
+    # Whether publishing first uploads the YAML file to Soda Cloud for a fileId. Only
+    # contracts set True: their results carry the fileId and Cloud versions the contract
+    # from it. No other subtype's results reference the file, so they skip the upload.
+    uploads_yaml_file: bool = False
     # What the caller logged before a multi-file session, set by the session executor. It
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
@@ -1185,6 +1189,22 @@ class CheckCollectionImpl:
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
 
+        yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
+        soda_cloud_file_id: Optional[str] = None
+        # Uploaded before execution: Cloud rejects a file for its content, and results without
+        # a fileId cannot be sent, so the queries are not worth running.
+        if self.soda_cloud and self.publish_results and self.uploads_yaml_file:
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
+                yaml_source_str_original, file_label=self.display_name
+            )
+            if not soda_cloud_file_id:
+                # has_errors counts ERROR only, not the upload's own CRITICAL record, and this
+                # error is what makes the gate below skip execution.
+                logger.error(
+                    f"Not verifying {self.display_name} {Emoticons.CROSS_MARK} "
+                    f"The file could not be uploaded to Soda Cloud."
+                )
+
         if self.logs.has_errors:
             verification_status = CheckCollectionStatus.ERROR
 
@@ -1288,15 +1308,8 @@ class CheckCollectionImpl:
         # post-processing handlers) still surface on the held result.
         log_records: Optional[list[LogRecord]] = self.logs.get_log_records()
 
-        soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
-        yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
         soda_cloud_response_json: Optional[dict] = None
-
-        if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
-                yaml_source_str_original, file_label=self.display_name
-            )
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
@@ -1335,7 +1348,7 @@ class CheckCollectionImpl:
         )
 
         scan_id: Optional[str] = None
-        if soda_cloud_file_id:
+        if self.soda_cloud and self.publish_results:
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
@@ -1350,6 +1363,11 @@ class CheckCollectionImpl:
                 # never sees a misaligned batch (a single misaligned check would 500
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
+            elif self.uploads_yaml_file and not soda_cloud_file_id and not self.soda_config.soda_scan_id:
+                # The upload was rejected: no fileId to send results against. With a runner scan
+                # id the errored-without-results handling marks the scan FAILED instead.
+                sending_results_to_soda_cloud_failed = True
+                verification_result.sending_results_to_soda_cloud_failed = True
             elif self.combine_uploads:
                 # Session-level combined upload — executor sends after the loop (and applies
                 # the same errored-without-results -> mark-scan-failed handling there).

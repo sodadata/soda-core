@@ -2,6 +2,7 @@ from typing import Optional
 from unittest import mock
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
 from soda_core.common.soda_cloud_dto import ComputeWarehouseOverrideDTO, DatasetConfigurationDTO
 from soda_core.contracts.contract_verification import ContractVerificationResult
@@ -49,7 +50,11 @@ def test_warehouse_switching(
     data_source_test_helper: DataSourceTestHelper,
 ):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,
@@ -92,7 +97,11 @@ def test_warehouse_switching_no_current_wh(
     data_source_test_helper: DataSourceTestHelper,
 ):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,

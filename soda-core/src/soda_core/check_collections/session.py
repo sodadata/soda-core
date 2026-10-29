@@ -302,12 +302,8 @@ def execute_check_collections(
                 if errored_without_results_result is None:
                     errored_without_results_result = result
                 continue
-            file_id = (
-                result.check_collection.source.soda_cloud_file_id
-                if result.check_collection and result.check_collection.source
-                else None
-            )
-            if file_id is None:
+            # A placeholder for a file that failed before producing output has nothing to send.
+            if result.error is not None:
                 continue
             combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
             combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix

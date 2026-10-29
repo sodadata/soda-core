@@ -574,6 +574,7 @@ class ContractImpl(CheckCollectionImpl):
 
     kind: str = "contract"
     wire_source: str = "soda-contract"
+    uploads_yaml_file: bool = True
     display_name: str = "contract"
     yaml_class: type[ContractYaml] = ContractYaml
     result_class: type[ContractVerificationResult] = ContractVerificationResult
