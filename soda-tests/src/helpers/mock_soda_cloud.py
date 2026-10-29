@@ -11,7 +11,7 @@ from typing import Optional
 from requests import Request, Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO, DatasetConfigurationsDTO
 
 
 class MockHttpMethod(Enum):
@@ -65,6 +65,7 @@ class MockSodaCloud(SodaCloud):
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
         self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
+        self._block_group_by_results_to_cloud_response: bool = False
         # Fixture-driven historic-data responses, keyed by identity.
         # Only consulted when at least one fixture is registered, so existing
         # tests using the `responses` list are unaffected.
@@ -190,17 +191,30 @@ class MockSodaCloud(SodaCloud):
 
         response.set_json_object(new_json_object)
 
+    def set_block_group_by_results_to_cloud(self, value: bool) -> None:
+        """The org setting the next fetch_datasets_configurations reports, as Cloud's response would."""
+        self._block_group_by_results_to_cloud_response = value
+
     def set_dataset_configuration_response(
         self, dataset_identifier: "DatasetIdentifier", dataset_configuration_dto: "DatasetConfigurationDTO"
     ):
         self.dataset_configurations[str(dataset_identifier)] = dataset_configuration_dto
 
-    def fetch_dataset_configuration(
-        self, dataset_identifier: "DatasetIdentifier"
-    ) -> Optional["DatasetConfigurationDTO"]:
-        if str(dataset_identifier) in self.dataset_configurations:
-            return self.dataset_configurations[str(dataset_identifier)]
+    def fetch_datasets_configurations(
+        self, dataset_identifiers: list["DatasetIdentifier"]
+    ) -> "DatasetConfigurationsDTO":
+        # Fixture-driven, never consumes `responses`: it would be annoying to have to set up a mock response
+        # for every test just to return an empty configuration. Also the path fetch_dataset_configuration takes.
+        return DatasetConfigurationsDTO(
+            dataset_configurations=[self._dataset_configuration(identifier) for identifier in dataset_identifiers],
+            block_group_by_results_to_cloud=self._block_group_by_results_to_cloud_response,
+        )
 
-        # Return an empty DatasetConfigurationDTO for testing purposes. This is sufficient for tests that do not depend on specific configuration values.
-        # This overrides the mock response setup in tests, but it would be annoying to have to set up the mock response for every test just to return an empty configuration.
-        return DatasetConfigurationDTO()
+    def _dataset_configuration(self, dataset_identifier: "DatasetIdentifier") -> "DatasetConfigurationDTO":
+        # Registered via set_dataset_configuration_response, else empty: sufficient for tests that do not
+        # depend on specific configuration values. Stamped with the dataset's qualified name, as Cloud does,
+        # so SodaCloud.dataset_configuration_from accepts it.
+        dto = self.dataset_configurations.get(str(dataset_identifier), DatasetConfigurationDTO())
+        if dto.dataset_qualified_name is None:
+            dto = dto.model_copy(update={"dataset_qualified_name": dataset_identifier.to_string()})
+        return dto
