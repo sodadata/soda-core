@@ -3,6 +3,7 @@ scripts/antlr*.jar
 agents/
 .claude/*
 !.claude/skills/
+.worktrees/
 .idea/
 .postgres/
 .db2/
