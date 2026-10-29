@@ -18,6 +18,7 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
     SqlServerConnectionProperties,
     SqlServerDataSourceConnection,
     SqlServerPasswordAuth,
+    SqlServerWorkloadIdentityAuthentication,
 )
 
 logger: logging.Logger = soda_logger
@@ -57,6 +58,10 @@ class FabricActiveDirectoryServicePrincipalAuthentication(
     pass
 
 
+class FabricWorkloadIdentityAuthentication(SqlServerWorkloadIdentityAuthentication, FabricConnectionProperties):
+    pass
+
+
 class FabricDataSource(DataSourceBase, ABC):
     type: Literal["fabric"] = Field("fabric")
 
@@ -65,6 +70,7 @@ class FabricDataSource(DataSourceBase, ABC):
         FabricActiveDirectoryInteractiveAuthentication,
         FabricActiveDirectoryPasswordAuthentication,
         FabricActiveDirectoryServicePrincipalAuthentication,
+        FabricWorkloadIdentityAuthentication,
     ] = Field(..., alias="connection", description="Fabric connection configuration")
 
 
