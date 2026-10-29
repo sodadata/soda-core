@@ -14,6 +14,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.logs_collector import LogsCollector
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, get_scan_context, using_scan_context
+from soda_core.common.soda_cloud_dto import ReportOutcome
 
 # The run_scan tests drive a real LogsQueue against a Cloud double recording the full request
 # sequence: the interesting properties are cross-channel (report content vs stream, command order).
@@ -39,6 +40,7 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         self,
         scan_start_status: int = 200,
         insert_status: int = 200,
+        insert_error_code: str = "",
         end_status: int = 200,
         log_upload_status: int = 200,
         log_upload_error_code: str = "invalid_scan_state",
@@ -47,6 +49,8 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         super().__init__()
         self.scan_start_status = scan_start_status
         self.insert_status = insert_status
+        # The error body of a refused insert; "" means a refusal that carries no code at all.
+        self.insert_error_code = insert_error_code
         self.end_status = end_status
         self.log_upload_status = log_upload_status
         # The error body of a refused log upload; the default is the backend's code for a scan
@@ -71,7 +75,8 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         if command_type == "sodaCoreScanStart":
             return MockResponse(status_code=self.scan_start_status, json_object={"scanReference": self.scan_reference})
         if command_type in ("sodaCoreInsertScanDataBatch", "sodaCoreInsertScanResults"):
-            return MockResponse(status_code=self.insert_status, json_object={})
+            body = {"code": self.insert_error_code, "message": "refused"} if self.insert_error_code else {}
+            return MockResponse(status_code=self.insert_status, json_object=body)
         if command_type == "sodaCoreScanEndAsync":
             return MockResponse(status_code=self.end_status, json_object={})
         return MockResponse(status_code=200, json_object={})
@@ -497,12 +502,34 @@ def test_run_scan_rejected_end_is_fatal_and_not_retried(monkeypatch):
     assert _request_kinds(mock_cloud).count("sodaCoreScanEndAsync") == 1
 
 
+def test_run_scan_on_a_scan_cloud_has_finished_does_not_try_to_end_it(monkeypatch):
+    # The scan is cancelled mid-run, so the batch is refused with invalid_scan_state. Nothing is
+    # owed, so the run keeps its own exit code — and sodaCoreScanEndAsync is never sent, because
+    # a scan Soda Cloud has already finished would refuse that too.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _ScanLifecycleSodaCloud(insert_status=400, insert_error_code="invalid_scan_state")
+
+    def command(logs: Logs) -> ExitCode:
+        context = get_scan_context()
+        context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        assert context.insert_results(_payload()) is True
+        assert context.scan_gone is True
+        assert context.results_delivered is False
+        assert context.results_rejected is False
+        return ExitCode.OK
+
+    exit_code = run_scan(mock_cloud, command, batched=True)
+
+    assert exit_code == ExitCode.OK
+    assert "sodaCoreScanEndAsync" not in _request_kinds(mock_cloud)
+
+
 def test_run_scan_raising_end_never_escapes(monkeypatch):
     # An escaping raise would exit 1, which the launcher reads as "checks failed".
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     soda_cloud = MagicMock()
     soda_cloud.scan_start.return_value = "org/ref-1"
-    soda_cloud.insert_scan_data_batch.return_value = True
+    soda_cloud.insert_scan_data_batch.return_value = ReportOutcome.ACCEPTED
     soda_cloud.scan_end_async.side_effect = ConnectionError("network down")
 
     def command(logs: Logs) -> ExitCode:
