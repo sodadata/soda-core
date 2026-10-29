@@ -10,8 +10,7 @@ from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pyodbc
-from azure.identity import WorkloadIdentityCredential
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
@@ -30,7 +29,7 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 USER_DESCRIPTION = "Username for authentication"
 DEFAULT_PORT = 1433
 
-# Workload identity federation always requests a token for Azure SQL, never for another resource.
+# Token scope for Azure SQL in the public cloud; sovereign clouds override it with the scope property.
 AZURE_SQL_TOKEN_SCOPE = "https://database.windows.net/.default"
 # msodbcsql pre-connect attribute that carries an Entra access token (17 and 18 alike).
 SQL_COPT_SS_ACCESS_TOKEN = 1256
@@ -90,6 +89,9 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
     """Entra workload identity federation: the pod's projected service-account token is exchanged
     for an access token of a user-assigned managed identity. No credential is stored."""
 
+    # Rejects leftover credential keys (client_secret, password, ...) instead of keeping them as plain-text extras.
+    model_config = ConfigDict(extra="forbid")
+
     # Required (no default) so that YAML without an authentication key never resolves to this variant.
     authentication: Literal["workloadidentity"] = Field(..., description="Authentication type")
     client_id: Optional[str] = Field(
@@ -136,12 +138,15 @@ def pack_access_token(token: str) -> bytes:
 
 
 def acquire_workload_identity_token(config: SqlServerWorkloadIdentityAuthentication) -> str:
+    # Imported here so that azure.identity is only loaded by the variant that needs it.
+    from azure.identity import WorkloadIdentityCredential
+
     # Construct WorkloadIdentityCredential explicitly, never DefaultAzureCredential, so a scan pod
     # has no credential chain to fall through. It reads AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE
     # and AZURE_AUTHORITY_HOST from the environment. The YAML client_id wins over AZURE_CLIENT_ID.
     client_id = config.client_id or os.environ.get("AZURE_CLIENT_ID")
     credential = WorkloadIdentityCredential(client_id=client_id)
-    return credential.get_token(AZURE_SQL_TOKEN_SCOPE).token
+    return credential.get_token(config.scope or AZURE_SQL_TOKEN_SCOPE).token
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):

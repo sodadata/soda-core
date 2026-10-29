@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import azure.identity
 import pytest
+from pydantic import ValidationError
 from soda_sqlserver.common.data_sources import sqlserver_data_source_connection as connection_module
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     AZURE_SQL_TOKEN_SCOPE,
@@ -16,7 +18,6 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
 )
 
 # Known vector for SQL_COPT_SS_ACCESS_TOKEN: UTF-16-LE token with a 4-byte little-endian length prefix.
-# soda-library packs the token the same way; keep the two fixtures identical.
 ACCESS_TOKEN_FIXTURE = "eyJ0eXAi.payload.sig"
 PACKED_ACCESS_TOKEN_FIXTURE = (
     b"\x28\x00\x00\x00"
@@ -35,7 +36,7 @@ def parse(connection: dict) -> object:
 def credential_class(monkeypatch) -> MagicMock:
     credential_class = MagicMock(name="WorkloadIdentityCredential")
     credential_class.return_value.get_token.return_value.token = ACCESS_TOKEN_FIXTURE
-    monkeypatch.setattr(connection_module, "WorkloadIdentityCredential", credential_class)
+    monkeypatch.setattr(azure.identity, "WorkloadIdentityCredential", credential_class)
     return credential_class
 
 
@@ -99,6 +100,21 @@ def test_connect_passes_the_token_as_pre_connect_attribute(credential_class, pyo
     assert AZURE_SQL_TOKEN_SCOPE == "https://database.windows.net/.default"
 
 
+@pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
+def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
+    with pytest.raises(ValidationError):
+        parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: "x"})
+
+
+def test_scope_overrides_the_default_token_scope(credential_class, pyodbc_connect) -> None:
+    sovereign_scope = "https://database.usgovcloudapi.net/.default"
+    config = parse({**CONNECTION, "authentication": "workloadidentity", "scope": sovereign_scope})
+
+    SqlServerDataSourceConnection(name="ds", connection_properties=config)
+
+    credential_class.return_value.get_token.assert_called_once_with(sovereign_scope)
+
+
 def test_client_id_from_environment_is_used_without_yaml_client_id(credential_class, pyodbc_connect) -> None:
     config = parse({**CONNECTION, "authentication": "workloadidentity"})
 
@@ -118,10 +134,9 @@ def test_yaml_client_id_overrides_environment(credential_class, pyodbc_connect) 
 
 
 def test_default_azure_credential_is_never_used(monkeypatch, credential_class, pyodbc_connect) -> None:
-    import azure.identity
-
     default_credential_class = MagicMock(name="DefaultAzureCredential")
     monkeypatch.setattr(azure.identity, "DefaultAzureCredential", default_credential_class)
+    monkeypatch.setattr(connection_module, "DefaultAzureCredential", default_credential_class, raising=False)
     config = parse({**CONNECTION, "authentication": "workloadidentity"})
 
     SqlServerDataSourceConnection(name="ds", connection_properties=config)
