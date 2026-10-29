@@ -11,6 +11,7 @@ from soda_core.common.logging_configuration import (
     _mask_exception,
     _mask_record,
     _masked_values,
+    is_redacted,
     redacted_marker,
     redacted_scope,
     redaction_policy,
@@ -308,6 +309,25 @@ def test_empty_policy_is_a_no_op() -> None:
         _mask_record(record)
 
     assert record.getMessage() == "row SENTINEL | 1"
+
+
+def test_is_redacted_follows_policy() -> None:
+    assert not is_redacted(GROUP_VALUES)
+    with redaction_policy({GROUP_VALUES}):
+        assert is_redacted(GROUP_VALUES)
+    assert not is_redacted(GROUP_VALUES)
+
+
+def test_is_redacted_false_for_other_category() -> None:
+    with redaction_policy({"something_else"}):
+        assert not is_redacted(GROUP_VALUES)
+
+
+def test_is_redacted_keeps_outer_policy() -> None:
+    """A run's own empty policy does not lift what a caller's outer policy redacts."""
+    with redaction_policy({GROUP_VALUES}):
+        with redaction_policy(()):
+            assert is_redacted(GROUP_VALUES)
 
 
 def test_stamped_record_stays_redacted_outside_scope_and_policy() -> None:
