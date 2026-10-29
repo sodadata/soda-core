@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone, tzinfo
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from freezegun import freeze_time
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
 from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
 from soda_core.common.data_source_results import QueryResult
@@ -25,6 +25,10 @@ from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameNewSessionProperties,
     SparkDataFrameRemoteSessionProperties,
 )
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame, SparkSession
+    from pyspark.sql.types import Row
 
 _in_memory_connection = None
 
@@ -112,6 +116,12 @@ class SparkDataFrameCursor:
 
 class SparkDataFrameDataSourceConnectionWrapper:
     def __init__(self, session: SparkSession):
+        # pyspark is an optional extra, so check here what the install-time pin used to guarantee.
+        if not hasattr(session.range(0), "offset"):
+            raise RuntimeError(
+                "Soda needs DataFrame.offset(), which needs pyspark 3.5 or later, or databricks-connect. "
+                'Install with pip install "soda-sparkdf[pyspark]", or upgrade databricks-connect.'
+            )
         self._session = session
 
     def __getattr__(self, attr):
@@ -218,6 +228,13 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
         self,
         config: SparkDataFrameConnectionProperties,
     ):
+        try:
+            from pyspark.sql import SparkSession
+        except ImportError as e:
+            raise ImportError(
+                'soda-sparkdf needs pyspark. Install with pip install "soda-sparkdf[pyspark]", or install databricks-connect.'
+            ) from e
+
         session = None
         if isinstance(config, SparkDataFrameExistingSessionProperties):
             session = config.spark_session
