@@ -1,7 +1,7 @@
-"""Phase 3 of execute_check_collections: session-level post-processing dispatch.
+"""Session-level post-processing dispatch in execute_check_collections.
 
 Combine-upload subtypes are post-processed AFTER the single combined upload, in
-phase 3 of ``execute_check_collections`` (outside ``verify()``). Handlers run
+``execute_check_collections`` (outside ``verify()``). Handlers run
 ONCE per wire-source group via ``ContractVerificationHandler.handle_session``
 (not once per file), so a session-scoped handler can fetch config once per
 dataset, reuse one connection, and post a single aggregated stage update.
@@ -25,14 +25,16 @@ from typing import Optional
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
 from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logging_constants import RedactionCategory, soda_logger
 from soda_core.common.logs import Logs
+from soda_core.common.redaction import RedactionPolicy
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     Contract,
     ContractVerificationResult,
     PostProcessingStage,
+    PostProcessingStageState,
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -43,7 +45,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
 )
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
-_HANDLER_SKIP_KIND = "phase3-handler-skip-stub"
+_HANDLER_SKIP_KIND = "session-handler-skip-stub"
 
 
 @contextmanager
@@ -117,6 +119,9 @@ class _StubImpl(CheckCollectionImpl):
         self.yaml = yaml
         self.logs = Logs()
         self.data_source_impl = None
+        # What the org blocks: group values for the file labelled "blocked".
+        blocked = getattr(yaml.yaml_source, "_label", None) == "blocked"
+        self.redaction_policy = RedactionPolicy(frozenset({RedactionCategory.GROUP_VALUES} if blocked else ()))
 
     @property
     def collection_id(self) -> Optional[str]:
@@ -375,7 +380,7 @@ class _SessionHandlerNeedingHandles(_RecordingHandler):
 
 
 def test_session_handlers_needing_handles_are_not_dispatched_on_a_batched_run():
-    """Phase 3 applies the same rule as the per-file loop: a handler that needs result handles is
+    """Session post-processing applies the same rule as the per-file loop: a handler that needs result handles is
     left out of a run whose context cannot provide them, instead of running against ``None``."""
     from unittest.mock import MagicMock
 
@@ -388,3 +393,145 @@ def test_session_handlers_needing_handles_are_not_dispatched_on_a_batched_run():
             execute_check_collections(yaml_sources=sources, data_source_impl=None)
     assert needing.session_calls == []
     assert [labels for labels, _ in self_contained.session_calls] == [["alpha", "gamma"]]
+
+
+def test_default_handle_session_runs_each_item_under_its_own_redaction_policy():
+    """The session runs after every verify() has returned, outside the policy each one sets: the default
+    per-item ``handle`` runs under that file's policy again, so only the file whose org blocks group values
+    has them redacted."""
+
+    class _PolicyRecordingHandler(ContractVerificationHandler):
+        def __init__(self) -> None:
+            self.group_values_redacted: dict[str, bool] = {}
+
+        def handle(
+            self,
+            contract_impl,
+            data_source_impl,
+            contract_verification_result,
+            soda_cloud,
+            soda_cloud_send_results_response_json,
+            dwh_files=None,
+        ):
+            label = contract_verification_result.check_collection.dataset_name
+            self.group_values_redacted[label] = RedactionPolicy.current().covers(RedactionCategory.GROUP_VALUES)
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    handler = _PolicyRecordingHandler()
+    sources = [_StubSource("alpha"), _StubSource("blocked"), _StubSource("gamma")]
+    with _registered(handler):
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    assert handler.group_values_redacted == {"alpha": False, "blocked": True, "gamma": False}
+    assert not RedactionPolicy.current().covers(RedactionCategory.GROUP_VALUES)
+
+
+def test_impl_skipping_base_init_resolves_to_no_redaction():
+    """Subtypes that skip the base ``__init__`` (as these stubs do) still resolve a policy: nothing blocked."""
+
+    class _BareImpl(_StubImpl):
+        def __init__(self, yaml, **kwargs):
+            self.yaml = yaml
+
+    impl = _BareImpl(yaml=None)
+    assert impl.redaction_policy == RedactionPolicy()
+
+
+_GROUP_VALUE = "acme-corp"
+
+
+def _messages_by_label(session_result) -> dict[str, list[str]]:
+    return {
+        r.check_collection.dataset_name: [rec.getMessage() for rec in (r.log_records or [])]
+        for r in session_result.results
+        if r.status == CheckCollectionStatus.PASSED
+    }
+
+
+def test_default_handle_session_redacts_a_handler_error_for_a_blocked_file():
+    """A raised handler error is unmarked and may carry group values: for the file whose org blocks them
+    it is logged as the marker only, while the other file keeps the full message."""
+
+    class _RaisingHandler(ContractVerificationHandler):
+        def handle(self, *args, **kwargs):
+            raise RuntimeError(f"failed rows query for group {_GROUP_VALUE}")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    sources = [_StubSource("alpha"), _StubSource("blocked")]
+    with _registered(_RaisingHandler()):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    by_label = _messages_by_label(session_result)
+    assert any(_GROUP_VALUE in message for message in by_label["alpha"])
+    assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
+    assert "[redacted: group_values]" in by_label["blocked"]
+
+
+def test_handle_session_backstop_redacts_the_escaped_error_per_file():
+    """The executor backstop runs after every verify() has returned: it logs the escaped error per file,
+    into that file's Logs and under its own redaction."""
+
+    class _LeakingExplodingHandler(_ExplodingHandler):
+        def handle_session(self, *args, **kwargs) -> None:
+            raise RuntimeError(f"session upload failed for group {_GROUP_VALUE}")
+
+    sources = [_StubSource("alpha"), _StubSource("blocked")]
+    with _registered(_LeakingExplodingHandler()):
+        session_result = execute_check_collections(yaml_sources=sources, data_source_impl=None)
+
+    by_label = _messages_by_label(session_result)
+    assert any(_GROUP_VALUE in message for message in by_label["alpha"])
+    assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
+    assert "[redacted: group_values]" in by_label["blocked"]
+
+
+class _RecordingSodaCloud:
+    def __init__(self) -> None:
+        self.errors: list[Optional[str]] = []
+
+    def post_processing_update(self, stage, scan_id, state, error=None, **kwargs) -> None:
+        self.errors.append(error)
+
+
+class _OneStageHandler(ContractVerificationHandler):
+    def handle(self, *args, **kwargs):
+        raise AssertionError("unused")
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        return [PostProcessingStage(name="failed-rows", stage=PostProcessingStageState.ONGOING)]
+
+
+def _impl_with_cloud(label: str) -> tuple[_StubImpl, _RecordingSodaCloud]:
+    impl = _StubImpl(yaml=_StubYaml(yaml_source=_StubSource(label), yaml_object=None))
+    cloud = _RecordingSodaCloud()
+    impl.soda_cloud = cloud
+    return impl, cloud
+
+
+def _raised(message: str) -> RuntimeError:
+    try:
+        raise RuntimeError(message)
+    except RuntimeError as e:
+        return e
+
+
+def test_post_processing_failure_sends_only_the_exception_class_for_a_blocked_org():
+    """The FAILED stage error is a Cloud payload, not a log record: for a blocked org it carries the marker
+    and the exception class, never the stack trace text."""
+    impl, cloud = _impl_with_cloud("blocked")
+    impl._handle_post_processing_failure(
+        scan_id="scan-1", exc=_raised(f"group {_GROUP_VALUE}"), contract_verification_handler=_OneStageHandler()
+    )
+    assert cloud.errors == ["[redacted: group_values] RuntimeError"]
+
+
+def test_post_processing_failure_sends_the_stack_trace_when_nothing_is_blocked():
+    impl, cloud = _impl_with_cloud("alpha")
+    impl._handle_post_processing_failure(
+        scan_id="scan-1", exc=_raised(f"group {_GROUP_VALUE}"), contract_verification_handler=_OneStageHandler()
+    )
+    assert len(cloud.errors) == 1 and _GROUP_VALUE in cloud.errors[0]

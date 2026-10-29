@@ -255,7 +255,7 @@ def execute_check_collections(
             results.append(builder.build_error_result(yaml_source, construct_exc))
             continue
         # Capture this verify()'s records into this collection's gatherer.
-        with impl.logs.activate(impl.thread_label):
+        with impl.activate():
             try:
                 results.append(impl.verify())
             except Exception as exc:
@@ -402,10 +402,13 @@ def execute_check_collections(
                     dwh_files=dwh_files,
                 )
             except Exception as e:
-                logger.error(
-                    f"Error in session post-processing handler {type(handler).__name__}: {e}",
-                    exc_info=True,
-                )
+                # Logged per file, into that file's own Logs and under its own redaction: the
+                # error may carry what a file's org blocks, and every verify() has returned.
+                for item in session_items:
+                    with item.contract_impl.activate():
+                        item.contract_impl.redaction_policy.log_exception(
+                            logger, f"Error in session post-processing handler {type(handler).__name__}: {e}", e
+                        )
                 # Backstop: a well-behaved handle_session isolates per item and posts its own
                 # terminal stage state (the documented overrider contract). If the override
                 # escapes anyway, mark this handler's stages FAILED per file — mirroring the

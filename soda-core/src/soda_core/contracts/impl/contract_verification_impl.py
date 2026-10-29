@@ -118,10 +118,11 @@ class ContractVerificationHandler(ABC):
         Contract for overriders: (1) isolate each item — one file's failure must
         not abort the rest; (2) ALWAYS post a terminal post-processing stage state
         (in a ``finally``), even when every item fails, so a stage never hangs;
-        (3) log records an override emits are not attributed to any single file —
-        bracket per-item work with
-        ``item.contract_impl.logs.activate(item.contract_impl.thread_label)``
-        when per-file log attribution matters.
+        (3) the session runs after every ``verify()`` has returned, so nothing
+        an override emits belongs to any single file: bracket per-item work with
+        ``item.contract_impl.activate()``, which re-arms the file's own Logs
+        (per-file attribution) and its own redaction policy (what the file's org
+        blocks stays redacted).
         If the override itself raises, the executor marks the handler's stages
         FAILED as a backstop.
         """
@@ -129,8 +130,9 @@ class ContractVerificationHandler(ABC):
             # Capture this item's handler emissions (incl. the failure path) into
             # its own collection's gatherer, thread-labelled at emit time — they
             # would otherwise land in whichever Logs happens to be active after
-            # phase 2.
-            with item.contract_impl.logs.activate(item.contract_impl.thread_label):
+            # phase 2 — and run them under the file's own redaction policy, since
+            # each file carries its own org settings.
+            with item.contract_impl.activate():
                 try:
                     self.handle(
                         contract_impl=item.contract_impl,
@@ -143,7 +145,9 @@ class ContractVerificationHandler(ABC):
                 except Exception as e:
                     # Same message shape as the per-file path (run_post_processing_handlers) so log
                     # parsing / monitoring stays consistent across the combine and non-combine paths.
-                    logger.error(f"Error in {item.contract_impl.display_name} verification handler: {e}", exc_info=True)
+                    item.contract_impl.redaction_policy.log_exception(
+                        logger, f"Error in {item.contract_impl.display_name} verification handler: {e}", e
+                    )
                     item.contract_impl._handle_post_processing_failure(
                         scan_id=item.verification_result.scan_id,
                         exc=e,
