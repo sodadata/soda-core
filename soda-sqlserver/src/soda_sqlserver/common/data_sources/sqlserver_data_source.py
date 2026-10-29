@@ -60,11 +60,11 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_sqlserver.common.data_sources import regex_to_like
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import SqlServerDataSourceConnection
-from soda_sqlserver.common.data_sources import regex_to_like
 
 logger: logging.Logger = soda_logger
 

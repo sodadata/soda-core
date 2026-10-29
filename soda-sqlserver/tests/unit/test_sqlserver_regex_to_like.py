@@ -13,12 +13,7 @@ negative cases assert that we raise, and that the message names the construct.
 from __future__ import annotations
 
 import pytest
-
-from soda_sqlserver.common.data_sources.regex_to_like import (
-    MAX_ALTERNATIVES,
-    RegexNotTranslatable,
-    translate,
-)
+from soda_sqlserver.common.data_sources.regex_to_like import MAX_ALTERNATIVES, RegexNotTranslatable, translate
 
 # The ten country ZIP patterns from IATA's SAP T005, with the counts each produced on both
 # engines. Kept verbatim: they are the evidence that the subset is the right subset.
