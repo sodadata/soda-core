@@ -9,6 +9,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.contracts.contract_verification import SodaException
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     ANALYZE_TABLE,
@@ -60,7 +61,6 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_sqlserver.common.data_sources import regex_to_like
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
@@ -329,31 +329,28 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
-    # Case-sensitive, accent-sensitive. The server default is
-    # SQL_Latin1_General_Cp1_CI_AS (case-INsensitive), under which [A-Z] would also match
-    # lowercase and a format rule would pass text it should reject.
-    # https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support
-    _CASE_SENSITIVE_COLLATE = "COLLATE SQL_Latin1_General_Cp1_CS_AS"
+    def _regex_like_sql(self, expression: str, pattern: str) -> str:
+        """Refuse. T-SQL has no regex operator before SQL Server 2025.
 
-    def _regex_like_predicate(self, expression: str, regex_pattern: str) -> Optional[str]:
-        """Render a regex as anchored LIKE terms, or raise.
+        This used to render PATINDEX('%<pattern>%', ...) > 0, which is a SUBSTRING match:
+        the pattern's own ^ and $ went through as literal characters, so an anchored
+        pattern matched nothing and the check reported a clean pass over rows it should
+        have failed. Measured on a 6,716-row address table, a ZIP-format rule that fails
+        589 rows returned 0. Nothing warned -- supports_regex_advanced() is False here and
+        no runtime code reads it.
 
-        T-SQL has no regex operator before SQL Server 2025. This used to fall through to
-        PATINDEX, which is a SUBSTRING match: the pattern's own ^ and $ were passed through
-        as literal characters, so an anchored pattern matched nothing and the check reported
-        a clean pass over rows it should have failed. Measured against IATA's vendor data,
-        the ZIP-format rule returned 0 failures where 589 are real.
-
-        LIKE is anchored and understands character classes, so the fixed-width subset
-        translates exactly. Anything outside it raises instead of approximating.
+        A wrong answer that looks like a pass is worse than an error, because nobody
+        investigates a green check. So: raise, and say what to do instead. LIKE is anchored
+        and supports character classes, and it takes its pattern from a column, so a
+        format rule can be expressed as a failed_rows check in T-SQL.
         """
-        likes, not_likes = regex_to_like.translate(regex_pattern)
-        column = f"{expression} {self._CASE_SENSITIVE_COLLATE}"
-        matched = " OR ".join(f"{column} LIKE {self.literal_string(p)}" for p in likes)
-        predicate = f"({matched})" if len(likes) > 1 else matched
-        for pattern in not_likes:
-            predicate += f" AND {column} NOT LIKE {self.literal_string(pattern)}"
-        return predicate
+        raise SodaException(
+            "Regex is not supported on SQL Server: T-SQL has no regex operator before "
+            "SQL Server 2025. Previously this was rendered as a PATINDEX substring match, "
+            "which silently returned the wrong rows. Express the rule as a failed_rows "
+            "check using LIKE, which is anchored and supports character classes "
+            f"(pattern was {pattern})."
+        )
 
     def supports_regex_advanced(self) -> bool:
         return False
