@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import azure.identity
 import pytest
+from pydantic import ValidationError
 from soda_sqlserver.common.data_sources import sqlserver_data_source_connection as sqlserver_connection_module
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     AZURE_SQL_TOKEN_SCOPE,
@@ -59,6 +60,17 @@ def test_workload_identity_parses(client_id) -> None:
 
     assert isinstance(config, SynapseWorkloadIdentityAuthentication)
     assert config.client_id == client_id
+
+
+@pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
+def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
+    secret = "leftover-secret"
+    with pytest.raises(ValidationError) as exc_info:
+        parse(
+            {**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: secret}
+        )
+
+    assert secret not in str(exc_info.value)
 
 
 def test_connection_string_has_no_credentials() -> None:
