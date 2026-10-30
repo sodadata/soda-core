@@ -4,7 +4,7 @@ import logging
 from abc import ABC
 from typing import Literal, Union
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -15,6 +15,7 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
     SqlServerConnectionProperties,
     SqlServerDataSourceConnection,
     SqlServerPasswordAuth,
+    SqlServerWorkloadIdentityAuthentication,
 )
 
 logger: logging.Logger = soda_logger
@@ -54,7 +55,16 @@ class SynapseActiveDirectoryServicePrincipalAuthentication(
     pass
 
 
+class SynapseWorkloadIdentityAuthentication(SqlServerWorkloadIdentityAuthentication, SynapseConnectionProperties):
+    # Restated: pydantic merges base configs left to right, so SynapseConnectionProperties' inherited
+    # extra="allow" would otherwise override the extra="forbid" from SqlServerWorkloadIdentityAuthentication.
+    model_config = ConfigDict(extra="forbid")
+
+
 class SynapseDataSource(DataSourceBase, ABC):
+    # Keeps resolved secrets out of validation errors, as in SqlServerDataSource.
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     type: Literal["synapse"] = Field("synapse")
 
     connection_properties: Union[
@@ -62,6 +72,7 @@ class SynapseDataSource(DataSourceBase, ABC):
         SynapseActiveDirectoryInteractiveAuthentication,
         SynapseActiveDirectoryPasswordAuthentication,
         SynapseActiveDirectoryServicePrincipalAuthentication,
+        SynapseWorkloadIdentityAuthentication,
     ] = Field(..., alias="connection", description="Synapse connection configuration")
 
 
