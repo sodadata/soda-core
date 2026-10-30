@@ -9,7 +9,6 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.contracts.contract_verification import SodaException
 from soda_core.common.sql_ast import (
     ADD_INTERVAL,
     ANALYZE_TABLE,
@@ -61,6 +60,7 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.contracts.contract_verification import SodaException
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
