@@ -6,6 +6,7 @@ import random
 import struct
 import time
 from abc import ABC
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
@@ -33,6 +34,11 @@ DEFAULT_PORT = 1433
 AZURE_SQL_TOKEN_SCOPE = "https://database.windows.net/.default"
 # msodbcsql pre-connect attribute that carries an Entra access token (17 and 18 alike).
 SQL_COPT_SS_ACCESS_TOKEN = 1256
+WORKLOAD_IDENTITY_SETUP_HINT = (
+    "Label the runner's pod with 'azure.workload.identity/use: \"true\"' so that the Azure workload identity "
+    "webhook injects it, or mount the projected service account token and set AZURE_TENANT_ID, AZURE_CLIENT_ID "
+    "and AZURE_FEDERATED_TOKEN_FILE in the runner's Helm values."
+)
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -141,16 +147,61 @@ def pack_access_token(token: str) -> bytes:
     return struct.pack(f"<I{len(encoded)}s", len(encoded), encoded)
 
 
+@dataclass(frozen=True)
+class WorkloadIdentity:
+    tenant_id: str
+    client_id: str
+    token_file_path: str
+
+
+def resolve_workload_identity(config: SqlServerWorkloadIdentityAuthentication) -> WorkloadIdentity:
+    """Checks the pod environment before any credential is built, so that a pod that is not set up for
+    workload identity fails with the missing variable and the Kubernetes fix, not a bare ValueError.
+    The YAML client_id wins over AZURE_CLIENT_ID."""
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    token_file_path = os.environ.get("AZURE_FEDERATED_TOKEN_FILE")
+    client_id = config.client_id or os.environ.get("AZURE_CLIENT_ID")
+    missing = [
+        name
+        for name, value in [
+            ("AZURE_TENANT_ID", tenant_id),
+            ("AZURE_FEDERATED_TOKEN_FILE", token_file_path),
+            ("AZURE_CLIENT_ID", client_id),
+        ]
+        if not value
+    ]
+    if missing:
+        client_id_note = " (or client_id in the connection)" if "AZURE_CLIENT_ID" in missing else ""
+        verb = "is" if len(missing) == 1 else "are"
+        raise DataSourceConnectionException(
+            f"Workload identity federation is not set up for this pod: {', '.join(missing)}{client_id_note} "
+            f"{verb} not set in the environment. {WORKLOAD_IDENTITY_SETUP_HINT}"
+        )
+    return WorkloadIdentity(tenant_id=tenant_id, client_id=client_id, token_file_path=token_file_path)
+
+
 def acquire_workload_identity_token(config: SqlServerWorkloadIdentityAuthentication) -> str:
     # Imported here so that azure.identity is only loaded by the variant that needs it.
+    from azure.core.exceptions import ClientAuthenticationError
     from azure.identity import WorkloadIdentityCredential
 
     # Construct WorkloadIdentityCredential explicitly, never DefaultAzureCredential, so a scan pod
-    # has no credential chain to fall through. It reads AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE
-    # and AZURE_AUTHORITY_HOST from the environment. The YAML client_id wins over AZURE_CLIENT_ID.
-    client_id = config.client_id or os.environ.get("AZURE_CLIENT_ID")
-    credential = WorkloadIdentityCredential(client_id=client_id)
-    return credential.get_token(config.scope or AZURE_SQL_TOKEN_SCOPE).token
+    # has no credential chain to fall through. AZURE_AUTHORITY_HOST still comes from the environment.
+    identity = resolve_workload_identity(config)
+    credential = WorkloadIdentityCredential(
+        tenant_id=identity.tenant_id,
+        client_id=identity.client_id,
+        token_file_path=identity.token_file_path,
+    )
+    try:
+        return credential.get_token(config.scope or AZURE_SQL_TOKEN_SCOPE).token
+    except ClientAuthenticationError as e:
+        # Entra's message carries the AADSTS code and description (wrong issuer, subject or audience on
+        # the federated credential, unknown client ID, ...); it never contains the assertion itself.
+        raise DataSourceConnectionException(
+            f"Entra ID rejected the workload identity token exchange for client ID '{identity.client_id}' "
+            f"in tenant '{identity.tenant_id}': {e.message}"
+        ) from e
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):
@@ -184,6 +235,11 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         # pyodbc error args are (sqlstate, message); 40001 is the serialization
         # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
         return bool(e.args) and e.args[0] == "40001"
+
+    @staticmethod
+    def _is_login_failed_error(e: pyodbc.Error) -> bool:
+        # 28000 is the invalid authorization SQLSTATE that SQL Server raises for a rejected login (18456).
+        return bool(e.args) and e.args[0] == "28000"
 
     def _execute_with_deadlock_retry(self, operation: Callable[[], T]) -> T:
         """Assumes ``operation`` is a single-statement unit of work: recovery
@@ -289,17 +345,32 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         config: SqlServerConnectionProperties,
     ):
         try:
-            self.connection = pyodbc.connect(
-                self.build_connection_string(config),
-                attrs_before=self._get_pyodbc_attrs(),
-                timeout=int(config.login_timeout),
-                autocommit=self._get_autocommit_setting(),
-            )
+            attrs_before = self._get_pyodbc_attrs()
+            try:
+                self.connection = pyodbc.connect(
+                    self.build_connection_string(config),
+                    attrs_before=attrs_before,
+                    timeout=int(config.login_timeout),
+                    autocommit=self._get_autocommit_setting(),
+                )
+            except pyodbc.Error as e:
+                # Only a rejected login: an unreachable host, a login timeout or a missing driver also fail
+                # here, and the database user hint would send those down the wrong path.
+                if isinstance(config, SqlServerWorkloadIdentityAuthentication) and self._is_login_failed_error(e):
+                    raise DataSourceConnectionException(
+                        f"An Entra access token was acquired through workload identity federation, but logging in "
+                        f"to database '{config.database}' on '{config.host}' with it failed: {e}. Check that the "
+                        f"managed identity has a user in that database (CREATE USER [<managed identity display "
+                        f"name>] FROM EXTERNAL PROVIDER) and the role grants Soda needs."
+                    ) from e
+                raise
 
             self.connection.add_output_converter(-155, handle_datetimeoffset)
             self.connection.add_output_converter(-150, handle_datetime)
             self._detect_server_info(self.connection)
             return self.connection
+        except DataSourceConnectionException:
+            raise
         except Exception as e:
             raise DataSourceConnectionException(e) from e
 
