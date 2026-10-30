@@ -60,6 +60,7 @@ from soda_core.common.sql_ast import (
     seconds_per_time_bucket,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.contracts.contract_verification import SodaException
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
@@ -328,23 +329,28 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
-    def _rewrite_regex_pattern(self, regex_pattern: str) -> str:
-        # alpha expansion doesn't work properly for case sensitive ranges in SQLServer
-        # this is quite a hack to fit the common use-cases.  generally regex's are only
-        # partially supported anyway
-        regex_pattern = regex_pattern.replace("a-z", "abcdefghijklmnopqrstuvwxyz")
-        regex_pattern = regex_pattern.replace("A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        # PATINDEX matches a substring, so the pattern is wrapped rather than anchored.
-        # Wrapping here rather than around the rendered literal keeps the % inside the
-        # quotes that the base escaping puts on.
-        return f"%{regex_pattern}%"
-
     def _regex_like_sql(self, expression: str, pattern: str) -> str:
-        # collations define rules for sorting strings and distinguishing similar characters
-        # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
-        # CS: Case sensitive; AS: Accent sensitive
-        # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
-        return f"PATINDEX ({pattern}, {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
+        """Refuse. T-SQL has no regex operator before SQL Server 2025.
+
+        This used to render PATINDEX('%<pattern>%', ...) > 0, which is a SUBSTRING match:
+        the pattern's own ^ and $ went through as literal characters, so an anchored
+        pattern matched nothing and the check reported a clean pass over rows it should
+        have failed. Measured on a 6,716-row address table, a ZIP-format rule that fails
+        589 rows returned 0. Nothing warned -- supports_regex_advanced() is False here and
+        no runtime code reads it.
+
+        A wrong answer that looks like a pass is worse than an error, because nobody
+        investigates a green check. So: raise, and say what to do instead. LIKE is anchored
+        and supports character classes, and it takes its pattern from a column, so a
+        format rule can be expressed as a failed_rows check in T-SQL.
+        """
+        raise SodaException(
+            "Regex is not supported on SQL Server: T-SQL has no regex operator before "
+            "SQL Server 2025. Previously this was rendered as a PATINDEX substring match, "
+            "which silently returned the wrong rows. Express the rule as a failed_rows "
+            "check using LIKE, which is anchored and supports character classes "
+            f"(pattern was {pattern})."
+        )
 
     def supports_regex_advanced(self) -> bool:
         return False
