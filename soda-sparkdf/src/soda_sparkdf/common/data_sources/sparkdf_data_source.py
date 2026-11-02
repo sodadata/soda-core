@@ -16,14 +16,12 @@ from soda_databricks.common.statements.hive_metadata_tables_query import HiveMet
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameActiveSessionProperties,
     SparkDataFrameConnectionProperties,
-)
-from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
-    SparkDataFrameDataSource as SparkDataFrameDataSourceModel,
-)
-from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameExistingSessionProperties,
     SparkDataFrameNewSessionProperties,
     SparkDataFrameRemoteSessionProperties,
+)
+from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
+    SparkDataFrameDataSource as SparkDataFrameDataSourceModel,
 )
 
 _in_memory_connection = None

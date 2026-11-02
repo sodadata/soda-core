@@ -7,6 +7,7 @@ column — if a future driver/server upgrade reshaped the response. After this
 change, the magic-index path is replaced with a logged UTC fallback so a real
 schema drift surfaces in operator logs instead of being hidden behind a coincidence.
 """
+
 from __future__ import annotations
 
 import logging
