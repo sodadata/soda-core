@@ -4,6 +4,7 @@ import copy
 import logging
 import os
 import re
+import threading
 from enum import Enum
 from io import StringIO
 from numbers import Number
@@ -20,9 +21,24 @@ logger: logging.Logger = soda_logger
 
 
 class YamlParser:
+    """Thread-safe wrapper around ruamel's ``YAML`` parser.
+
+    A ``YAML`` instance keeps the state of the document it is reading and is not
+    thread-safe. One instance is created per thread on first use, so a single
+    ``YamlParser`` can be shared across threads, as ``YamlSource`` does.
+    """
+
     def __init__(self):
-        self.ruamel_yaml_parser: YAML = YAML()
-        self.ruamel_yaml_parser.preserve_quotes = True
+        self._local = threading.local()
+
+    @property
+    def ruamel_yaml_parser(self) -> YAML:
+        parser: Optional[YAML] = getattr(self._local, "parser", None)
+        if parser is None:
+            parser = YAML()
+            parser.preserve_quotes = True
+            self._local.parser = parser
+        return parser
 
     def dump_to_string(self, data):
         stream = StringIO()
@@ -66,6 +82,7 @@ class YamlSource:
     yaml_object: YamlObject = yaml_source.parse()
     """
 
+    # Safe to share: YamlParser keeps one ruamel parser per thread.
     __yaml_parser = YamlParser()
     __file_type = FileType.YAML.value
 
