@@ -29,8 +29,7 @@
                 "type": [
                     "object",
                     "null"
-                ],
-                
+                ],                
                 "properties": {
                     "default": {
                         "type": [
