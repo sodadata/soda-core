@@ -508,3 +508,32 @@ def test_parse_dialect_resolves_native_string_invalid_numeric_param(logs: Logs):
     _parse_with_dialect(yaml_str)
 
     assert "'numeric_precision' is only valid for data types" in logs.get_errors_str()
+
+
+def test_contract_level_check_attributes_are_parsed():
+        """Top-level check_attributes (dataset-level defaults, per the contract language reference) are parsed onto the contract."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        check_attributes:
+          team: finance
+          priority: 1
+        columns:
+          - name: id
+            data_type: integer
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.check_attributes == {"team": "finance", "priority": 1}
+
+
+def test_contract_without_check_attributes_defaults_to_empty():
+        """Absent top-level check_attributes defaults to an empty dict."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: id
+            data_type: integer
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.check_attributes == {}
