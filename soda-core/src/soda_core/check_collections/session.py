@@ -407,7 +407,7 @@ def execute_check_collections(
                 for item in session_items:
                     with item.contract_impl.activate():
                         item.contract_impl.redaction_policy.log_exception(
-                            logger, f"Error in session post-processing handler {type(handler).__name__}: {e}", e
+                            logger, f"Error in session post-processing handler {type(handler).__name__}", e
                         )
                 # Backstop: a well-behaved handle_session isolates per item and posts its own
                 # terminal stage state (the documented overrider contract). If the override

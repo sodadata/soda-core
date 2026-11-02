@@ -157,9 +157,11 @@ class _RecordingHandler(ContractVerificationHandler):
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> None:
         labels: list[Optional[str]] = [
-            item.verification_result.check_collection.dataset_name
-            if item.verification_result.check_collection
-            else None
+            (
+                item.verification_result.check_collection.dataset_name
+                if item.verification_result.check_collection
+                else None
+            )
             for item in items
         ]
         self.session_calls.append((labels, soda_cloud_send_results_response_json))
@@ -452,7 +454,8 @@ def _messages_by_label(session_result) -> dict[str, list[str]]:
 
 def test_default_handle_session_redacts_a_handler_error_for_a_blocked_file():
     """A raised handler error is unmarked and may carry group values: for the file whose org blocks them
-    it is logged as the marker only, while the other file keeps the full message."""
+    it is logged as its context, the marker and the exception class only, while the other file keeps the full
+    message."""
 
     class _RaisingHandler(ContractVerificationHandler):
         def handle(self, *args, **kwargs):
@@ -468,7 +471,11 @@ def test_default_handle_session_redacts_a_handler_error_for_a_blocked_file():
     by_label = _messages_by_label(session_result)
     assert any(_GROUP_VALUE in message for message in by_label["alpha"])
     assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
-    assert "[redacted: group_values]" in by_label["blocked"]
+    assert any(
+        message.startswith("Error in ")
+        and message.endswith(" verification handler: [redacted: group_values] RuntimeError")
+        for message in by_label["blocked"]
+    )
 
 
 def test_handle_session_backstop_redacts_the_escaped_error_per_file():
@@ -486,7 +493,10 @@ def test_handle_session_backstop_redacts_the_escaped_error_per_file():
     by_label = _messages_by_label(session_result)
     assert any(_GROUP_VALUE in message for message in by_label["alpha"])
     assert not any(_GROUP_VALUE in message for message in by_label["blocked"])
-    assert "[redacted: group_values]" in by_label["blocked"]
+    assert (
+        "Error in session post-processing handler _LeakingExplodingHandler: [redacted: group_values] RuntimeError"
+        in by_label["blocked"]
+    )
 
 
 class _RecordingSodaCloud:

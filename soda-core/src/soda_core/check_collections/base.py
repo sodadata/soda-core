@@ -1440,9 +1440,7 @@ class CheckCollectionImpl:
                     dwh_files=self.dwh_files,
                 )
             except Exception as e:
-                self.redaction_policy.log_exception(
-                    logger, f"Error in {self.display_name} verification handler: {e}", e
-                )
+                self.redaction_policy.log_exception(logger, f"Error in {self.display_name} verification handler", e)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
     def verify_on_runner(

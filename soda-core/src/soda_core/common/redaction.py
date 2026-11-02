@@ -113,30 +113,45 @@ class RedactionPolicy:
         """A raised error as it may leave the engine: its stack trace, or the marker and its class.
 
         No site marks a raised error, yet its text can carry anything the run handled (e.g. group
-        values in a failed-rows query). So it fails closed: any covered category redacts it.
+        values in a failed-rows query). So it fails closed: any covered category redacts it,
+        whether this policy or an outer active one covers it.
         """
         category: Optional[str] = self._unmarked_category()
         if category is None:
             return get_exception_stacktrace(exc)
-        return f"{redacted_marker(category)} {exception_class_name(type(exc))}"
+        return self._redacted_error(category, exc)
 
     def log_exception(self, logger: Logger, message: str, exc: BaseException) -> None:
-        """Log an error with ``exc``, redacted under the same fail-closed rule as ``redact_exception``.
+        """Log ``message: <exc>`` as an error, under the same fail-closed rule as ``redact_exception``.
 
-        Activates this policy itself, so it holds wherever it is called from, including after the
-        collection's own ``verify()`` has returned.
+        ``message`` is the error's context without the error itself; it must not carry what a
+        category covers (e.g. a file's display name, not a query or a value). When nothing is
+        covered the error follows it in full, with its traceback. Otherwise only the marker and the
+        exception class follow it, without the traceback: the line stays findable (log parsing and
+        monitoring key on the context) while no error text leaves. That decision is made here, from
+        this policy and any outer active one, so it holds wherever this is called from, including
+        after the collection's own ``verify()`` has returned.
         """
         category: Optional[str] = self._unmarked_category()
         if category is None:
-            logger.error(message, exc_info=exc)
+            logger.error(f"{message}: {exc}", exc_info=exc)
             return
-        with self.activate():
-            logger.error(message, exc_info=exc, extra={ExtraKeys.REDACT: category})
+        logger.error(
+            f"{message}: {self._redacted_error(category, exc)}",
+            extra={ExtraKeys.EXCEPTION: exception_class_name(type(exc))},
+        )
 
     def _unmarked_category(self) -> Optional[str]:
         """The category unmarked output is redacted under, or None when nothing is covered.
-        ``min`` only makes the marker deterministic when several categories are covered."""
-        return min(self.categories, default=None)
+
+        Covers this policy's categories and the active ones, so an inner policy cannot lift what an
+        outer ``activate()`` redacts. ``min`` only makes the marker deterministic when several
+        categories are covered."""
+        return min(self.categories | _active_categories.get(), default=None)
+
+    @staticmethod
+    def _redacted_error(category: str, exc: BaseException) -> str:
+        return f"{redacted_marker(category)} {exception_class_name(type(exc))}"
 
 
 # Set on a record once it has been redacted: a later pass (next handler, a replay outside

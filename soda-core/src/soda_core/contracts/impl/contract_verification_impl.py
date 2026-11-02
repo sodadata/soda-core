@@ -122,7 +122,14 @@ class ContractVerificationHandler(ABC):
         an override emits belongs to any single file: bracket per-item work with
         ``item.contract_impl.activate()``, which re-arms the file's own Logs
         (per-file attribution) and its own redaction policy (what the file's org
-        blocks stays redacted).
+        blocks stays redacted). An override that keeps its own ``Logs`` brackets
+        with ``item.contract_impl.redaction_policy.activate()`` instead.
+        ``activate()`` only redacts log records already marked as carrying
+        blocked content; a raised error is never marked. So an override that
+        catches an error sends it through the file's policy before it reaches a
+        log or a Cloud payload: ``redaction_policy.log_exception(logger,
+        "<context>", e)`` to log it, ``redaction_policy.redact_exception(e)``
+        for its text (e.g. in a stage error) — never ``str(e)`` or ``exc_info``.
         If the override itself raises, the executor marks the handler's stages
         FAILED as a backstop.
         """
@@ -146,7 +153,7 @@ class ContractVerificationHandler(ABC):
                     # Same message shape as the per-file path (run_post_processing_handlers) so log
                     # parsing / monitoring stays consistent across the combine and non-combine paths.
                     item.contract_impl.redaction_policy.log_exception(
-                        logger, f"Error in {item.contract_impl.display_name} verification handler: {e}", e
+                        logger, f"Error in {item.contract_impl.display_name} verification handler", e
                     )
                     item.contract_impl._handle_post_processing_failure(
                         scan_id=item.verification_result.scan_id,

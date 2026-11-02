@@ -68,19 +68,26 @@ def test_redact_exception_is_the_stack_trace_when_nothing_is_blocked() -> None:
     assert "Traceback" in stack_trace and "SENTINEL" in stack_trace
 
 
+def test_redact_exception_follows_an_outer_active_policy() -> None:
+    """An inner policy cannot lift what an outer one redacts, for raised errors too."""
+    with BLOCKING.activate():
+        assert OPEN.redact_exception(_raised("group SENTINEL")) == f"{MARKER} RuntimeError"
+
+
 def _captured(policy: RedactionPolicy) -> logging.LogRecord:
     logs = Logs()
     with logs.activate():
-        policy.log_exception(logging.getLogger("soda_core.test"), "handler failed for SENTINEL", _raised("SENTINEL"))
+        policy.log_exception(logging.getLogger("soda_core.test"), "Error in handler", _raised("SENTINEL"))
     [record] = logs.get_log_records()
     return record
 
 
-def test_log_exception_redacts_without_an_active_policy() -> None:
-    """It activates its own policy, so it holds after the collection's verify() has returned."""
+def test_log_exception_keeps_the_context_but_not_the_error_when_blocked() -> None:
+    """No error text and no traceback, but the line stays findable by its context."""
     record = _captured(BLOCKING)
 
-    assert record.getMessage() == MARKER
+    assert record.getMessage() == f"Error in handler: {MARKER} RuntimeError"
+    assert record.exc_info is None
     assert getattr(record, ExtraKeys.EXCEPTION) == "RuntimeError"
     assert RedactionPolicy.current() == OPEN
 
@@ -88,8 +95,16 @@ def test_log_exception_redacts_without_an_active_policy() -> None:
 def test_log_exception_keeps_the_error_when_nothing_is_blocked() -> None:
     record = _captured(OPEN)
 
-    assert record.getMessage() == "handler failed for SENTINEL"
+    assert record.getMessage() == "Error in handler: SENTINEL"
     assert record.exc_info is not None
+
+
+def test_log_exception_follows_an_outer_active_policy() -> None:
+    with BLOCKING.activate():
+        record = _captured(OPEN)
+
+    assert "SENTINEL" not in record.getMessage()
+    assert record.exc_info is None
 
 
 def test_first_cut_aliases_follow_the_policy() -> None:
