@@ -18,6 +18,10 @@
             "description": "The filter where clause to be applied to the dataset",
             "type": "string"
         },
+        "check_attributes": {
+            "description": "Default attributes for all checks of this contract.",
+            "$ref": "#/$defs/attributes"
+        },
         "variables": {
             "description": "The variables to be used within the contract file",
             "type": "object",
@@ -26,6 +30,7 @@
                     "object",
                     "null"
                 ],
+                
                 "properties": {
                     "default": {
                         "type": [
