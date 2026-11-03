@@ -138,7 +138,7 @@ def test_missing_environment_variable_is_named(monkeypatch, variable, credential
     assert f"{variable}" in message
     assert "azure.workload.identity/use" in message
     for other in {"AZURE_TENANT_ID", "AZURE_FEDERATED_TOKEN_FILE", "AZURE_CLIENT_ID"} - {variable}:
-        assert other not in message.split(" not set ")[0]
+        assert other not in message.split("for this pod: ")[1].split(" not set ")[0]
     credential_class.assert_not_called()
     pyodbc_connect.assert_not_called()
 
