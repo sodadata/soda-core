@@ -66,7 +66,6 @@ class YamlSource:
     yaml_object: YamlObject = yaml_source.parse()
     """
 
-    __yaml_parser = YamlParser()
     __file_type = FileType.YAML.value
 
     @classmethod
@@ -189,7 +188,11 @@ class YamlSource:
             raise YamlParserException("YAML source is not a string", str(location))
 
         try:
-            root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
+            # A ruamel YAML instance holds the state of the document it is reading and is not
+            # thread-safe, so each parse creates its own parser. Sharing one instance across
+            # parses makes concurrent parses corrupt each other (issue #2976; the same bug was
+            # fixed in v3 by creating a new YAML instance per call).
+            root_yaml_object: any = YamlParser().ruamel_yaml_parser.load(self.yaml_str)
         except MarkedYAMLError as e:
             message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
