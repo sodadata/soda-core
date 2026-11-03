@@ -111,13 +111,49 @@ def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     assert secret not in str(exc_info.value)
 
 
-def test_scope_overrides_the_default_token_scope(credential_class, pyodbc_connect) -> None:
-    sovereign_scope = "https://database.usgovcloudapi.net/.default"
+@pytest.mark.parametrize(
+    "sovereign_scope", ["https://database.usgovcloudapi.net/.default", "https://database.chinacloudapi.cn/.default"]
+)
+def test_scope_overrides_the_default_token_scope(sovereign_scope, credential_class, pyodbc_connect) -> None:
     config = parse({**CONNECTION, "authentication": "workloadidentity", "scope": sovereign_scope})
 
     SqlServerDataSourceConnection(name="ds", connection_properties=config)
 
     credential_class.return_value.get_token.assert_called_once_with(sovereign_scope)
+
+
+# Resources a managed identity is commonly granted besides its database, plus near misses of the Azure SQL scope.
+NON_AZURE_SQL_SCOPES = [
+    "https://vault.azure.net/.default",
+    "https://management.azure.com/.default",
+    "https://storage.azure.com/.default",
+    "https://graph.microsoft.com/.default",
+    "https://database.windows.net.attacker.example/.default",
+    "https://database.windows.net/user_impersonation",
+    "http://database.windows.net/.default",
+]
+
+
+@pytest.mark.parametrize("scope", NON_AZURE_SQL_SCOPES)
+def test_workload_identity_rejects_a_scope_that_is_not_azure_sql(scope) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        parse({**CONNECTION, "authentication": "workloadidentity", "scope": scope})
+
+    assert "not supported with workload identity" in str(exc_info.value)
+
+
+def test_scope_is_not_restricted_for_other_authentication() -> None:
+    config = parse(
+        {
+            **CONNECTION,
+            "authentication": "activedirectoryserviceprincipal",
+            "client_id": "c",
+            "client_secret": "s",
+            "scope": "https://vault.azure.net/.default",
+        }
+    )
+
+    assert isinstance(config, SqlServerActiveDirectoryServicePrincipalAuthentication)
 
 
 def test_client_id_from_environment_is_used_without_yaml_client_id(credential_class, pyodbc_connect) -> None:

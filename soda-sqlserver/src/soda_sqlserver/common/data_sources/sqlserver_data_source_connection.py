@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pyodbc
-from pydantic import ConfigDict, Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
@@ -29,8 +29,15 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 USER_DESCRIPTION = "Username for authentication"
 DEFAULT_PORT = 1433
 
-# Token scope for Azure SQL in the public cloud; sovereign clouds override it with the scope property.
+# Token scope for Azure SQL in the public cloud; sovereign clouds set theirs with the scope property.
 AZURE_SQL_TOKEN_SCOPE = "https://database.windows.net/.default"
+# The only scopes a workload identity token is requested for: the Azure SQL audience of each cloud. No setting can
+# mint a token for Key Vault, ARM, Storage or any other resource the managed identity may also have access to.
+AZURE_SQL_TOKEN_SCOPES = (
+    AZURE_SQL_TOKEN_SCOPE,
+    "https://database.usgovcloudapi.net/.default",  # Azure Government
+    "https://database.chinacloudapi.cn/.default",  # Azure operated by 21Vianet
+)
 # msodbcsql pre-connect attribute that carries an Entra access token (17 and 18 alike).
 SQL_COPT_SS_ACCESS_TOKEN = 1256
 
@@ -97,6 +104,18 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
     client_id: Optional[str] = Field(
         None, description="Client ID of the managed identity; defaults to AZURE_CLIENT_ID from the pod environment"
     )
+
+    @field_validator("scope")
+    @classmethod
+    def _scope_is_azure_sql(cls, scope: Optional[str]) -> Optional[str]:
+        # Left out means the Azure public cloud.
+        if scope and scope not in AZURE_SQL_TOKEN_SCOPES:
+            raise ValueError(
+                f"Scope '{scope}' is not supported with workload identity authentication: the token is only "
+                f"requested for Azure SQL. Leave scope out for the Azure public cloud, or use one of "
+                f"{', '.join(AZURE_SQL_TOKEN_SCOPES)}."
+            )
+        return scope
 
 
 class SqlServerDataSource(DataSourceBase, ABC):
