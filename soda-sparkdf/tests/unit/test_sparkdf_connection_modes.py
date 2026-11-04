@@ -7,6 +7,8 @@ These tests do not start a SparkSession against any cluster — they verify that
 """
 from __future__ import annotations
 
+import sys
+
 import pytest
 from soda_sparkdf.common.data_sources.sparkdf_data_source import (
     SparkDataFrameDataSourceConnection,
@@ -21,6 +23,21 @@ from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
 
 def _build_model(connection_dict: dict) -> SparkDataFrameDataSource:
     return SparkDataFrameDataSource(name="x", connection=connection_dict)
+
+
+class _DataFrame:
+    def offset(self, num):
+        return self
+
+
+class _FakeSession:
+    """Opaque stand-in for a SparkSession; only range() is called, by the offset() check."""
+
+    def __init__(self, df=None):
+        self._df = df if df is not None else _DataFrame()
+
+    def range(self, start):
+        return self._df
 
 
 def test_use_active_session_routes_to_active_properties():
@@ -105,7 +122,7 @@ def test_from_existing_session_propagates_catalog_into_connection_properties():
     # Pure Pythonic build (no SparkSession at the cluster level) — we only care that
     # ``catalog`` lands in ``connection_properties`` so downstream consumers
     # (soda-extensions) can read it without round-tripping through YAML.
-    fake_session = object()  # Treated as opaque by the dict path; never .sql()'d.
+    fake_session = _FakeSession()  # Treated as opaque by the dict path; never .sql()'d.
     impl = SparkDataFrameDataSourceImpl.from_existing_session(
         session=fake_session,
         name="my_source",
@@ -118,7 +135,7 @@ def test_from_existing_session_propagates_catalog_into_connection_properties():
 
 
 def test_from_existing_session_catalog_defaults_to_none():
-    fake_session = object()
+    fake_session = _FakeSession()
     impl = SparkDataFrameDataSourceImpl.from_existing_session(
         session=fake_session,
         name="my_source",
@@ -140,4 +157,21 @@ def test_active_session_mode_raises_when_no_active_session(monkeypatch: pytest.M
     )
     props = SparkDataFrameActiveSessionProperties(use_active_session=True)
     with pytest.raises(ValueError, match="no active SparkSession was found"):
+        conn._create_connection(props)
+
+
+def test_session_without_dataframe_offset_raises_install_hint():
+    # Classic pyspark < 3.5 has no DataFrame.offset(); pyspark is an extra, so pip no longer stops it.
+    with pytest.raises(RuntimeError, match=r"soda-sparkdf\[pyspark\]"):
+        SparkDataFrameDataSourceImpl.from_existing_session(session=_FakeSession(df=object()), name="my_source")
+
+
+def test_create_connection_without_pyspark_raises_install_hint(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setitem(sys.modules, "pyspark.sql", None)  # makes "from pyspark.sql import ..." raise ImportError
+    conn = SparkDataFrameDataSourceConnection(
+        name="x",
+        connection_properties={"use_active_session": True},
+    )
+    props = SparkDataFrameActiveSessionProperties(use_active_session=True)
+    with pytest.raises(ImportError, match=r"soda-sparkdf\[pyspark\]"):
         conn._create_connection(props)

@@ -10,9 +10,12 @@ authors = [
 dependencies = [
     "soda-core==4.29.1rc0",
     "freezegun",
-    "pyspark[connect]>=3.5.0",
     "soda-databricks==4.29.1rc0",
 ]
+
+[project.optional-dependencies]
+# An extra so databricks-connect, which ships its own pyspark module, can stand in for it.
+pyspark = ["pyspark[connect]>=3.5.0"]
 
 [project.entry-points."soda.plugins.data_source.sparkdf"]
 SparkDataFrameDataSourceImpl = "soda_sparkdf.common.data_sources.sparkdf_data_source:SparkDataFrameDataSourceImpl"

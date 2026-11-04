@@ -2241,6 +2241,7 @@ dev = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "soda-sparkdf", extra = ["pyspark"] },
     { name = "tbump" },
 ]
 
@@ -2257,6 +2258,7 @@ dev = [
     { name = "pydantic", specifier = ">=2.11,<3.0" },
     { name = "pytest", specifier = ">=7.4.4" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "soda-sparkdf", extras = ["pyspark"], editable = "soda-sparkdf" },
     { name = "tbump", specifier = ">=6.11.0" },
 ]
 
@@ -2362,18 +2364,23 @@ version = "4.29.1rc0"
 source = { editable = "soda-sparkdf" }
 dependencies = [
     { name = "freezegun" },
-    { name = "pyspark", extra = ["connect"] },
     { name = "soda-core" },
     { name = "soda-databricks" },
+]
+
+[package.optional-dependencies]
+pyspark = [
+    { name = "pyspark", extra = ["connect"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "freezegun" },
-    { name = "pyspark", extras = ["connect"], specifier = ">=3.5.0" },
+    { name = "pyspark", extras = ["connect"], marker = "extra == 'pyspark'", specifier = ">=3.5.0" },
     { name = "soda-core", editable = "soda-core" },
     { name = "soda-databricks", editable = "soda-databricks" },
 ]
+provides-extras = ["pyspark"]
 
 [[package]]
 name = "soda-sqlserver"
