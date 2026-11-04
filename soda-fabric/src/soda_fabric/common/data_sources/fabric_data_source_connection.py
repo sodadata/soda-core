@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Literal, Union
 
 import pyodbc
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -18,6 +18,7 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
     SqlServerConnectionProperties,
     SqlServerDataSourceConnection,
     SqlServerPasswordAuth,
+    SqlServerWorkloadIdentityAuthentication,
 )
 
 logger: logging.Logger = soda_logger
@@ -57,7 +58,16 @@ class FabricActiveDirectoryServicePrincipalAuthentication(
     pass
 
 
+class FabricWorkloadIdentityAuthentication(SqlServerWorkloadIdentityAuthentication, FabricConnectionProperties):
+    # Restated: pydantic merges base configs left to right, so FabricConnectionProperties' inherited
+    # extra="allow" would otherwise override the extra="forbid" from SqlServerWorkloadIdentityAuthentication.
+    model_config = ConfigDict(extra="forbid")
+
+
 class FabricDataSource(DataSourceBase, ABC):
+    # Keeps resolved secrets out of validation errors, as in SqlServerDataSource.
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     type: Literal["fabric"] = Field("fabric")
 
     connection_properties: Union[
@@ -65,6 +75,7 @@ class FabricDataSource(DataSourceBase, ABC):
         FabricActiveDirectoryInteractiveAuthentication,
         FabricActiveDirectoryPasswordAuthentication,
         FabricActiveDirectoryServicePrincipalAuthentication,
+        FabricWorkloadIdentityAuthentication,
     ] = Field(..., alias="connection", description="Fabric connection configuration")
 
 
