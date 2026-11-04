@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.29.1rc0",
-    "duckdb>=1.2.0",
+    "duckdb>=1.2.0,<2",
     "pytz",
 ]
 
