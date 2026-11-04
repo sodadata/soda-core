@@ -38,7 +38,7 @@ dev = [
     "freezegun",
     "polars",
     "pandas",
-    "pyarrow",
+    "pyarrow<26",
     "black>=26.1.0",
 ]
 
