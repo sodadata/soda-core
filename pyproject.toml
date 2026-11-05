@@ -38,6 +38,10 @@ dev = [
     "freezegun",
     "polars",
     "pandas",
+    # Dev/test only - soda-core ships no pyarrow of its own. Capped because
+    # pyarrow 26.x requires Python >=3.11: left unbounded, uv resolves 26.x
+    # for 3.11+ and 25.x for 3.10 and the lockfile ends up carrying two
+    # pyarrow versions. Agreed with Niels Bylois, 2026-11-04.
     "pyarrow<26",
     "black>=26.1.0",
 ]
