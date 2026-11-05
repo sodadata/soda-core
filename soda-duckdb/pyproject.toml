@@ -9,6 +9,11 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.29.1rc0",
+    # duckdb<2: 2.0.0 requires Python >=3.11 while this package declares
+    # >=3.10. Unbounded, duckdb resolves 2.0.0 wherever 3.11+ is available,
+    # which would ship an untested major. All of 1.x is allowed deliberately:
+    # 1.5.6 ships wheels cp310-cp314, so it covers the whole matrix.
+    # Lift when requires-python reaches 3.11.
     "duckdb>=1.2.0,<2",
     "pytz",
 ]
