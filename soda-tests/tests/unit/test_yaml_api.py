@@ -1,14 +1,16 @@
 import errno
 import logging
 import os
+import threading
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 import pytest
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlList, YamlObject, YamlSource
+from soda_core.common.yaml import YamlList, YamlObject, YamlParser, YamlSource
 
 
 def test_yaml_api(logs: Logs):
@@ -294,3 +296,86 @@ def test_a_dataset_identifier_without_a_data_source_and_a_dataset_is_logged(valu
     assert logs.get_errors() == [
         f"Invalid dataset qualified name in 'dataset': {shown} must be slash-separated, fully qualified dataset name."
     ]
+
+
+def _parse_repeatedly(yaml_str: str, count: int) -> list[dict]:
+    return [YamlSource.from_str(yaml_str=yaml_str).parse().to_dict() for _ in range(count)]
+
+
+def test_yaml_parsing_is_thread_safe():
+    contract = dedent_and_strip(
+        """
+        dataset: ds/schema/table
+        columns:
+          - name: id
+            checks:
+              - missing:
+        checks:
+          - row_count:
+        """
+    )
+    expected = YamlSource.from_str(yaml_str=contract).parse().to_dict()
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_parse_repeatedly, contract, 500) for _ in range(4)]
+        results = [future.result() for future in futures]
+
+    for result in results:
+        assert all(parsed == expected for parsed in result)
+
+
+def test_yaml_parsing_in_threads_does_not_mix_documents():
+    contracts = [
+        dedent_and_strip(
+            """
+            dataset: ds/schema/table_a
+            columns:
+              - name: id
+                checks:
+                  - missing:
+            checks:
+              - row_count:
+            """
+        ),
+        dedent_and_strip(
+            """
+            dataset: ds/schema/table_b
+            columns:
+              - name: code
+                checks:
+                  - duplicate:
+            checks:
+              - freshness:
+            """
+        ),
+    ]
+    expected = [YamlSource.from_str(yaml_str=contract).parse().to_dict() for contract in contracts]
+
+    def parse_contract(contract_index: int) -> list[dict]:
+        return _parse_repeatedly(contracts[contract_index], 500)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(parse_contract, index % len(contracts)) for index in range(4)]
+        results = [future.result() for future in futures]
+
+    for index, result in enumerate(results):
+        assert all(parsed == expected[index % len(contracts)] for parsed in result)
+
+
+def test_each_thread_gets_its_own_yaml_parser():
+    parser = YamlParser()
+    barrier = threading.Barrier(2)
+    parsers = []
+
+    def record_parser() -> None:
+        barrier.wait()
+        parsers.append(parser.ruamel_yaml_parser)
+
+    threads = [threading.Thread(target=record_parser) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(parsers) == 2
+    assert parsers[0] is not parsers[1]
