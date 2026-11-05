@@ -1,6 +1,6 @@
 [project]
 name = "soda-duckdb"
-version = "4.29.1rc0"
+version = "4.30.0"
 description = "Soda DuckDB V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.29.1rc0",
+    "soda-core==4.30.0",
     # duckdb<2: 2.0.0 requires Python >=3.11 while this package declares
     # >=3.10. Unbounded, duckdb resolves 2.0.0 wherever 3.11+ is available,
     # which would ship an untested major. All of 1.x is allowed deliberately:
