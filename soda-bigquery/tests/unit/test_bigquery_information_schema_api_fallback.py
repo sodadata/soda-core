@@ -17,9 +17,9 @@ from soda_bigquery.common.data_sources.bigquery_data_source import (
     BigQueryDataSourceImpl,
     BigQueryMetadataTablesQuery,
     BigQuerySqlDialect,
+    TableNameLikeFilters,
     find_information_schema_access_denied,
     sql_like_to_regex,
-    table_name_matches_like_filters,
 )
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import BigQueryJSONStringAuth
 from soda_core.common.data_source_results import QueryResult
@@ -241,7 +241,7 @@ class TestApiFallback:
     def test_table_name_filters_match_the_metadata_query(self, table_name, includes, excludes, matches):
         # Exclude filters are checked here rather than through execute(): building the metadata SQL with an
         # exclude filter fails before any query runs (NOT_LIKE has no operator rendering in SqlDialect).
-        assert table_name_matches_like_filters(table_name, includes, excludes) is matches
+        assert TableNameLikeFilters(includes, excludes).matches(table_name) is matches
 
     def test_dataset_in_scope_lists_only_that_dataset(self):
         impl = _make_impl()
@@ -256,16 +256,37 @@ class TestApiFallback:
         impl.data_source_connection.client.list_datasets.assert_not_called()
         impl.data_source_connection.client.list_tables.assert_called_once_with(f"{PROJECT}.sales")
 
-    def test_configured_location_lists_every_visible_dataset(self):
-        # A configured location pins the one region and skips the region lookups, so the fallback takes every
-        # dataset the account can see as part of it.
-        impl = _make_impl(location="europe-west4")
-        _mock_datasets(impl, {"sales": "europe-west4", "finance": "europe-west4"})
-        _mock_tables(impl, {"sales": [_table_item("sales", "orders")], "finance": [_table_item("finance", "ledger")]})
+    def test_configured_location_lists_only_the_datasets_in_that_location(self):
+        # A configured location names the one region view to read. That view only holds the datasets that live
+        # in the region, so the fallback keeps only those too. Location names are compared ignoring case.
+        impl = _make_impl(location="eu")
+        _mock_datasets(impl, {"sales": "EU", "finance": "EU", "us_only": "US"})
+        _mock_tables(
+            impl,
+            {
+                "sales": [_table_item("sales", "orders")],
+                "finance": [_table_item("finance", "ledger")],
+                "us_only": [_table_item("us_only", "shipments")],
+            },
+        )
 
         results = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)).execute()
 
         assert _names(results) == [(PROJECT, "finance", "ledger"), (PROJECT, "sales", "orders")]
+        listed = sorted(call.args[0] for call in impl.data_source_connection.client.list_tables.call_args_list)
+        assert listed == [f"{PROJECT}.finance", f"{PROJECT}.sales"]
+
+    def test_configured_location_skips_a_dataset_in_scope_that_lives_elsewhere(self):
+        impl = _make_impl(location="EU")
+        impl.data_source_connection.client.get_dataset.return_value = SimpleNamespace(location="US")
+        _mock_tables(impl, {"us_only": [_table_item("us_only", "shipments")]})
+
+        results = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)).execute(
+            database_name=PROJECT, schema_name="us_only"
+        )
+
+        assert results == []
+        impl.data_source_connection.client.list_tables.assert_not_called()
 
     def test_dataset_whose_tables_cannot_be_listed_is_skipped(self):
         impl = _make_impl()
@@ -274,7 +295,9 @@ class TestApiFallback:
             impl,
             {
                 "sales": [_table_item("sales", "orders")],
-                "restricted": Forbidden("Access Denied: Dataset test-project:restricted"),
+                "restricted": Forbidden(
+                    "Access Denied: Dataset test-project:restricted", errors=[{"reason": "accessDenied"}]
+                ),
                 "deleted": NotFound("Not found: Dataset test-project:deleted"),
             },
         )
@@ -282,6 +305,25 @@ class TestApiFallback:
         results = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)).execute()
 
         assert _names(results) == [(PROJECT, "sales", "orders")]
+
+    @pytest.mark.parametrize("reason", ["quotaExceeded", "rateLimitExceeded"])
+    def test_a_403_that_is_not_access_denied_fails_the_listing(self, reason: str):
+        # Skipping the dataset would make it look deleted to whoever reads the discovery result, although the
+        # account may read it. Failing leaves the previously discovered datasets as they are.
+        impl = _make_impl()
+        _mock_datasets(impl, {"sales": "EU", "finance": "EU"})
+        _mock_tables(
+            impl,
+            {
+                "sales": [_table_item("sales", "orders")],
+                "finance": Forbidden("Quota exceeded", errors=[{"reason": reason}]),
+            },
+        )
+
+        query = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED))
+
+        with pytest.raises(Forbidden):
+            query.execute()
 
     def test_fallback_logs_a_warning_with_the_reason(self, caplog):
         impl = _make_impl()

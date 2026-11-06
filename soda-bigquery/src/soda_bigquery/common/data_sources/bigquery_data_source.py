@@ -98,21 +98,37 @@ def sql_like_to_regex(like_pattern: str) -> re.Pattern:
     return re.compile("".join(regex_parts), re.IGNORECASE | re.DOTALL)
 
 
-def table_name_matches_like_filters(
-    table_name: str,
-    include_table_name_like_filters: Optional[list[str]],
-    exclude_table_name_like_filters: Optional[list[str]],
-) -> bool:
-    """Apply the metadata query's table-name filters in Python: any include matches, and no exclude does."""
-    if include_table_name_like_filters and not any(
-        sql_like_to_regex(like_filter).fullmatch(table_name) for like_filter in include_table_name_like_filters
+class TableNameLikeFilters:
+    """The metadata query's table-name filters, applied in Python: any include matches, and no exclude does.
+
+    The LIKE patterns are compiled once, when the filters are built, not for every table name matched.
+    """
+
+    def __init__(
+        self,
+        include_table_name_like_filters: Optional[list[str]],
+        exclude_table_name_like_filters: Optional[list[str]],
     ):
-        return False
-    if exclude_table_name_like_filters and any(
-        sql_like_to_regex(like_filter).fullmatch(table_name) for like_filter in exclude_table_name_like_filters
-    ):
-        return False
-    return True
+        self.include_regexes: list[re.Pattern] = [
+            sql_like_to_regex(like_filter) for like_filter in include_table_name_like_filters or []
+        ]
+        self.exclude_regexes: list[re.Pattern] = [
+            sql_like_to_regex(like_filter) for like_filter in exclude_table_name_like_filters or []
+        ]
+
+    def matches(self, table_name: str) -> bool:
+        if self.include_regexes and not any(regex.fullmatch(table_name) for regex in self.include_regexes):
+            return False
+        return not any(regex.fullmatch(table_name) for regex in self.exclude_regexes)
+
+
+def is_access_denied(forbidden: Forbidden) -> bool:
+    """Whether a 403 from the BigQuery API means the account lacks permission, as opposed to a quota or rate limit.
+
+    BigQuery also answers ``quotaExceeded`` and ``rateLimitExceeded`` with a 403. Those are passing conditions on
+    a resource the account may well be allowed to read, so they must not be taken for a missing permission.
+    """
+    return any(error.get("reason") == "accessDenied" for error in forbidden.errors or [])
 
 
 @dataclass
@@ -237,16 +253,16 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
             f"BigQuery API instead. This only lists the datasets the account has access to. Reason: "
             f"{access_denied.message}"
         )
+        table_name_like_filters = TableNameLikeFilters(
+            include_table_name_like_filters=include_table_name_like_filters,
+            exclude_table_name_like_filters=exclude_table_name_like_filters,
+        )
         rows: list[tuple] = [
             row
             for row in self.data_source_impl.table_rows_from_api(
                 project_id=project_id, region=region, dataset_id=schema_name
             )
-            if table_name_matches_like_filters(
-                table_name=row[2],
-                include_table_name_like_filters=include_table_name_like_filters,
-                exclude_table_name_like_filters=exclude_table_name_like_filters,
-            )
+            if table_name_like_filters.matches(row[2])
         ]
         return self.get_results(
             QueryResult(rows=rows, columns=None),
@@ -282,6 +298,10 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         configured_location = self.data_source_model.connection_properties.location
         if configured_location:
             return configured_location
+        return self._dataset_location(project_id, dataset_id)
+
+    def _dataset_location(self, project_id: Optional[str], dataset_id: str) -> str:
+        """The location the dataset actually lives in, whatever location the connection configures."""
         project_id = project_id or self.data_source_connection.project_id
         cache_key = (project_id, dataset_id)
         if cache_key not in self._dataset_region_cache:
@@ -342,21 +362,27 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         """The tables of one region, listed with the BigQuery API instead of its INFORMATION_SCHEMA view.
 
         Rows have the shape of the metadata query's rows: (project, dataset, table name, INFORMATION_SCHEMA
-        table type). With a dataset in scope only that dataset is listed. Otherwise the project's datasets are
-        listed and those in the region are kept.
+        table type). With a dataset in scope only that dataset is considered. Otherwise the project's datasets are
+        listed. Either way only datasets that actually live in the region are kept, as in the region view. That
+        holds with a configured location too: it names the region view to read, it does not move other datasets
+        into it.
 
-        A dataset whose tables the account cannot list, or that is gone by the time it is listed, is skipped
-        with a warning. The other datasets are still listed.
+        A dataset that is gone by the time it is listed has no tables and is skipped. A dataset whose tables the
+        account may not list is skipped with a warning, and the other datasets are still listed. Any other error,
+        such as an exceeded quota, fails the listing: an incomplete listing would make datasets look deleted.
         """
         project_id = project_id or self.data_source_connection.project_id
-        if dataset_id:
-            dataset_ids: list[str] = [dataset_id]
-        else:
-            dataset_ids = [
-                listed_dataset_id
-                for listed_dataset_id in self._list_dataset_ids(project_id)
-                if self.region_for_dataset(project_id, listed_dataset_id) == region
-            ]
+        candidate_dataset_ids: list[str] = [dataset_id] if dataset_id else self._list_dataset_ids(project_id)
+        dataset_ids: list[str] = []
+        for candidate_dataset_id in candidate_dataset_ids:
+            try:
+                dataset_location: str = self._dataset_location(project_id, candidate_dataset_id)
+            except NotFound:
+                logger.debug(f"BigQuery dataset '{candidate_dataset_id}' does not exist, so it has no tables to list.")
+                continue
+            # BigQuery location names are case-insensitive ('EU' and 'eu' are the same multi-region).
+            if dataset_location.lower() == region.lower():
+                dataset_ids.append(candidate_dataset_id)
         rows: list[tuple[str, str, str, str]] = []
         for dataset_id_to_list in dataset_ids:
             dataset_reference: str = f"{project_id}.{dataset_id_to_list}" if project_id else dataset_id_to_list
@@ -366,6 +392,8 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
                 logger.debug(f"BigQuery dataset '{dataset_reference}' does not exist, so it has no tables to list.")
                 continue
             except Forbidden as forbidden:
+                if not is_access_denied(forbidden):
+                    raise
                 logger.warning(
                     f"Skipping BigQuery dataset '{dataset_reference}': the account may not list its tables. "
                     f"Reason: {forbidden.message}"
