@@ -529,6 +529,10 @@ class CheckCollectionImpl:
     # which reads ``self.soda_qualified_dataset_name`` — so such a subtype MUST populate that
     # attribute in ``__init__`` (the base does, from ``yaml.dataset``).
     combine_uploads: bool = False
+    # Whether publishing first uploads the YAML file to Soda Cloud for a fileId. Only
+    # contracts set True: their results carry the fileId and Cloud versions the contract
+    # from it. No other subtype's results reference the file, so they skip the upload.
+    uploads_yaml_file: bool = False
     # What the caller logged before a multi-file session, set by the session executor. It
     # belongs to no one file, so it is not in this collection's Logs: it goes into this
     # collection's own upload or failure mark once, ahead of its records.
@@ -1174,7 +1178,6 @@ class CheckCollectionImpl:
             DerivedMetricImpl,
             MeasurementValues,
             _get_contract_verification_status,
-            collect_post_processing_stages,
         )
 
         if self.data_source_impl and self.soda_config.is_running_on_runner:
@@ -1192,6 +1195,32 @@ class CheckCollectionImpl:
 
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
+
+        soda_cloud_file_id: Optional[str] = None
+        # Uploaded before execution: Cloud rejects a file for its content, and results without
+        # a fileId cannot be sent, so the queries are not worth running.
+        if self.soda_cloud and self.publish_results and self.uploads_yaml_file:
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
+                self.yaml.yaml_source.yaml_str_original, file_label=self.display_name
+            )
+            if not soda_cloud_file_id:
+                logger.error(
+                    f"Not verifying {self.display_name} {Emoticons.CROSS_MARK} "
+                    f"The file could not be uploaded to Soda Cloud."
+                )
+                verification_result = self._build_result(
+                    data_source=data_source,
+                    measurements=[],
+                    check_results=[],
+                    verification_status=CheckCollectionStatus.ERROR,
+                    soda_cloud_file_id=None,
+                )
+                if self.soda_config.soda_scan_id:
+                    self._mark_scan_failed(verification_result)
+                else:
+                    verification_result.sending_results_to_soda_cloud_failed = True
+                self.run_post_processing_handlers(verification_result, None)
+                return verification_result
 
         if self.logs.has_errors:
             verification_status = CheckCollectionStatus.ERROR
@@ -1292,19 +1321,42 @@ class CheckCollectionImpl:
             for line in log_lines:
                 logger.info(line)
 
+        verification_result = self._build_result(
+            data_source=data_source,
+            measurements=measurements,
+            check_results=check_results,
+            verification_status=verification_status,
+            soda_cloud_file_id=soda_cloud_file_id,
+        )
+        soda_cloud_response_json = self._publish_result(verification_result)
+
+        # Post-processing handlers. For combine-upload subtypes, defer to
+        # the session executor — handlers need the scan_id and
+        # response_json from the *combined* upload, which hasn't happened
+        # yet at this point in verify(). The executor dispatches
+        # ``ContractVerificationHandler.handle_session`` once per wire-source
+        # group after the session-level ``send_check_collection_results``
+        # returns.
+        if not self.combine_uploads:
+            self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
+
+        return verification_result
+
+    def _build_result(
+        self,
+        data_source: Optional[DataSource],
+        measurements: list[Measurement],
+        check_results: list[CheckResult],
+        verification_status: CheckCollectionStatus,
+        soda_cloud_file_id: Optional[str],
+    ) -> CheckCollectionResult:
+        from soda_core.contracts.impl.contract_verification_impl import collect_post_processing_stages
+
         # The gatherer's live list: records emitted after this point (upload,
         # post-processing handlers) still surface on the held result.
         log_records: Optional[list[LogRecord]] = self.logs.get_log_records()
 
-        soda_cloud_file_id: Optional[str] = None
-        sending_results_to_soda_cloud_failed: bool = False
         yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
-        soda_cloud_response_json: Optional[dict] = None
-
-        if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
-                yaml_source_str_original, file_label=self.display_name
-            )
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
 
@@ -1313,7 +1365,7 @@ class CheckCollectionImpl:
             [None if check_impl.scope.is_base else check_impl.scope.key for check_impl in self.all_check_impls],
         )
 
-        verification_result: CheckCollectionResult = self.result_class(
+        return self.result_class(
             check_collection=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
                 dataset_prefix=self.dataset_prefix,
@@ -1332,7 +1384,7 @@ class CheckCollectionImpl:
             ended_timestamp=datetime.now(tz=timezone.utc),
             measurements=measurements,
             check_results=check_results,
-            sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
+            sending_results_to_soda_cloud_failed=False,
             status=verification_status,
             log_records=log_records,
             post_processing_stages=post_processing_stages,
@@ -1342,22 +1394,23 @@ class CheckCollectionImpl:
             number_of_unscoped_checks=unscoped_checks_count,
         )
 
-        scan_id: Optional[str] = None
-        if soda_cloud_file_id:
-            if data_source is None:
+    def _publish_result(self, verification_result: CheckCollectionResult) -> Optional[dict]:
+        """Send the result to Soda Cloud, or flag on it why it was not sent. Returns the send response."""
+        soda_cloud_response_json: Optional[dict] = None
+        if self.soda_cloud and self.publish_results:
+            if verification_result.data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
                     f"Data source not found. Check that the data source name in the YAML's "
                     f"'dataset' field matches the name in your data source configuration."
                 )
-                sending_results_to_soda_cloud_failed = True
                 verification_result.sending_results_to_soda_cloud_failed = True
             elif not self._verify_check_sources_aligned(verification_result):
                 # Alignment guard tripped — logging + flag already set inside the helper.
                 # We intentionally skip the upload (don't even attempt) so the backend
                 # never sees a misaligned batch (a single misaligned check would 500
                 # the entire batch on the server-side ingestion filter).
-                sending_results_to_soda_cloud_failed = True
+                pass
             elif self.combine_uploads:
                 # Session-level combined upload — executor sends after the loop (and applies
                 # the same errored-without-results -> mark-scan-failed handling there).
@@ -1371,23 +1424,11 @@ class CheckCollectionImpl:
                 # Gate on the scan id (what mark_scan_as_failed needs), not is_running_on_runner:
                 # without a scan id we fall through to the normal upload below, which creates
                 # the scan and preserves the errored result's Cloud visibility.
-                # Stamp the known scan id on the result so post-processing failure reporting
-                # (run_post_processing_handlers) can update Cloud, and pass it explicitly
-                # rather than have mark_scan_as_failed re-read it from the environment.
-                verification_result.scan_id = self.soda_config.soda_scan_id
-                marked_as_failed: bool = self.soda_cloud.mark_scan_as_failed(
-                    scan_id=verification_result.scan_id, logs=[*self.session_log_records, *(log_records or [])]
-                )
-                if not marked_as_failed:
-                    # A rejected mark leaves the failure invisible on Cloud; surface it as a
-                    # send failure so the exit code goes > 3 and the launcher fallback marks
-                    # the scan failed itself.
-                    sending_results_to_soda_cloud_failed = True
-                    verification_result.sending_results_to_soda_cloud_failed = True
+                self._mark_scan_failed(verification_result)
             else:
                 # send_check_collection_results stamps scan_id + dataset_id
                 # on the result internally; we just hold the response_json
-                # for the post-processing-handler invocation below.
+                # for the post-processing handlers.
                 soda_cloud_response_json = self.soda_cloud.send_check_collection_results(
                     [verification_result],
                     wire_source=self.wire_source,
@@ -1396,18 +1437,22 @@ class CheckCollectionImpl:
                 )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+        return soda_cloud_response_json
 
-        # Post-processing handlers. For combine-upload subtypes, defer to
-        # the session executor — handlers need the scan_id and
-        # response_json from the *combined* upload, which hasn't happened
-        # yet at this point in verify(). The executor dispatches
-        # ``ContractVerificationHandler.handle_session`` once per wire-source
-        # group after the session-level ``send_check_collection_results``
-        # returns.
-        if not self.combine_uploads:
-            self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
-
-        return verification_result
+    def _mark_scan_failed(self, verification_result: CheckCollectionResult) -> None:
+        # Stamp the known scan id on the result so post-processing failure reporting
+        # (run_post_processing_handlers) can update Cloud, and pass it explicitly
+        # rather than have mark_scan_as_failed re-read it from the environment.
+        verification_result.scan_id = self.soda_config.soda_scan_id
+        marked_as_failed: bool = self.soda_cloud.mark_scan_as_failed(
+            scan_id=verification_result.scan_id,
+            logs=[*self.session_log_records, *(verification_result.log_records or [])],
+        )
+        if not marked_as_failed:
+            # A rejected mark leaves the failure invisible on Cloud; surface it as a
+            # send failure so the exit code goes > 3 and the launcher fallback marks
+            # the scan failed itself.
+            verification_result.sending_results_to_soda_cloud_failed = True
 
     def run_post_processing_handlers(
         self,
