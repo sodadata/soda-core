@@ -12,6 +12,7 @@ import pytest
 from google.api_core.exceptions import BadRequest, Forbidden, NotFound
 from google.cloud.bigquery.dataset import DatasetListItem
 from google.cloud.bigquery.dbapi import exceptions as dbapi_exceptions
+from google.cloud.bigquery.job import _error_result_to_exception
 from google.cloud.bigquery.table import TableListItem
 from soda_bigquery.common.data_sources.bigquery_data_source import (
     BigQueryDataSourceImpl,
@@ -38,11 +39,13 @@ INFORMATION_SCHEMA_DENIED = Forbidden(
     f"Access Denied: Table {PROJECT}:region-europe-west4.INFORMATION_SCHEMA.TABLES: User does not have the "
     "required permissions ('bigquery.routines.list', 'bigquery.tables.list' permission(s) at the dataset level; "
     "and 'bigquery.routines.get' permission(s) at the routine level; and 'bigquery.tables.get' permission(s) "
-    f"at the table level) to query system entity {PROJECT}:region-europe-west4.INFORMATION_SCHEMA.TABLES."
+    f"at the table level) to query system entity {PROJECT}:region-europe-west4.INFORMATION_SCHEMA.TABLES.",
+    errors=[{"reason": "accessDenied", "domain": "global"}],
 )
 JOBS_CREATE_DENIED = Forbidden(
     f"POST https://bigquery.googleapis.com/bigquery/v2/projects/{PROJECT}/queries?prettyPrint=false: "
-    f"Access Denied: Project {PROJECT}: User does not have bigquery.jobs.create permission in project {PROJECT}."
+    f"Access Denied: Project {PROJECT}: User does not have bigquery.jobs.create permission in project {PROJECT}.",
+    errors=[{"reason": "accessDenied", "domain": "global"}],
 )
 
 
@@ -129,6 +132,26 @@ class TestFindInformationSchemaAccessDenied:
 
     def test_ignores_a_403_that_is_not_about_information_schema(self):
         assert find_information_schema_access_denied(_as_raised_by_dbapi(JOBS_CREATE_DENIED)) is None
+
+    def test_finds_the_error_of_a_failed_query_job(self):
+        # A job that fails after it started raises the exception the client builds from the job's errorResult.
+        job_error = _error_result_to_exception(
+            {
+                "reason": "accessDenied",
+                "message": f"Access Denied: Table {PROJECT}:region-eu.INFORMATION_SCHEMA.TABLES: User does not "
+                "have permission to query table",
+            }
+        )
+        assert isinstance(job_error, Forbidden)
+        assert find_information_schema_access_denied(_as_raised_by_dbapi(job_error)) is job_error
+
+    @pytest.mark.parametrize("reason", ["quotaExceeded", "rateLimitExceeded"])
+    def test_ignores_a_403_on_information_schema_that_is_not_access_denied(self, reason: str):
+        quota_error = Forbidden(
+            f"Quota exceeded while querying {PROJECT}:region-eu.INFORMATION_SCHEMA.TABLES",
+            errors=[{"reason": reason}],
+        )
+        assert find_information_schema_access_denied(_as_raised_by_dbapi(quota_error)) is None
 
     def test_ignores_other_errors_that_mention_information_schema(self):
         bad_request = BadRequest("Syntax error in INFORMATION_SCHEMA query")

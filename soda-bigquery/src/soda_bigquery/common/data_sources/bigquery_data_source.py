@@ -56,9 +56,13 @@ def find_information_schema_access_denied(exception: BaseException) -> Optional[
     The BigQuery DB-API wraps the API error (``DatabaseError(Forbidden(...))``), so the exception's
     arguments and its cause/context chain are searched as well.
 
-    Only access-denied errors on an INFORMATION_SCHEMA view qualify. Another 403, such as a missing
-    ``bigquery.jobs.create`` in the project that runs the job, is a different problem that the API fallback
-    must not hide: the account cannot run any query there, so contract verification would fail anyway.
+    Only access-denied errors on an INFORMATION_SCHEMA view qualify. Another 403 is a different problem that
+    the API fallback must not hide. A missing ``bigquery.jobs.create`` in the project that runs the job means
+    the account cannot run any query there, so contract verification would fail anyway. An exceeded quota or
+    rate limit is also a 403, and says nothing about what the account may read.
+
+    Both ways the BigQuery client raises a query's 403 keep BigQuery's error reason: a refused ``jobs.query``
+    call carries the response's ``error.errors``, and a failed job carries its ``errorResult``.
     """
     pending: list[Optional[BaseException]] = [exception]
     seen: set[int] = set()
@@ -67,7 +71,11 @@ def find_information_schema_access_denied(exception: BaseException) -> Optional[
         if current is None or id(current) in seen:
             continue
         seen.add(id(current))
-        if isinstance(current, Forbidden) and "INFORMATION_SCHEMA" in (current.message or ""):
+        if (
+            isinstance(current, Forbidden)
+            and is_access_denied(current)
+            and "INFORMATION_SCHEMA" in (current.message or "")
+        ):
             return current
         pending.extend([current.__cause__, current.__context__])
         pending.extend(argument for argument in current.args if isinstance(argument, BaseException))
