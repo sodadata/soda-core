@@ -1120,7 +1120,6 @@ class CheckCollectionImpl:
             DerivedMetricImpl,
             MeasurementValues,
             _get_contract_verification_status,
-            collect_post_processing_stages,
         )
 
         if not self.wire_source:
@@ -1165,20 +1164,24 @@ class CheckCollectionImpl:
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
 
-        yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
         soda_cloud_file_id: Optional[str] = None
         # Uploaded before execution: Cloud rejects a file for its content, and results without
         # a fileId cannot be sent, so the queries are not worth running.
         if self.soda_cloud and self.publish_results and self.uploads_yaml_file:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(
-                yaml_source_str_original, file_label=self.display_name
+                self.yaml.yaml_source.yaml_str_original, file_label=self.display_name
             )
             if not soda_cloud_file_id:
-                # has_errors counts ERROR only, not the upload's own CRITICAL record, and this
-                # error is what makes the gate below skip execution.
                 logger.error(
                     f"Not verifying {self.display_name} {Emoticons.CROSS_MARK} "
                     f"The file could not be uploaded to Soda Cloud."
+                )
+                return self._build_and_publish_result(
+                    data_source=data_source,
+                    measurements=[],
+                    check_results=[],
+                    verification_status=CheckCollectionStatus.ERROR,
+                    soda_cloud_file_id=None,
                 )
 
         if self.logs.has_errors:
@@ -1280,11 +1283,32 @@ class CheckCollectionImpl:
             for line in log_lines:
                 logger.info(line)
 
+        return self._build_and_publish_result(
+            data_source=data_source,
+            measurements=measurements,
+            check_results=check_results,
+            verification_status=verification_status,
+            soda_cloud_file_id=soda_cloud_file_id,
+        )
+
+    def _build_and_publish_result(
+        self,
+        data_source: Optional[DataSource],
+        measurements: list[Measurement],
+        check_results: list[CheckResult],
+        verification_status: CheckCollectionStatus,
+        soda_cloud_file_id: Optional[str],
+    ) -> CheckCollectionResult:
+        from soda_core.contracts.impl.contract_verification_impl import (
+            collect_post_processing_stages,
+        )
+
         # The gatherer's live list: records emitted after this point (upload,
         # post-processing handlers) still surface on the held result.
         log_records: Optional[list[LogRecord]] = self.logs.get_log_records()
 
         sending_results_to_soda_cloud_failed: bool = False
+        yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
         soda_cloud_response_json: Optional[dict] = None
 
         post_processing_stages: list[PostProcessingStage] = collect_post_processing_stages()
