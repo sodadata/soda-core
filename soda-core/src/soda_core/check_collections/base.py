@@ -1350,9 +1350,7 @@ class CheckCollectionImpl:
         verification_status: CheckCollectionStatus,
         soda_cloud_file_id: Optional[str],
     ) -> CheckCollectionResult:
-        from soda_core.contracts.impl.contract_verification_impl import (
-            collect_post_processing_stages,
-        )
+        from soda_core.contracts.impl.contract_verification_impl import collect_post_processing_stages
 
         # The gatherer's live list: records emitted after this point (upload,
         # post-processing handlers) still surface on the held result.
