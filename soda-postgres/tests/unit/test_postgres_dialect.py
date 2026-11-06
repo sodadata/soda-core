@@ -1,7 +1,7 @@
 import pytest
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.metadata_types import SchemaDataSourceNamespace
+from soda_core.common.metadata_types import SchemaDataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import EQ, LIMIT, LITERAL, OFFSET, WHERE
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
@@ -255,3 +255,18 @@ def test_column_metadata_takes_source_data_type_from_its_own_column():
     assert column.sql_data_type.name == "character"
     assert column.sql_data_type.character_maximum_length == 1
     assert column.source_data_type == "character(1)"
+
+
+@pytest.mark.parametrize("data_type_name", ["time", "time without time zone", "timetz", "time with time zone"])
+def test_time_types_map_to_soda_time(data_type_name):
+    assert PostgresSqlDialect().get_soda_data_type_name_by_data_source_data_type_names()[data_type_name] == (
+        SodaDataTypeName.TIME
+    )
+
+
+def test_soda_time_maps_back_to_plain_time():
+    assert PostgresSqlDialect().get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIME) == "time"
+
+
+def test_time_with_time_zone_is_not_a_synonym_of_time():
+    assert not PostgresSqlDialect().data_type_names_are_same_or_synonym("time", "time with time zone")
