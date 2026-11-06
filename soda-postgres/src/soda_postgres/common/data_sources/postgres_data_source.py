@@ -174,6 +174,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "time without time zone": SodaDataTypeName.TIME,
+            # Soda has no time-with-time-zone type: a timetz column reads as TIME and its offset is dropped.
+            "timetz": SodaDataTypeName.TIME,
+            "time with time zone": SodaDataTypeName.TIME,
             "boolean": SodaDataTypeName.BOOLEAN,
             "bool": SodaDataTypeName.BOOLEAN,
         }
