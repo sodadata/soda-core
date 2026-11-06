@@ -9,6 +9,28 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
 
+class ReportOutcome(Enum):
+    """How Soda Cloud answered a run reporting on its scan.
+
+    A managed run reports into a scan Soda Cloud created up front, and that scan can reach a
+    terminal state while the run is still going: the user cancels it, or its scan definition is
+    deleted underneath a running backfill. Cloud then refuses everything the run sends.
+
+    That refusal is neither success nor a delivery failure, so it needs a name of its own.
+    Calling it success makes a run claim it sent results it discarded; calling it a failure kills
+    the runner pod over a scan the user themselves cancelled.
+    """
+
+    # Soda Cloud took the report; it is ingested.
+    ACCEPTED = "accepted"
+    # The scan is finished or no longer exists, so there is nobody left to report to. Nothing was
+    # lost, and the run should stop reporting rather than retry or fail.
+    SCAN_GONE = "scan_gone"
+    # Soda Cloud could not be reached or turned the report down for some other reason. The report
+    # is still owed, so the caller must surface it another way, usually through the exit code.
+    REFUSED = "refused"
+
+
 class _SodaCoreInsertScanResultsRequiredDTO(TypedDict):
     """The required keys of ``SodaCoreInsertScanResultsDTO``: the backend's
     @NotNull/@NotEmpty-validated fields plus the ``type`` command
