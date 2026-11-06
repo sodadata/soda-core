@@ -1,6 +1,6 @@
 [project]
 name = "soda-sqlserver"
-version = "4.28.1rc0"
+version = "4.30.1rc0"
 description = "Soda SQL Server V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,8 +8,9 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.28.1rc0",
+    "soda-core==4.30.1rc0",
     "pyodbc",
+    "azure-identity>=1.17.1,<2",
 ]
 
 [project.entry-points."soda.plugins.data_source.sqlserver"]

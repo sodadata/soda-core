@@ -543,7 +543,7 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return 500
 
     def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
-        elements: str = f", '{concat_ws.separator}', ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        elements: str = f", {concat_ws.separator}, ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
         return f"CONCAT({elements})"
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:

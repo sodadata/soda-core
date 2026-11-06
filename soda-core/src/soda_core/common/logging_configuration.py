@@ -4,9 +4,16 @@ import os
 import sys
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, StreamHandler
-from typing import Optional
+from typing import ContextManager, Iterable, Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
+from soda_core.common.redaction import (  # noqa: F401 (re-exported for the first cut's callers)
+    RedactionPolicy,
+    exception_class_name,
+    redact_record,
+    redacted_marker,
+    redacted_scope,
+)
 
 verbose_mode: bool = False
 
@@ -80,7 +87,21 @@ def _prepare_masked_file():
             _masked_values.update({l.strip() for l in read_lines})
 
 
+# Kept for callers written against the first cut (soda-extensions); new code uses
+# ``soda_core.common.redaction`` directly.
+def redaction_policy(categories: Iterable[str]) -> ContextManager[RedactionPolicy]:
+    """Deprecated: ``RedactionPolicy(frozenset(categories)).activate()``."""
+    return RedactionPolicy(frozenset(categories)).activate()
+
+
+def is_redacted(category: str) -> bool:
+    """Deprecated: ``RedactionPolicy.current().covers(category)``."""
+    return RedactionPolicy.current().covers(category)
+
+
 def _mask_record(record: LogRecord):
+    if redact_record(record):
+        return
     message = record.getMessage()
     if message:
         for masked in _masked_values:

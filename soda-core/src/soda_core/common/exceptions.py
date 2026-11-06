@@ -55,6 +55,10 @@ class FailedContractSkeletonGenerationException(SodaCoreException):
     """Indicates that the contract skeleton generation failed."""
 
 
+class UnsupportedSqlStatementError(SodaCoreException):
+    """Indicates a SQL dialect was asked to render a statement or clause it does not support."""
+
+
 class InvalidRegexException(InvalidContractException):
     """Indicates the regex is invalid."""
 

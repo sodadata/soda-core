@@ -1,6 +1,6 @@
 [project]
 name = "soda-core-workspace"
-version = "4.28.1rc0"
+version = "4.30.1rc0"
 description = "Soda Core monorepo - Data quality testing and contracts"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,7 +38,12 @@ dev = [
     "freezegun",
     "polars",
     "pandas",
-    "pyarrow",
+    # pyarrow<26: 26.x requires Python >=3.11 while this project declares
+    # >=3.10. Unbounded, it resolves 26.x on the 3.11+ jobs and 25.x on 3.10,
+    # so the suite would run against a different major depending on the job.
+    # pyarrow is declared only in this dev group, so the cap governs the test
+    # environment and nothing shipped. Lift when requires-python reaches 3.11.
+    "pyarrow<26",
     "black>=26.1.0",
 ]
 

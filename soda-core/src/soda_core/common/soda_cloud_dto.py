@@ -104,6 +104,8 @@ class DatasetConfigurationsDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     dataset_configurations: list[DatasetConfigurationDTO] = Field(..., alias="datasetConfigurations")
+    # Org-level kill switch: when true, group-by group keys and values must not reach Soda Cloud.
+    block_group_by_results_to_cloud: Optional[bool] = Field(None, alias="blockGroupByResultsToCloud")
 
 
 class ComputeWarehouseOverrideDTO(BaseModel):
