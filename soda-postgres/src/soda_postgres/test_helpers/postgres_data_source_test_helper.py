@@ -3,9 +3,15 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_dialect import SqlDialect
+from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 
 class PostgresDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [PostgresSqlDialect()]
+
     def _create_database_name(self) -> str | None:
         return os.getenv("POSTGRES_DATABASE", "soda_test")
 

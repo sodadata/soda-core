@@ -9,9 +9,15 @@ REDSHIFT_USERNAME = os.getenv("REDSHIFT_USERNAME", "")
 REDSHIFT_PASSWORD = os.getenv("REDSHIFT_PASSWORD", "")
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_dialect import SqlDialect
+from soda_redshift.common.data_sources.redshift_data_source import RedshiftSqlDialect
 
 
 class RedshiftDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [RedshiftSqlDialect()]
+
     def _create_database_name(self) -> str | None:
         return os.getenv("REDSHIFT_DATABASE", "soda_test")
 

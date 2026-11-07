@@ -4,10 +4,16 @@ import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_bigquery.common.data_sources.bigquery_data_source import BigQuerySqlDialect
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.sql_dialect import SqlDialect
 
 
 class BigQueryDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [BigQuerySqlDialect()]
+
     def _create_database_name(self) -> str | None:
         # Parse the dataset name from the account info json
         account_info_json = json.loads(os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "{}"))

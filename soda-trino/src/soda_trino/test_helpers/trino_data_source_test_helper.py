@@ -4,6 +4,8 @@ import os
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_dialect import SqlDialect
+from soda_trino.common.data_sources.trino_data_source import TrinoSqlDialect
 
 TRINO_HOST = os.getenv("TRINO_HOST", "")
 TRINO_USERNAME = os.getenv("TRINO_USERNAME", "")
@@ -14,6 +16,10 @@ TRINO_VERIFY = os.getenv("TRINO_VERIFY", "true")
 
 
 class TrinoDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [TrinoSqlDialect()]
+
     def _create_database_name(self) -> Optional[str]:
         if TRINO_CATALOG is None or TRINO_CATALOG == "":
             raise ValueError("TRINO_CATALOG is not set, check .env file")

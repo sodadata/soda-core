@@ -282,6 +282,8 @@ jobs:
           export TEST_DATASOURCE=${{ env.TEST_MODULE }}
           uv run python -m pytest -ra soda-tests/tests/integration
           if [ "${{ env.TEST_MODULE }}" = "postgres" ]; then
+            # Arch tests check every registered data source's dialect at once, so one lane runs them.
+            uv run python -m pytest -ra soda-tests/tests/arch
             uv run python -m pytest -ra soda-tests/tests/unit
             uv run python -m pytest -ra soda-tests/tests/feature
           fi

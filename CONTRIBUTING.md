@@ -78,7 +78,22 @@ uv run pytest soda-postgres/tests
 
 # cross-data-source suite against a specific engine
 TEST_DATASOURCE=postgres uv run pytest soda-tests/tests
+
+# arch tests — code and architecture rules, enforced as tests; no database needed
+uv run pytest soda-tests/tests/arch
 ```
+
+Arch tests (`soda-tests/tests/arch`) enforce code and architecture rules as tests, so a rule that holds across the
+codebase fails CI when someone breaks it, instead of living only in a review comment or a docstring. Put a rule there
+when it is about how the code must be built, not about what one feature does.
+
+Arch tests never connect to a database and ignore `TEST_DATASOURCE`. CI runs them once.
+
+A rule about dialects checks every dialect in that one run. Parametrize the test over
+`DataSourceTestHelper.create_registered_sql_dialects()`. It returns the dialects of every registered data source,
+including each variant a data source can use, such as Databricks with and without Unity Catalog. A repository that
+registers more data sources with `DataSourceTestHelper.register` gets its dialects checked by the same tests. Write a
+dialect rule this way, rather than as one test per dialect package.
 
 Credentials for cloud-only data sources go in a `.env` file at the repo root — see `.env_example`. The file is gitignored.
 
