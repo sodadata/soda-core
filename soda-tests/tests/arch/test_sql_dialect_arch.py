@@ -1,8 +1,8 @@
 """Rules every SQL dialect must follow.
 
-Arch tests run against the dialect of the data source under test, picked by `TEST_DATASOURCE` like the integration
-suite, but they never connect to it. So they run in every data source's CI lane, including lanes that have no live
-data source, and a new dialect is covered without being listed anywhere.
+These tests check the dialect of the data source under test, picked by `TEST_DATASOURCE` like the integration suite,
+but they never connect to it. CI runs the arch suite in every data source's lane, so a new dialect is covered without
+being listed anywhere.
 """
 
 from soda_core.common.sql_dialect import SqlDialect

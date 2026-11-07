@@ -79,14 +79,21 @@ uv run pytest soda-postgres/tests
 # cross-data-source suite against a specific engine
 TEST_DATASOURCE=postgres uv run pytest soda-tests/tests
 
-# arch tests — rules every dialect must follow, checked on the dialect of TEST_DATASOURCE
+# arch tests — code and architecture rules, enforced as tests; no database needed
 TEST_DATASOURCE=postgres uv run pytest soda-tests/tests/arch
 ```
 
-Arch tests (`soda-tests/tests/arch`) check the dialect of the data source under test without connecting to it, so
-they need no database. Some data sources' test helpers still want their connection settings in the environment. CI
-runs them in every data source's lane. A rule that every dialect must
-follow belongs there, rather than in one test per dialect or in a unit test that lists the dialects.
+Arch tests (`soda-tests/tests/arch`) enforce code and architecture rules as tests, so a rule that holds across the
+codebase fails CI when someone breaks it, instead of living only in a review comment or a docstring. Put a rule there
+when it is about how the code must be built, not about what one feature does.
+
+Arch tests never connect to a database. CI runs them in every data source's lane, and some lanes have no live data
+source.
+
+Running in every lane means a rule about dialects covers every dialect. Such a test takes the `data_source_sql_dialect`
+fixture. It returns the dialect of the data source picked by `TEST_DATASOURCE`, built without a connection. Some data
+sources' test helpers still want their connection settings in the environment. Write a dialect rule this way, rather
+than as one test per dialect or as a unit test that lists the dialects.
 
 Credentials for cloud-only data sources go in a `.env` file at the repo root — see `.env_example`. The file is gitignored.
 
