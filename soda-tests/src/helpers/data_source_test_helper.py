@@ -302,6 +302,10 @@ class DataSourceTestHelper:
             from soda_db2.test_helpers.db2_data_source_test_helper import Db2DataSourceTestHelper
 
             return Db2DataSourceTestHelper(name)
+        elif test_datasource == "db2z":
+            from soda_db2z.test_helpers.db2z_data_source_test_helper import Db2ZosDataSourceTestHelper
+
+            return Db2ZosDataSourceTestHelper(name)
         elif test_datasource == "hana":
             from soda_hana.test_helpers.hana_data_source_test_helper import HanaDataSourceTestHelper
 

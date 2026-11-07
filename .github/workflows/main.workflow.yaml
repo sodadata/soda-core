@@ -280,6 +280,7 @@ jobs:
           fi
 
           export TEST_DATASOURCE=${{ env.TEST_MODULE }}
+          uv run python -m pytest -ra soda-tests/tests/arch
           uv run python -m pytest -ra soda-tests/tests/integration
           if [ "${{ env.TEST_MODULE }}" = "postgres" ]; then
             uv run python -m pytest -ra soda-tests/tests/unit
@@ -293,6 +294,7 @@ jobs:
             unset SODA_TEST_SNAPSHOT_FALLBACK
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
+            uv run python -m pytest -ra soda-tests/tests/arch
             uv run python -m pytest -ra soda-tests/tests/integration
           fi
 

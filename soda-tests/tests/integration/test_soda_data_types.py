@@ -15,15 +15,6 @@ def test_soda_data_types(data_source_test_helper: DataSourceTestHelper):
     assert unmapped_data_types == []
 
 
-def test_native_type_name_keys_are_lowercase(data_source_test_helper: DataSourceTestHelper):
-    """Callers look up a `SqlDataType.name`, which is always lowercase, so a key with an uppercase letter would
-    never match and its type would silently go unmapped."""
-    native_type_name_map: dict = (
-        data_source_test_helper.data_source_impl.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()
-    )
-    assert [name for name in native_type_name_map if name != name.lower()] == []
-
-
 def test_all_data_types_explicitly(data_source_test_helper: DataSourceTestHelper):
     mappings_from_canonical_to_data_type: dict = (
         data_source_test_helper.data_source_impl.sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()

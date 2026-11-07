@@ -78,7 +78,15 @@ uv run pytest soda-postgres/tests
 
 # cross-data-source suite against a specific engine
 TEST_DATASOURCE=postgres uv run pytest soda-tests/tests
+
+# arch tests — rules every dialect must follow, checked on the dialect of TEST_DATASOURCE
+TEST_DATASOURCE=postgres uv run pytest soda-tests/tests/arch
 ```
+
+Arch tests (`soda-tests/tests/arch`) check the dialect of the data source under test without connecting to it, so
+they need no database. Some data sources' test helpers still want their connection settings in the environment. CI
+runs them in every data source's lane. A rule that every dialect must
+follow belongs there, rather than in one test per dialect or in a unit test that lists the dialects.
 
 Credentials for cloud-only data sources go in a `.env` file at the repo root — see `.env_example`. The file is gitignored.
 
