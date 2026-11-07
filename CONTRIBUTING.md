@@ -87,7 +87,8 @@ Arch tests (`soda-tests/tests/arch`) enforce code and architecture rules as test
 codebase fails CI when someone breaks it, instead of living only in a review comment or a docstring. Put a rule there
 when it is about how the code must be built, not about what one feature does.
 
-Arch tests never connect to a database and ignore `TEST_DATASOURCE`. CI runs them once.
+Arch tests never connect to a database and ignore `TEST_DATASOURCE`. CI runs them once, in their own `arch tests` job,
+so a failure there points at the rule rather than at a data source lane.
 
 A rule about dialects checks every dialect in that one run. Parametrize the test over
 `DataSourceTestHelper.create_registered_sql_dialects()`. It returns the dialects of every registered data source,
