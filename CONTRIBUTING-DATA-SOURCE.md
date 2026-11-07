@@ -179,8 +179,8 @@ Put anything genuinely unique to your engine — connection edge cases, dialect 
 
 The shared suite under `soda-tests/tests/` runs **the same tests** against every registered data source. This is where coverage actually comes from. To plug your data source in:
 
-1. Implement a `{Name}DataSourceTestHelper(DataSourceTestHelper)` under `src/soda_{name}/test_helpers/`. At minimum override `_create_data_source_yaml_str()` to render a valid YAML config. Override `_create_database_name()` / `_create_schema_name()` if your engine has special naming rules.
-2. Register your helper inside `DataSourceTestHelper.create()` in `soda-tests/src/helpers/data_source_test_helper.py` — add an `elif` branch for your `{name}`.
+1. Implement a `{Name}DataSourceTestHelper(DataSourceTestHelper)` under `src/soda_{name}/test_helpers/`. At minimum override `_create_data_source_yaml_str()` to render a valid YAML config, and `create_sql_dialects()` to return your dialect. If the dialect depends on the configuration, return one dialect per variant. Override `_create_database_name()` / `_create_schema_name()` if your engine has special naming rules.
+2. Register your helper at the bottom of `soda-tests/src/helpers/data_source_test_helper.py`: `DataSourceTestHelper.register("{name}", "soda_{name}.test_helpers.{name}_data_source_test_helper:{Name}DataSourceTestHelper")`. The arch tests then check your dialect too.
 3. Add your `tests/` path to `testpaths` and `pythonpath` in `pytest.ini`.
 
 To run the full suite against your engine:

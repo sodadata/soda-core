@@ -5,11 +5,17 @@ import tempfile
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_dialect import SqlDialect
+from soda_sparkdf.common.data_sources.sparkdf_data_source import SparkDataFrameSqlDialect
 
 logger = logging.getLogger(__name__)
 
 
 class SparkDataFrameDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [SparkDataFrameSqlDialect(use_catalog=False), SparkDataFrameSqlDialect(use_catalog=True)]
+
     def __init__(self, name: str):
         super().__init__(name)
         # SparkDF uses in-memory session state that doesn't survive the snapshot

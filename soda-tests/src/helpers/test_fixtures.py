@@ -7,7 +7,6 @@ import pytest
 from dotenv import load_dotenv
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.logs import Logs
-from soda_core.common.sql_dialect import SqlDialect
 
 project_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 load_dotenv(os.path.join(project_root_dir, ".env"), override=False)
@@ -61,13 +60,6 @@ def logs() -> Logs:
         yield logs
     finally:
         logs.close()
-
-
-@pytest.fixture(scope="session")
-def data_source_sql_dialect() -> SqlDialect:
-    """The SQL dialect of the data source under test. Builds the data source without opening a connection, so it needs
-    no live data source. Some test helpers still require their connection settings in the environment."""
-    return DataSourceTestHelper.create(test_datasource, name="primary_datasource").data_source_impl.sql_dialect
 
 
 @pytest.fixture(scope="session")

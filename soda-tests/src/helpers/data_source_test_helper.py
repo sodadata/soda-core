@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import importlib
 import logging
 import os
 import random
@@ -35,6 +36,7 @@ from soda_core.common.sql_ast import (
     STAR,
     VALUES_ROW,
 )
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     FullyQualifiedViewName,
@@ -237,93 +239,43 @@ class DataSourceTestHelper:
         "metadata_created": "metadata::json->>'created'",
     }
 
+    # Test data source name -> "module:ClassName" of its test helper. The module is imported only when that data
+    # source is used, so its driver need not be installed until then.
+    _helper_class_paths: dict[str, str] = {}
+
+    @classmethod
+    def register(cls, test_datasource: str, helper_class_path: str) -> None:
+        """Makes a data source available to `create` and to the arch tests. `helper_class_path` is
+        "module:ClassName". Packages outside soda-core register their own data sources, for example from a
+        conftest.py."""
+        cls._helper_class_paths[test_datasource] = helper_class_path
+
+    @classmethod
+    def load_helper_class(cls, test_datasource: str) -> type[DataSourceTestHelper]:
+        if test_datasource not in cls._helper_class_paths:
+            raise AssertionError(f"Unknown test data source {test_datasource}")
+        module_name, class_name = cls._helper_class_paths[test_datasource].split(":")
+        return getattr(importlib.import_module(module_name), class_name)
+
     @classmethod
     def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
-        if test_datasource == "postgres":
-            from soda_postgres.test_helpers.postgres_data_source_test_helper import PostgresDataSourceTestHelper
+        return cls.load_helper_class(test_datasource)(name)
 
-            return PostgresDataSourceTestHelper(name)
-        elif test_datasource == "snowflake":
-            from soda_snowflake.test_helpers.snowflake_data_source_test_helper import SnowflakeDataSourceTestHelper
+    @classmethod
+    def create_registered_sql_dialects(cls) -> list[tuple[str, SqlDialect]]:
+        """Every dialect of every registered data source, each with a "<test data source>-<dialect class>" label.
+        Needs every registered data source's package installed, but no connection settings."""
+        return [
+            (f"{test_datasource}-{type(sql_dialect).__name__}", sql_dialect)
+            for test_datasource in cls._helper_class_paths
+            for sql_dialect in cls.load_helper_class(test_datasource).create_sql_dialects()
+        ]
 
-            return SnowflakeDataSourceTestHelper(name)
-        elif test_datasource == "databricks":
-            from soda_databricks.test_helpers.databricks_data_source_test_helper import DatabricksDataSourceTestHelper
-
-            return DatabricksDataSourceTestHelper(name)
-        elif test_datasource == "duckdb":
-            from soda_duckdb.test_helpers.duckdb_data_source_test_helper import DuckdbDataSourceTestHelper
-
-            return DuckdbDataSourceTestHelper(name)
-        elif test_datasource == "bigquery":
-            from soda_bigquery.test_helpers.bigquery_data_source_test_helper import BigQueryDataSourceTestHelper
-
-            return BigQueryDataSourceTestHelper(name)
-
-        elif test_datasource == "oracle":
-            from soda_oracle.test_helpers.oracle_data_source_test_helper import OracleDataSourceTestHelper
-
-            return OracleDataSourceTestHelper(name)
-
-        elif test_datasource == "sqlserver":
-            from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import SqlServerDataSourceTestHelper
-
-            return SqlServerDataSourceTestHelper(name)
-        elif test_datasource == "synapse":
-            from soda_synapse.test_helpers.synapse_data_source_test_helper import SynapseDataSourceTestHelper
-
-            return SynapseDataSourceTestHelper(name)
-        elif test_datasource == "redshift":
-            from soda_redshift.test_helpers.redshift_data_source_test_helper import RedshiftDataSourceTestHelper
-
-            return RedshiftDataSourceTestHelper(name)
-        elif test_datasource == "fabric":
-            from soda_fabric.test_helpers.fabric_data_source_test_helper import FabricDataSourceTestHelper
-
-            return FabricDataSourceTestHelper(name)
-        elif test_datasource == "athena":
-            from soda_athena.test_helpers.athena_data_source_test_helper import AthenaDataSourceTestHelper
-
-            return AthenaDataSourceTestHelper(name)
-        elif test_datasource == "sparkdf":
-            from soda_sparkdf.test_helpers.sparkdf_data_source_test_helper import SparkDataFrameDataSourceTestHelper
-
-            return SparkDataFrameDataSourceTestHelper(name)
-
-        elif test_datasource == "dremio":
-            from soda_dremio.test_helpers.dremio_data_source_test_helper import DremioDataSourceTestHelper
-
-            return DremioDataSourceTestHelper(name)
-        elif test_datasource == "trino":
-            from soda_trino.test_helpers.trino_data_source_test_helper import TrinoDataSourceTestHelper
-
-            return TrinoDataSourceTestHelper(name)
-        elif test_datasource == "db2":
-            from soda_db2.test_helpers.db2_data_source_test_helper import Db2DataSourceTestHelper
-
-            return Db2DataSourceTestHelper(name)
-        elif test_datasource == "db2z":
-            from soda_db2z.test_helpers.db2z_data_source_test_helper import Db2ZosDataSourceTestHelper
-
-            return Db2ZosDataSourceTestHelper(name)
-        elif test_datasource == "hana":
-            from soda_hana.test_helpers.hana_data_source_test_helper import HanaDataSourceTestHelper
-
-            return HanaDataSourceTestHelper(name)
-        elif test_datasource == "salesforce":
-            from soda_salesforce.test_helpers.salesforce_data_source_test_helper import SalesforceDataSourceTestHelper
-
-            return SalesforceDataSourceTestHelper(name)
-        elif test_datasource == "mysql":
-            from soda_mysql.test_helpers.mysql_data_source_test_helper import MysqlDataSourceTestHelper
-
-            return MysqlDataSourceTestHelper(name)
-        elif test_datasource == "mariadb":
-            from soda_mariadb.test_helpers.mariadb_data_source_test_helper import MariadbDataSourceTestHelper
-
-            return MariadbDataSourceTestHelper(name)
-        else:
-            raise AssertionError(f"Unknown test data source {test_datasource}")
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        """Every dialect this data source can use, built without configuration or a connection. A data source
+        whose dialect depends on its configuration returns one per variant, so the arch tests check them all."""
+        raise NotImplementedError(f"{cls.__name__} must implement create_sql_dialects()")
 
     def __init__(self, name: str):
         self.name = name
@@ -1740,3 +1692,41 @@ class DataSourceTestHelper:
             TableType.MATERIALIZED_VIEW: "mv",
             TableType.VIEW: "v",
         }[table_type]
+
+
+DataSourceTestHelper.register(
+    "postgres", "soda_postgres.test_helpers.postgres_data_source_test_helper:PostgresDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "snowflake", "soda_snowflake.test_helpers.snowflake_data_source_test_helper:SnowflakeDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "databricks", "soda_databricks.test_helpers.databricks_data_source_test_helper:DatabricksDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "duckdb", "soda_duckdb.test_helpers.duckdb_data_source_test_helper:DuckdbDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "bigquery", "soda_bigquery.test_helpers.bigquery_data_source_test_helper:BigQueryDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "sqlserver", "soda_sqlserver.test_helpers.sqlserver_data_source_test_helper:SqlServerDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "synapse", "soda_synapse.test_helpers.synapse_data_source_test_helper:SynapseDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "redshift", "soda_redshift.test_helpers.redshift_data_source_test_helper:RedshiftDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "fabric", "soda_fabric.test_helpers.fabric_data_source_test_helper:FabricDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "athena", "soda_athena.test_helpers.athena_data_source_test_helper:AthenaDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "sparkdf", "soda_sparkdf.test_helpers.sparkdf_data_source_test_helper:SparkDataFrameDataSourceTestHelper"
+)
+DataSourceTestHelper.register(
+    "trino", "soda_trino.test_helpers.trino_data_source_test_helper:TrinoDataSourceTestHelper"
+)

@@ -6,9 +6,15 @@ from io import StringIO
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from ruamel.yaml import YAML
+from soda_core.common.sql_dialect import SqlDialect
+from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSqlDialect
 
 
 class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [SnowflakeSqlDialect()]
+
     def _create_database_name(self) -> str | None:
         return os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 
