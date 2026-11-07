@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import functools
 import logging
 from abc import abstractmethod
 from datetime import date, datetime, time, timezone
@@ -227,6 +228,15 @@ class SqlDialect:
         Maps native data source type names to SodaDataTypeName's
         """
         raise NotImplementedError()
+
+    def get_soda_data_type_name(self, data_type_name: str) -> Optional[SodaDataTypeName]:
+        """The Soda data type of a native data type name, as in `SqlDataType.name`; None when it has none."""
+        return self._soda_data_type_name_by_data_source_data_type_name.get(data_type_name)
+
+    @functools.cached_property
+    def _soda_data_type_name_by_data_source_data_type_name(self) -> dict[str, SodaDataTypeName]:
+        # Dialects build the map anew on every call, so it is built once per dialect for lookups.
+        return self.get_soda_data_type_name_by_data_source_data_type_names()
 
     def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
         return self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
