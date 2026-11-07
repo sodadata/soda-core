@@ -224,7 +224,10 @@ class SqlDialect:
     @abstractmethod
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         """
-        Maps native data source type names to SodaDataTypeName's
+        Maps native data source type names to SodaDataTypeName's.
+
+        Every key must be lowercase. Callers look up a `SqlDataType.name`, which is always
+        lowercase, so a key with an uppercase letter would never match.
         """
         raise NotImplementedError()
 
