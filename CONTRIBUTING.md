@@ -80,7 +80,7 @@ uv run pytest soda-postgres/tests
 TEST_DATASOURCE=postgres uv run pytest soda-tests/tests
 
 # arch tests — code and architecture rules, enforced as tests; no database needed
-uv run pytest soda-tests/tests/arch
+uv run pytest -p helpers.sql_dialect_arch_plugin soda-tests/tests/arch
 ```
 
 Arch tests (`soda-tests/tests/arch`) enforce code and architecture rules as tests, so a rule that holds across the
@@ -90,11 +90,10 @@ when it is about how the code must be built, not about what one feature does.
 Arch tests never connect to a database and ignore `TEST_DATASOURCE`. CI runs them once, in their own `arch tests` job,
 so a failure there points at the rule rather than at a data source lane.
 
-A rule about dialects checks every dialect in that one run. Parametrize the test over
-`DataSourceTestHelper.create_registered_sql_dialects()`. It returns the dialects of every registered data source,
-including each variant a data source can use, such as Databricks with and without Unity Catalog. A repository that
-registers more data sources with `DataSourceTestHelper.register` gets its dialects checked by the same tests. Write a
-dialect rule this way, rather than as one test per dialect package.
+A dialect rule accepts the `arch_sql_dialect` parameter. The collection hook loaded by soda-core's arch-test job
+supplies every registered dialect, including each variant a data source can use, such as Databricks with and without
+Unity Catalog. Another repository can run the same tests with its own collection hook, so each pipeline imports and
+checks only the data sources it ships. Write a dialect rule this way, rather than as one test per dialect package.
 
 Credentials for cloud-only data sources go in a `.env` file at the repo root — see `.env_example`. The file is gitignored.
 

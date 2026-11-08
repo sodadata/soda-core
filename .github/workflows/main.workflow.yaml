@@ -98,7 +98,8 @@ jobs:
       - name: Run arch tests
         run: |
           uv sync --locked --all-packages --group dev
-          uv run --locked python -m pytest -ra soda-tests/tests/arch
+          uv run --locked python -m pytest -ra \
+            -p helpers.sql_dialect_arch_plugin soda-tests/tests/arch
   define-test-matrix:
     if: needs.detect-skip-tests.outputs.skip != 'true'
     runs-on: ubuntu-24.04

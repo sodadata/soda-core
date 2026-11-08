@@ -10,7 +10,7 @@ import re
 import string
 from copy import deepcopy
 from textwrap import dedent
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -262,12 +262,16 @@ class DataSourceTestHelper:
         return cls.load_helper_class(test_datasource)(name)
 
     @classmethod
-    def create_registered_sql_dialects(cls) -> list[tuple[str, SqlDialect]]:
-        """Every dialect of every registered data source, each with a "<test data source>-<dialect class>" label.
-        Needs every registered data source's package installed, but no connection settings."""
+    def create_registered_sql_dialects(
+        cls, test_datasources: Optional[Iterable[str]] = None
+    ) -> list[tuple[str, SqlDialect]]:
+        """Every dialect of the selected registered data sources, each with a
+        "<test data source>-<dialect class>" label. The default selects all registered data sources. Needs the
+        selected data sources' packages installed, but no connection settings."""
+        selected_test_datasources = cls._helper_class_paths if test_datasources is None else test_datasources
         return [
             (f"{test_datasource}-{type(sql_dialect).__name__}", sql_dialect)
-            for test_datasource in cls._helper_class_paths
+            for test_datasource in selected_test_datasources
             for sql_dialect in cls.load_helper_class(test_datasource).create_sql_dialects()
         ]
 
