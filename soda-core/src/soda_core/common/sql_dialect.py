@@ -2524,8 +2524,12 @@ class SqlDialect:
             return row[col_index]
         return None
 
+    def normalize_column_metadata(self, column_metadata: ColumnMetadata, row: tuple, columns: tuple[tuple]) -> None:
+        """Apply data-source-specific normalization before the native type is mapped to a Soda type."""
+
     def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         column_metadatas: list[ColumnMetadata] = []
+        soda_data_type_by_name = self.get_soda_data_type_name_by_data_source_data_type_names()
         for row in query_result.rows:
             column_name: str = row[0]
             data_type_name: str = self.format_metadata_data_type(self.extract_data_type_name(row, query_result.columns))
@@ -2534,19 +2538,20 @@ class SqlDialect:
             numeric_scale: Optional[int] = self.extract_numeric_scale(row, query_result.columns)
             datetime_precision: Optional[int] = self.extract_datetime_precision(row, query_result.columns)
 
-            column_metadatas.append(
-                ColumnMetadata(
-                    column_name=column_name,
-                    sql_data_type=self.get_sql_data_type_class()(
-                        name=data_type_name,
-                        character_maximum_length=character_maximum_length,
-                        numeric_precision=numeric_precision,
-                        numeric_scale=numeric_scale,
-                        datetime_precision=datetime_precision,
-                    ),
-                    source_data_type=self.extract_source_data_type(row, query_result.columns),
-                )
+            column_metadata = ColumnMetadata(
+                column_name=column_name,
+                sql_data_type=self.get_sql_data_type_class()(
+                    name=data_type_name,
+                    character_maximum_length=character_maximum_length,
+                    numeric_precision=numeric_precision,
+                    numeric_scale=numeric_scale,
+                    datetime_precision=datetime_precision,
+                ),
+                source_data_type=self.extract_source_data_type(row, query_result.columns),
             )
+            self.normalize_column_metadata(column_metadata, row, query_result.columns)
+            column_metadata.soda_data_type = soda_data_type_by_name.get(column_metadata.sql_data_type.name)
+            column_metadatas.append(column_metadata)
         return column_metadatas
 
     def get_column_name(self, column: Any) -> str:
