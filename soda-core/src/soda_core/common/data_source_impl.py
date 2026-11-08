@@ -360,7 +360,16 @@ class DataSourceImpl(ABC):
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
-        return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        return self._build_column_metadatas(query_result)
+
+    def _build_column_metadatas(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        # The Soda data type is set here rather than in the dialect's builder, which some dialects override to rename
+        # sql_data_type after the base builder ran (Snowflake, MySQL).
+        column_metadatas = self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        soda_data_type_by_name = self.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()
+        for column_metadata in column_metadatas:
+            column_metadata.soda_data_type = soda_data_type_by_name.get(column_metadata.sql_data_type.name)
+        return column_metadatas
 
     def get_schema_check_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         """Columns metadata for the schema check. A source whose accessor absorbs its own failures for
@@ -444,7 +453,7 @@ class DataSourceImpl(ABC):
         query_result: QueryResult = self.execute_query(sql)
 
         # Group rows by table_name (first column), then parse each group using
-        # build_column_metadatas_from_query_result (same parsing as get_columns_metadata).
+        # _build_column_metadatas (same parsing as get_columns_metadata).
         # There is an implicit assumption here that the first column is the table name.
         # This is also assumed in other parts of the code (such as the dialect) when parsing the results.
         sub_columns = query_result.columns[1:]
@@ -455,7 +464,7 @@ class DataSourceImpl(ABC):
         columns_by_table: dict[str, list[ColumnMetadata]] = {}
         for table_name, rows in rows_by_table.items():
             sub_result = QueryResult(columns=sub_columns, rows=rows)
-            columns_by_table[table_name] = self.sql_dialect.build_column_metadatas_from_query_result(sub_result)
+            columns_by_table[table_name] = self._build_column_metadatas(sub_result)
 
         return columns_by_table
 

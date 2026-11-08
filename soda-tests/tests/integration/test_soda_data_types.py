@@ -2,7 +2,7 @@ import datetime
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName, SqlDataType
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 
 
 def test_soda_data_types(data_source_test_helper: DataSourceTestHelper):
@@ -110,16 +110,6 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
 
     assert len(actual_columns) == len(test_table.columns)
 
-    def convert_metadata_to_soda_data_type(metadata: ColumnMetadata) -> SodaDataTypeName:
-        sql_data_type: SqlDataType = metadata.sql_data_type
-        data_type_name = sql_data_type.name
-        try:
-            return data_source_test_helper.data_source_impl.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()[
-                data_type_name
-            ]
-        except KeyError as e:
-            raise KeyError(f"Data type mapping for '{data_type_name}' not found") from e
-
     # Map column names to SodaDataTypeNames
     column_mappings = {
         "char_default": SodaDataTypeName.CHAR,
@@ -153,8 +143,8 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
     for column in actual_columns:
         column_name = column.column_name
         print(
-            f"Column {column.column_name} -> Expected: {column_mappings[column_name]}, Actual: {convert_metadata_to_soda_data_type(column)}"
+            f"Column {column.column_name} -> Expected: {column_mappings[column_name]}, Actual: {column.soda_data_type}"
         )
         assert data_source_test_helper.data_source_impl.sql_dialect.is_same_soda_data_type_with_synonyms(
-            column_mappings[column_name], convert_metadata_to_soda_data_type(column)
+            column_mappings[column_name], column.soda_data_type
         )

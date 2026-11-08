@@ -193,6 +193,7 @@ def _assert_column(
     numeric_scale: int | None = None,
 ):
     assert actual.column_name.lower() == expected_name
+    assert sql_dialect.is_same_soda_data_type_with_synonyms(expected_soda_type, actual.soda_data_type)
     expected = SqlDataType(
         name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(expected_soda_type),
         numeric_precision=numeric_precision if sql_dialect.supports_data_type_numeric_precision() else None,
