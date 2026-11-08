@@ -252,7 +252,7 @@ def _make_schema_check_result(*, outcome: CheckOutcome, actual_columns: list[Col
     return SchemaCheckResult(
         check=_make_check_result("checks.schema").check,
         outcome=outcome,
-        expected_columns=[],
+        expected_columns={},
         actual_columns=actual_columns,
         expected_column_names_not_actual=[],
         actual_column_names_not_expected=[],

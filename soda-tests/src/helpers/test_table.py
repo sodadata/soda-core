@@ -70,6 +70,7 @@ class TestTableSpecificationBuilder:
                     numeric_scale=numeric_scale,
                     datetime_precision=datetime_precision,
                 ),
+                soda_data_type=soda_data_type_name,
             )
         )
         return self

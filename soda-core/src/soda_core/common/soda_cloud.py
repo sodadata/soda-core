@@ -36,6 +36,7 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud_dto import (
     CheckAttribute,
     CheckAttributes,
@@ -2484,8 +2485,12 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     elif isinstance(check_result, SchemaCheckResult):
         return {
             "type": check_result.check.type,
-            "expected": [_build_schema_column(expected) for expected in check_result.expected_columns],
-            "actual": [_build_schema_column(actual) for actual in check_result.actual_columns],
+            "expected": [
+                _build_schema_column(name, data_type) for name, data_type in check_result.expected_columns.items()
+            ],
+            "actual": [
+                _build_schema_column(column.column_name, column.sql_data_type) for column in check_result.actual_columns
+            ],
             # To be added later if we need it
             # "actualColumnsNotExpected": [...],
             # "expectedColumnsNotActual": [...],
@@ -2527,17 +2532,11 @@ def _scope_rows_tested_json_dict(check_result: CheckResult) -> dict:
     return {}
 
 
-def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
+def _build_schema_column(name: str, data_type: Optional[SqlDataType]) -> dict:
     return {
-        "name": column_metadata.column_name,
-        # column_metadata.sql_data_type can be None when
-        # expected columns of schema check don't include the type.
+        "name": name,
         # The type includes the data type parameters in round brackets eg VARCHAR(255)
-        "type": (
-            column_metadata.sql_data_type.get_sql_data_type_str_with_parameters()
-            if column_metadata.sql_data_type
-            else None
-        ),
+        "type": data_type.get_sql_data_type_str_with_parameters() if data_type else None,
     }
 
 
