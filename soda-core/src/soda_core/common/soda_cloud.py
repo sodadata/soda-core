@@ -302,9 +302,10 @@ def _command_accepted(response: Optional[Response]) -> bool:
 # Soda Cloud response codes that reject a results upload for a reason only the customer can
 # cause: the contract or the organization's configuration is wrong, so the same upload fails on
 # every run until someone fixes it. A results upload rejected with one of these exits with
-# ``RESULTS_REJECTED_BY_SODA_CLOUD`` instead of ``RESULTS_NOT_SENT_TO_CLOUD``, which lets the Soda
-# Runner keep it out of its platform-failure alerting. Keep this list to codes no platform fault
-# produces: shared codes such as ``access_denied`` or ``invalid_request`` stay out.
+# ``LOG_ERRORS`` (3), like any other error the customer has to fix, instead of
+# ``RESULTS_NOT_SENT_TO_CLOUD`` (4), which is kept for failures on Soda's side. Keep this list to
+# codes no platform fault produces: shared codes such as ``access_denied`` or ``invalid_request``
+# stay out.
 CUSTOMER_CAUSED_RESULTS_REJECTION_CODES: frozenset[str] = frozenset(
     {
         # A check attribute the organization does not have.
@@ -635,10 +636,32 @@ class SodaCloud:
                 f"configuration ('{rejection_code}'). Rerunning the scan unchanged will fail the "
                 f"same way: fix the contract (for example its check attributes) or the organization's settings."
             )
+            if not self._mark_managed_scan_failed_after_rejection(results, session_log_records):
+                # The failure is not visible on Soda Cloud: report it as a plain send failure
+                # (exit 4) so the launcher falls back to its own handling.
+                rejection_code = None
         for r in results:
             r.sending_results_to_soda_cloud_failed = True
             r.soda_cloud_rejection_code = rejection_code
         return None
+
+    def _mark_managed_scan_failed_after_rejection(
+        self, results: list[ContractVerificationResult], session_log_records: Optional[list[LogRecord]]
+    ) -> bool:
+        """After Soda Cloud rejected the results for a customer-caused reason, mark the
+        runner-created scan (``SODA_SCAN_ID``) as failed with the run's logs, so the reason shows
+        on Soda Cloud and exit code 3 holds its meaning: the failure reached Soda Cloud.
+
+        Returns True when there is no such scan (an ad-hoc run) or Soda Cloud accepted the mark.
+        """
+        scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
+        if not scan_id:
+            return True
+        logs: list[LogRecord] = [
+            *(session_log_records or []),
+            *(record for r in results for record in (r.log_records or [])),
+        ]
+        return self.mark_scan_as_failed(scan_id=scan_id, logs=logs)
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
         command_json_dict: dict = {

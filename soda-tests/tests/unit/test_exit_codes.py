@@ -68,7 +68,7 @@ class _StubRollupsWithRejection(_StubRollups):
 @pytest.mark.parametrize(
     "rollups, expected",
     [
-        # Every failed send was a customer-caused rejection: exit 5, even over errors and failures.
+        # Every failed send was a customer-caused rejection: an error (3), even over check failures.
         (
             _StubRollupsWithRejection(
                 has_errors=True,
@@ -76,7 +76,7 @@ class _StubRollupsWithRejection(_StubRollups):
                 sending_results_to_soda_cloud_failed=True,
                 results_rejected_by_soda_cloud=True,
             ),
-            ExitCode.RESULTS_REJECTED_BY_SODA_CLOUD,
+            ExitCode.LOG_ERRORS,
         ),
         # Any other send failure stays exit 4.
         (
@@ -89,8 +89,3 @@ class _StubRollupsWithRejection(_StubRollups):
 )
 def test_session_result_to_exit_code_customer_caused_rejection(rollups, expected):
     assert session_result_to_exit_code(rollups) == expected
-
-
-def test_results_rejected_by_soda_cloud_is_exit_code_5():
-    # The Soda Runner keys its alerting on this value: it must not move.
-    assert ExitCode.RESULTS_REJECTED_BY_SODA_CLOUD == 5

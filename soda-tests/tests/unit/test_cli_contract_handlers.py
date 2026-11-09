@@ -64,7 +64,7 @@ def test_handle_verify_contract_exit_codes(
 @pytest.mark.parametrize(
     "rejected, expected_exit_code",
     [
-        (True, ExitCode.RESULTS_REJECTED_BY_SODA_CLOUD),
+        (True, ExitCode.LOG_ERRORS),
         (False, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
     ],
 )
@@ -74,7 +74,8 @@ def test_handle_verify_contract_customer_caused_rejection_exit_code(
     mock_execute, mock_cloud_client, rejected, expected_exit_code
 ):
     """Results Soda Cloud rejected for a customer-caused reason (e.g. an unknown check
-    attribute) exit 5, so the Soda Runner can keep them out of its platform alerting."""
+    attribute) exit 3 like any other error the customer has to fix; exit 4 stays for
+    failures on Soda's side."""
     mock_contract_result = MagicMock()
     mock_contract_result.sending_results_to_soda_cloud_failed = True
 

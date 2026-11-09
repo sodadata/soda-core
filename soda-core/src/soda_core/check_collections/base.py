@@ -189,7 +189,8 @@ class CheckCollectionResult:
     # The response code Soda Cloud gave when it rejected this result's upload with a reason the
     # customer caused (see ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``), for example a check
     # attribute the organization does not have. None when the upload was accepted, never
-    # attempted, or rejected for any other reason.
+    # attempted, or rejected for any other reason, and when a runner-created scan could not be
+    # marked failed after the rejection.
     soda_cloud_rejection_code: Optional[str] = None
 
     def get_logs(self) -> list[str]:
