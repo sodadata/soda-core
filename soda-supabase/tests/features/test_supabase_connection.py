@@ -47,7 +47,7 @@ test_connections: list[TestConnection] = [
     ),
 ]
 
-if SUPABASE_SSLMODE != "require":
+if SUPABASE_SSLMODE not in ("require", "verify-ca", "verify-full"):
     # The test database has no SSL, so a connection without sslmode proves that require is the default.
     test_connections.append(
         TestConnection(
