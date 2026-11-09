@@ -71,17 +71,19 @@ def _make_impl(location: str | None = None) -> BigQueryDataSourceImpl:
     return impl
 
 
-def _mock_datasets(impl: BigQueryDataSourceImpl, locations_by_dataset_id: dict[str, str]) -> None:
+def _mock_datasets(
+    impl: BigQueryDataSourceImpl, locations_by_dataset_id: dict[str, str], project: str = PROJECT
+) -> None:
     impl.data_source_connection.client.list_datasets.return_value = [
-        DatasetListItem({"datasetReference": {"projectId": PROJECT, "datasetId": dataset_id}, "location": location})
+        DatasetListItem({"datasetReference": {"projectId": project, "datasetId": dataset_id}, "location": location})
         for dataset_id, location in locations_by_dataset_id.items()
     ]
 
 
-def _table_item(dataset_id: str, table_id: str, table_type: str = "TABLE") -> TableListItem:
+def _table_item(dataset_id: str, table_id: str, table_type: str = "TABLE", project: str = PROJECT) -> TableListItem:
     return TableListItem(
         {
-            "tableReference": {"projectId": PROJECT, "datasetId": dataset_id, "tableId": table_id},
+            "tableReference": {"projectId": project, "datasetId": dataset_id, "tableId": table_id},
             "type": table_type,
         }
     )
@@ -328,6 +330,59 @@ class TestApiFallback:
         results = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)).execute()
 
         assert _names(results) == [(PROJECT, "sales", "orders")]
+
+    def test_dataset_in_scope_whose_tables_cannot_be_listed_gives_no_tables(self, caplog):
+        # Before the fallback this was a hard 403. Now the dataset is skipped with a warning, so the scope yields
+        # nothing: the account cannot read the dataset's tables anyway, and the warning says why.
+        impl = _make_impl()
+        impl.data_source_connection.client.get_dataset.return_value = SimpleNamespace(location="EU")
+        _mock_tables(
+            impl,
+            {
+                "restricted": Forbidden(
+                    "Access Denied: Dataset test-project:restricted", errors=[{"reason": "accessDenied"}]
+                )
+            },
+        )
+
+        with caplog.at_level("WARNING"):
+            results = _make_query(impl, lambda sql: _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)).execute(
+                database_name=PROJECT, schema_name="restricted"
+            )
+
+        assert results == []
+        impl.data_source_connection.client.list_datasets.assert_not_called()
+        impl.data_source_connection.client.list_tables.assert_called_once_with(f"{PROJECT}.restricted")
+        assert any(
+            f"Skipping BigQuery dataset '{PROJECT}.restricted'" in record.getMessage() for record in caplog.records
+        )
+
+    def test_unscoped_discovery_lists_the_storage_project(self):
+        # Unscoped discovery reads the storage project's region view, where the data lives, not the compute
+        # project's. The fallback must list that same project, and the listing already carries each dataset's
+        # location, so no datasets.get is needed.
+        storage_project = "storage-project"
+        impl = _make_impl()
+        impl.data_source_connection.storage_project_id = storage_project
+        _mock_datasets(impl, {"sales": "EU"}, project=storage_project)
+        _mock_tables(impl, {"sales": [_table_item("sales", "orders", project=storage_project)]})
+        attempted_sql: list[str] = []
+
+        def rows_or_error_for_sql(sql: str):
+            attempted_sql.append(sql)
+            return _as_raised_by_dbapi(INFORMATION_SCHEMA_DENIED)
+
+        results = _make_query(impl, rows_or_error_for_sql).execute()
+
+        assert _names(results) == [(storage_project, "sales", "orders")]
+        assert len(attempted_sql) == 1 and f"`{storage_project}`.`region-EU`" in attempted_sql[0]
+        # Listed twice: once to find the regions in scope, once by the fallback. Both in the storage project.
+        listed_projects = [
+            call.kwargs["project"] for call in impl.data_source_connection.client.list_datasets.call_args_list
+        ]
+        assert listed_projects == [storage_project, storage_project]
+        impl.data_source_connection.client.list_tables.assert_called_once_with(f"{storage_project}.sales")
+        impl.data_source_connection.client.get_dataset.assert_not_called()
 
     @pytest.mark.parametrize("reason", ["quotaExceeded", "rateLimitExceeded"])
     def test_a_403_that_is_not_access_denied_fails_the_listing(self, reason: str):
