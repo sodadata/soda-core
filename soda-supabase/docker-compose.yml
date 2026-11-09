@@ -1,0 +1,28 @@
+version: "3.7"
+services:
+  soda-sql-supabase-postgres:
+    # keep the postgres version in sync with soda-postgres/docker-compose.yml and CI
+    image: postgres:15.10-alpine3.21
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=soda_test
+      - POSTGRES_DB=soda_test
+      - POSTGRES_HOST_AUTH_METHOD=trust
+  soda-sql-supabase-pooler:
+    # Stands in for Supabase's shared pooler on port 6543: transaction mode, no prepared statements.
+    # One server connection per pool makes a leaked prepared statement collide on the next client.
+    image: edoburu/pgbouncer:v1.26.1-p0
+    ports:
+      - "6543:5432"
+    environment:
+      - DB_HOST=soda-sql-supabase-postgres
+      - DB_USER=soda_test
+      - DB_PASSWORD=soda_test
+      - DB_NAME=soda_test
+      - AUTH_TYPE=plain
+      - POOL_MODE=transaction
+      - DEFAULT_POOL_SIZE=1
+      - MAX_PREPARED_STATEMENTS=0
+    depends_on:
+      - soda-sql-supabase-postgres
