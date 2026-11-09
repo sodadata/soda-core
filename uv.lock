@@ -23,6 +23,7 @@ members = [
     "soda-snowflake",
     "soda-sparkdf",
     "soda-sqlserver",
+    "soda-supabase",
     "soda-synapse",
     "soda-tests",
     "soda-trino",
@@ -2450,6 +2451,21 @@ requires-dist = [
     { name = "azure-identity", specifier = ">=1.17.1,<2" },
     { name = "pyodbc" },
     { name = "soda-core", editable = "soda-core" },
+]
+
+[[package]]
+name = "soda-supabase"
+version = "4.30.1rc0"
+source = { editable = "soda-supabase" }
+dependencies = [
+    { name = "soda-core" },
+    { name = "soda-postgres" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "soda-core", editable = "soda-core" },
+    { name = "soda-postgres", editable = "soda-postgres" },
 ]
 
 [[package]]

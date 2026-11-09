@@ -243,6 +243,10 @@ class DataSourceTestHelper:
             from soda_postgres.test_helpers.postgres_data_source_test_helper import PostgresDataSourceTestHelper
 
             return PostgresDataSourceTestHelper(name)
+        elif test_datasource == "supabase":
+            from soda_supabase.test_helpers.supabase_data_source_test_helper import SupabaseDataSourceTestHelper
+
+            return SupabaseDataSourceTestHelper(name)
         elif test_datasource == "snowflake":
             from soda_snowflake.test_helpers.snowflake_data_source_test_helper import SnowflakeDataSourceTestHelper
 

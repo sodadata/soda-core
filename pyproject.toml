@@ -23,6 +23,7 @@ members = [
     "soda-snowflake",
     "soda-sparkdf",
     "soda-sqlserver",
+    "soda-supabase",
     "soda-synapse",
     "soda-tests", 
     "soda-trino"
@@ -60,6 +61,7 @@ soda-redshift = { workspace = true }
 soda-snowflake = { workspace = true }
 soda-sparkdf = { workspace = true }
 soda-sqlserver = { workspace = true }
+soda-supabase = { workspace = true }
 soda-synapse = { workspace = true }
 soda-tests = { workspace = true }
 soda-trino = { workspace = true }

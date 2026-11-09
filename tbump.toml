@@ -73,6 +73,10 @@ search = 'version = "{current_version}"|soda-.*=={current_version}'
 src = "soda-trino/pyproject.toml"
 search = 'version = "{current_version}"|soda-.*=={current_version}'
 
+[[file]]
+src = "soda-supabase/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
+
 [[before_commit]]
 name = "Update uv lock file"
 cmd = "uv lock"

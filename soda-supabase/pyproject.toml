@@ -1,0 +1,27 @@
+[project]
+name = "soda-supabase"
+version = "4.30.1rc0"
+description = "Soda Supabase V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.30.1rc0",
+    "soda-postgres==4.30.1rc0",
+]
+
+[project.entry-points."soda.plugins.data_source.supabase"]
+SupabaseDataSourceImpl = "soda_supabase.common.data_sources.supabase_data_source:SupabaseDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+soda-postgres = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
