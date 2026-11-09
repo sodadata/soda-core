@@ -381,38 +381,50 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         """
         project_id = project_id or self.data_source_connection.project_id
         candidate_dataset_ids: list[str] = [dataset_id] if dataset_id else self._list_dataset_ids(project_id)
-        dataset_ids: list[str] = []
-        for candidate_dataset_id in candidate_dataset_ids:
-            try:
-                dataset_location: str = self._dataset_location(project_id, candidate_dataset_id)
-            except NotFound:
-                logger.debug(f"BigQuery dataset '{candidate_dataset_id}' does not exist, so it has no tables to list.")
-                continue
-            # BigQuery location names are case-insensitive ('EU' and 'eu' are the same multi-region).
-            if dataset_location.lower() == region.lower():
-                dataset_ids.append(candidate_dataset_id)
         rows: list[tuple[str, str, str, str]] = []
-        for dataset_id_to_list in dataset_ids:
-            dataset_reference: str = f"{project_id}.{dataset_id_to_list}" if project_id else dataset_id_to_list
-            try:
-                table_items = list(self.data_source_connection.client.list_tables(dataset_reference))
-            except NotFound:
-                logger.debug(f"BigQuery dataset '{dataset_reference}' does not exist, so it has no tables to list.")
-                continue
-            except Forbidden as forbidden:
-                if not is_access_denied(forbidden):
-                    raise
-                logger.warning(
-                    f"Skipping BigQuery dataset '{dataset_reference}': the account may not list its tables. "
-                    f"Reason: {forbidden.message}"
-                )
-                continue
-            for table_item in table_items:
-                table_type: str = _API_TABLE_TYPE_TO_INFORMATION_SCHEMA_TABLE_TYPE.get(
-                    table_item.table_type, table_item.table_type
-                )
-                rows.append((table_item.project, table_item.dataset_id, table_item.table_id, table_type))
+        for candidate_dataset_id in candidate_dataset_ids:
+            if self._dataset_is_in_region(project_id, candidate_dataset_id, region):
+                rows.extend(self._table_rows_of_dataset(project_id, candidate_dataset_id))
         return rows
+
+    def _dataset_is_in_region(self, project_id: Optional[str], dataset_id: str, region: str) -> bool:
+        """Whether the dataset lives in the region. A dataset that is gone lives nowhere."""
+        try:
+            dataset_location: str = self._dataset_location(project_id, dataset_id)
+        except NotFound:
+            logger.debug(f"BigQuery dataset '{dataset_id}' does not exist, so it has no tables to list.")
+            return False
+        # BigQuery location names are case-insensitive ('EU' and 'eu' are the same multi-region).
+        return dataset_location.lower() == region.lower()
+
+    def _table_rows_of_dataset(self, project_id: Optional[str], dataset_id: str) -> list[tuple[str, str, str, str]]:
+        """The dataset's tables (``tables.list``) as metadata rows.
+
+        Empty when the dataset is gone or the account may not list its tables. Any other error propagates.
+        """
+        dataset_reference: str = f"{project_id}.{dataset_id}" if project_id else dataset_id
+        try:
+            table_items = list(self.data_source_connection.client.list_tables(dataset_reference))
+        except NotFound:
+            logger.debug(f"BigQuery dataset '{dataset_reference}' does not exist, so it has no tables to list.")
+            return []
+        except Forbidden as forbidden:
+            if not is_access_denied(forbidden):
+                raise
+            logger.warning(
+                f"Skipping BigQuery dataset '{dataset_reference}': the account may not list its tables. "
+                f"Reason: {forbidden.message}"
+            )
+            return []
+        return [
+            (
+                table_item.project,
+                table_item.dataset_id,
+                table_item.table_id,
+                _API_TABLE_TYPE_TO_INFORMATION_SCHEMA_TABLE_TYPE.get(table_item.table_type, table_item.table_type),
+            )
+            for table_item in table_items
+        ]
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
         return BigQueryMetadataTablesQuery(
