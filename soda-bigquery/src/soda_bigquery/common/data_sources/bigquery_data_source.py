@@ -1,16 +1,18 @@
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
 from typing import Optional
 
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import Forbidden, NotFound
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSource as BigQueryDataSourceModel,
 )
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import BigQueryDataSourceConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
@@ -38,6 +40,103 @@ from soda_core.common.statements.metadata_tables_query import MetadataTablesQuer
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 
 logger: logging.Logger = soda_logger
+
+# tables.list reports table types in its own spelling. Map them to the INFORMATION_SCHEMA.TABLES spelling,
+# so rows from the API go through the same conversion as rows from the region view. Types that are spelled
+# the same in both (VIEW, EXTERNAL, SNAPSHOT) pass through unchanged.
+_API_TABLE_TYPE_TO_INFORMATION_SCHEMA_TABLE_TYPE: dict[str, str] = {
+    "TABLE": "BASE TABLE",
+    "MATERIALIZED_VIEW": "MATERIALIZED VIEW",
+}
+
+
+def find_information_schema_access_denied(exception: BaseException) -> Optional[Forbidden]:
+    """The 403 BigQuery returns when the account may not read an INFORMATION_SCHEMA view, or None.
+
+    The BigQuery DB-API wraps the API error (``DatabaseError(Forbidden(...))``), so the exception's
+    arguments and its cause/context chain are searched as well.
+
+    Only access-denied errors on an INFORMATION_SCHEMA view qualify. Another 403 is a different problem that
+    the API fallback must not hide. A missing ``bigquery.jobs.create`` in the project that runs the job means
+    the account cannot run any query there, so contract verification would fail anyway. An exceeded quota or
+    rate limit is also a 403, and says nothing about what the account may read.
+
+    Both ways the BigQuery client raises a query's 403 keep BigQuery's error reason: a refused ``jobs.query``
+    call carries the response's ``error.errors``, and a failed job carries its ``errorResult``.
+    """
+    pending: list[Optional[BaseException]] = [exception]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        if (
+            isinstance(current, Forbidden)
+            and is_access_denied(current)
+            and "INFORMATION_SCHEMA" in (current.message or "")
+        ):
+            return current
+        pending.extend([current.__cause__, current.__context__])
+        pending.extend(argument for argument in current.args if isinstance(argument, BaseException))
+    return None
+
+
+def sql_like_to_regex(like_pattern: str) -> re.Pattern:
+    """Compile a SQL LIKE pattern to a case-insensitive regex that matches the whole name.
+
+    ``%`` matches any run of characters, ``_`` matches one character, and a backslash escapes the next
+    character, as in BigQuery's LIKE. The metadata query lowercases both sides of its LIKE, so matching
+    ignores case here too.
+    """
+    regex_parts: list[str] = []
+    index = 0
+    while index < len(like_pattern):
+        character = like_pattern[index]
+        if character == "\\" and index + 1 < len(like_pattern):
+            index += 1
+            regex_parts.append(re.escape(like_pattern[index]))
+        elif character == "%":
+            regex_parts.append(".*")
+        elif character == "_":
+            regex_parts.append(".")
+        else:
+            regex_parts.append(re.escape(character))
+        index += 1
+    return re.compile("".join(regex_parts), re.IGNORECASE | re.DOTALL)
+
+
+class TableNameLikeFilters:
+    """The metadata query's table-name filters, applied in Python: any include matches, and no exclude does.
+
+    The LIKE patterns are compiled once, when the filters are built, not for every table name matched.
+    """
+
+    def __init__(
+        self,
+        include_table_name_like_filters: Optional[list[str]],
+        exclude_table_name_like_filters: Optional[list[str]],
+    ):
+        self.include_regexes: list[re.Pattern] = [
+            sql_like_to_regex(like_filter) for like_filter in include_table_name_like_filters or []
+        ]
+        self.exclude_regexes: list[re.Pattern] = [
+            sql_like_to_regex(like_filter) for like_filter in exclude_table_name_like_filters or []
+        ]
+
+    def matches(self, table_name: str) -> bool:
+        if self.include_regexes and not any(regex.fullmatch(table_name) for regex in self.include_regexes):
+            return False
+        return not any(regex.fullmatch(table_name) for regex in self.exclude_regexes)
+
+
+def is_access_denied(forbidden: Forbidden) -> bool:
+    """Whether a 403 from the BigQuery API means the account lacks permission, as opposed to a quota or rate limit.
+
+    BigQuery also answers ``quotaExceeded`` and ``rateLimitExceeded`` with a 403. Those are passing conditions on
+    a resource the account may well be allowed to read, so they must not be taken for a missing permission.
+    """
+    return any(error.get("reason") == "accessDenied" for error in forbidden.errors or [])
 
 
 @dataclass
@@ -82,6 +181,10 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
 
     Each region view is read from the project in scope, or from ``storage_project_id`` when
     the scope names no project.
+
+    A region view refuses the whole query when the account lacks table or routine permissions on
+    any dataset in the region. On that 403 the region's tables are listed with the BigQuery API
+    instead (``datasets.list`` + ``tables.list``), which only needs access to the datasets themselves.
     """
 
     def __init__(
@@ -109,16 +212,70 @@ class BigQueryMetadataTablesQuery(MetadataTablesQuery):
         results: list[FullyQualifiedObjectName] = []
         for region in self.data_source_impl.regions_in_scope(project_id=project_id, dataset_id=schema_name):
             self.prefixes = [*project_qualifier, f"region-{region}"]
-            results.extend(
-                super().execute(
-                    database_name=database_name,
-                    schema_name=schema_name,
-                    include_table_name_like_filters=include_table_name_like_filters,
-                    exclude_table_name_like_filters=exclude_table_name_like_filters,
-                    types_to_return=types_to_return,
+            try:
+                results.extend(
+                    super().execute(
+                        database_name=database_name,
+                        schema_name=schema_name,
+                        include_table_name_like_filters=include_table_name_like_filters,
+                        exclude_table_name_like_filters=exclude_table_name_like_filters,
+                        types_to_return=types_to_return,
+                    )
                 )
-            )
+            except Exception as exception:
+                access_denied: Optional[Forbidden] = find_information_schema_access_denied(exception)
+                if access_denied is None:
+                    raise
+                results.extend(
+                    self._execute_with_api(
+                        project_id=project_id,
+                        region=region,
+                        schema_name=schema_name,
+                        include_table_name_like_filters=include_table_name_like_filters,
+                        exclude_table_name_like_filters=exclude_table_name_like_filters,
+                        types_to_return=types_to_return,
+                        access_denied=access_denied,
+                    )
+                )
         return results
+
+    def _execute_with_api(
+        self,
+        project_id: Optional[str],
+        region: str,
+        schema_name: Optional[str],
+        include_table_name_like_filters: Optional[list[str]],
+        exclude_table_name_like_filters: Optional[list[str]],
+        types_to_return: Optional[list[TableType]],
+        access_denied: Forbidden,
+    ) -> list[FullyQualifiedObjectName]:
+        """List the region's tables with the BigQuery API after its INFORMATION_SCHEMA view refused the account.
+
+        A region view needs table and routine permissions on every dataset in the region. It does not filter
+        out the datasets the account cannot read: it refuses the whole query. ``datasets.list`` and
+        ``tables.list`` only need access to the datasets themselves and return exactly those, so an account
+        that is only granted some datasets still gets its tables.
+        """
+        logger.warning(
+            f"Reading BigQuery region '{region}' INFORMATION_SCHEMA was denied, so its tables are listed with the "
+            f"BigQuery API instead. This only lists the datasets the account has access to. Reason: "
+            f"{access_denied.message}"
+        )
+        table_name_like_filters = TableNameLikeFilters(
+            include_table_name_like_filters=include_table_name_like_filters,
+            exclude_table_name_like_filters=exclude_table_name_like_filters,
+        )
+        rows: list[tuple] = [
+            row
+            for row in self.data_source_impl.table_rows_from_api(
+                project_id=project_id, region=region, dataset_id=schema_name
+            )
+            if table_name_like_filters.matches(row[2])
+        ]
+        return self.get_results(
+            QueryResult(rows=rows, columns=None),
+            types_to_return if types_to_return is not None else [TableType.TABLE],
+        )
 
 
 class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel):
@@ -149,6 +306,10 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         configured_location = self.data_source_model.connection_properties.location
         if configured_location:
             return configured_location
+        return self._dataset_location(project_id, dataset_id)
+
+    def _dataset_location(self, project_id: Optional[str], dataset_id: str) -> str:
+        """The location the dataset actually lives in, whatever location the connection configures."""
         project_id = project_id or self.data_source_connection.project_id
         cache_key = (project_id, dataset_id)
         if cache_key not in self._dataset_region_cache:
@@ -179,13 +340,8 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
                 return []
         project_id = project_id or self.data_source_connection.project_id
         regions: list[str] = []
-        for dataset_item in self.data_source_connection.client.list_datasets(project=project_id):
-            # DatasetListItem has no location property, but the raw listing resource carries it.
-            # Seeding the cache with it spares a datasets.get per dataset.
-            listed_location = dataset_item._properties.get("location")
-            if listed_location:
-                self._dataset_region_cache[(project_id, dataset_item.dataset_id)] = listed_location
-            region = self.region_for_dataset(project_id, dataset_item.dataset_id)
+        for listed_dataset_id in self._list_dataset_ids(project_id):
+            region = self.region_for_dataset(project_id, listed_dataset_id)
             if region not in regions:
                 regions.append(region)
         if not regions:
@@ -195,6 +351,80 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
                 "connection configuration."
             )
         return regions
+
+    def _list_dataset_ids(self, project_id: Optional[str]) -> list[str]:
+        """The ids of the project's datasets that the account can see (``datasets.list``, one call per page)."""
+        dataset_ids: list[str] = []
+        for dataset_item in self.data_source_connection.client.list_datasets(project=project_id):
+            # DatasetListItem has no location property, but the raw listing resource carries it.
+            # Seeding the cache with it spares a datasets.get per dataset.
+            listed_location = dataset_item._properties.get("location")
+            if listed_location:
+                self._dataset_region_cache[(project_id, dataset_item.dataset_id)] = listed_location
+            dataset_ids.append(dataset_item.dataset_id)
+        return dataset_ids
+
+    def table_rows_from_api(
+        self, project_id: Optional[str], region: str, dataset_id: Optional[str] = None
+    ) -> list[tuple[str, str, str, str]]:
+        """The tables of one region, listed with the BigQuery API instead of its INFORMATION_SCHEMA view.
+
+        Rows have the shape of the metadata query's rows: (project, dataset, table name, INFORMATION_SCHEMA
+        table type). With a dataset in scope only that dataset is considered. Otherwise the project's datasets are
+        listed. Either way only datasets that actually live in the region are kept, as in the region view. That
+        holds with a configured location too: it names the region view to read, it does not move other datasets
+        into it.
+
+        A dataset that is gone by the time it is listed has no tables and is skipped. A dataset whose tables the
+        account may not list is skipped with a warning, and the other datasets are still listed. Any other error,
+        such as an exceeded quota, fails the listing: an incomplete listing would make datasets look deleted.
+        """
+        project_id = project_id or self.data_source_connection.project_id
+        candidate_dataset_ids: list[str] = [dataset_id] if dataset_id else self._list_dataset_ids(project_id)
+        rows: list[tuple[str, str, str, str]] = []
+        for candidate_dataset_id in candidate_dataset_ids:
+            if self._dataset_is_in_region(project_id, candidate_dataset_id, region):
+                rows.extend(self._table_rows_of_dataset(project_id, candidate_dataset_id))
+        return rows
+
+    def _dataset_is_in_region(self, project_id: Optional[str], dataset_id: str, region: str) -> bool:
+        """Whether the dataset lives in the region. A dataset that is gone lives nowhere."""
+        try:
+            dataset_location: str = self._dataset_location(project_id, dataset_id)
+        except NotFound:
+            logger.debug(f"BigQuery dataset '{dataset_id}' does not exist, so it has no tables to list.")
+            return False
+        # BigQuery location names are case-insensitive ('EU' and 'eu' are the same multi-region).
+        return dataset_location.lower() == region.lower()
+
+    def _table_rows_of_dataset(self, project_id: Optional[str], dataset_id: str) -> list[tuple[str, str, str, str]]:
+        """The dataset's tables (``tables.list``) as metadata rows.
+
+        Empty when the dataset is gone or the account may not list its tables. Any other error propagates.
+        """
+        dataset_reference: str = f"{project_id}.{dataset_id}" if project_id else dataset_id
+        try:
+            table_items = list(self.data_source_connection.client.list_tables(dataset_reference))
+        except NotFound:
+            logger.debug(f"BigQuery dataset '{dataset_reference}' does not exist, so it has no tables to list.")
+            return []
+        except Forbidden as forbidden:
+            if not is_access_denied(forbidden):
+                raise
+            logger.warning(
+                f"Skipping BigQuery dataset '{dataset_reference}': the account may not list its tables. "
+                f"Reason: {forbidden.message}"
+            )
+            return []
+        return [
+            (
+                table_item.project,
+                table_item.dataset_id,
+                table_item.table_id,
+                _API_TABLE_TYPE_TO_INFORMATION_SCHEMA_TABLE_TYPE.get(table_item.table_type, table_item.table_type),
+            )
+            for table_item in table_items
+        ]
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
         return BigQueryMetadataTablesQuery(
