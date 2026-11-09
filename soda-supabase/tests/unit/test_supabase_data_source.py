@@ -8,7 +8,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.yaml import DataSourceYamlSource
 from soda_postgres.common.data_sources.postgres_data_source import PostgresDataSourceImpl, PostgresSqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
-from soda_supabase.common.data_sources.supabase_data_source import SupabaseDataSourceImpl
+from soda_supabase.common.data_sources.supabase_data_source import SupabaseDataSourceImpl, SupabaseSqlDialect
 from soda_supabase.common.data_sources.supabase_data_source_connection import (
     SupabaseConnectionPassword,
     SupabaseConnectionPasswordFile,
@@ -56,7 +56,8 @@ def test_supabase_type_reuses_the_postgres_impl_and_dialect():
     assert isinstance(impl, SupabaseDataSourceImpl)
     assert isinstance(impl, PostgresDataSourceImpl)
     assert impl.type_name == "supabase"
-    assert type(impl.sql_dialect) is PostgresSqlDialect
+    assert isinstance(impl.sql_dialect, SupabaseSqlDialect)
+    assert isinstance(impl.sql_dialect, PostgresSqlDialect)
 
 
 def test_password_connection_defaults_sslmode_to_require():

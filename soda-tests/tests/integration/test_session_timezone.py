@@ -31,6 +31,7 @@ _TzExpected = Union[tzinfo, tuple[tzinfo, ...]]
 
 EXPECTED_SESSION_TIMEZONES: dict[str, _TzExpected] = {
     "postgres": timezone.utc,
+    "supabase": timezone.utc,
     "sqlserver": timezone.utc,
     "redshift": timezone.utc,
     "databricks": ZoneInfo("Etc/UTC"),

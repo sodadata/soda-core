@@ -86,7 +86,7 @@ def test_discovery_includes_materialized_views(data_source_test_helper: DataSour
 
 
 @pytest.mark.skipif(
-    test_datasource not in {"postgres"},
+    test_datasource not in {"postgres", "supabase"},
     reason=(
         "System-schema exclusion is asserted against postgres' catalogs "
         "(pg_catalog/information_schema); other dialects are covered by the "
@@ -113,7 +113,7 @@ def test_discovery_excludes_system_schemas(data_source_test_helper: DataSourceTe
 
 @pytest.mark.no_snapshot  # Opens its own connection from the YAML file, outside the helper's snapshot machinery.
 @pytest.mark.skipif(
-    test_datasource not in {"postgres"},
+    test_datasource not in {"postgres", "supabase"},
     reason=(
         "The handler connection lifecycle (open/close around the discovery "
         "query) is dialect-independent, so one dialect suffices. The handler "

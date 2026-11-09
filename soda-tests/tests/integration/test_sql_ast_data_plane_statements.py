@@ -62,6 +62,7 @@ FIXES = "sqlast_dp_fixes"
 # The type a JSON object column is created with; a dialect opting in adds its own.
 JSON_TYPE_NAME_BY_DATA_SOURCE_TYPE = {
     "postgres": "jsonb",
+    "supabase": "jsonb",
     "sqlserver": "nvarchar(max)",
     "snowflake": "varchar",
     "athena": "varchar",
@@ -153,7 +154,7 @@ def test_data_plane_statements_end_to_end(data_source_test_helper: DataSourceTes
             data_source_impl.execute_update(create_index_sql)
             data_source_impl.execute_update(create_index_sql)
 
-        if data_source_impl.type_name == "postgres":
+        if data_source_impl.type_name in ("postgres", "supabase"):
             catalog_rows = data_source_impl.execute_query(
                 sql_dialect.build_select_sql(
                     [
@@ -553,7 +554,7 @@ def test_data_plane_expressions_end_to_end(data_source_test_helper: DataSourceTe
     if renders(json_merge):
         assert json_value(select_row(json_merge)[0]) == {"a": 1, "b": 2, "c": 3}
 
-    if data_source_impl.type_name == "postgres":
+    if data_source_impl.type_name in ("postgres", "supabase"):
         # CAST takes a dialect type name as well as a SodaDataTypeName. ARITHMETIC "/" divides the way
         # the data source does: integers truncate on Postgres.
         assert select_row(

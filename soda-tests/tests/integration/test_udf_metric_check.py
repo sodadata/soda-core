@@ -192,7 +192,7 @@ def test_metric_query_returning_nan_is_not_evaluated(data_source_test_helper: Da
     It used to pass as a number, fail the threshold and then lose the whole upload client-side,
     before any request left.
     """
-    if data_source_test_helper.data_source_impl.type_name not in ("duckdb", "postgres"):
+    if data_source_test_helper.data_source_impl.type_name not in ("duckdb", "postgres", "supabase"):
         pytest.skip("CAST('NaN' AS FLOAT8) is DuckDB and PostgreSQL syntax")
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)

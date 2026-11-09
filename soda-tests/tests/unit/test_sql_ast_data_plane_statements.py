@@ -851,7 +851,10 @@ def _shipped_dialect_classes() -> set[type]:
     return dialect_classes
 
 
-def test_postgres_sqlserver_snowflake_and_athena_are_the_only_shipped_dialects_with_the_flag(postgres_dialect):
+def test_postgres_supabase_sqlserver_snowflake_and_athena_are_the_only_shipped_dialects_with_the_flag(
+    postgres_dialect,
+):
+    supabase_module = pytest.importorskip("soda_supabase.common.data_sources.supabase_data_source")
     sqlserver_module = pytest.importorskip("soda_sqlserver.common.data_sources.sqlserver_data_source")
     snowflake_module = pytest.importorskip("soda_snowflake.common.data_sources.snowflake_data_source")
     athena_module = pytest.importorskip("soda_athena.common.data_sources.athena_data_source")
@@ -861,6 +864,7 @@ def test_postgres_sqlserver_snowflake_and_athena_are_the_only_shipped_dialects_w
 
     assert flagged == {
         type(postgres_dialect),
+        supabase_module.SupabaseSqlDialect,
         sqlserver_module.SqlServerSqlDialect,
         snowflake_module.SnowflakeSqlDialect,
         athena_module.AthenaSqlDialect,

@@ -33,6 +33,7 @@ SCHEMA_NAME = "observability_testing"  # Change to dev_observability_testing for
 TABLE_NAME = "bus_breakdown"
 BATCH_SIZES = {  # Depends on the database. Not all databases support very large batch inserts.
     "postgres": 10000,
+    "supabase": 10000,
     "sqlserver": 10000,
     "mysql": 10000,
     "bigquery": 2500,  # Bigquery limits the query size to 1024KB, so we need to use a smaller batch size. This takes a while to run!
