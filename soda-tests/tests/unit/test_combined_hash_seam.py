@@ -57,6 +57,7 @@ def test_a_null_operand_falls_back_to_the_sentinel(postgres_dialect):
 # are not one-per-package: soda-trino, and the Hive variant inside soda-databricks.
 _DIALECT_CASES = [
     ("postgres", "soda_postgres.common.data_sources.postgres_data_source", "PostgresSqlDialect"),
+    ("supabase", "soda_supabase.common.data_sources.supabase_data_source", "SupabaseSqlDialect"),
     ("duckdb", "soda_duckdb.common.data_sources.duckdb_data_source", "DuckDBSqlDialect"),
     ("sqlserver", "soda_sqlserver.common.data_sources.sqlserver_data_source", "SqlServerSqlDialect"),
     ("snowflake", "soda_snowflake.common.data_sources.snowflake_data_source", "SnowflakeSqlDialect"),
@@ -86,6 +87,10 @@ _DIALECT_CASES = [
 # `''||''`, an empty string, and the SQL Server family cast to a bare varchar, which is varchar(30).
 _EXPECTED_SQL = {
     "postgres": (
+        "MD5(COALESCE(\"a\"::varchar, '__SODA_NULL__'))",
+        "MD5(CONCAT_WS('||', COALESCE(\"a\"::varchar, '__SODA_NULL__'), " "COALESCE(\"b\"::varchar, '__SODA_NULL__')))",
+    ),
+    "supabase": (
         "MD5(COALESCE(\"a\"::varchar, '__SODA_NULL__'))",
         "MD5(CONCAT_WS('||', COALESCE(\"a\"::varchar, '__SODA_NULL__'), " "COALESCE(\"b\"::varchar, '__SODA_NULL__')))",
     ),

@@ -3,7 +3,7 @@ they compose, and the expressions their values are computed with.
 
 The ANSI expressions render on every dialect. The statements and the dialect-specific expressions
 render only on a dialect class that sets `SUPPORTS_DATA_PLANE_STATEMENTS` in its own body, today
-Postgres, SQL Server, Snowflake and Athena. Three things are pinned. The exact Postgres SQL of every
+Postgres, Supabase, SQL Server, Snowflake and Athena. Three things are pinned. The exact Postgres SQL of every
 node, for an application that runs these statements as rendered (SQL Server's, Snowflake's and
 Athena's are pinned in soda-sqlserver, soda-snowflake and soda-athena). That every other dialect
 renders the ANSI expressions the same way. And that it refuses the rest with
@@ -434,6 +434,7 @@ def test_create_table_default_is_unchanged(postgres_dialect, update_heavy):
 # Athena's tables take row-level writes only when created as Iceberg tables; every other flagged dialect's do.
 _FLAGGED_DIALECT_CASES_BUT_ATHENA = [
     ("postgres", "soda_postgres.common.data_sources.postgres_data_source", "PostgresSqlDialect"),
+    ("supabase", "soda_supabase.common.data_sources.supabase_data_source", "SupabaseSqlDialect"),
     ("sqlserver", "soda_sqlserver.common.data_sources.sqlserver_data_source", "SqlServerSqlDialect"),
     ("snowflake", "soda_snowflake.common.data_sources.snowflake_data_source", "SnowflakeSqlDialect"),
 ]
@@ -614,7 +615,7 @@ def test_an_added_column_default_can_be_an_expression(postgres_dialect):
 # Every other dialect renders the ANSI expressions and refuses the rest
 # ---------------------------------------------------------------------------
 
-# Every dialect class shipped in soda-core other than Postgres, SQL Server, Snowflake and Athena,
+# Every dialect class shipped in soda-core other than Postgres, Supabase, SQL Server, Snowflake and Athena,
 # including the ones derived from another (Hive from Databricks, Fabric and Synapse from SQL Server,
 # SparkDF from Databricks).
 _UNSUPPORTED_DIALECT_CASES = [
