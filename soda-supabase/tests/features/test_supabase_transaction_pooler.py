@@ -6,7 +6,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.yaml import DataSourceYamlSource
 
 # A transaction-mode pooler with one server connection, such as the pgbouncer service in
-# soda-supabase/docker-compose.yml. Not part of CI, which has no pooler.
+# soda-supabase/docker-compose.yml, or the pgbouncer service of the supabase lane in CI.
 SUPABASE_POOLER_PORT = os.getenv("SUPABASE_POOLER_PORT")
 
 pytestmark = pytest.mark.skipif(

@@ -125,6 +125,20 @@ jobs:
           --health-start-period 10s
         ports:
           - 5432:5432
+      pgbouncer:
+        # Stands in for Supabase's transaction pooler, as in soda-supabase/docker-compose.yml
+        image: ${{ matrix.module == 'supabase' && 'edoburu/pgbouncer:v1.26.1-p0' || '' }}
+        env:
+          DB_HOST: postgres
+          DB_USER: soda_test
+          DB_PASSWORD: soda_test
+          DB_NAME: soda_test
+          AUTH_TYPE: plain
+          POOL_MODE: transaction
+          DEFAULT_POOL_SIZE: "1"
+          MAX_PREPARED_STATEMENTS: "0"
+        ports:
+          - 6543:5432
       sqlserver:
         image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
         env:
@@ -285,6 +299,9 @@ jobs:
           if [ "${{ env.TEST_MODULE }}" = "postgres" ]; then
             uv run python -m pytest -ra soda-tests/tests/unit
             uv run python -m pytest -ra soda-tests/tests/feature
+          fi
+          if [ "${{ env.TEST_MODULE }}" = "supabase" ]; then
+            export SUPABASE_POOLER_PORT=6543
           fi
           uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
 
