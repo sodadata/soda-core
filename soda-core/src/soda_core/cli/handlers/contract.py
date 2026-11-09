@@ -2,7 +2,7 @@ from os.path import dirname, exists
 from pathlib import Path
 from typing import Dict, Optional
 
-from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.exit_codes import ExitCode, results_send_failure_exit_code
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.exceptions import (
     ContractFetchFailedException,
@@ -105,7 +105,7 @@ def contract_verification_is_not_sent_to_cloud(
 
 def interpret_contract_verification_result(verification_result: ContractVerificationSessionResult) -> ExitCode:
     if contract_verification_is_not_sent_to_cloud(verification_result):
-        return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
+        return results_send_failure_exit_code(verification_result)
     elif verification_result.has_errors:
         return ExitCode.LOG_ERRORS
     elif verification_result.is_failed:

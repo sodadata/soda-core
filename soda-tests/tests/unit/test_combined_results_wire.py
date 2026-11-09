@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import pytest
 from soda_core.common.logs import Location
 from soda_core.common.soda_cloud import SodaCloud, _build_check_collection_results_json_dict
 from soda_core.contracts.contract_verification import (
@@ -22,6 +23,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     ContractVerificationResult,
+    ContractVerificationSessionResult,
     DataSource,
     PostProcessingStage,
     PostProcessingStageState,
@@ -264,6 +266,88 @@ def test_send_check_collection_results_marks_all_failed_on_non_200():
 
     assert out is None
     assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
+
+
+@pytest.mark.parametrize(
+    "status_code, code, expected_rejection_code",
+    [
+        (400, "resource_attribute_not_found", "resource_attribute_not_found"),
+        (400, "invalid_resource_attribute_value_type", "invalid_resource_attribute_value_type"),
+        (400, "service_user_may_not_create_contract_datasets", "service_user_may_not_create_contract_datasets"),
+        (400, "invalid_contract_type", "invalid_contract_type"),
+        (400, "could_not_publish_contract", "could_not_publish_contract"),
+        (400, "resource_in_deletion", "resource_in_deletion"),
+        # Codes that platform faults produce too stay ordinary send failures.
+        (400, "invalid_request", None),
+        (403, "access_denied", None),
+        (400, "excessively_large_rpc_body", None),
+        (400, "scan_not_found", None),
+        # An allowlisted code on anything but a 400 is not trusted.
+        (500, "resource_attribute_not_found", None),
+    ],
+)
+def test_send_check_collection_results_records_customer_caused_rejection(status_code, code, expected_rejection_code):
+    cloud = SodaCloud.__new__(SodaCloud)
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = {"code": code, "message": "rejected"}
+    cloud._execute_command = MagicMock(return_value=response)
+
+    results = [_make_result(label="alpha"), _make_result(label="beta")]
+    out = cloud.send_check_collection_results(results=results, wire_source="soda-contract")
+
+    assert out is None
+    assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
+    assert all(r.soda_cloud_rejection_code == expected_rejection_code for r in results)
+    assert all(r.results_rejected_by_soda_cloud is (expected_rejection_code is not None) for r in results)
+
+
+def test_send_check_collection_results_non_json_400_is_not_a_customer_rejection():
+    cloud = SodaCloud.__new__(SodaCloud)
+    response = MagicMock()
+    response.status_code = 400
+    response.json.side_effect = ValueError("not json")
+    cloud._execute_command = MagicMock(return_value=response)
+
+    (result,) = [_make_result(label="solo")]
+    cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    assert result.sending_results_to_soda_cloud_failed is True
+    assert result.soda_cloud_rejection_code is None
+
+
+def test_send_check_collection_results_marks_all_failed_when_no_response():
+    """The client swallows transport errors and returns None: that is a send failure, not a crash."""
+    cloud = SodaCloud.__new__(SodaCloud)
+    cloud._execute_command = MagicMock(return_value=None)
+
+    results = [_make_result(label="alpha")]
+    assert cloud.send_check_collection_results(results=results, wire_source="soda-contract") is None
+    assert results[0].sending_results_to_soda_cloud_failed is True
+    assert results[0].soda_cloud_rejection_code is None
+
+
+def test_session_results_rejected_only_when_every_failed_send_was_rejected():
+    rejected = _make_result(label="alpha")
+    rejected.sending_results_to_soda_cloud_failed = True
+    rejected.soda_cloud_rejection_code = "resource_attribute_not_found"
+    other_failure = _make_result(label="beta")
+    other_failure.sending_results_to_soda_cloud_failed = True
+    sent = _make_result(label="gamma")
+
+    assert (
+        ContractVerificationSessionResult(contract_verification_results=[rejected, sent]).results_rejected_by_soda_cloud
+        is True
+    )
+    assert (
+        ContractVerificationSessionResult(
+            contract_verification_results=[rejected, other_failure]
+        ).results_rejected_by_soda_cloud
+        is False
+    )
+    assert (
+        ContractVerificationSessionResult(contract_verification_results=[sent]).results_rejected_by_soda_cloud is False
+    )
 
 
 def test_send_check_collection_results_marks_all_failed_when_response_omits_scan_id():

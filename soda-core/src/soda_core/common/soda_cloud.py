@@ -299,6 +299,42 @@ def _command_accepted(response: Optional[Response]) -> bool:
     return response is not None and response.ok
 
 
+# Soda Cloud response codes that reject a results upload for a reason only the customer can
+# cause: the contract or the organization's configuration is wrong, so the same upload fails on
+# every run until someone fixes it. A results upload rejected with one of these exits with
+# ``RESULTS_REJECTED_BY_SODA_CLOUD`` instead of ``RESULTS_NOT_SENT_TO_CLOUD``, which lets the Soda
+# Runner keep it out of its platform-failure alerting. Keep this list to codes no platform fault
+# produces: shared codes such as ``access_denied`` or ``invalid_request`` stay out.
+CUSTOMER_CAUSED_RESULTS_REJECTION_CODES: frozenset[str] = frozenset(
+    {
+        # A check attribute the organization does not have.
+        "resource_attribute_not_found",
+        # A check attribute value of the wrong type.
+        "invalid_resource_attribute_value_type",
+        # A service user publishing a contract for a dataset or data source that doesn't exist yet.
+        "service_user_may_not_create_contract_datasets",
+        # A draft or test contract.
+        "invalid_contract_type",
+        "could_not_publish_contract",
+        # The resource is being deleted.
+        "resource_in_deletion",
+    }
+)
+
+
+def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[str]:
+    """The response code when Soda Cloud rejected a request with a 400 whose code is in
+    ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``; None for any other response."""
+    if response is None or response.status_code != 400:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    code = body.get("code") if isinstance(body, dict) else None
+    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
+
+
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 
@@ -567,7 +603,7 @@ class SodaCloud:
         response: Response = self._execute_command(
             command_json_dict=payload, request_log_name="send_check_collection_results"
         )
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             file_count_label = "1 file" if len(results) == 1 else f"{len(results)} files"
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({file_count_label})")
             response_json: dict = response.json()
@@ -592,8 +628,16 @@ class SodaCloud:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
                 return response_json
+        rejection_code: Optional[str] = _customer_caused_rejection_code(response)
+        if rejection_code is not None:
+            logger.error(
+                f"Soda Cloud rejected the results because of the contract or the organization's "
+                f"configuration ('{rejection_code}'). Rerunning the scan unchanged will fail the "
+                f"same way: fix the contract (for example its check attributes) or the organization's settings."
+            )
         for r in results:
             r.sending_results_to_soda_cloud_failed = True
+            r.soda_cloud_rejection_code = rejection_code
         return None
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
