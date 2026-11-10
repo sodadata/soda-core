@@ -10,6 +10,9 @@ class ExitCode(IntEnum):
     2: one or more checks warned (no failures)
     3: errors occurred during execution (e.g. parse or engine errors)
     4: results could not be sent to Soda Cloud
+
+    A run whose results Soda Cloud refused only because the user cancelled the scan exits with
+    its check outcome (0, 1, 2 or 3): the results were discarded on purpose.
     """
 
     OK = 0
@@ -53,13 +56,17 @@ def session_result_to_exit_code(session_result: _HasRollups) -> ExitCode:
     handlers map exit codes directly. Priority order:
 
     1. Cloud-send failure trumps everything (the user wants to know
-       results didn't land in Soda Cloud).
+       results didn't land in Soda Cloud). When every failed send was refused
+       because the user cancelled the scan, it is ignored and the check
+       outcome decides, see ``results_discarded_because_scan_canceled``.
     2. Engine/parse ERROR status next.
     3. Check FAILURES.
     4. Check WARNINGS.
     5. Otherwise OK.
     """
-    if session_result.sending_results_to_soda_cloud_failed:
+    if session_result.sending_results_to_soda_cloud_failed and not results_discarded_because_scan_canceled(
+        session_result
+    ):
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
     if session_result.has_errors:
         return ExitCode.LOG_ERRORS
@@ -68,3 +75,14 @@ def session_result_to_exit_code(session_result: _HasRollups) -> ExitCode:
     if session_result.is_warned:
         return ExitCode.CHECK_WARNINGS
     return ExitCode.OK
+
+
+def results_discarded_because_scan_canceled(session_result: object) -> bool:
+    """Whether every failed upload was refused because the user cancelled the scan in Soda Cloud.
+
+    Such a run did what the user asked, so its exit code is the check outcome, never
+    ``RESULTS_NOT_SENT_TO_CLOUD``. Any other send failure alongside it keeps exit code 4. Read with
+    ``getattr`` so session types that don't expose the property (e.g. outside soda-core) keep the
+    send-failure exit code.
+    """
+    return getattr(session_result, "results_discarded_because_scan_canceled", False) is True

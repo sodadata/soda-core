@@ -10,7 +10,9 @@ case is exercised separately in
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -366,6 +368,126 @@ def test_session_results_rejected_only_when_every_failed_send_was_rejected():
     )
     assert (
         ContractVerificationSessionResult(contract_verification_results=[sent]).results_rejected_by_soda_cloud is False
+    )
+
+
+def _invalid_scan_state_cloud(scan_state: Optional[str]) -> SodaCloud:
+    """A client whose results upload is refused with a 400 ``invalid_scan_state`` and whose scan
+    state lookup returns ``scan_state`` (None: the lookup fails)."""
+    cloud = SodaCloud.__new__(SodaCloud)
+    upload_response = MagicMock()
+    upload_response.status_code = 400
+    upload_response.json.return_value = {
+        "code": "invalid_scan_state",
+        "message": "Scan scan-123 is already in the final state CANCELED",
+    }
+    cloud._execute_command = MagicMock(return_value=upload_response)
+    state_response = MagicMock()
+    state_response.ok = scan_state is not None
+    state_response.json.return_value = {"state": scan_state} if scan_state else {"code": "boom"}
+    cloud._get_scan_status = MagicMock(return_value=state_response)
+    cloud.mark_scan_as_failed = MagicMock(return_value=True)
+    return cloud
+
+
+def test_results_refused_because_the_user_cancelled_the_scan_are_discarded(monkeypatch, caplog):
+    """A user cancelled the scan while it ran: the refusal is expected, not a send failure on
+    Soda's side. The scan is not marked failed and the run keeps its check outcome."""
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    cloud = _invalid_scan_state_cloud("canceled")
+
+    results = [_make_result(label="alpha"), _make_result(label="beta")]
+    with caplog.at_level(logging.INFO):
+        out = cloud.send_check_collection_results(results=results, wire_source="soda-contract")
+
+    assert out is None
+    cloud._get_scan_status.assert_called_once_with("scan-123")
+    cloud.mark_scan_as_failed.assert_not_called()
+    assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
+    assert all(r.results_discarded_because_scan_canceled is True for r in results)
+    assert all(r.soda_cloud_rejection_code is None for r in results)
+    assert any(
+        rec.levelno == logging.INFO and "Scan was cancelled in Soda Cloud; results discarded." in rec.getMessage()
+        for rec in caplog.records
+    )
+    assert (
+        ContractVerificationSessionResult(contract_verification_results=results).results_discarded_because_scan_canceled
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    "scan_state",
+    [
+        # A timed-out or failed scan can be Soda's fault: it stays a send failure.
+        "timedOut",
+        "failed",
+        "completed",
+        # The state could not be looked up.
+        None,
+    ],
+)
+def test_invalid_scan_state_on_a_scan_that_was_not_cancelled_stays_a_send_failure(scan_state, monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    cloud = _invalid_scan_state_cloud(scan_state)
+
+    (result,) = [_make_result(label="solo")]
+    cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    assert result.sending_results_to_soda_cloud_failed is True
+    assert result.results_discarded_because_scan_canceled is False
+    assert result.results_rejected_by_soda_cloud is False
+    cloud.mark_scan_as_failed.assert_not_called()
+
+
+def test_invalid_scan_state_without_a_scan_id_stays_a_send_failure(monkeypatch):
+    """An ad-hoc run has no runner-created scan whose state could be looked up."""
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    cloud = _invalid_scan_state_cloud("canceled")
+
+    (result,) = [_make_result(label="solo")]
+    cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    cloud._get_scan_status.assert_not_called()
+    assert result.results_discarded_because_scan_canceled is False
+
+
+def test_scan_state_lookup_that_raises_stays_a_send_failure(monkeypatch):
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    cloud = _invalid_scan_state_cloud("canceled")
+    cloud._get_scan_status.side_effect = RuntimeError("connection reset")
+
+    (result,) = [_make_result(label="solo")]
+    cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    assert result.sending_results_to_soda_cloud_failed is True
+    assert result.results_discarded_because_scan_canceled is False
+
+
+def test_session_discarded_because_cancelled_only_when_every_failed_send_was():
+    cancelled = _make_result(label="alpha")
+    cancelled.sending_results_to_soda_cloud_failed = True
+    cancelled.soda_cloud_scan_canceled = True
+    other_failure = _make_result(label="beta")
+    other_failure.sending_results_to_soda_cloud_failed = True
+
+    assert (
+        ContractVerificationSessionResult(
+            contract_verification_results=[cancelled]
+        ).results_discarded_because_scan_canceled
+        is True
+    )
+    assert (
+        ContractVerificationSessionResult(
+            contract_verification_results=[cancelled, other_failure]
+        ).results_discarded_because_scan_canceled
+        is False
+    )
+    assert (
+        ContractVerificationSessionResult(
+            contract_verification_results=[_make_result(label="gamma")]
+        ).results_discarded_because_scan_canceled
+        is False
     )
 
 
