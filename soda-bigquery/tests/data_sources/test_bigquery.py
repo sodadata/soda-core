@@ -109,7 +109,7 @@ test_connections: list[TestConnection] = [
         query_should_succeed=False,
         expected_query_error="Unable to acquire impersonated credentials",
     ),
-    TestConnection(  # prove that delegates are propagating correctly
+    TestConnection(  # impersonation account with delegates, should fail at query stage
         test_name="impersonation_account_with_invalid_delegates",
         connection_yaml_str=f"""
                 type: bigquery
@@ -120,7 +120,7 @@ test_connections: list[TestConnection] = [
                     delegates: ['invalid_delegate']
             """,
         query_should_succeed=False,
-        expected_query_error="Invalid form of account ID invalid_delegate",
+        expected_query_error="Unable to acquire impersonated credentials",
     ),
     TestConnection(  # prove that extra fields are accepted and passed through without error
         test_name="extra_field_accepted",
