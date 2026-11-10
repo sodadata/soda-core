@@ -399,9 +399,24 @@ class {Name}DataSourceTestHelper(DataSourceTestHelper):
         """
 ```
 
-Then register in `soda-tests/src/helpers/data_source_test_helper.py`'s
-`DataSourceTestHelper.create()` factory — add an `elif` branch for your
-`{name}`.
+Also implement `create_sql_dialects()`. It returns your dialect, built
+without configuration. If the dialect depends on the configuration, return
+one dialect per variant. The arch tests check every dialect it returns.
+
+```python
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [{Name}SqlDialect()]
+```
+
+Then register the helper at the bottom of
+`soda-tests/src/helpers/data_source_test_helper.py`:
+
+```python
+DataSourceTestHelper.register(
+    "{name}", "soda_{name}.test_helpers.{name}_data_source_test_helper:{Name}DataSourceTestHelper"
+)
+```
 
 If your data source has no schema concept, override `_create_schema_name()`
 to return `None`. If it has unusual case rules, override `_adjust_schema_name()`.

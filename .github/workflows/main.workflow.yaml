@@ -75,6 +75,31 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+  arch:
+    name: arch tests
+    # Arch tests check every registered data source's dialect in one run. They never connect, so
+    # this job needs no database, no secrets and no data source lane.
+    if: needs.detect-skip-tests.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    needs: [detect-skip-tests]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: Set up Python 3.10
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.10"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+      # Building the SQL Server family's dialects imports pyodbc, which needs unixODBC's libodbc.
+      - name: Install unixODBC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unixodbc
+      - name: Run arch tests
+        run: |
+          uv sync --locked --all-packages --group dev
+          uv run --locked python -m pytest -ra \
+            -p helpers.sql_dialect_arch_plugin soda-tests/tests/arch
   define-test-matrix:
     if: needs.detect-skip-tests.outputs.skip != 'true'
     runs-on: ubuntu-24.04
@@ -323,8 +348,9 @@ jobs:
     if: |
       always() && !cancelled() && github.ref_name == 'main'
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
+      && (needs.arch.result == 'success' || needs.arch.result == 'skipped')
     runs-on: ubuntu-24.04
-    needs: [test]
+    needs: [test, arch]
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:

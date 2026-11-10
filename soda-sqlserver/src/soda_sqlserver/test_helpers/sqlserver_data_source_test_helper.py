@@ -5,10 +5,15 @@ from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
+from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import SqlServerDataSourceImpl, SqlServerSqlDialect
 
 
 class SqlServerDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [SqlServerSqlDialect()]
+
     def _create_database_name(self) -> Optional[str]:
         return os.getenv("SQLSERVER_DATABASE", "master")
 

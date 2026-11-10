@@ -5,7 +5,9 @@ import os
 
 import boto3
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_dialect import SqlDialect
 
 logger: logging.Logger = soda_logger
 
@@ -22,6 +24,10 @@ ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP")
 
 
 class AthenaDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [AthenaSqlDialect()]
+
     def __init__(self, name: str):
         super().__init__(name)
         self.s3_test_dir = ATHENA_S3_TEST_DIR

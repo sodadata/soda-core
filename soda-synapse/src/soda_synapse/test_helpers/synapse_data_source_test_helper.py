@@ -5,15 +5,20 @@ import os
 from typing import Optional
 
 from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
 from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import SqlServerDataSourceTestHelper
-from soda_synapse.common.data_sources.synapse_data_source import SynapseDataSourceImpl
+from soda_synapse.common.data_sources.synapse_data_source import SynapseDataSourceImpl, SynapseSqlDialect
 
 logger = logging.getLogger(__name__)
 
 
 class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [SynapseSqlDialect()]
+
     def _create_database_name(self) -> Optional[str]:
         return os.getenv("SYNAPSE_DATABASE", "sodatestingsynapse")
 

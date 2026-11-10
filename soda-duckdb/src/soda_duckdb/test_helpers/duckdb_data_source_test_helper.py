@@ -5,9 +5,15 @@ import tempfile
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_dialect import SqlDialect
+from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBSqlDialect
 
 
 class DuckdbDataSourceTestHelper(DataSourceTestHelper):
+    @classmethod
+    def create_sql_dialects(cls) -> list[SqlDialect]:
+        return [DuckDBSqlDialect()]
+
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
