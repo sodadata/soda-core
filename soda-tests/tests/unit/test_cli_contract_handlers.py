@@ -62,6 +62,49 @@ def test_handle_verify_contract_exit_codes(
     assert exit_code == expected_exit_code
 
 
+@pytest.mark.parametrize(
+    "discarded_because_cancelled, expected_exit_code",
+    [
+        (True, ExitCode.CHECK_FAILURES),
+        (False, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+    ],
+)
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_scan_cancelled_by_user_exit_code(
+    mock_execute, mock_cloud_client, discarded_because_cancelled, expected_exit_code
+):
+    """Results Soda Cloud refused because the user cancelled the scan exit with the check
+    outcome; any other send failure stays exit 4."""
+    mock_contract_result = MagicMock()
+    mock_contract_result.sending_results_to_soda_cloud_failed = True
+
+    mock_result = MagicMock()
+    type(mock_result).has_errors = PropertyMock(return_value=False)
+    type(mock_result).is_failed = PropertyMock(return_value=True)
+    type(mock_result).is_warned = PropertyMock(return_value=False)
+    type(mock_result).results_discarded_because_scan_canceled = PropertyMock(return_value=discarded_because_cancelled)
+    mock_result.contract_verification_results = [mock_contract_result]
+    mock_execute.return_value = mock_result
+
+    exit_code = handle_verify_contract(
+        contract_file_path="contract.yaml",
+        dataset_identifier=None,
+        data_source_file_paths=["ds.yaml"],
+        soda_cloud_file_path="sc.yaml",
+        variables={},
+        publish=True,
+        verbose=False,
+        use_runner=False,
+        blocking_timeout_in_minutes=10,
+        check_paths=None,
+        check_selectors=[],
+        diagnostics_warehouse_file_path=None,
+    )
+
+    assert exit_code == expected_exit_code
+
+
 def _run_handle_verify_contract():
     # Mirrors the cli.py verify wiring: resolve the reporting channel first, then wrap
     # the bare command in run_scan (the single Cloud-marking site).

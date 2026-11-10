@@ -337,6 +337,22 @@ def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[st
     return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
 
 
+# The response code Soda Cloud gives when a request would change a scan that is already in a final
+# state. Every final state produces it, so on its own it says nothing about who ended the scan.
+INVALID_SCAN_STATE_CODE = "invalid_scan_state"
+
+
+def _is_invalid_scan_state_rejection(response: Optional[Response]) -> bool:
+    """Whether Soda Cloud rejected a request with a 400 ``invalid_scan_state``."""
+    if response is None or response.status_code != 400:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    return isinstance(body, dict) and body.get("code") == INVALID_SCAN_STATE_CODE
+
+
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 
@@ -630,6 +646,15 @@ class SodaCloud:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
                 return response_json
+        if self._results_rejected_because_scan_canceled(response):
+            # The user cancelled the scan in Soda Cloud while it ran. Nothing failed: the results
+            # are discarded as the user meant, and the scan needs no failure mark (Soda Cloud
+            # ignores one on a final-state scan anyway).
+            logger.info("Scan was cancelled in Soda Cloud; results discarded.")
+            for r in results:
+                r.sending_results_to_soda_cloud_failed = True
+                r.soda_cloud_scan_canceled = True
+            return None
         # Only recorded here: the session executor raises it once every file is done (see
         # ``ResultsRejectedBySodaCloudException``).
         rejection_code: Optional[str] = _customer_caused_rejection_code(response)
@@ -637,6 +662,31 @@ class SodaCloud:
             r.sending_results_to_soda_cloud_failed = True
             r.soda_cloud_rejection_code = rejection_code
         return None
+
+    def _results_rejected_because_scan_canceled(self, response: Optional[Response]) -> bool:
+        """Whether Soda Cloud rejected the results upload because the runner-created scan
+        (``SODA_SCAN_ID``) was cancelled in Soda Cloud.
+
+        ``invalid_scan_state`` comes back for every final state, so the scan's state is looked up
+        rather than read from the error message. Only ``CANCELED`` counts: a scan that timed out
+        or failed can be Soda's fault and stays a send failure. So does anything that can't be
+        confirmed: an ad-hoc run without a scan id, or a state lookup that fails.
+        """
+        if not _is_invalid_scan_state_rejection(response):
+            return False
+        scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
+        if not scan_id:
+            return False
+        try:
+            state_response: Optional[Response] = self._get_scan_status(scan_id)
+        except Exception as e:
+            logger.warning(f"Could not look up the state of scan {scan_id} in Soda Cloud: {e}")
+            return False
+        if state_response is None or not state_response.ok:
+            return False
+        state_body: Optional[dict] = _parse_json_dict(state_response)
+        state_value = state_body.get("state") if state_body else None
+        return state_value == RemoteScanStatus.CANCELED.value_
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
         command_json_dict: dict = {

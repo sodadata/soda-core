@@ -191,6 +191,10 @@ class CheckCollectionResult:
     # attribute the organization does not have. None when the upload was accepted, never
     # attempted, or rejected for any other reason.
     soda_cloud_rejection_code: Optional[str] = None
+    # True when Soda Cloud refused this result's upload because the user cancelled the
+    # runner-created scan while it ran. The results are discarded on purpose, so the run exits
+    # with its check outcome rather than ``RESULTS_NOT_SENT_TO_CLOUD``.
+    soda_cloud_scan_canceled: bool = False
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -219,6 +223,11 @@ class CheckCollectionResult:
         """True when the upload failed only because Soda Cloud rejected it for a customer-caused
         reason, such as an unknown check attribute."""
         return self.sending_results_to_soda_cloud_failed and self.soda_cloud_rejection_code is not None
+
+    @property
+    def results_discarded_because_scan_canceled(self) -> bool:
+        """True when the upload failed only because the user cancelled the scan in Soda Cloud."""
+        return self.sending_results_to_soda_cloud_failed and self.soda_cloud_scan_canceled
 
     @property
     def errored_without_results(self) -> bool:
@@ -392,6 +401,14 @@ class CheckCollectionSessionResult:
         for a customer-caused reason. A single failure of any other kind makes this False."""
         failed = [r for r in self.results if r.sending_results_to_soda_cloud_failed]
         return bool(failed) and all(r.results_rejected_by_soda_cloud for r in failed)
+
+    @property
+    def results_discarded_because_scan_canceled(self) -> bool:
+        """True if some per-file result failed to send and every one that did was refused because
+        the user cancelled the scan in Soda Cloud. A single failure of any other kind makes this
+        False."""
+        failed = [r for r in self.results if r.sending_results_to_soda_cloud_failed]
+        return bool(failed) and all(r.results_discarded_because_scan_canceled for r in failed)
 
 
 class CheckCollectionYaml:
