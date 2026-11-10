@@ -286,10 +286,7 @@ def test_send_check_collection_results_marks_all_failed_on_non_200():
         (500, "resource_attribute_not_found", None),
     ],
 )
-def test_send_check_collection_results_records_customer_caused_rejection(
-    status_code, code, expected_rejection_code, monkeypatch
-):
-    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+def test_send_check_collection_results_records_customer_caused_rejection(status_code, code, expected_rejection_code):
     cloud = SodaCloud.__new__(SodaCloud)
     response = MagicMock()
     response.status_code = status_code
@@ -305,9 +302,9 @@ def test_send_check_collection_results_records_customer_caused_rejection(
     assert all(r.results_rejected_by_soda_cloud is (expected_rejection_code is not None) for r in results)
 
 
-def test_customer_caused_rejection_marks_the_managed_scan_failed(monkeypatch):
-    """On a runner-created scan the rejection is reported to the scan, with the run's logs, so
-    exit 3 means what it always means: the failure reached Soda Cloud."""
+def test_customer_caused_rejection_is_only_recorded_by_the_client(monkeypatch):
+    """The client records the rejection and reports nothing itself: the session executor raises
+    it, and the CLI marks the runner-created scan failed, as for any other failure."""
     monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
     cloud = SodaCloud.__new__(SodaCloud)
     response = MagicMock()
@@ -319,28 +316,9 @@ def test_customer_caused_rejection_marks_the_managed_scan_failed(monkeypatch):
     (result,) = [_make_result(label="solo")]
     cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
 
-    cloud.mark_scan_as_failed.assert_called_once()
-    assert cloud.mark_scan_as_failed.call_args.kwargs["scan_id"] == "scan-123"
+    cloud.mark_scan_as_failed.assert_not_called()
     assert result.soda_cloud_rejection_code == "resource_attribute_not_found"
     assert result.results_rejected_by_soda_cloud is True
-
-
-def test_customer_caused_rejection_is_a_send_failure_when_the_scan_cannot_be_marked(monkeypatch):
-    """If Soda Cloud refuses the mark too, nothing about the failure reached it: keep exit 4."""
-    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
-    cloud = SodaCloud.__new__(SodaCloud)
-    response = MagicMock()
-    response.status_code = 400
-    response.json.return_value = {"code": "resource_attribute_not_found"}
-    cloud._execute_command = MagicMock(return_value=response)
-    cloud.mark_scan_as_failed = MagicMock(return_value=False)
-
-    (result,) = [_make_result(label="solo")]
-    cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
-
-    assert result.sending_results_to_soda_cloud_failed is True
-    assert result.soda_cloud_rejection_code is None
-    assert result.results_rejected_by_soda_cloud is False
 
 
 def test_send_check_collection_results_non_json_400_is_not_a_customer_rejection():

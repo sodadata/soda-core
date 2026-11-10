@@ -25,7 +25,7 @@ from soda_core.check_collections.base import (
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
-from soda_core.common.exceptions import InvalidArgumentException
+from soda_core.common.exceptions import InvalidArgumentException, ResultsRejectedBySodaCloudException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs, preserve_active_logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -430,7 +430,23 @@ def execute_check_collections(
                         contract_verification_handler=handler,
                     )
 
-    return CheckCollectionSessionResult(results, session_log_records=pre_session_records)
+    session_result = CheckCollectionSessionResult(results, session_log_records=pre_session_records)
+    _raise_if_results_rejected_by_soda_cloud(session_result)
+    return session_result
+
+
+def _raise_if_results_rejected_by_soda_cloud(session_result: CheckCollectionSessionResult) -> None:
+    """Raise ``ResultsRejectedBySodaCloudException`` when Soda Cloud rejected every failed results
+    upload of the session for a customer-caused reason. Runs after the uploads and the
+    post-processing handlers, so both still happen for every file. A session with any other
+    send failure returns normally and keeps reporting it through
+    ``sending_results_to_soda_cloud_failed``."""
+    if not session_result.results_rejected_by_soda_cloud:
+        return
+    rejection_codes: list[str] = sorted(
+        {r.soda_cloud_rejection_code for r in session_result.results if r.soda_cloud_rejection_code}
+    )
+    raise ResultsRejectedBySodaCloudException(session_result=session_result, rejection_codes=rejection_codes)
 
 
 def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
