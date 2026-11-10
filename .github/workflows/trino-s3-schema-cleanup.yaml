@@ -39,7 +39,7 @@ jobs:
       TEST_DATASOURCE: trino
       TRINO_CATALOG: iceberg
       SODA_TEST_SNAPSHOT: "off"
-      SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
+      SODA_CORE_TELEMETRY_TEST_MODE: "true"
       SODA_SCHEMA_CLEANUP_FORCE: "true"
       SODA_SCHEMA_CLEANUP_DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
     steps:
