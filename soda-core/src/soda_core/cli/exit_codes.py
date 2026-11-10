@@ -11,8 +11,10 @@ class ExitCode(IntEnum):
     3: errors occurred during execution (e.g. parse or engine errors)
     4: results could not be sent to Soda Cloud
 
-    A run whose results Soda Cloud refused only because the user cancelled the scan exits with
-    its check outcome (0, 1, 2 or 3): the results were discarded on purpose.
+    A contract verification whose results Soda Cloud refused only because the user cancelled the
+    scan exits with its check outcome (0, 1, 2 or 3): the results were discarded on purpose. Other
+    runs that publish to Soda Cloud, such as ``soda data-source discover``, do not detect a
+    cancelled scan and still exit 4 when Soda Cloud refuses their results.
     """
 
     OK = 0
