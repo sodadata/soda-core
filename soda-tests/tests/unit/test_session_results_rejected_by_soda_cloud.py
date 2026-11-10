@@ -93,8 +93,9 @@ class _StubSource:
 
 @pytest.mark.parametrize("labels", [["rejected"], ["rejected", "sent"]])
 def test_session_raises_when_every_failed_upload_was_rejected(labels):
+    sources = [_StubSource(label) for label in labels]
     with pytest.raises(ResultsRejectedBySodaCloudException) as exc_info:
-        execute_check_collections(yaml_sources=[_StubSource(label) for label in labels], data_source_impl=None)
+        execute_check_collections(yaml_sources=sources, data_source_impl=None)
 
     exc = exc_info.value
     # The CLI failure boundary handles it like any other expected failure.
