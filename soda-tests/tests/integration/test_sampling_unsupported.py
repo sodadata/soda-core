@@ -17,6 +17,7 @@ reports natively. Nothing here asserted the guard before; it was covered only by
 from unittest import mock
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO, TestRowSamplerConfigurationDTO
 
@@ -32,7 +33,9 @@ test_table_specification = (
 
 def _request_sampling(data_source_test_helper: DataSourceTestHelper, test_table) -> None:
     """Configure a sampler the way Cloud does, so `should_apply_sampling` is genuinely derived."""
-    data_source_test_helper.enable_soda_cloud_mock()
+    data_source_test_helper.enable_soda_cloud_mock(
+        [MockResponse(status_code=200, json_object={"fileId": "sampling-unsupported-file-id"})]
+    )
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,
         dataset_configuration_dto=DatasetConfigurationDTO(
