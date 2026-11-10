@@ -26,6 +26,8 @@ class SodaTelemetry:
     """
 
     ENDPOINT = "https://collect.soda.io/v1/traces"
+    # OTLP's 10 s default, spent twice by its one connection retry, holds each exit for 20 s when the collector is unreachable.
+    EXPORT_TIMEOUT_SECONDS = 2
     __instance = None
 
     def __new__(cls):
@@ -68,7 +70,7 @@ class SodaTelemetry:
             self.__provider.add_span_processor(BatchSpanProcessor(SodaConsoleSpanExporter()))
 
         if not local_debug_mode:
-            otlp_exporter = SodaOTLPSpanExporter(endpoint=self.ENDPOINT)
+            otlp_exporter = SodaOTLPSpanExporter(endpoint=self.ENDPOINT, timeout=self.EXPORT_TIMEOUT_SECONDS)
             otlp_processor = BatchSpanProcessor(otlp_exporter)
             self.__provider.add_span_processor(otlp_processor)
 
