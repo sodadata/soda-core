@@ -87,23 +87,20 @@ class SchemaCheckImpl(CheckImpl):
 
         logger.info(f"Found {len(contract_impl.column_impls)} columns in {contract_impl.display_name}.")
 
-        self.expected_columns: list[ColumnMetadata] = [
-            ColumnMetadata(
-                column_name=column_impl.column_yaml.name,
-                sql_data_type=(
-                    SqlDataType(
-                        name=column_impl.column_yaml.data_type,
-                        character_maximum_length=column_impl.column_yaml.character_maximum_length,
-                        numeric_precision=column_impl.column_yaml.numeric_precision,
-                        numeric_scale=column_impl.column_yaml.numeric_scale,
-                        datetime_precision=column_impl.column_yaml.datetime_precision,
-                    )
-                    if column_impl.column_yaml.data_type
-                    else None
-                ),
+        self.expected_columns: dict[str, Optional[SqlDataType]] = {
+            column_impl.column_yaml.name: (
+                SqlDataType(
+                    name=column_impl.column_yaml.data_type,
+                    character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                    numeric_precision=column_impl.column_yaml.numeric_precision,
+                    numeric_scale=column_impl.column_yaml.numeric_scale,
+                    datetime_precision=column_impl.column_yaml.datetime_precision,
+                )
+                if column_impl.column_yaml.data_type
+                else None
             )
             for column_impl in contract_impl.column_impls
-        ]
+        }
         logger.info(f"Built {len(self.expected_columns)} expected columns from {contract_impl.display_name}.")
         self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
         self.allow_other_column_order: bool = bool(check_yaml.allow_other_column_order)
@@ -160,12 +157,9 @@ class SchemaCheckImpl(CheckImpl):
             actual_column_metadata_by_name: dict[str, ColumnMetadata] = {
                 actual_column.column_name: actual_column for actual_column in actual_columns
             }
-            expected_column_names: list[str] = [
-                expected_column.column_name for expected_column in self.expected_columns
-            ]
 
             logger.info("Starting to check for missing columns.")
-            for expected_column in expected_column_names:
+            for expected_column in self.expected_columns:
                 if expected_column not in actual_column_names:
                     expected_column_names_not_actual.append(expected_column)
             logger.info(f"Found {len(expected_column_names_not_actual)} missing columns.")
@@ -173,38 +167,40 @@ class SchemaCheckImpl(CheckImpl):
             if not self.allow_extra_columns:
                 logger.info("Starting to check for extra columns.")
                 for actual_column_name in actual_column_names:
-                    if actual_column_name not in expected_column_names:
+                    if actual_column_name not in self.expected_columns:
                         actual_column_names_not_expected.append(actual_column_name)
                 logger.info(f"Found {len(actual_column_names_not_expected)} extra columns.")
 
             logger.info("Starting to check for data type mismatches.")
-            for expected_column in self.expected_columns:
-                actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
+            for expected_column_name, expected_data_type in self.expected_columns.items():
+                actual_column_metadata: Optional[ColumnMetadata] = actual_column_metadata_by_name.get(
+                    expected_column_name
+                )
                 # Assume by default that the data types are the same
                 is_same_data_type: bool = True
                 try:
-                    if actual_column_metadata and expected_column.sql_data_type:
+                    if actual_column_metadata and expected_data_type:
                         is_same_data_type: bool = (
                             self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
-                                expected=expected_column.sql_data_type,
+                                expected=expected_data_type,
                                 actual=actual_column_metadata.sql_data_type,
                             )
                         )
                 except Exception as e:
                     logger.error(
-                        f"Error checking for data type mismatch between column {expected_column.column_name} and actual column {actual_column_metadata.column_name}: {e}"
+                        f"Error checking for data type mismatch between column {expected_column_name} and actual column {actual_column_metadata.column_name}: {e}"
                     )
-                    logger.error(f"Skipping column {expected_column.column_name}.")
+                    logger.error(f"Skipping column {expected_column_name}.")
                     continue
                 if not is_same_data_type:
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
-                            column=expected_column.column_name,
-                            expected_data_type=expected_column.sql_data_type.name,
-                            expected_character_maximum_length=expected_column.sql_data_type.character_maximum_length,
-                            expected_numeric_precision=expected_column.sql_data_type.numeric_precision,
-                            expected_numeric_scale=expected_column.sql_data_type.numeric_scale,
-                            expected_datetime_precision=expected_column.sql_data_type.datetime_precision,
+                            column=expected_column_name,
+                            expected_data_type=expected_data_type.name,
+                            expected_character_maximum_length=expected_data_type.character_maximum_length,
+                            expected_numeric_precision=expected_data_type.numeric_precision,
+                            expected_numeric_scale=expected_data_type.numeric_scale,
+                            expected_datetime_precision=expected_data_type.datetime_precision,
                             actual_data_type=actual_column_metadata.sql_data_type.name,
                             actual_character_maximum_length=actual_column_metadata.sql_data_type.character_maximum_length,
                             actual_numeric_precision=actual_column_metadata.sql_data_type.numeric_precision,
@@ -218,9 +214,9 @@ class SchemaCheckImpl(CheckImpl):
                 logger.info("Starting to check for columns out of order.")
                 try:
                     previous_index: int = 0
-                    for actual_column_name in actual_column_names:
-                        if actual_column_name in expected_column_names:
-                            index: int = expected_column_names.index(actual_column_name)
+                    for expected_column_name in self.expected_columns:
+                        if expected_column_name in actual_column_names:
+                            index: int = actual_column_names.index(expected_column_name)
                             if index < previous_index:
                                 are_columns_out_of_order = True
                             previous_index = index
@@ -307,7 +303,7 @@ class SchemaCheckResult(CheckResult):
         self,
         check: Check,
         outcome: CheckOutcome,
-        expected_columns: list[ColumnMetadata],
+        expected_columns: dict[str, Optional[SqlDataType]],
         actual_columns: list[ColumnMetadata],
         expected_column_names_not_actual: list[str],
         actual_column_names_not_expected: list[str],
@@ -330,7 +326,7 @@ class SchemaCheckResult(CheckResult):
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
-        self.expected_columns: list[ColumnMetadata] = expected_columns
+        self.expected_columns: dict[str, Optional[SqlDataType]] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected

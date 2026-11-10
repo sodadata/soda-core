@@ -365,22 +365,20 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     # for any unbounded VARCHAR / TEXT column in INFORMATION_SCHEMA.COLUMNS.
     _UNBOUNDED_VARCHAR_LENGTH = 16777216
 
-    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
-        column_metadatas = super().build_column_metadatas_from_query_result(query_result)
-        for cm in column_metadatas:
-            # Snowflake reports unbounded VARCHAR / TEXT columns with
-            # CHARACTER_MAXIMUM_LENGTH=16777216 in INFORMATION_SCHEMA — its native
-            # max. Normalize that to canonical TEXT (no length) so consumers of
-            # this column metadata see a length-less TEXT type rather than a
-            # literal VARCHAR(16777216) that some dialects can't represent.
-            if (
-                cm.sql_data_type is not None
-                and cm.sql_data_type.name.lower() in ("varchar", "char", "text", "string")
-                and cm.sql_data_type.character_maximum_length == self._UNBOUNDED_VARCHAR_LENGTH
-            ):
-                cm.sql_data_type.name = "text"
-                cm.sql_data_type.character_maximum_length = None
-        return column_metadatas
+    def normalize_column_metadata(self, column_metadata: ColumnMetadata, row: tuple, columns: tuple[tuple]) -> None:
+        super().normalize_column_metadata(column_metadata, row, columns)
+        # Snowflake reports unbounded VARCHAR / TEXT columns with
+        # CHARACTER_MAXIMUM_LENGTH=16777216 in INFORMATION_SCHEMA — its native
+        # max. Normalize that to canonical TEXT (no length) so consumers of
+        # this column metadata see a length-less TEXT type rather than a
+        # literal VARCHAR(16777216) that some dialects can't represent.
+        if (
+            column_metadata.sql_data_type is not None
+            and column_metadata.sql_data_type.name.lower() in ("varchar", "char", "text", "string")
+            and column_metadata.sql_data_type.character_maximum_length == self._UNBOUNDED_VARCHAR_LENGTH
+        ):
+            column_metadata.sql_data_type.name = "text"
+            column_metadata.sql_data_type.character_maximum_length = None
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type in (SamplerType.ABSOLUTE_LIMIT, SamplerType.PERCENTAGE)

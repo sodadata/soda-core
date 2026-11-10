@@ -89,8 +89,7 @@ class SqlDataType:
 class ColumnMetadata:
     column_name: str
 
-    # Can be None in case of schema check expected columns
-    # without data type expectations
+    # Can be None when the data source cannot resolve a column's native type.
     sql_data_type: Optional[SqlDataType] = None
 
     # False both for non-key columns and for data sources that don't introspect primary keys.
@@ -99,6 +98,10 @@ class ColumnMetadata:
     # The type as the data source's metadata spells it, before sql_data_type normalises its case,
     # parameters and names. Only columns read from the data source's metadata carry it.
     source_data_type: Optional[str] = field(default=None, compare=False)
+
+    # The Soda data type the dialect maps sql_data_type to, or None when it maps to none, so consumers need no dialect
+    # to know what kind of values a column holds.
+    soda_data_type: Optional[SodaDataTypeName] = None
 
 
 class SodaDataTypeName(str, enum.Enum):

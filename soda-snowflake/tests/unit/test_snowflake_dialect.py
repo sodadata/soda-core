@@ -1,5 +1,6 @@
 import pytest
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR, SamplerType
 from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSqlDialect
 
@@ -75,6 +76,7 @@ def test_unbounded_varchar_normalised_to_text_without_length():
     metadatas = _build_metadatas([("note", "varchar", 16777216, None, None, None)])
     assert metadatas[0].sql_data_type.name == "text"
     assert metadatas[0].sql_data_type.character_maximum_length is None
+    assert metadatas[0].soda_data_type == SodaDataTypeName.TEXT
 
 
 def test_unbounded_text_normalised_to_text_without_length():
@@ -101,8 +103,6 @@ def test_non_text_types_unaffected():
 
 
 def test_reverse_map_defensive_string_aliases():
-    from soda_core.common.metadata_types import SodaDataTypeName
-
     dialect = SnowflakeSqlDialect()
     reverse_map = dialect.get_soda_data_type_name_by_data_source_data_type_names()
     assert reverse_map["nchar"] == SodaDataTypeName.CHAR

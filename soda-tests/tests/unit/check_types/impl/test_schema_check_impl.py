@@ -53,11 +53,10 @@ def test_schema_expected_columns_from_contract():
     """
     check = get_check_impl(contract_yaml)
     assert isinstance(check, SchemaCheckImpl)
-    expected_names = [col.column_name for col in check.expected_columns]
-    assert expected_names == ["id", "email", "score"]
-    assert check.expected_columns[0].sql_data_type.name == "integer"
-    assert check.expected_columns[1].sql_data_type.name == "character varying"
-    assert check.expected_columns[2].sql_data_type.name == "numeric"
+    assert list(check.expected_columns) == ["id", "email", "score"]
+    assert check.expected_columns["id"].name == "integer"
+    assert check.expected_columns["email"].name == "character varying"
+    assert check.expected_columns["score"].name == "numeric"
 
 
 def test_schema_expected_columns_with_character_length():
@@ -72,7 +71,21 @@ def test_schema_expected_columns_with_character_length():
       - schema:
     """
     check = get_check_impl(contract_yaml)
-    assert check.expected_columns[0].sql_data_type.character_maximum_length == 10
+    assert check.expected_columns["zip_code"].character_maximum_length == 10
+
+
+def test_schema_expected_column_without_data_type_is_none():
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: value
+    checks:
+      - schema:
+    """
+
+    check = get_check_impl(contract_yaml)
+
+    assert check.expected_columns == {"value": None}
 
 
 def _build_schema_measurement_values(check: SchemaCheckImpl, actual_columns: list[ColumnMetadata]) -> MeasurementValues:
@@ -220,8 +233,8 @@ def test_schema_expected_columns_with_numeric_precision():
       - schema:
     """
     check = get_check_impl(contract_yaml)
-    assert check.expected_columns[0].sql_data_type.numeric_precision == 10
-    assert check.expected_columns[0].sql_data_type.numeric_scale == 2
+    assert check.expected_columns["score"].numeric_precision == 10
+    assert check.expected_columns["score"].numeric_scale == 2
 
 
 def test_schema_expected_columns_with_datetime_precision():
@@ -236,7 +249,7 @@ def test_schema_expected_columns_with_datetime_precision():
       - schema:
     """
     check = get_check_impl(contract_yaml)
-    assert check.expected_columns[0].sql_data_type.datetime_precision == 6
+    assert check.expected_columns["created_at"].datetime_precision == 6
 
 
 def test_schema_evaluate_schema_events_count():
