@@ -23,8 +23,10 @@ def test_soda_otlp_exporter_forwards_arguments_by_name():
     )
 
 
-def test_real_otlp_exporter_gets_the_timeout():
-    exporter = SodaOTLPSpanExporter(endpoint="https://collector.example/v1/traces", timeout=2)
-
-    assert exporter._timeout == 2
-    assert exporter._client_cert is None
+def test_real_otlp_exporter_accepts_the_arguments():
+    # Builds the real exporter, so a keyword OTel doesn't take fails here. No private attributes: they differ between OTel versions.
+    SodaOTLPSpanExporter(
+        endpoint="https://collector.example/v1/traces",
+        headers={"h": "v"},
+        timeout=SodaTelemetry.EXPORT_TIMEOUT_SECONDS,
+    )
