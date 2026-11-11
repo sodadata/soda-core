@@ -186,6 +186,11 @@ class CheckCollectionResult:
     number_of_scopes: int = 0
     number_of_scoped_checks: int = 0
     number_of_unscoped_checks: int = 0
+    # The response code Soda Cloud gave when it rejected this result's upload with a reason the
+    # customer caused (see ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``), for example a check
+    # attribute the organization does not have. None when the upload was accepted, never
+    # attempted, or rejected for any other reason.
+    soda_cloud_rejection_code: Optional[str] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records] if self.log_records else []
@@ -208,6 +213,12 @@ class CheckCollectionResult:
     @property
     def has_errors(self) -> bool:
         return self.status is CheckCollectionStatus.ERROR
+
+    @property
+    def results_rejected_by_soda_cloud(self) -> bool:
+        """True when the upload failed only because Soda Cloud rejected it for a customer-caused
+        reason, such as an unknown check attribute."""
+        return self.sending_results_to_soda_cloud_failed and self.soda_cloud_rejection_code is not None
 
     @property
     def errored_without_results(self) -> bool:
@@ -374,6 +385,13 @@ class CheckCollectionSessionResult:
     def sending_results_to_soda_cloud_failed(self) -> bool:
         """True if any per-file result failed to send to Soda Cloud."""
         return any(r.sending_results_to_soda_cloud_failed for r in self.results)
+
+    @property
+    def results_rejected_by_soda_cloud(self) -> bool:
+        """True if some per-file result failed to send and every one that did was rejected by Soda Cloud
+        for a customer-caused reason. A single failure of any other kind makes this False."""
+        failed = [r for r in self.results if r.sending_results_to_soda_cloud_failed]
+        return bool(failed) and all(r.results_rejected_by_soda_cloud for r in failed)
 
 
 class CheckCollectionYaml:
