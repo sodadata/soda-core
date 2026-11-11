@@ -1,56 +1,26 @@
 from __future__ import annotations
 
-import ast
-import inspect
 import logging
-import textwrap
+from contextvars import ContextVar
 from functools import wraps
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.context import Context
 from opentelemetry.trace.span import Span
 from opentelemetry.trace.status import Status, StatusCode
 from soda_core.cli.exit_codes import OK_CODES, ExitCode
-
-trace_context_propagator = TraceContextTextMapPropagator()
-trace_context_carrier = {}
+from soda_core.common.env_config_helper import EnvConfigHelper
 
 tracer = trace.get_tracer_provider().get_tracer(__name__)
+_in_soda_span: ContextVar[bool] = ContextVar("in_soda_span", default=False)
+# Read once at import, as SodaTelemetry does.
+_telemetry_enabled: bool = EnvConfigHelper().soda_core_telemetry_enabled
 
 
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
-
-
-def get_decorators(function):
-    decorators = {}
-
-    def visit_function_def(node):
-        decorators[node.name] = {}
-        for n in node.decorator_list:
-            name = ""
-            if isinstance(n, ast.Call):
-                group = n.func.value.id
-                name = n.func.attr if isinstance(n.func, ast.Attribute) else n.func.id
-
-                for a in n.args:
-                    print(ast.dump(a))
-            else:
-                group = n.attr if isinstance(n, ast.Attribute) else n.id
-                name = None
-
-            if group not in decorators[node.name]:
-                decorators[node.name][group] = []
-
-            if name:
-                decorators[node.name][group].append({name})
-
-    node_iter = ast.NodeVisitor()
-    node_iter.visit_function_def = visit_function_def
-    node_iter.visit(ast.parse(textwrap.dedent(inspect.getsource(function))))
-    return decorators
 
 
 def soda_trace(fn: callable):
@@ -61,17 +31,34 @@ def soda_trace(fn: callable):
                 if ExitCode(code) in OK_CODES:
                     span.set_status(Status(StatusCode.OK))
                 else:
-                    span.set_status(Status(StatusCode.ERROR, str(error)))
+                    span.set_status(Status(StatusCode.ERROR, str(code)))
             except (ValueError, TypeError):
-                span.set_status(Status(StatusCode.ERROR, str(error)))
+                # The type only: exception messages name files, datasets and hosts.
+                span.set_status(Status(StatusCode.ERROR, type(error).__name__))
         else:
             span.set_status(Status(StatusCode.OK))
 
     @wraps(fn)
     def wrapper(*original_args, **original_kwargs):
-        ctx = trace_context_propagator.extract(carrier=trace_context_carrier)
-        with tracer.start_as_current_span(f"{fn.__module__}.{fn.__name__}", context=ctx) as span:
-            trace_context_propagator.inject(carrier=trace_context_carrier)
+        # Opted out: no span at all, or it would reach a tracer provider the caller set up.
+        # One span per command: an API that the CLI or another API calls adds to the open span.
+        if not _telemetry_enabled or _in_soda_span.get():
+            return fn(*original_args, **original_kwargs)
+        token = _in_soda_span.set(True)
+        try:
+            return _traced(*original_args, **original_kwargs)
+        finally:
+            _in_soda_span.reset(token)
+
+    def _traced(*original_args, **original_kwargs):
+        with tracer.start_as_current_span(
+            f"{fn.__module__}.{fn.__name__}",
+            # A fresh root, so a caller's own span never becomes the parent of a span sent to Soda.
+            context=Context(),
+            # OTel would otherwise send the exception message and stack trace.
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as span:
             result = None
             try:
                 result = fn(*original_args, **original_kwargs)
