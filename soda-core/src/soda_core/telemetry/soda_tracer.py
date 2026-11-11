@@ -10,9 +10,12 @@ from opentelemetry.context import Context
 from opentelemetry.trace.span import Span
 from opentelemetry.trace.status import Status, StatusCode
 from soda_core.cli.exit_codes import OK_CODES, ExitCode
+from soda_core.common.env_config_helper import EnvConfigHelper
 
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 _in_soda_span: ContextVar[bool] = ContextVar("in_soda_span", default=False)
+# Read once at import, as SodaTelemetry does.
+_telemetry_enabled: bool = EnvConfigHelper().soda_core_telemetry_enabled
 
 
 from soda_core.common.logging_constants import soda_logger
@@ -37,8 +40,9 @@ def soda_trace(fn: callable):
 
     @wraps(fn)
     def wrapper(*original_args, **original_kwargs):
+        # Opted out: no span at all, or it would reach a tracer provider the caller set up.
         # One span per command: an API that the CLI or another API calls adds to the open span.
-        if _in_soda_span.get():
+        if not _telemetry_enabled or _in_soda_span.get():
             return fn(*original_args, **original_kwargs)
         token = _in_soda_span.set(True)
         try:

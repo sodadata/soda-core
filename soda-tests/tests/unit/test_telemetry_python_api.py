@@ -102,3 +102,39 @@ def test_each_python_api_call_sends_one_span_without_names(tmp_path):
     sent: str = json.dumps([first, second, failed, in_caller])
     for name in ("secret_ds", "secret_orders", "secret_folder", str(tmp_path)):
         assert name not in sent
+
+
+OPTED_OUT_CHILD_SCRIPT: str = """
+import json, sys
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from soda_core.contracts.api import verify_contract_locally
+
+exporter = InMemorySpanExporter()
+provider = TracerProvider()
+provider.add_span_processor(SimpleSpanProcessor(exporter))
+trace.set_tracer_provider(provider)
+try:
+    verify_contract_locally(data_source_file_path=sys.argv[1], contract_file_path=sys.argv[1])
+except Exception:
+    pass
+print("%s" + json.dumps([span.name for span in exporter.get_finished_spans()]))
+"""
+
+
+def test_opted_out_python_api_call_opens_no_span_in_the_callers_tracer_provider(tmp_path):
+    environment: dict[str, str] = dict(os.environ)
+    environment["SODA_CORE_TELEMETRY_ENABLED"] = "false"
+    environment["PYTHONPATH"] = os.pathsep.join(path for path in sys.path if path)
+    completed = subprocess.run(
+        [sys.executable, "-c", OPTED_OUT_CHILD_SCRIPT % OUTPUT_PREFIX, str(tmp_path / "missing.yml")],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert completed.returncode == 0, completed.stderr
+    [line] = [line for line in completed.stdout.splitlines() if line.startswith(OUTPUT_PREFIX)]
+    assert json.loads(line[len(OUTPUT_PREFIX) :]) == []
