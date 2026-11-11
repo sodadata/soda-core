@@ -43,12 +43,13 @@ class SodaOTLPSpanExporter(OTLPSpanExporter):
         timeout: Optional[int] = None,
         compression: Optional[Compression] = None,
     ):
+        # By keyword: OTLPSpanExporter has client_key_file and client_certificate_file between certificate_file and headers.
         super().__init__(
-            endpoint,
-            certificate_file,
-            headers,
-            timeout,
-            compression,
+            endpoint=endpoint,
+            certificate_file=certificate_file,
+            headers=headers,
+            timeout=timeout,
+            compression=compression,
         )
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
