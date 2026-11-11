@@ -31,7 +31,7 @@ except Exception as e:
 with trace.get_tracer("caller").start_as_current_span("caller_span"):
     verify_contract_locally(data_source_file_path=paths["data_source"], contract_file_path=paths["contract"])
 
-sys.argv = ["soda", "contract", "test", "-c", paths["contract"]]
+sys.argv = ["soda", "contract", "verify", "-c", paths["contract"], "-ds", paths["data_source"]]
 from soda_core.cli.cli import execute
 try:
     execute()
@@ -94,9 +94,10 @@ def test_each_python_api_call_sends_one_span_without_names(tmp_path):
     assert in_caller["parent_id"] is None
     assert in_caller["context"]["trace_id"] != caller["context"]["trace_id"]
 
-    # The CLI keeps one span with the results on it, though test_contract is traced too.
+    # The CLI keeps one span with the results on it, though verify_contract is traced too.
     assert cli["name"] == "soda_core.cli.cli.execute"
-    assert cli["attributes"]["result__checks_count"] == 0
+    assert cli["attributes"]["result__checks_count"] == 1
+    assert cli["attributes"]["result__data_source_type"] == "duckdb"
 
     sent: str = json.dumps([first, second, failed, in_caller])
     for name in ("secret_ds", "secret_orders", "secret_folder", str(tmp_path)):
