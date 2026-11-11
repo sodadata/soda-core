@@ -115,6 +115,10 @@ class SodaTelemetry:
                 "result__unscoped_checks_count": contract_verification_session_result.number_of_unscoped_checks,
             }
         )
+        # The type, never the name: data source names are customer data.
+        results = contract_verification_session_result.results
+        if results and results[0].data_source:
+            self.set_attribute("result__data_source_type", results[0].data_source.type)
 
     def ingest_contract_publication(self, contract_yamls: list["ContractYaml"]) -> None:
         """Counts of the published contracts' scopes and checks, summed, under the names verify and test use.
