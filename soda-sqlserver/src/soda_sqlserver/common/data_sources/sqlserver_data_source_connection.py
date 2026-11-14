@@ -231,8 +231,13 @@ class SqlServerDataSourceConnection(DataSourceConnection):
     # few times before the error is propagated. The pause is drawn uniformly from
     # an exponentially growing window (full jitter) so that the parties of a killed
     # deadlock don't retry in lockstep and immediately deadlock again.
-    DEADLOCK_MAX_ATTEMPTS: int = 3
-    DEADLOCK_RETRY_BACKOFF_SECONDS: float = 0.1
+    # Under snapshot isolation, which Fabric always uses, a statement that reads
+    # an object that another session changed with DDL since the transaction
+    # started fails with error 3961. A catalog scan such as INFORMATION_SCHEMA.TABLES
+    # reads every object in the database, so DDL anywhere in it can trigger this.
+    # Rerunning the statement starts a fresh snapshot, so it is retried the same way.
+    CONFLICT_MAX_ATTEMPTS: int = 3
+    CONFLICT_RETRY_BACKOFF_SECONDS: float = 0.1
 
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         # Set before super().__init__(), which auto-opens the connection and
@@ -243,46 +248,52 @@ class SqlServerDataSourceConnection(DataSourceConnection):
 
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         execute = super().execute_query
-        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+        return self._execute_with_conflict_retry(lambda: execute(sql, log_query))
 
     def execute_update(self, sql: str, log_query: bool = True) -> int:
         execute = super().execute_update
-        return self._execute_with_deadlock_retry(lambda: execute(sql, log_query))
+        return self._execute_with_conflict_retry(lambda: execute(sql, log_query))
 
     @staticmethod
-    def _is_deadlock_error(e: pyodbc.Error) -> bool:
+    def _is_retryable_conflict_error(e: pyodbc.Error) -> bool:
         # pyodbc error args are (sqlstate, message); 40001 is the serialization
         # failure SQLSTATE that SQL Server raises for deadlock victims (1205).
-        return bool(e.args) and e.args[0] == "40001"
+        # The snapshot isolation DDL conflict (3961) comes with the generic SQLSTATE
+        # 42000, so it is recognised by the native error number in the message.
+        if not e.args:
+            return False
+        if e.args[0] == "40001":
+            return True
+        return e.args[0] == "42000" and len(e.args) > 1 and "(3961)" in str(e.args[1])
 
     @staticmethod
     def _is_login_failed_error(e: pyodbc.Error) -> bool:
         # 28000 is the invalid authorization SQLSTATE that SQL Server raises for a rejected login (18456).
         return bool(e.args) and e.args[0] == "28000"
 
-    def _execute_with_deadlock_retry(self, operation: Callable[[], T]) -> T:
+    def _execute_with_conflict_retry(self, operation: Callable[[], T]) -> T:
         """Assumes ``operation`` is a single-statement unit of work: recovery
         issues a connection-wide rollback, discarding any earlier uncommitted
         statements on this connection (SQL Server runs autocommit=False).
         Only the buffered paths (execute_query/execute_update) are wrapped;
         the callback/iterator paths (execute_query_one_by_one*,
-        execute_query_iterate) may have already delivered rows when a deadlock
+        execute_query_iterate) may have already delivered rows when a conflict
         strikes mid-fetch, so re-executing them would double-process rows."""
-        for attempt in range(1, max(self.DEADLOCK_MAX_ATTEMPTS, 1) + 1):
+        for attempt in range(1, max(self.CONFLICT_MAX_ATTEMPTS, 1) + 1):
             try:
                 return operation()
             except pyodbc.Error as e:
-                if not self._is_deadlock_error(e) or attempt == self.DEADLOCK_MAX_ATTEMPTS:
+                if not self._is_retryable_conflict_error(e) or attempt == self.CONFLICT_MAX_ATTEMPTS:
                     raise
                 logger.warning(
-                    f"Deadlock victim on '{self.name}' "
-                    f"(attempt {attempt}/{self.DEADLOCK_MAX_ATTEMPTS}), retrying: {e}"
+                    f"Concurrency conflict on '{self.name}' "
+                    f"(attempt {attempt}/{self.CONFLICT_MAX_ATTEMPTS}), retrying: {e}"
                 )
                 try:
                     self.rollback()
                 except Exception as rollback_error:
-                    logger.warning(f"Rollback after deadlock on '{self.name}' failed: {rollback_error}")
-                backoff_cap = self.DEADLOCK_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    logger.warning(f"Rollback after conflict on '{self.name}' failed: {rollback_error}")
+                backoff_cap = self.CONFLICT_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
                 time.sleep(random.uniform(0, backoff_cap))
 
     # Normalize pyodbc.Row objects so downstream consumers see plain tuples.

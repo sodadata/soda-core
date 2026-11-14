@@ -19,6 +19,18 @@ def deadlock_error() -> pyodbc.OperationalError:
     )
 
 
+def snapshot_ddl_conflict_error() -> pyodbc.ProgrammingError:
+    return pyodbc.ProgrammingError(
+        "42000",
+        "[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]"
+        "Snapshot isolation transaction failed in database 'warehouse' because the object "
+        "accessed by the statement has been modified by a DDL statement in another concurrent "
+        "transaction since the start of this transaction.  It is disallowed because the metadata "
+        "is not versioned. A concurrent update to metadata can lead to inconsistency if mixed "
+        "with snapshot isolation. (3961) (SQLExecDirectW)",
+    )
+
+
 class FakeCursor:
     def __init__(self, connection: FakeConnection):
         self._connection = connection
@@ -81,7 +93,7 @@ def test_execute_query_retries_after_deadlock(monkeypatch, caplog) -> None:
     assert query_result.rows == [("row1",)]
     assert len(fake_connection.executed_sqls) == 2
     assert fake_connection.rollback_count == 1
-    assert "Deadlock victim" in caplog.text
+    assert "Concurrency conflict" in caplog.text
 
 
 def test_execute_query_reraises_when_deadlock_persists(monkeypatch) -> None:
@@ -92,8 +104,8 @@ def test_execute_query_reraises_when_deadlock_persists(monkeypatch) -> None:
     with pytest.raises(pyodbc.OperationalError):
         data_source_connection.execute_query("SELECT 1")
 
-    assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.DEADLOCK_MAX_ATTEMPTS
-    assert fake_connection.rollback_count == SqlServerDataSourceConnection.DEADLOCK_MAX_ATTEMPTS - 1
+    assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS
+    assert fake_connection.rollback_count == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS - 1
 
 
 def test_execute_update_retries_after_deadlock(monkeypatch) -> None:
@@ -107,6 +119,31 @@ def test_execute_update_retries_after_deadlock(monkeypatch) -> None:
     assert len(fake_connection.executed_sqls) == 2
     assert fake_connection.rollback_count == 1
     assert fake_connection.commit_count == 1
+
+
+def test_execute_query_retries_after_snapshot_ddl_conflict(monkeypatch) -> None:
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    fake_connection = FakeConnection(outcomes=[snapshot_ddl_conflict_error(), None])
+    data_source_connection = make_data_source_connection(fake_connection)
+
+    query_result = data_source_connection.execute_query("SELECT 1")
+
+    assert query_result.rows == [("row1",)]
+    assert len(fake_connection.executed_sqls) == 2
+    assert fake_connection.rollback_count == 1
+
+
+def test_execute_query_reraises_when_snapshot_ddl_conflict_persists(monkeypatch) -> None:
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    fake_connection = FakeConnection(
+        outcomes=[snapshot_ddl_conflict_error(), snapshot_ddl_conflict_error(), snapshot_ddl_conflict_error()]
+    )
+    data_source_connection = make_data_source_connection(fake_connection)
+
+    with pytest.raises(pyodbc.ProgrammingError):
+        data_source_connection.execute_query("SELECT 1")
+
+    assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS
 
 
 def test_execute_query_does_not_retry_non_deadlock_errors(monkeypatch) -> None:
@@ -146,7 +183,7 @@ def test_failed_rollback_does_not_abort_the_retry(monkeypatch, caplog) -> None:
     assert query_result.rows == [("row1",)]
     assert len(fake_connection.executed_sqls) == 2
     assert fake_connection.rollback_count == 1
-    assert "Rollback after deadlock" in caplog.text
+    assert "Rollback after conflict" in caplog.text
 
 
 def test_failed_rollback_does_not_mask_a_persistent_deadlock(monkeypatch) -> None:
@@ -158,7 +195,7 @@ def test_failed_rollback_does_not_mask_a_persistent_deadlock(monkeypatch) -> Non
         data_source_connection.execute_query("SELECT 1")
 
     assert exc_info.value.args[0] == "40001"
-    assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.DEADLOCK_MAX_ATTEMPTS
+    assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS
 
 
 def test_deadlock_backoff_caps_grow_exponentially(monkeypatch) -> None:
@@ -171,7 +208,7 @@ def test_deadlock_backoff_caps_grow_exponentially(monkeypatch) -> None:
     with pytest.raises(pyodbc.OperationalError):
         data_source_connection.execute_query("SELECT 1")
 
-    base = SqlServerDataSourceConnection.DEADLOCK_RETRY_BACKOFF_SECONDS
+    base = SqlServerDataSourceConnection.CONFLICT_RETRY_BACKOFF_SECONDS
     assert base < 0.5
     assert sleeps == [base, base * 2]
 
@@ -186,7 +223,7 @@ def test_deadlock_backoff_jitters_within_the_cap(monkeypatch) -> None:
     with pytest.raises(pyodbc.OperationalError):
         data_source_connection.execute_query("SELECT 1")
 
-    base = SqlServerDataSourceConnection.DEADLOCK_RETRY_BACKOFF_SECONDS
+    base = SqlServerDataSourceConnection.CONFLICT_RETRY_BACKOFF_SECONDS
     caps = [base, base * 2]
     assert len(sleeps) == len(caps)
     for sleep, cap in zip(sleeps, caps):
