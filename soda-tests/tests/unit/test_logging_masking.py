@@ -19,7 +19,7 @@ from soda_core.common.redaction import RedactionPolicy, redacted_marker, redacte
 class _FakeRetryingConnection:
     """Mirrors the traceback shape of ``SqlServerDataSourceConnection.execute_query``:
 
-        execute_query -> _execute_with_deadlock_retry -> lambda -> super().execute_query
+        execute_query -> _execute_with_conflict_retry -> lambda -> super().execute_query
 
     i.e. a bound-method captured in a local (``execute = self._base_execute``) plus a
     closure frame. That combination made ``_mask_exception`` raise
