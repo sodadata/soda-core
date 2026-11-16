@@ -1,8 +1,10 @@
-import sys
 import traceback
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
+
+if TYPE_CHECKING:
+    from soda_core.check_collections.base import CheckCollectionSessionResult
 
 
 class SodaCoreException(Exception):
@@ -25,6 +27,29 @@ class ScanExecutionFailedException(SodaCoreException):
     site: it logs this message clean (no traceback) and reports via
     ``report_scan_execution_failure``. Unexpected failures should propagate
     raw instead — the wiring logs those with the traceback."""
+
+
+class ResultsRejectedBySodaCloudException(ScanExecutionFailedException):
+    """Soda Cloud rejected every results upload that failed in a session for a reason in the
+    contract or the organization's configuration, such as a check attribute the organization
+    does not have. Rerunning unchanged fails the same way.
+
+    Raised by the session executor once every file is verified, uploaded and post-processed, so
+    a CLI run reports it like any other ``ScanExecutionFailedException``.
+
+    @param session_result: The session's ``CheckCollectionSessionResult``, for programmatic
+        callers that want the results the upload carried.
+    @param rejection_codes: The Soda Cloud response codes, sorted.
+    """
+
+    def __init__(self, session_result: "CheckCollectionSessionResult", rejection_codes: list[str]) -> None:
+        super().__init__(
+            f"Soda Cloud rejected the results because of the contract or the organization's configuration "
+            f"({', '.join(rejection_codes)}). Rerunning the scan unchanged will fail the same way: fix the "
+            f"contract (for example its check attributes) or the organization's settings."
+        )
+        self.session_result = session_result
+        self.rejection_codes = rejection_codes
 
 
 class SodaCloudAuthenticationFailedException(SodaCoreException):
@@ -170,9 +195,6 @@ class ContractFetchFailedException(SodaCloudException):
 
 def get_exception_stacktrace(exception) -> Optional[str]:
     if isinstance(exception, BaseException):
-        if sys.version_info < (3, 10):
-            return "".join(
-                traceback.format_exception(etype=type(exception), value=exception, tb=exception.__traceback__)
-            )
-        return "".join(traceback.format_exception(exception))
+        # Positional (type, value, tb) works on every supported Python; the keyword names changed in 3.10.
+        return "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
     return None

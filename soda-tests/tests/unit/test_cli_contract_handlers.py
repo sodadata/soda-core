@@ -5,6 +5,7 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import handle_publish_contract, handle_test_contract, handle_verify_contract
 from soda_core.cli.handlers.dependencies import resolve_soda_cloud_for_failure_report
 from soda_core.cli.handlers.scan import run_scan
+from soda_core.common.exceptions import ResultsRejectedBySodaCloudException
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
@@ -146,6 +147,46 @@ def test_handle_verify_contract_early_failure_marks_scan_failed_exactly_once_wit
     assert mock_cloud.mark_scan_as_failed.call_count == 1
     _, kwargs = mock_cloud.mark_scan_as_failed.call_args
     assert kwargs.get("logs"), "the single mark must carry the captured log records"
+
+
+@pytest.mark.parametrize(
+    "scan_id, mark_accepted, expected_exit_code",
+    [
+        # Ad-hoc run: nothing to mark, exit 3 like any other error.
+        (None, None, ExitCode.LOG_ERRORS),
+        # Managed run: the scan is marked failed with the run's logs, so exit 3.
+        ("scan-123", True, ExitCode.LOG_ERRORS),
+        # Managed run whose mark Soda Cloud refuses: nothing reached it, so exit 4.
+        ("scan-123", False, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+    ],
+)
+@patch("soda_core.common.soda_cloud.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_results_rejected_by_soda_cloud_is_reported_as_a_failure(
+    mock_execute, mock_from_config, monkeypatch, scan_id, mark_accepted, expected_exit_code
+):
+    """Results Soda Cloud rejected for a customer-caused reason (e.g. an unknown check
+    attribute) reach the CLI as ``ResultsRejectedBySodaCloudException`` and are reported like
+    any other error the customer has to fix; exit 4 stays for failures on Soda's side."""
+    if scan_id:
+        monkeypatch.setenv("SODA_SCAN_ID", scan_id)
+    else:
+        monkeypatch.delenv("SODA_SCAN_ID", raising=False)
+    mock_execute.side_effect = ResultsRejectedBySodaCloudException(
+        session_result=MagicMock(), rejection_codes=["resource_attribute_not_found"]
+    )
+    mock_cloud = mock_from_config.return_value
+    mock_cloud.mark_scan_as_failed.return_value = mark_accepted
+
+    assert _run_handle_verify_contract() == expected_exit_code
+
+    if scan_id:
+        mock_cloud.mark_scan_as_failed.assert_called_once()
+        _, kwargs = mock_cloud.mark_scan_as_failed.call_args
+        assert kwargs["scan_id"] == scan_id
+        assert any("resource_attribute_not_found" in r.getMessage() for r in kwargs["logs"])
+    else:
+        mock_cloud.mark_scan_as_failed.assert_not_called()
 
 
 @patch("soda_core.common.soda_cloud.SodaCloud.from_config")
