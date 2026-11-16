@@ -24,7 +24,8 @@ def test_soda_otlp_exporter_forwards_arguments_by_name():
 
 
 def test_real_otlp_exporter_accepts_the_arguments():
-    # Builds the real exporter, so a keyword OTel doesn't take fails here. No private attributes: they differ between OTel versions.
+    # Fails only if OTel drops or renames a keyword we forward, which the mocked test above cannot see.
+    # It does not catch positional forwarding: the real constructor accepts that and breaks at export.
     SodaOTLPSpanExporter(
         endpoint="https://collector.example/v1/traces",
         headers={"h": "v"},
