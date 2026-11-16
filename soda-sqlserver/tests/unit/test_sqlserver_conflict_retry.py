@@ -144,6 +144,7 @@ def test_execute_query_reraises_when_snapshot_ddl_conflict_persists(monkeypatch)
         data_source_connection.execute_query("SELECT 1")
 
     assert len(fake_connection.executed_sqls) == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS
+    assert fake_connection.rollback_count == SqlServerDataSourceConnection.CONFLICT_MAX_ATTEMPTS - 1
 
 
 def test_execute_query_does_not_retry_non_deadlock_errors(monkeypatch) -> None:
