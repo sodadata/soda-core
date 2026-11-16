@@ -18,6 +18,7 @@ from soda_core.contracts.contract_verification import ContractVerificationSessio
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from soda_core.telemetry.soda_tracer import soda_trace
 from typing_extensions import deprecated
 
 logger: logging.Logger = soda_logger
@@ -28,6 +29,7 @@ __AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED = "At least one of -c/--contract or 
 
 
 @deprecated("Use verify_contract_locally instead")
+@soda_trace
 def verify_contracts_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
@@ -82,6 +84,7 @@ def verify_contracts_locally(
     )
 
 
+@soda_trace
 def verify_contract_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
@@ -211,6 +214,7 @@ def verify_contracts_on_agent(
     )
 
 
+@soda_trace
 def verify_contract_on_runner(
     soda_cloud_file_path: str,
     contract_file_path: Optional[str] = None,
@@ -249,6 +253,7 @@ def verify_contract_on_agent(*args, **kwargs) -> ContractVerificationSessionResu
     return verify_contract_on_runner(*args, **kwargs)
 
 
+@soda_trace
 def verify_contract(
     contract_file_path: Optional[str],
     dataset_identifier: Optional[str],

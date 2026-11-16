@@ -1,10 +1,12 @@
 from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_publication import ContractPublication, ContractPublicationResultList
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from soda_core.telemetry.soda_tracer import soda_trace
 
 soda_telemetry = SodaTelemetry()
 
 
+@soda_trace
 def publish_contract(contract_file_path: str, soda_cloud_file_path: str) -> ContractPublicationResultList:
     contract_publication_builder = ContractPublication.builder()
 

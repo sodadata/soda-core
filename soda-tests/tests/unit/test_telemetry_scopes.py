@@ -2,7 +2,7 @@
 
 ``SodaTelemetry`` is a process singleton and OpenTelemetry keeps the first global tracer provider, so the span tests
 run each command in a child process with telemetry test mode on. The child imports the API module first, which sets
-up telemetry, then opens a span, calls the API inside it and prints the attributes the memory exporter recorded.
+up telemetry, then calls the API, which opens its own span, and prints the spans the memory exporter recorded.
 """
 
 from __future__ import annotations
@@ -131,10 +131,14 @@ checks:
       scope: eu
 """
 
-SPAN_NAME: str = "telemetry_scopes_test"
+SPAN_NAMES: dict[str, str] = {
+    "verify": "soda_core.contracts.api.verify_api.verify_contract_locally",
+    "test": "soda_core.contracts.api.test_api.test_contract",
+    "publish": "soda_core.contracts.api.publish_api.publish_contract",
+}
 OUTPUT_PREFIX: str = "TELEMETRY_TEST_OUTPUT "
 
-# Runs one command per contract, each inside its own span, and prints what the memory exporter recorded.
+# Runs one command per contract and prints the spans each call sent.
 CHILD_SCRIPT: str = """
 import inspect
 import json
@@ -184,7 +188,6 @@ else:
 
 
 import soda_core
-from opentelemetry import trace
 from soda_core.telemetry.memory_span_exporter import MemorySpanExporter
 
 
@@ -198,10 +201,12 @@ def describe(result):
 
 outputs = []
 for contract_file_path in arguments["contract_file_paths"]:
-    with trace.get_tracer(__name__).start_as_current_span(arguments["span_name"]):
-        result = run(contract_file_path)
-    span = MemorySpanExporter.get_instance().spans[-1]
-    outputs.append({"span_name": span.name, "attributes": dict(span.attributes), "result": describe(result)})
+    spans_before = len(MemorySpanExporter.get_instance().spans)
+    result = run(contract_file_path)
+    spans = MemorySpanExporter.get_instance().spans[spans_before:]
+    outputs.append(
+        {"span_names": [span.name for span in spans], "attributes": dict(spans[-1].attributes), "result": describe(result)}
+    )
 
 print(arguments["output_prefix"] + json.dumps({"soda_core_file": inspect.getfile(soda_core), "outputs": outputs}))
 """
@@ -233,11 +238,17 @@ def _counts(
 
 
 # The excluded count on test is 0 because 'soda contract test' builds no check results.
-EXPECTED_RESULT_ATTRIBUTES: dict[str, tuple[dict[str, int], dict[str, int]]] = {
+EXPECTED_RESULT_ATTRIBUTES: dict[str, tuple[dict[str, int | str], dict[str, int | str]]] = {
     # Core alone runs no declared scope, so the scoped checks are not evaluated rather than excluded.
     "verify": (
-        _counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=5, passed=2),
-        _counts(scopes=0, scoped=0, unscoped=2, excluded=0, checks=2, passed=2),
+        {
+            **_counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=5, passed=2),
+            "result__data_source_type": "duckdb",
+        },
+        {
+            **_counts(scopes=0, scoped=0, unscoped=2, excluded=0, checks=2, passed=2),
+            "result__data_source_type": "duckdb",
+        },
     ),
     "test": (
         _counts(scopes=2, scoped=3, unscoped=2, excluded=0, checks=0, passed=0),
@@ -289,7 +300,6 @@ def _run_child(command: str, contract_file_paths: list[str], paths: dict[str, st
         "contract_file_paths": contract_file_paths,
         "data_source_file_path": paths.get("data_source"),
         "soda_cloud_file_path": paths.get("soda_cloud"),
-        "span_name": SPAN_NAME,
         "output_prefix": OUTPUT_PREFIX,
     }
     completed = subprocess.run(
@@ -321,9 +331,9 @@ def test_span_carries_scope_counts(tmp_path, command):
 
     scoped_output, unscoped_output = child_output["outputs"]
     expected_scoped, expected_unscoped = EXPECTED_RESULT_ATTRIBUTES[command]
-    assert scoped_output["span_name"] == SPAN_NAME
+    assert scoped_output["span_names"] == [SPAN_NAMES[command]]
     assert _result_attributes(scoped_output["attributes"]) == expected_scoped
-    assert unscoped_output["span_name"] == SPAN_NAME
+    assert unscoped_output["span_names"] == [SPAN_NAMES[command]]
     assert _result_attributes(unscoped_output["attributes"]) == expected_unscoped
 
     if command == "publish":

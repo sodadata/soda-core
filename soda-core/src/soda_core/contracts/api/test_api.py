@@ -4,6 +4,7 @@ from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from soda_core.telemetry.soda_tracer import soda_trace
 from typing_extensions import deprecated
 
 soda_telemetry = SodaTelemetry()
@@ -26,6 +27,7 @@ def test_contracts(
     )
 
 
+@soda_trace
 def test_contract(
     contract_file_path: str = None,
     variables: Optional[Dict[str, str]] = None,
