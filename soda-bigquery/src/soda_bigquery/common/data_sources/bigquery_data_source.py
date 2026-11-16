@@ -442,6 +442,26 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        """Whether the dataset exists, looked up with ``datasets.get`` instead of INFORMATION_SCHEMA.SCHEMATA.
+
+        The project-level SCHEMATA view only lists the datasets in the query job's location, which is the
+        configured ``location`` or else US. A dataset in another region looked missing, so the diagnostics
+        warehouse went on to CREATE SCHEMA it, which needs ``bigquery.datasets.create`` even when the dataset
+        is already there. ``datasets.get`` sees a dataset in any region and needs only ``bigquery.datasets.get``.
+
+        An access-denied error propagates, as the query's did: a dataset the account may not see is not
+        reported as missing.
+        """
+        if len(prefixes) != 2:
+            raise ValueError(f"BigQuery expects [project, dataset] prefixes, got {prefixes}")
+        project_id, dataset_id = prefixes
+        try:
+            self._dataset_location(project_id, dataset_id)
+        except NotFound:
+            return False
+        return True
+
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
             project_id=prefixes[0],
