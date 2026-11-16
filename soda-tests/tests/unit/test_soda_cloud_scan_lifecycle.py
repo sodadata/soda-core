@@ -2,10 +2,11 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import ReportOutcome
 
 # SodaCloud.scan_start / insert_scan_data_batch / scan_end_async: the async
-# batched-ingestion bracket. All three follow the family's bool/None-on-failure
-# contracts (no exceptions on non-200).
+# batched-ingestion bracket. None of them raise on a non-200; scan_start answers
+# with a scanReference or None, the other two report the outcome in full.
 
 
 def _soda_cloud() -> SodaCloud:
@@ -90,7 +91,7 @@ def test_insert_scan_data_batch_stamps_type_and_scan_reference_without_mutating_
     mock_execute_command.return_value = MagicMock(ok=True)
     payload = {"type": "sodaCoreInsertScanResults", "definitionName": "my_scan", "version": "4"}
 
-    assert _soda_cloud().insert_scan_data_batch(payload, scan_reference="org/ref-1") is True
+    assert _soda_cloud().insert_scan_data_batch(payload, scan_reference="org/ref-1") is ReportOutcome.ACCEPTED
 
     command = mock_execute_command.call_args.kwargs["command_json_dict"]
     assert command["type"] == "sodaCoreInsertScanDataBatch"
@@ -104,41 +105,47 @@ def test_insert_scan_data_batch_stamps_type_and_scan_reference_without_mutating_
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_insert_scan_data_batch_returns_false_when_rejected(mock_execute_command):
+def test_insert_scan_data_batch_reports_refused_when_rejected(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False)
 
-    assert _soda_cloud().insert_scan_data_batch({"type": "sodaCoreInsertScanResults"}, scan_reference="r") is False
+    assert (
+        _soda_cloud().insert_scan_data_batch({"type": "sodaCoreInsertScanResults"}, scan_reference="r")
+        is ReportOutcome.REFUSED
+    )
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_insert_scan_data_batch_returns_false_without_response(mock_execute_command):
+def test_insert_scan_data_batch_reports_refused_without_response(mock_execute_command):
     mock_execute_command.return_value = None
 
-    assert _soda_cloud().insert_scan_data_batch({"type": "sodaCoreInsertScanResults"}, scan_reference="r") is False
+    assert (
+        _soda_cloud().insert_scan_data_batch({"type": "sodaCoreInsertScanResults"}, scan_reference="r")
+        is ReportOutcome.REFUSED
+    )
 
 
 @patch.object(SodaCloud, "_execute_command")
 def test_scan_end_async_sends_scan_reference(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=True, status_code=200)
 
-    assert _soda_cloud().scan_end_async("org/ref-1") is True
+    assert _soda_cloud().scan_end_async("org/ref-1") is ReportOutcome.ACCEPTED
     command = mock_execute_command.call_args.kwargs["command_json_dict"]
     assert command == {"type": "sodaCoreScanEndAsync", "scanReference": "org/ref-1"}
     assert mock_execute_command.call_args.kwargs["request_log_name"] == "scan_end_async"
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_end_async_rejected_returns_false(mock_execute_command):
+def test_scan_end_async_rejected_reports_refused(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False, status_code=400)
 
-    assert _soda_cloud().scan_end_async("org/ref-1") is False
+    assert _soda_cloud().scan_end_async("org/ref-1") is ReportOutcome.REFUSED
 
 
 @patch.object(SodaCloud, "_execute_command")
-def test_scan_end_async_without_response_returns_false(mock_execute_command):
+def test_scan_end_async_without_response_reports_refused(mock_execute_command):
     mock_execute_command.return_value = None
 
-    assert _soda_cloud().scan_end_async("org/ref-1") is False
+    assert _soda_cloud().scan_end_async("org/ref-1") is ReportOutcome.REFUSED
 
 
 # The log-batch uploads (batchV3/batchV4): plain REST posts outside the command path, so they carry
