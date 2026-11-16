@@ -20,16 +20,12 @@ def handle_create_soda_cloud(soda_cloud_file_path: str) -> ExitCode:
     try:
         Path(dirname(soda_cloud_file_path)).mkdir(parents=True, exist_ok=True)
         with open(soda_cloud_file_path, "w") as text_file:
-            text_file.write(
-                dedent(
-                    """
+            text_file.write(dedent("""
                 soda_cloud:
                   host: cloud.soda.io
                   api_key_id: ${SODA_CLOUD_API_KEY_ID}
                   api_key_secret: ${SODA_CLOUD_API_KEY_SECRET}
-                """
-                ).strip()
-            )
+                """).strip())
         soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created Soda Cloud configuration file '{soda_cloud_file_path}'")
         return ExitCode.OK
     except Exception as exc:

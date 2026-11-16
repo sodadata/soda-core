@@ -49,8 +49,7 @@ class SnapshotInterceptor(Protocol):
     patched so that the subsequent rerun sees the original behaviour.
     """
 
-    def deactivate(self) -> None:
-        ...
+    def deactivate(self) -> None: ...
 
 
 # WeakSet so a forgotten interceptor (e.g. one orphaned by a test that
