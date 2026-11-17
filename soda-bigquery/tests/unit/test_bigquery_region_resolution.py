@@ -282,6 +282,19 @@ class TestSnapshotRegionPinning:
         executed_sql = impl.data_source_connection.execute_query.call_args.args[0]
         assert "`account-project`.`region-EU`" in executed_sql
 
+    def test_pinned_schema_existence_knows_only_the_test_dataset(self):
+        from soda_bigquery.test_helpers.bigquery_data_source_test_helper import BigQueryDataSourceTestHelper
+
+        impl = _make_impl()
+        helper = BigQueryDataSourceTestHelper.__new__(BigQueryDataSourceTestHelper)
+        helper.dataset_prefix = [PROJECT, "test_dataset"]
+
+        helper._snapshot_pin_metadata_lookups(impl)
+
+        assert impl.test_schema_exists([PROJECT, "test_dataset"]) is True
+        assert impl.test_schema_exists([PROJECT, "not_a_schema"]) is False
+        impl.data_source_connection.client.get_dataset.assert_not_called()
+
 
 class TestGetLocationRemoved:
     def test_get_location_is_gone(self):

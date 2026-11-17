@@ -61,6 +61,12 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         def regions_in_scope(project_id: str | None = None, dataset_id: str | None = None) -> list[str]:
             return [region]
 
+        # Dataset existence is a datasets.get over REST as well. The only dataset a test session is
+        # known to have is its own test dataset.
+        def test_schema_exists(prefixes: list[str]) -> bool:
+            return list(prefixes) == list(self.dataset_prefix)
+
         data_source_impl.region_for_dataset = region_for_dataset
         data_source_impl.regions_in_scope = regions_in_scope
+        data_source_impl.test_schema_exists = test_schema_exists
         data_source_impl.storage_project_id = account_project_id
