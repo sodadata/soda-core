@@ -294,3 +294,53 @@ def test_a_dataset_identifier_without_a_data_source_and_a_dataset_is_logged(valu
     assert logs.get_errors() == [
         f"Invalid dataset qualified name in 'dataset': {shown} must be slash-separated, fully qualified dataset name."
     ]
+
+
+def test_yaml_parse_is_thread_safe():
+    # Regression test for #2976: YamlSource used to parse through one ruamel YAML
+    # instance shared by the whole process. Concurrent parses corrupted each other:
+    # valid YAML failed with random syntax errors, or silently returned content
+    # mixed in from another document. Two different documents are parsed here so
+    # that content mixing is detected, not only exceptions.
+    from concurrent.futures import ThreadPoolExecutor
+
+    from soda_core.common.yaml import ContractYamlSource
+
+    contract_a = dedent_and_strip(
+        """
+        dataset: my_datasource/my_schema/table_a
+        columns:
+          - name: id
+            checks:
+              - missing:
+        checks:
+          - row_count:
+              threshold:
+                must_be_greater_than: 0
+        """
+    )
+    contract_b = dedent_and_strip(
+        """
+        dataset: my_datasource/my_schema/table_b
+        columns:
+          - name: ssn
+            checks:
+              - missing:
+        checks:
+          - row_count:
+              threshold:
+                must_be_greater_than: 100
+        """
+    )
+
+    def parse(contract: str) -> dict:
+        return ContractYamlSource.from_str(contract).parse().yaml_dict
+
+    expected_a = parse(contract_a)
+    expected_b = parse(contract_b)
+
+    contracts = [contract_a, contract_b] * 100
+    expected = [expected_a, expected_b] * 100
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(parse, contracts))
+    assert results == expected
