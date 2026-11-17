@@ -120,6 +120,15 @@ def test_freshness_not_evaluated_when_only_max_timestamp_query_failed():
     }
 
 
+def test_get_max_timestamp_does_not_warn_about_rows_when_unmeasured(caplog):
+    """_get_max_timestamp is shared by every freshness check: an unmeasured metric returns
+    None without the warning that suggests the table has no rows."""
+    contract_impl, check = _build_freshness_check(_freshness_yaml())
+    mv = build_measurement_values([], contract_impl=contract_impl)
+    assert check._get_max_timestamp(mv, check.max_timestamp_metric, check.column) is None
+    assert "Does the table or partition have rows?" not in caplog.text
+
+
 def test_freshness_result_type_and_fields():
     """evaluate() should return FreshnessCheckResult with freshness details."""
     contract_impl, check = _build_freshness_check(_freshness_yaml(unit="day", threshold=7))
