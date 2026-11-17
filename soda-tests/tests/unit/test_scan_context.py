@@ -8,7 +8,7 @@ import soda_core.common.logs_queue as logs_queue_module
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.scan import run_scan
-from soda_core.common.exceptions import ScanExecutionFailedException
+from soda_core.common.exceptions import ScanDeletedOnSodaCloudException, ScanExecutionFailedException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.logs_collector import LogsCollector
@@ -43,9 +43,11 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
         log_upload_status: int = 200,
         log_upload_error_code: str = "invalid_scan_state",
         scan_reference: str = "org/ref-1",
+        scan_start_error_code: str = "invalid_request",
     ):
         super().__init__()
         self.scan_start_status = scan_start_status
+        self.scan_start_error_code = scan_start_error_code
         self.insert_status = insert_status
         self.end_status = end_status
         self.log_upload_status = log_upload_status
@@ -69,6 +71,11 @@ class _ScanLifecycleSodaCloud(MockSodaCloud):
             )
         command_type = json.get("type") if isinstance(json, dict) else None
         if command_type == "sodaCoreScanStart":
+            if not 200 <= self.scan_start_status < 300:
+                return MockResponse(
+                    status_code=self.scan_start_status,
+                    json_object={"code": self.scan_start_error_code, "message": "refused"},
+                )
             return MockResponse(status_code=self.scan_start_status, json_object={"scanReference": self.scan_reference})
         if command_type in ("sodaCoreInsertScanDataBatch", "sodaCoreInsertScanResults"):
             return MockResponse(status_code=self.insert_status, json_object={})
@@ -216,6 +223,22 @@ def test_start_scan_rejected_fails_the_run():
         logs.close()
 
 
+def test_start_scan_of_a_deleted_scan_raises_scan_deleted():
+    mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=404, scan_start_error_code="scan_not_found")
+    logs = Logs()
+    context = BatchedScanContext(mock_cloud, scan_id="scan-123", logs=logs)
+    try:
+        with pytest.raises(ScanDeletedOnSodaCloudException, match="scan-123") as excinfo:
+            context.start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+
+        # Not wrapped into a run failure: the deletion is not this run's fault.
+        assert not isinstance(excinfo.value, ScanExecutionFailedException)
+        assert context.scan_reference is None
+        assert isinstance(logs.gatherer, LogsCollector)
+    finally:
+        logs.close()
+
+
 def test_start_scan_raising_client_call_fails_the_run_the_same_way():
     soda_cloud = MagicMock()
     original = ConnectionError("network down")
@@ -315,6 +338,28 @@ def test_run_scan_failed_start_marks_the_scan_failed(monkeypatch):
     reported = _command_json(mock_cloud, "sodaCoreMarkScanFailed")["logs"]
     assert any("resolution before the start" in entry["message"] for entry in reported)
     assert any("did not accept sodaCoreScanStart" in entry["message"] for entry in reported)
+
+
+def test_run_scan_deleted_scan_exits_ok_without_marking_it_failed(monkeypatch, caplog):
+    # DATENG-61: the scan was deleted on Cloud (data source deleted, monitoring switched off)
+    # between dispatch and start. Exit 0 so the launcher neither marks it failed nor alerts.
+    monkeypatch.setenv("SODA_SCAN_ID", "scan-123")
+    mock_cloud = _ScanLifecycleSodaCloud(scan_start_status=404, scan_start_error_code="scan_not_found")
+
+    def command(logs: Logs) -> ExitCode:
+        get_scan_context().start_scan("my_scan", "postgres", DATA_TIMESTAMP)
+        raise AssertionError("unreachable: start_scan must raise")
+
+    with caplog.at_level(logging.DEBUG):
+        exit_code = run_scan(mock_cloud, command, batched=True)
+
+    assert exit_code == ExitCode.OK
+    assert _request_kinds(mock_cloud) == ["sodaCoreScanStart"]
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert any(
+        record.levelno == logging.WARNING and "no longer exists on Soda Cloud" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):

@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+from soda_core.common.exceptions import ScanDeletedOnSodaCloudException
 from soda_core.common.soda_cloud import SodaCloud
 
 # SodaCloud.scan_start / insert_scan_data_batch / scan_end_async: the async
@@ -58,6 +60,29 @@ def test_scan_start_defaults_data_timestamp_to_now(mock_execute_command):
 @patch.object(SodaCloud, "_execute_command")
 def test_scan_start_returns_none_on_rejection(mock_execute_command):
     mock_execute_command.return_value = MagicMock(ok=False)
+
+    assert _scan_start(_soda_cloud()) is None
+
+
+@patch.object(SodaCloud, "_execute_command")
+def test_scan_start_raises_scan_deleted_on_scan_not_found(mock_execute_command):
+    mock_execute_command.return_value = MagicMock(
+        ok=False, status_code=404, json=lambda: {"code": "scan_not_found", "message": "Scan not found"}
+    )
+
+    with pytest.raises(ScanDeletedOnSodaCloudException) as excinfo:
+        _scan_start(_soda_cloud())
+
+    assert excinfo.value.scan_id == "scan-123"
+    # The expected answer is logged at info, not error.
+    assert mock_execute_command.call_args.kwargs["expected_error_codes"] == frozenset({"scan_not_found"})
+
+
+@patch.object(SodaCloud, "_execute_command")
+def test_scan_start_returns_none_on_other_not_found_codes(mock_execute_command):
+    mock_execute_command.return_value = MagicMock(
+        ok=False, status_code=404, json=lambda: {"code": "scan_definition_not_found"}
+    )
 
     assert _scan_start(_soda_cloud()) is None
 

@@ -30,6 +30,7 @@ from soda_core.common.exceptions import (
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     InvalidSodaCloudConfigurationException,
+    ScanDeletedOnSodaCloudException,
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
     SodaCloudRequestException,
@@ -330,12 +331,24 @@ def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[st
     ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``; None for any other response."""
     if response is None or response.status_code != 400:
         return None
+    code: Optional[str] = _response_code(response)
+    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
+
+
+# The Soda Cloud response code for a scan id it does not know. On a managed run the scan was
+# created before the job started, so this means it was deleted since.
+SCAN_NOT_FOUND_CODE: str = "scan_not_found"
+
+
+def _response_code(response: Optional[Response]) -> Optional[str]:
+    """The ``code`` field of a Soda Cloud error body; None without a response or a JSON object body."""
+    if response is None:
+        return None
     try:
         body = response.json()
     except ValueError:
         return None
-    code = body.get("code") if isinstance(body, dict) else None
-    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
+    return body.get("code") if isinstance(body, dict) else None
 
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -515,6 +528,9 @@ class SodaCloud:
         defaults to now.
         A successful start also moves the scan into its log-accepting state: the scan-id-keyed
         ``batchV4`` log stream only accepts uploads after this command.
+
+        Raises ``ScanDeletedOnSodaCloudException`` when Soda Cloud answers ``scan_not_found``: the
+        scan was deleted after the job was dispatched, which is not a failure of this run.
         """
         command: dict = {
             "type": "sodaCoreScanStart",
@@ -529,7 +545,10 @@ class SodaCloud:
         response: Optional[Response] = self._execute_command(
             command_json_dict=command,
             request_log_name="scan_start",
+            expected_error_codes=frozenset({SCAN_NOT_FOUND_CODE}),
         )
+        if response is not None and not response.ok and _response_code(response) == SCAN_NOT_FOUND_CODE:
+            raise ScanDeletedOnSodaCloudException(scan_id)
         if response is None or not response.ok:
             return None
         try:
@@ -1672,13 +1691,21 @@ class SodaCloud:
             return {}
         return body if isinstance(body, dict) else {}
 
-    def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Optional[Response]:
+    def _execute_command(
+        self,
+        command_json_dict: dict,
+        request_log_name: str,
+        expected_error_codes: frozenset[str] = frozenset(),
+    ) -> Optional[Response]:
+        """@param expected_error_codes: Error response codes the caller handles as a normal outcome;
+        they are logged at info instead of error."""
         # Copy so the auth token injected downstream doesn't mutate the caller's dict, as _execute_query does.
         return self._execute_cqrs_request(
             request_type="command",
             request_log_name=request_log_name,
             request_body=command_json_dict.copy(),
             is_retry=True,
+            expected_error_codes=expected_error_codes,
         )
 
     def _execute_cqrs_request(
@@ -1688,6 +1715,7 @@ class SodaCloud:
         request_body: dict,
         is_retry: bool,
         deferral_deadline: Optional[float] = None,
+        expected_error_codes: frozenset[str] = frozenset(),
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
@@ -1718,6 +1746,7 @@ class SodaCloud:
                     request_body=request_body,
                     is_retry=False,
                     deferral_deadline=deferral_deadline,
+                    expected_error_codes=expected_error_codes,
                 )
             elif not response.ok:
                 try:
@@ -1729,7 +1758,8 @@ class SodaCloud:
                     message = response.text
                     code = None
 
-                logger.error(
+                log = logger.info if code in expected_error_codes else logger.error
+                log(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"
                     f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
