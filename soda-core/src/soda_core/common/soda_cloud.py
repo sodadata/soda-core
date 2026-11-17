@@ -336,19 +336,25 @@ def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[st
 
 
 # The Soda Cloud response code for a scan id it does not know. On a managed run the scan was
-# created before the job started, so this means it was deleted since.
+# created before the job started, so this means it was deleted since: a state of Soda Cloud, not
+# a fault of this run, so ``_execute_cqrs_request`` logs it at warning instead of error.
 SCAN_NOT_FOUND_CODE: str = "scan_not_found"
+
+
+def _error_body(response: Optional[Response]) -> dict:
+    """A Soda Cloud error body as a dict; empty without a response or a JSON object body."""
+    if response is None:
+        return {}
+    try:
+        body = response.json()
+    except ValueError:
+        return {}
+    return body if isinstance(body, dict) else {}
 
 
 def _response_code(response: Optional[Response]) -> Optional[str]:
     """The ``code`` field of a Soda Cloud error body; None without a response or a JSON object body."""
-    if response is None:
-        return None
-    try:
-        body = response.json()
-    except ValueError:
-        return None
-    return body.get("code") if isinstance(body, dict) else None
+    return _error_body(response).get("code")
 
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -545,7 +551,6 @@ class SodaCloud:
         response: Optional[Response] = self._execute_command(
             command_json_dict=command,
             request_log_name="scan_start",
-            expected_error_codes=frozenset({SCAN_NOT_FOUND_CODE}),
         )
         if response is not None and not response.ok and _response_code(response) == SCAN_NOT_FOUND_CODE:
             raise ScanDeletedOnSodaCloudException(scan_id)
@@ -1691,21 +1696,13 @@ class SodaCloud:
             return {}
         return body if isinstance(body, dict) else {}
 
-    def _execute_command(
-        self,
-        command_json_dict: dict,
-        request_log_name: str,
-        expected_error_codes: frozenset[str] = frozenset(),
-    ) -> Optional[Response]:
-        """@param expected_error_codes: Error response codes the caller handles as a normal outcome;
-        they are logged at info instead of error."""
+    def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Optional[Response]:
         # Copy so the auth token injected downstream doesn't mutate the caller's dict, as _execute_query does.
         return self._execute_cqrs_request(
             request_type="command",
             request_log_name=request_log_name,
             request_body=command_json_dict.copy(),
             is_retry=True,
-            expected_error_codes=expected_error_codes,
         )
 
     def _execute_cqrs_request(
@@ -1715,7 +1712,6 @@ class SodaCloud:
         request_body: dict,
         is_retry: bool,
         deferral_deadline: Optional[float] = None,
-        expected_error_codes: frozenset[str] = frozenset(),
     ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
@@ -1746,19 +1742,14 @@ class SodaCloud:
                     request_body=request_body,
                     is_retry=False,
                     deferral_deadline=deferral_deadline,
-                    expected_error_codes=expected_error_codes,
                 )
             elif not response.ok:
-                try:
-                    response_data = response.json()
-                    message = response_data.get("message", "N/A")
-                    code = response_data.get("code", "N/A")
-                except json.JSONDecodeError:
-                    # Fallback for non-JSON responses (e.g., HTML/plain-text error pages)
-                    message = response.text
-                    code = None
+                body: dict = _error_body(response)
+                code: Optional[str] = body.get("code")
+                # Without a JSON object body (e.g. an HTML/plain-text error page), the text is the message.
+                message: str = body.get("message", "N/A") if body else response.text
 
-                log = logger.info if code in expected_error_codes else logger.error
+                log = logger.warning if code == SCAN_NOT_FOUND_CODE else logger.error
                 log(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"

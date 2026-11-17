@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -74,8 +75,6 @@ def test_scan_start_raises_scan_deleted_on_scan_not_found(mock_execute_command):
         _scan_start(_soda_cloud())
 
     assert excinfo.value.scan_id == "scan-123"
-    # The expected answer is logged at info, not error.
-    assert mock_execute_command.call_args.kwargs["expected_error_codes"] == frozenset({"scan_not_found"})
 
 
 @patch.object(SodaCloud, "_execute_command")
@@ -202,3 +201,38 @@ def test_logs_batch_v4_posts_once_when_authenticated(mock_http_post, mock_get_to
     assert _soda_cloud().logs_batch_v4(scan_id="scan-123", body="{}").status_code == 200
     mock_http_post.assert_called_once()
     assert mock_http_post.call_args.kwargs["url"].endswith("/logs/scan-123/batchV4")
+
+
+def _cloud_error_response(status_code: int, body) -> MagicMock:
+    response = MagicMock(ok=False, status_code=status_code, headers={}, text=str(body))
+    if isinstance(body, Exception):
+        response.json.side_effect = body
+    else:
+        response.json.return_value = body
+    return response
+
+
+@pytest.mark.parametrize(
+    "body, expected_level, expected_code",
+    [
+        # A deleted scan is a state of Soda Cloud, not a fault of the run.
+        ({"code": "scan_not_found", "message": "Scan not found"}, logging.WARNING, "scan_not_found"),
+        ({"code": "invalid_request", "message": "refused"}, logging.ERROR, "invalid_request"),
+        # Non-object JSON and non-JSON bodies: logged with the text as the message, response returned.
+        (["not", "an", "object"], logging.ERROR, "None"),
+        (ValueError("not json"), logging.ERROR, "None"),
+    ],
+)
+def test_execute_command_logs_rejections_by_response_code(body, expected_level, expected_code, caplog):
+    soda_cloud = _soda_cloud()
+    response = _cloud_error_response(404, body)
+    with (
+        patch.object(SodaCloud, "_get_token", return_value="token"),
+        patch.object(SodaCloud, "_post_waiting_while_deferred", return_value=response),
+        caplog.at_level(logging.DEBUG),
+    ):
+        assert soda_cloud._execute_command(command_json_dict={"type": "x"}, request_log_name="x") is response
+
+    [record] = [r for r in caplog.records if "Soda Cloud error for command 'x'" in r.getMessage()]
+    assert record.levelno == expected_level
+    assert f"Response Code: '{expected_code}'" in record.getMessage()
