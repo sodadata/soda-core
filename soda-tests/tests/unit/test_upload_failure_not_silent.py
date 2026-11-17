@@ -12,7 +12,6 @@ LOG_ERRORS, the code for a failure that reached Cloud. Without a scan id the res
 is flagged as not sent, so the run exits RESULTS_NOT_SENT_TO_CLOUD.
 """
 
-
 import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
