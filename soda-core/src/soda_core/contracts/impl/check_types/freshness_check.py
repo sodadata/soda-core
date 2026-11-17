@@ -86,6 +86,8 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
     def _get_max_timestamp(
         self, measurement_values: MeasurementValues, metric: MetricImpl, column_name: str
     ) -> Optional[datetime]:
+        if not measurement_values.is_measured(metric):
+            return None
         max_timestamp: Optional[datetime] = measurement_values.get_value(metric)
         if max_timestamp is None:
             logger.warning(
@@ -194,6 +196,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        max_timestamp_measured: bool = measurement_values.is_measured(self.max_timestamp_metric)
         max_timestamp: Optional[datetime] = self._get_max_timestamp(
             measurement_values, self.max_timestamp_metric, self.column
         )
@@ -211,7 +214,9 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
         threshold_metric_name: str = f"freshness_in_{self.unit}s"
 
         threshold_value: Optional[float] = None
-        if max_timestamp_utc is None or data_timestamp_utc is None:
+        if not max_timestamp_measured:
+            outcome = CheckOutcome.NOT_EVALUATED
+        elif max_timestamp_utc is None or data_timestamp_utc is None:
             outcome = CheckOutcome.FAILED
         else:
             logger.debug(

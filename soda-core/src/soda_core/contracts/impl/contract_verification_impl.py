@@ -720,6 +720,10 @@ class MeasurementValues:
     def get_value(self, metric_impl: MetricImpl) -> any:
         return self.metric_values_by_id.get(metric_impl.id)
 
+    def is_measured(self, metric_impl: MetricImpl) -> bool:
+        """True iff the metric has a measurement, even a NULL one. A failed query records none."""
+        return metric_impl.id in self.metric_values_by_id
+
     def all_measured(self, *metric_impls: "MetricImpl") -> bool:
         """True iff every metric has a non-None measurement.
 

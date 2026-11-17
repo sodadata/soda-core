@@ -6,7 +6,7 @@ from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.contracts.contract_verification import ContractVerificationResult
+from soda_core.contracts.contract_verification import CheckOutcome, ContractVerificationResult
 from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
 
 test_table_specification = (
@@ -201,6 +201,43 @@ def test_freshness_no_rows(data_source_test_helper: DataSourceTestHelper):
         assert str(check_result.unit) == "hour"
 
         assert not contract_verification_result_t1.has_errors
+
+
+def test_freshness_not_evaluated_when_aggregation_query_fails(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    # The failed_rows expression is bundled into the same aggregation query as the max timestamp and makes it fail.
+    contract_yaml_str: str = f"""
+        checks:
+          - freshness:
+              column: created_at
+              threshold:
+                must_be_less_than: 2
+          - failed_rows:
+              expression: "definitely_not_a_column IS NULL"
+    """
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table, contract_yaml_str=contract_yaml_str
+    )
+    assert contract_verification_result.has_errors
+
+    check_result: FreshnessCheckResult = contract_verification_result.check_results[0]
+    assert isinstance(check_result, FreshnessCheckResult)
+    assert check_result.outcome == CheckOutcome.NOT_EVALUATED
+    assert check_result.max_timestamp is None
+    assert check_result.freshness is None
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    assert check_json["outcome"] == "unevaluated"
+    assert check_json["diagnostics"]["v4"]["type"] == "freshness"
 
 
 def test_freshness_with_in_check_filter(data_source_test_helper: DataSourceTestHelper):

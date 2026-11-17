@@ -240,3 +240,12 @@ def test_all_measured_with_non_numeric_value_is_true():
     m1 = SimpleMockMetric("m1")
     mv = MeasurementValues([Measurement(metric_id="m1", value="ok", metric_name="s")])
     assert mv.all_measured(m1) is True
+
+
+def test_is_measured_counts_a_recorded_none():
+    """Unlike all_measured, a recorded None is measured: the query ran and returned NULL.
+    Only a metric without any measurement, as after a failed query, is unmeasured."""
+    m1, m2 = SimpleMockMetric("m1"), SimpleMockMetric("m2")
+    mv = MeasurementValues([Measurement(metric_id="m1", value=None, metric_name="n")])
+    assert mv.is_measured(m1) is True
+    assert mv.is_measured(m2) is False
