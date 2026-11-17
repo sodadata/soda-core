@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock
 
 import pytest
-from soda_core.contracts.impl.check_selector import CheckSelector, CheckSelectorParseException
+from soda_core.contracts import CheckSelector
+from soda_core.contracts.impl.check_selector import CheckSelectorParseException
 from soda_core.contracts.impl.scope import BASE_SCOPE_KEY
 
 
