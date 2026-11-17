@@ -5,7 +5,8 @@ Freshness has domain-specific behaviour that differs from generic threshold
 checks:
 - Computes timedelta between max_timestamp and data_timestamp
 - Converts to a configurable unit (minute, hour, day); "second" is not a valid unit and falls back to "hour"
-- Returns FAILED (not NOT_EVALUATED) when max_timestamp is None
+- Returns FAILED (not NOT_EVALUATED) when max_timestamp was measured as None (no rows)
+- Returns NOT_EVALUATED when max_timestamp was not measured at all (its aggregation query failed)
 - Returns a FreshnessCheckResult with freshness-specific fields
 
 Generic threshold pass/fail/warn/NOT_EVALUATED patterns are covered in
@@ -48,6 +49,14 @@ def _evaluate_freshness(contract_impl, check, max_ts, rows=100):
     return check.evaluate(mv)
 
 
+def _evaluate_freshness_without_max_timestamp(contract_impl, check, rows=None):
+    """A failed aggregation query records no measurement for its metrics, not a None one."""
+    metric_values = [] if rows is None else [(check.check_rows_tested_metric_impl, rows)]
+    mv = build_measurement_values(metric_values, contract_impl=contract_impl)
+    contract_impl.dataset_rows_tested = rows
+    return check.evaluate(mv)
+
+
 def _data_timestamp(check: FreshnessCheckImpl) -> datetime:
     return check.contract_impl.yaml.data_timestamp or datetime.now(tz=timezone.utc)
 
@@ -76,6 +85,38 @@ def test_freshness_fails_when_no_timestamp():
     assert result.diagnostic_metric_values == {
         "dataset_rows_tested": 0,
         "check_rows_tested": 0,
+    }
+
+
+def test_freshness_not_evaluated_when_aggregation_query_failed(caplog):
+    """Neither metric measured → NOT_EVALUATED, not the FAILED of an empty table,
+    and without the warning that suggests the table has no rows."""
+    contract_impl, check = _build_freshness_check(_freshness_yaml())
+    result = _evaluate_freshness_without_max_timestamp(contract_impl, check)
+    assert isinstance(result, FreshnessCheckResult)
+    assert result.outcome == CheckOutcome.NOT_EVALUATED
+    assert result.threshold_value is None
+    assert result.max_timestamp is None
+    assert result.max_timestamp_utc is None
+    assert result.freshness is None
+    assert result.freshness_in_seconds is None
+    assert result.diagnostic_metric_values == {
+        "dataset_rows_tested": None,
+        "check_rows_tested": None,
+    }
+    assert "Does the table or partition have rows?" not in caplog.text
+
+
+def test_freshness_not_evaluated_when_only_max_timestamp_query_failed():
+    """Metrics can be split over several aggregation queries: the row count can be measured
+    while the max timestamp's query failed. That is still NOT_EVALUATED."""
+    contract_impl, check = _build_freshness_check(_freshness_yaml())
+    result = _evaluate_freshness_without_max_timestamp(contract_impl, check, rows=100)
+    assert isinstance(result, FreshnessCheckResult)
+    assert result.outcome == CheckOutcome.NOT_EVALUATED
+    assert result.diagnostic_metric_values == {
+        "dataset_rows_tested": 100,
+        "check_rows_tested": 100,
     }
 
 
