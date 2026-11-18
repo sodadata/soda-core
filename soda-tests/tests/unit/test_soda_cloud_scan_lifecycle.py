@@ -215,8 +215,8 @@ def _cloud_error_response(status_code: int, body) -> MagicMock:
 @pytest.mark.parametrize(
     "body, expected_level, expected_code",
     [
-        # A deleted scan is a state of Soda Cloud, not a fault of the run.
-        ({"code": "scan_not_found", "message": "Scan not found"}, logging.WARNING, "scan_not_found"),
+        # A deleted scan is a state of Soda Cloud, not a fault of the run: run_scan logs the warning.
+        ({"code": "scan_not_found", "message": "Scan not found"}, logging.INFO, "scan_not_found"),
         ({"code": "invalid_request", "message": "refused"}, logging.ERROR, "invalid_request"),
         # Non-object JSON and non-JSON bodies: logged with the text as the message, response returned.
         (["not", "an", "object"], logging.ERROR, "None"),

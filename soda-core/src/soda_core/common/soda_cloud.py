@@ -337,7 +337,8 @@ def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[st
 
 # The Soda Cloud response code for a scan id it does not know. On a managed run the scan was
 # created before the job started, so this means it was deleted since: a state of Soda Cloud, not
-# a fault of this run, so ``_execute_cqrs_request`` logs it at warning instead of error.
+# a fault of this run, so ``_execute_cqrs_request`` logs it at info instead of error; the caller
+# that knows what it means (``cli.handlers.scan.run_scan``) logs the one warning people read.
 SCAN_NOT_FOUND_CODE: str = "scan_not_found"
 
 
@@ -1749,7 +1750,7 @@ class SodaCloud:
                 # Without a JSON object body (e.g. an HTML/plain-text error page), the text is the message.
                 message: str = body.get("message", "N/A") if body else response.text
 
-                log = logger.warning if code == SCAN_NOT_FOUND_CODE else logger.error
+                log = logger.info if code == SCAN_NOT_FOUND_CODE else logger.error
                 log(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"

@@ -356,10 +356,9 @@ def test_run_scan_deleted_scan_exits_ok_without_marking_it_failed(monkeypatch, c
     assert exit_code == ExitCode.OK
     assert _request_kinds(mock_cloud) == ["sodaCoreScanStart"]
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
-    assert any(
-        record.levelno == logging.WARNING and "no longer exists on Soda Cloud" in record.getMessage()
-        for record in caplog.records
-    )
+    # One warning, from run_scan; the raw Cloud response is logged at info.
+    [warning] = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert "no longer exists on Soda Cloud" in warning.getMessage()
 
 
 def test_run_scan_failure_with_a_healthy_stream_reports_no_logs(monkeypatch):
