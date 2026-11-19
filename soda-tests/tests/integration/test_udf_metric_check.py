@@ -71,7 +71,7 @@ def test_metric_query(data_source_test_helper: DataSourceTestHelper):
               - metric:
                   query: |
                     SELECT AVG({end_quoted} - {start_quoted})
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                   threshold:
                     must_be_between:
                       greater_than_or_equal: 9
@@ -259,7 +259,7 @@ def test_metric_query_returning_a_non_scalar_result_warns_and_evaluates_the_firs
               - metric:
                   query: |
                     SELECT {select_clause.format(**quoted_columns)}
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     {order_by_clause.format(**quoted_columns)}
                   threshold:
                     must_be: 0

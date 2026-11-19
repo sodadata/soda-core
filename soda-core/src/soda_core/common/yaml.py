@@ -622,13 +622,14 @@ class VariableResolver:
             return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
         return obj
 
-    # Template slots in the `soda` namespace that the ENGINE substitutes later — per query,
-    # per page — not parse-time variables. The resolver passes them through (normalized, so
-    # `${ soda.PAGINATION }` becomes `${soda.PAGINATION}`) instead of erroring on an unknown
-    # soda variable or ever substituting a value into them. Currently one:
-    # soda-reconciliation's `source_query` / `target_query` pagination marker, replaced with
-    # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
-    RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
+    # Template slots in the `soda` namespace that the ENGINE substitutes later, when it runs the SQL,
+    # not parse-time variables. The resolver passes them through (normalized, so `${ soda.PAGINATION }`
+    # becomes `${soda.PAGINATION}`) instead of erroring on an unknown soda variable or ever
+    # substituting a value into them. PAGINATION is soda-reconciliation's `source_query` /
+    # `target_query` pagination marker, replaced with the dialect's ORDER BY / LIMIT / OFFSET clause
+    # on every page. DATASET is the checked dataset's table, which the data source writes in when it
+    # runs the SQL, see `checked_dataset.py`.
+    RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION", "DATASET"})
 
     # A reference to a variable: its namespace and its name.
     VARIABLE_PATTERN: str = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"

@@ -4,9 +4,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type
 
+from soda_core.common.checked_dataset import SODA_DATASET, CheckedDataset, get_checked_dataset
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
-from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.exceptions import DataSourceConnectionException, InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -162,8 +163,30 @@ class DataSourceImpl(ABC):
         if self.has_open_connection():
             self.data_source_connection.close_connection()
 
+    def fill_soda_dataset(self, sql: str) -> str:
+        """``sql`` with ``${soda.DATASET}`` replaced by the checked dataset's table, as this data source's dialect
+        writes it. Every query this data source runs goes through here. Raises when the SQL holds the slot outside a
+        check collection's run, or on another data source than the checked dataset's."""
+        if SODA_DATASET not in sql:
+            return sql
+        checked_dataset: Optional[CheckedDataset] = get_checked_dataset()
+        if checked_dataset is None or checked_dataset.data_source_name != self.name:
+            raise InvalidArgumentException(
+                f"${{soda.DATASET}} names the table of the dataset a check reads, in that dataset's data source, and "
+                f"data source '{self.name}' runs this query "
+                + (
+                    "outside a check"
+                    if checked_dataset is None
+                    else f"for data source '{checked_dataset.data_source_name}'"
+                )
+            )
+        return sql.replace(
+            SODA_DATASET,
+            self.sql_dialect.qualify_dataset_name(list(checked_dataset.prefixes), checked_dataset.dataset_name),
+        )
+
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
-        return self.connection.execute_query(sql=sql, log_query=log_query)
+        return self.connection.execute_query(sql=self.fill_soda_dataset(sql), log_query=log_query)
 
     def execute_query_one_by_one(
         self,
@@ -174,7 +197,7 @@ class DataSourceImpl(ABC):
     ) -> tuple[tuple]:
         # Returns the description of the query.
         return self.data_source_connection.execute_query_one_by_one(
-            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+            sql=self.fill_soda_dataset(sql), row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )
 
     def execute_query_one_by_one_prefer_streaming(
@@ -188,14 +211,14 @@ class DataSourceImpl(ABC):
         # and supported — see DataSourceConnection.execute_query_one_by_one_prefer_streaming.
         # Returns the description of the query.
         return self.data_source_connection.execute_query_one_by_one_prefer_streaming(
-            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
+            sql=self.fill_soda_dataset(sql), row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )
 
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
-        return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query)
+        return self.data_source_connection.execute_query_iterate(sql=self.fill_soda_dataset(sql), log_query=log_query)
 
     def execute_update(self, sql: str, log_query: bool = True) -> int:
-        return self.connection.execute_update(sql=sql, log_query=log_query)
+        return self.connection.execute_update(sql=self.fill_soda_dataset(sql), log_query=log_query)
 
     @property
     def can_create_view(self) -> bool:

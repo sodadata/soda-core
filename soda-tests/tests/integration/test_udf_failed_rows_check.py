@@ -162,7 +162,7 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
         """,
     )
@@ -200,7 +200,7 @@ def test_failed_rows_query_with_cte_produces_correct_count(data_source_test_help
                   query: |
                     WITH filtered AS (
                         SELECT *
-                        FROM {test_table.qualified_name}
+                        FROM ${{soda.DATASET}}
                         WHERE ({end_quoted} - {start_quoted}) > 5
                     )
                     SELECT * FROM filtered

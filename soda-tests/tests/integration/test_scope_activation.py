@@ -210,7 +210,7 @@ def test_a_scoped_query_check_carries_no_scope_rows_tested(
                   qualifier: us
                   scope: us
                   query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
                   threshold:
                     must_be_greater_than: 0
             """,

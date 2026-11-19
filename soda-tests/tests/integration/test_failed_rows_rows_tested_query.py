@@ -63,10 +63,10 @@ def test_failed_rows_query_with_rows_tested_query(data_source_test_helper: DataS
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
         """,
     )
 
@@ -103,10 +103,10 @@ def test_failed_rows_query_with_rows_tested_query_percent_threshold(data_source_
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
                   threshold:
                     metric: percent
                     must_be_less_than: 50
@@ -167,7 +167,7 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
         """,
     )
@@ -233,7 +233,7 @@ def test_failed_rows_rows_tested_query_returns_zero(data_source_test_helper: Dat
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query(0)}
@@ -267,7 +267,7 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query("NULL")}
@@ -310,7 +310,7 @@ def test_failed_rows_rows_tested_query_returning_non_numeric_is_rejected(
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query("'YARDI_EMEA_SCHRODERS'")}
@@ -366,7 +366,7 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query(999)}
@@ -418,7 +418,7 @@ def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query(4)}
@@ -473,7 +473,7 @@ def test_two_failed_rows_checks_resolve_to_distinct_metrics(
                   qualifier: gap_over_5
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query(100)}
@@ -481,7 +481,7 @@ def test_two_failed_rows_checks_resolve_to_distinct_metrics(
                   qualifier: gap_over_8
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 8
                   rows_tested_query: |
                     {data_source_test_helper.select_literal_query(200)}
@@ -532,7 +532,7 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
                   expression: |
                     ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
         """,
     )
 
@@ -588,10 +588,10 @@ def test_failed_rows_rows_tested_query_sampling_applied(
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
         """,
     )
 
@@ -646,10 +646,10 @@ def test_failed_rows_rows_tested_query_sampling_not_applied(
               - failed_rows:
                   query: |
                     SELECT *
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
         """,
     )
 

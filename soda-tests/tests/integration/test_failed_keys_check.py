@@ -54,7 +54,7 @@ def test_failed_keys_query_counts_failures_and_keeps_dataset_rows_tested(
               - failed_rows:
                   keys_query: |
                     SELECT {id_quoted}
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
         """,
     )
@@ -86,10 +86,10 @@ def test_failed_keys_query_with_rows_tested_query(data_source_test_helper: DataS
               - failed_rows:
                   keys_query: |
                     SELECT {id_quoted}
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
-                    SELECT COUNT(*) FROM {test_table.qualified_name}
+                    SELECT COUNT(*) FROM ${{soda.DATASET}}
         """,
     )
 
@@ -128,7 +128,7 @@ def test_failed_keys_query_with_mapping_is_accepted_and_counts(data_source_test_
               - failed_rows:
                   keys_query: |
                     SELECT {id_quoted}
-                    FROM {test_table.qualified_name}
+                    FROM ${{soda.DATASET}}
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   key_column_mapping:
                     customer_id: id

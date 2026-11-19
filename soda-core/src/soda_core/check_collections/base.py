@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import reprlib
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import ERROR, WARNING, LogRecord
@@ -24,6 +24,7 @@ from numbers import Number
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Optional
 
+from soda_core.common.checked_dataset import CheckedDataset, using_checked_dataset
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
@@ -1155,8 +1156,21 @@ class CheckCollectionImpl:
         """Run the block as this collection: its records go into its own ``Logs``, labelled as this
         file, and under its own ``redaction_policy``. For work done on its behalf outside ``verify()``,
         such as session post-processing after every ``verify()`` has returned."""
-        with self.logs.activate(self.thread_label), self.redaction_policy.activate():
+        with self.logs.activate(self.thread_label), self.redaction_policy.activate(), self._using_checked_dataset():
             yield
+
+    def _using_checked_dataset(self) -> AbstractContextManager:
+        """While the collection runs SQL, its data source fills ``${soda.DATASET}`` with this dataset's table."""
+        # A subtype that doesn't build through this __init__, such as a test double, has neither attribute.
+        data_source_impl: Optional[DataSourceImpl] = getattr(self, "data_source_impl", None)
+        dataset_identifier: Optional[DatasetIdentifier] = getattr(self, "dataset_identifier", None)
+        if data_source_impl is None or dataset_identifier is None:
+            return nullcontext()
+        return using_checked_dataset(
+            CheckedDataset(
+                data_source_impl.name, tuple(dataset_identifier.prefixes or ()), dataset_identifier.dataset_name
+            )
+        )
 
     def verify(self) -> CheckCollectionResult:
         if not self.wire_source:
@@ -1188,7 +1202,7 @@ class CheckCollectionImpl:
         # The policy is set once here, for every record the verification emits: the log sites
         # (and the shared data source code they wrap in redacted_scope) only say what a record
         # carries. The masking runs on the emitting thread, so this scope covers it.
-        with self.redaction_policy.activate():
+        with self.redaction_policy.activate(), self._using_checked_dataset():
             return self._verify()
 
     def _verify(self) -> CheckCollectionResult:
