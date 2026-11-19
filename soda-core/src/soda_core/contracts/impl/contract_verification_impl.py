@@ -12,7 +12,7 @@ from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectio
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import InvalidArgumentException, InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
@@ -436,15 +436,19 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         provided_variable_values: dict[str, str],
     ) -> dict[str, DataSourceImpl]:
-        data_source_impl_by_name: dict[str, DataSourceImpl] = (
-            {data_source_impl.name: data_source_impl for data_source_impl in data_source_impls}
-            if data_source_impls
-            else {}
-        )
-        for data_source_yaml_source in data_source_yaml_sources:
-            data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+        all_data_source_impls: list[DataSourceImpl] = list(data_source_impls or []) + [
+            DataSourceImpl.from_yaml_source(
                 data_source_yaml_source=data_source_yaml_source, provided_variable_values=provided_variable_values
             )
+            for data_source_yaml_source in data_source_yaml_sources
+        ]
+        data_source_impl_by_name: dict[str, DataSourceImpl] = {}
+        for data_source_impl in all_data_source_impls:
+            if data_source_impl.name in data_source_impl_by_name:
+                raise InvalidArgumentException(
+                    f"Two data sources are named '{data_source_impl.name}'. Pass each data source once, under a "
+                    f"name of its own"
+                )
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
 
