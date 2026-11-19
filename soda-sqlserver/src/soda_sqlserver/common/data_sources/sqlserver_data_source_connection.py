@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import random
-import re
 import string
 import struct
 import time
@@ -64,8 +63,6 @@ CONFIGURED_TENANT_HINT = (
 )
 # The characters azure.identity accepts in a tenant ID: a GUID or a domain name such as contoso.onmicrosoft.com.
 VALID_TENANT_ID_CHARACTERS = frozenset(string.ascii_letters + string.digits + "-.")
-# A managed identity's client ID is always a GUID in its canonical 8-4-4-4-12 form.
-CLIENT_ID_PATTERN = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -137,11 +134,10 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
 
     @field_validator("client_id")
     @classmethod
-    def _client_id_is_valid(cls, client_id: Optional[str]) -> Optional[str]:
+    def _client_id_is_not_empty(cls, client_id: Optional[str]) -> Optional[str]:
         # An empty value (an unset ${env.X}, say) is rejected rather than read as "left out": that would quietly
         # fall back to the pod's AZURE_CLIENT_ID, and the scan could then connect as a different identity than
-        # the connection names. azure.identity does not check the client ID itself, so a typo is caught here
-        # instead of in a round trip to Entra.
+        # the connection names.
         if client_id is None:
             return None
         client_id = client_id.strip()
@@ -149,11 +145,6 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
             raise ValueError(
                 "client_id on the connection is empty. Set it to the client ID of the managed identity, or leave "
                 "client_id out to use AZURE_CLIENT_ID from the pod environment."
-            )
-        if not CLIENT_ID_PATTERN.fullmatch(client_id):
-            raise ValueError(
-                f"client_id '{client_id}' on the connection is not a valid managed identity client ID: use the "
-                f"identity's client ID, a GUID such as 00000000-0000-0000-0000-000000000000."
             )
         return client_id
 

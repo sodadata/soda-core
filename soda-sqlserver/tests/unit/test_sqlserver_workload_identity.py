@@ -25,8 +25,6 @@ PACKED_ACCESS_TOKEN_FIXTURE = (
     b"p\x00a\x00y\x00l\x00o\x00a\x00d\x00.\x00s\x00i\x00g\x00"
 )
 
-# Managed identity client IDs are GUIDs; the connection rejects anything else.
-YAML_CLIENT_ID = "6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6b"
 CONNECTION = {"host": "myserver.database.windows.net", "port": 1433, "database": "sales"}
 
 
@@ -65,10 +63,10 @@ def test_workload_identity_parses_without_client_id() -> None:
 
 
 def test_workload_identity_parses_with_client_id() -> None:
-    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": YAML_CLIENT_ID})
+    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml"})
 
     assert isinstance(config, SqlServerWorkloadIdentityAuthentication)
-    assert config.client_id == YAML_CLIENT_ID
+    assert config.client_id == "client-from-yaml"
 
 
 def test_workload_identity_parses_with_tenant_id() -> None:
@@ -90,7 +88,7 @@ def test_connection_string_has_no_credentials() -> None:
         {
             **CONNECTION,
             "authentication": "workloadidentity",
-            "client_id": YAML_CLIENT_ID,
+            "client_id": "client-from-yaml",
             "tenant_id": "tenant-from-yaml",
         }
     )
@@ -105,7 +103,7 @@ def test_connection_string_has_no_credentials() -> None:
     assert "UID=" not in connection_string
     assert "PWD=" not in connection_string
     assert "Authentication=" not in connection_string
-    assert YAML_CLIENT_ID not in connection_string
+    assert "client-from-yaml" not in connection_string
     assert "tenant-from-yaml" not in connection_string
 
 
@@ -128,7 +126,9 @@ def test_connect_passes_the_token_as_pre_connect_attribute(credential_class, pyo
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     secret = "leftover-secret"
     with pytest.raises(ValidationError) as exc_info:
-        parse({**CONNECTION, "authentication": "workloadidentity", "client_id": YAML_CLIENT_ID, leftover_key: secret})
+        parse(
+            {**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: secret}
+        )
 
     assert secret not in str(exc_info.value)
 
@@ -188,12 +188,12 @@ def test_client_id_from_environment_is_used_without_yaml_client_id(credential_cl
 
 
 def test_yaml_client_id_overrides_environment(credential_class, pyodbc_connect) -> None:
-    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": YAML_CLIENT_ID})
+    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml"})
 
     SqlServerDataSourceConnection(name="ds", connection_properties=config)
 
     credential_class.assert_called_once()
-    assert credential_class.call_args.kwargs["client_id"] == YAML_CLIENT_ID
+    assert credential_class.call_args.kwargs["client_id"] == "client-from-yaml"
 
 
 def test_tenant_id_from_environment_is_used_without_yaml_tenant_id(credential_class, pyodbc_connect) -> None:

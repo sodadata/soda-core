@@ -19,8 +19,6 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
 
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOi.access-token-payload.signature"
 FEDERATED_ASSERTION = "eyJhbGciOiJSUzI1NiIsImtpZCI6.service-account-assertion.signature"
-# Managed identity client IDs are GUIDs; the connection rejects anything else.
-YAML_CLIENT_ID = "6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6b"
 AADSTS_MESSAGE = (
     "AADSTS700213: No matching federated identity record found for presented assertion subject "
     "'system:serviceaccount:soda:soda-runner'. Check your federated identity credential Subject, Audience "
@@ -160,11 +158,11 @@ def test_yaml_client_id_satisfies_a_missing_environment_client_id(
     monkeypatch, credential_class, pyodbc_connect
 ) -> None:
     monkeypatch.delenv("AZURE_CLIENT_ID")
-    config = workload_identity_config(client_id=YAML_CLIENT_ID)
+    config = workload_identity_config(client_id="client-from-yaml")
 
     unopened_connection(config)._create_connection(config)
 
-    assert credential_class.call_args.kwargs["client_id"] == YAML_CLIENT_ID
+    assert credential_class.call_args.kwargs["client_id"] == "client-from-yaml"
     assert credential_class.call_args.kwargs["tenant_id"] == "tenant-from-env"
 
 
@@ -362,22 +360,6 @@ def test_empty_client_id_is_rejected(client_id) -> None:
         workload_identity_config(client_id=client_id)
 
 
-@pytest.mark.parametrize(
-    "client_id",
-    [
-        "client-from-yaml",
-        "{6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6b}",
-        "6f2c8e1a3b4d4f5e9a7b1c2d3e4f5a6b",
-        "6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6",
-        "6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6b-extra",
-    ],
-)
-def test_malformed_client_id_is_rejected_with_the_setting_named(client_id, credential_class) -> None:
-    with pytest.raises(ValueError, match="on the connection is not a valid managed identity client ID"):
-        workload_identity_config(client_id=client_id)
-    credential_class.assert_not_called()
-
-
-@pytest.mark.parametrize("client_id", [YAML_CLIENT_ID, YAML_CLIENT_ID.upper(), f" {YAML_CLIENT_ID} "])
-def test_valid_client_id_is_accepted_and_stripped(client_id) -> None:
+@pytest.mark.parametrize("client_id", ["client-from-yaml", " client-from-yaml "])
+def test_client_id_is_accepted_and_stripped(client_id) -> None:
     assert workload_identity_config(client_id=client_id).client_id == client_id.strip()
