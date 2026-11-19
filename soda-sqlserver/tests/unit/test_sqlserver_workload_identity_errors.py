@@ -142,7 +142,7 @@ def test_missing_environment_variable_is_named(monkeypatch, variable, credential
     assert f"{variable}" in message
     assert "azure.workload.identity/use" in message
     for other in {"AZURE_TENANT_ID", "AZURE_FEDERATED_TOKEN_FILE", "AZURE_CLIENT_ID"} - {variable}:
-        assert other not in message.split("for this pod: ")[1].split(" not set ")[0]
+        assert other not in message.split("for this pod: ")[1].split(" not set.")[0]
     credential_class.assert_not_called()
     pyodbc_connect.assert_not_called()
 
@@ -199,24 +199,85 @@ def test_entra_rejection_surfaces_the_aadsts_message_verbatim(credential_class, 
     pyodbc_connect.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "yaml_tenant_id, expected_tenant_id", [(None, "tenant-from-env"), ("tenant-from-yaml", "tenant-from-yaml")]
-)
-def test_application_not_found_in_tenant_gets_the_cross_tenant_hint(
-    yaml_tenant_id, expected_tenant_id, credential_class, pyodbc_connect
+def test_application_not_found_in_environment_tenant_gets_the_cross_tenant_hint(
+    credential_class, pyodbc_connect
 ) -> None:
     credential_class.return_value.get_token.side_effect = ClientAuthenticationError(message=AADSTS_NOT_FOUND_MESSAGE)
-    config = workload_identity_config(tenant_id=yaml_tenant_id)
+    config = workload_identity_config()
 
     with pytest.raises(DataSourceConnectionException) as exc_info:
         unopened_connection(config)._create_connection(config)
 
     message = str(exc_info.value)
     assert AADSTS_NOT_FOUND_MESSAGE in message
-    assert f"in tenant '{expected_tenant_id}'" in message
-    assert f"not found in tenant '{expected_tenant_id}'" in message
+    assert "not found in tenant 'tenant-from-env'" in message
     assert "set tenant_id on the connection" in message
     pyodbc_connect.assert_not_called()
+
+
+def test_application_not_found_in_configured_tenant_points_at_the_connection_settings(
+    credential_class, pyodbc_connect
+) -> None:
+    credential_class.return_value.get_token.side_effect = ClientAuthenticationError(message=AADSTS_NOT_FOUND_MESSAGE)
+    config = workload_identity_config(tenant_id="tenant-from-yaml")
+
+    with pytest.raises(DataSourceConnectionException) as exc_info:
+        unopened_connection(config)._create_connection(config)
+
+    message = str(exc_info.value)
+    assert AADSTS_NOT_FOUND_MESSAGE in message
+    assert "not found in tenant 'tenant-from-yaml', which is set as tenant_id on the connection" in message
+    assert "Check that tenant_id and client_id on the connection are correct" in message
+    assert "set tenant_id on the connection to" not in message
+    pyodbc_connect.assert_not_called()
+
+
+@pytest.mark.parametrize("variable", ["AZURE_TENANT_ID", "AZURE_CLIENT_ID"])
+def test_missing_tenant_or_client_id_suggests_the_connection_settings(monkeypatch, variable, credential_class) -> None:
+    monkeypatch.delenv(variable)
+
+    with pytest.raises(DataSourceConnectionException) as exc_info:
+        connection_module.acquire_workload_identity_token(workload_identity_config())
+
+    message = str(exc_info.value)
+    assert "not set in the environment" not in message
+    assert "A single connection can instead set tenant_id and client_id itself" in message
+
+
+def test_missing_token_file_does_not_suggest_the_connection_settings(monkeypatch, credential_class) -> None:
+    monkeypatch.delenv("AZURE_FEDERATED_TOKEN_FILE")
+
+    with pytest.raises(DataSourceConnectionException) as exc_info:
+        connection_module.acquire_workload_identity_token(workload_identity_config())
+
+    assert "A single connection can" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize("tenant_id", ["", "   "])
+def test_empty_tenant_id_is_rejected(tenant_id) -> None:
+    with pytest.raises(ValueError, match="tenant_id on the connection is empty"):
+        workload_identity_config(tenant_id=tenant_id)
+
+
+@pytest.mark.parametrize(
+    "tenant_id",
+    [
+        "{72f988bf-86f1-41af-91ab-2d7cd011db47}",
+        "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47",
+        "contoso onmicrosoft.com",
+    ],
+)
+def test_malformed_tenant_id_is_rejected_with_the_setting_named(tenant_id, credential_class) -> None:
+    with pytest.raises(ValueError, match="on the connection is not a valid Entra tenant ID"):
+        workload_identity_config(tenant_id=tenant_id)
+    credential_class.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "tenant_id", ["72f988bf-86f1-41af-91ab-2d7cd011db47", "contoso.onmicrosoft.com", " contoso.onmicrosoft.com "]
+)
+def test_valid_tenant_id_is_accepted_and_stripped(tenant_id) -> None:
+    assert workload_identity_config(tenant_id=tenant_id).tenant_id == tenant_id.strip()
 
 
 def test_login_failure_after_token_acquisition_points_at_the_database_user(credential_class, pyodbc_connect) -> None:

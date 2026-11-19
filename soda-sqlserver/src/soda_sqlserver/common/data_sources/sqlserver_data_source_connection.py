@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import random
+import string
 import struct
 import time
 from abc import ABC
@@ -46,12 +47,22 @@ WORKLOAD_IDENTITY_SETUP_HINT = (
     "webhook injects it, or mount the projected service account token and set AZURE_TENANT_ID, AZURE_CLIENT_ID "
     "and AZURE_FEDERATED_TOKEN_FILE in the runner's Helm values."
 )
+CONNECTION_IDENTITY_HINT = (
+    "A single connection can instead set tenant_id and client_id itself, for a managed identity of its own or one "
+    "in another Entra tenant."
+)
 # Entra's error for a client ID that has no service principal in the tenant the token was requested from.
 AADSTS_APPLICATION_NOT_FOUND = "AADSTS700016"
 CROSS_TENANT_HINT = (
     "The managed identity was not found in tenant '{tenant_id}'. If it lives in another Entra tenant, set "
     "tenant_id on the connection to that tenant's ID."
 )
+CONFIGURED_TENANT_HINT = (
+    "The managed identity was not found in tenant '{tenant_id}', which is set as tenant_id on the connection. "
+    "Check that tenant_id and client_id on the connection are correct and belong to the same Entra tenant."
+)
+# The characters azure.identity accepts in a tenant ID: a GUID or a domain name such as contoso.onmicrosoft.com.
+VALID_TENANT_ID_CHARACTERS = frozenset(string.ascii_letters + string.digits + "-.")
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -120,6 +131,28 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
         None,
         description="Entra tenant ID of the managed identity; defaults to AZURE_TENANT_ID from the pod environment",
     )
+
+    @field_validator("tenant_id")
+    @classmethod
+    def _tenant_id_is_valid(cls, tenant_id: Optional[str]) -> Optional[str]:
+        # Checked here rather than left to azure.identity, whose ValueError does not say which setting is wrong.
+        # An empty value (an unset ${env.X}, say) is rejected rather than read as "left out", which would quietly
+        # send the token exchange to the pod's own AZURE_TENANT_ID.
+        if tenant_id is None:
+            return None
+        tenant_id = tenant_id.strip()
+        if not tenant_id:
+            raise ValueError(
+                "tenant_id on the connection is empty. Set it to the Entra tenant ID of the managed identity, or "
+                "leave tenant_id out to use AZURE_TENANT_ID from the pod environment."
+            )
+        if any(c not in VALID_TENANT_ID_CHARACTERS for c in tenant_id):
+            raise ValueError(
+                f"tenant_id '{tenant_id}' on the connection is not a valid Entra tenant ID: use the tenant's GUID "
+                f"or its domain name (such as contoso.onmicrosoft.com), which contain only letters, digits, "
+                f"'-' and '.'."
+            )
+        return tenant_id
 
     @field_validator("scope")
     @classmethod
@@ -202,9 +235,11 @@ def resolve_workload_identity(config: SqlServerWorkloadIdentityAuthentication) -
     ]
     if missing:
         verb = "is" if len(missing) == 1 else "are"
+        # The token file can only come from the pod; the tenant and client ID can also come from the connection.
+        connection_hint = f" {CONNECTION_IDENTITY_HINT}" if not tenant_id or not client_id else ""
         raise DataSourceConnectionException(
             f"Workload identity federation is not set up for this pod: {', '.join(missing)} "
-            f"{verb} not set in the environment. {WORKLOAD_IDENTITY_SETUP_HINT}"
+            f"{verb} not set. {WORKLOAD_IDENTITY_SETUP_HINT}{connection_hint}"
         )
     return WorkloadIdentity(tenant_id=tenant_id, client_id=client_id, token_file_path=token_file_path)
 
@@ -232,7 +267,8 @@ def acquire_workload_identity_token(config: SqlServerWorkloadIdentityAuthenticat
             f"in tenant '{identity.tenant_id}': {e.message}"
         )
         if AADSTS_APPLICATION_NOT_FOUND in (e.message or ""):
-            message = f"{message} {CROSS_TENANT_HINT.format(tenant_id=identity.tenant_id)}"
+            hint = CONFIGURED_TENANT_HINT if config.tenant_id else CROSS_TENANT_HINT
+            message = f"{message} {hint.format(tenant_id=identity.tenant_id)}"
         raise DataSourceConnectionException(message) from e
 
 
