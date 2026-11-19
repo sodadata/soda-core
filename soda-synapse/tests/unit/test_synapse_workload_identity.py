@@ -62,6 +62,46 @@ def test_workload_identity_parses(client_id) -> None:
     assert config.client_id == client_id
 
 
+@pytest.mark.parametrize("tenant_id", [None, "tenant-from-yaml"])
+def test_workload_identity_parses_tenant_id(tenant_id) -> None:
+    connection = {**CONNECTION, "authentication": "workloadidentity"}
+    if tenant_id:
+        connection["tenant_id"] = tenant_id
+
+    config = parse(connection)
+
+    assert isinstance(config, SynapseWorkloadIdentityAuthentication)
+    assert config.tenant_id == tenant_id
+
+
+@pytest.mark.parametrize(
+    "yaml_tenant_id, expected_tenant_id", [(None, "tenant-from-env"), ("tenant-from-yaml", "tenant-from-yaml")]
+)
+def test_credential_gets_the_tenant_id(yaml_tenant_id, expected_tenant_id, credential_class, pyodbc_connect) -> None:
+    connection = {**CONNECTION, "authentication": "workloadidentity"}
+    if yaml_tenant_id:
+        connection["tenant_id"] = yaml_tenant_id
+
+    SynapseDataSourceConnection(name="ds", connection_properties=parse(connection))
+
+    assert credential_class.call_args.kwargs["tenant_id"] == expected_tenant_id
+
+
+def test_yaml_tenant_id_satisfies_a_missing_environment_tenant_id(
+    monkeypatch, credential_class, pyodbc_connect
+) -> None:
+    monkeypatch.delenv("AZURE_TENANT_ID")
+
+    SynapseDataSourceConnection(
+        name="ds",
+        connection_properties=parse(
+            {**CONNECTION, "authentication": "workloadidentity", "tenant_id": "tenant-from-yaml"}
+        ),
+    )
+
+    assert credential_class.call_args.kwargs["tenant_id"] == "tenant-from-yaml"
+
+
 @pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     secret = "leftover-secret"
@@ -74,7 +114,14 @@ def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
 
 
 def test_connection_string_has_no_credentials() -> None:
-    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml"})
+    config = parse(
+        {
+            **CONNECTION,
+            "authentication": "workloadidentity",
+            "client_id": "client-from-yaml",
+            "tenant_id": "tenant-from-yaml",
+        }
+    )
 
     connection_string = SynapseDataSourceConnection.build_connection_string(config)
 
@@ -82,6 +129,8 @@ def test_connection_string_has_no_credentials() -> None:
     assert "UID=" not in connection_string
     assert "PWD=" not in connection_string
     assert "Authentication=" not in connection_string
+    assert "client-from-yaml" not in connection_string
+    assert "tenant-from-yaml" not in connection_string
 
 
 @pytest.mark.parametrize(
