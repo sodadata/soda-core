@@ -20,6 +20,8 @@ from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import 
 )
 
 ACCESS_TOKEN = "eyJ0eXAi.payload.sig"
+# Managed identity client IDs are GUIDs; the connection rejects anything else.
+YAML_CLIENT_ID = "6f2c8e1a-3b4d-4f5e-9a7b-1c2d3e4f5a6b"
 CONNECTION = {"host": "abc123.datawarehouse.fabric.microsoft.com", "port": 1433, "database": "sales"}
 
 
@@ -50,7 +52,7 @@ def pyodbc_connect(monkeypatch) -> MagicMock:
     return pyodbc_connect
 
 
-@pytest.mark.parametrize("client_id", [None, "client-from-yaml"])
+@pytest.mark.parametrize("client_id", [None, YAML_CLIENT_ID])
 def test_workload_identity_parses(client_id) -> None:
     connection = {**CONNECTION, "authentication": "workloadidentity"}
     if client_id:
@@ -106,9 +108,7 @@ def test_yaml_tenant_id_satisfies_a_missing_environment_tenant_id(
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     secret = "leftover-secret"
     with pytest.raises(ValidationError) as exc_info:
-        parse(
-            {**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml", leftover_key: secret}
-        )
+        parse({**CONNECTION, "authentication": "workloadidentity", "client_id": YAML_CLIENT_ID, leftover_key: secret})
 
     assert secret not in str(exc_info.value)
 
@@ -118,7 +118,7 @@ def test_connection_string_has_no_credentials() -> None:
         {
             **CONNECTION,
             "authentication": "workloadidentity",
-            "client_id": "client-from-yaml",
+            "client_id": YAML_CLIENT_ID,
             "tenant_id": "tenant-from-yaml",
         }
     )
@@ -129,12 +129,12 @@ def test_connection_string_has_no_credentials() -> None:
     assert "UID=" not in connection_string
     assert "PWD=" not in connection_string
     assert "Authentication=" not in connection_string
-    assert "client-from-yaml" not in connection_string
+    assert YAML_CLIENT_ID not in connection_string
     assert "tenant-from-yaml" not in connection_string
 
 
 @pytest.mark.parametrize(
-    "yaml_client_id, expected_client_id", [(None, "client-from-env"), ("client-from-yaml", "client-from-yaml")]
+    "yaml_client_id, expected_client_id", [(None, "client-from-env"), (YAML_CLIENT_ID, YAML_CLIENT_ID)]
 )
 def test_connect_passes_the_token_as_pre_connect_attribute(
     yaml_client_id, expected_client_id, credential_class, pyodbc_connect
