@@ -868,8 +868,10 @@ class CheckCollectionImpl:
             except Exception as e:
                 logger.error(f"Error activating scopes with extension {extension.__class__.__name__}: {e}")
 
-        self.column_impls = self._parse_columns(yaml)
-        self.check_impls = self._parse_checks(yaml)
+        # Checks build their SQL here, and sampling rewrites it with the checked table's name in it.
+        with self._using_checked_dataset():
+            self.column_impls = self._parse_columns(yaml)
+            self.check_impls = self._parse_checks(yaml)
 
         dataset_check_impls: list = list(self.check_impls)
         column_check_impls: list = []

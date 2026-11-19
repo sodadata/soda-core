@@ -91,6 +91,8 @@ class FailedRowsCheckImpl(CheckImpl):
             sql = active_query
 
             if contract_impl.should_apply_sampling:
+                # Sampling finds the tables the SQL reads, so ${soda.DATASET} must name the table first.
+                sql = contract_impl.data_source_impl.fill_soda_dataset(sql)
                 sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
                     sql=sql,
                     sampler_limit=contract_impl.sampler_limit,
@@ -113,6 +115,7 @@ class FailedRowsCheckImpl(CheckImpl):
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
                 if contract_impl.should_apply_sampling:
+                    rows_tested_sql = contract_impl.data_source_impl.fill_soda_dataset(rows_tested_sql)
                     rows_tested_sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
                         sql=rows_tested_sql,
                         sampler_limit=contract_impl.sampler_limit,
