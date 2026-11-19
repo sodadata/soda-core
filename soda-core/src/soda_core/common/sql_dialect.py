@@ -357,14 +357,19 @@ class SqlDialect:
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
 
-    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
+    def qualify_dataset_name(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> str:
         """
-        Creates a fully qualified table name, optionally quoting the table name
+        The quoted, fully qualified name of a dataset, the one FROM and JOIN write too. A dialect adapts the prefix
+        in ``_normalize_dataset_prefix`` and leaves this method alone, so every name of a dataset is built here.
         """
-        parts: list[str] = list(dataset_prefix) if dataset_prefix else []
-        parts.append(dataset_name)
-        parts = [self.quote_default(p) for p in parts if p]
-        return ".".join(parts)
+        parts: list[str] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
+        # A None part is left out. An empty one is kept and fails the join, as FROM always did: a DQN with an empty
+        # segment is a mistake.
+        return ".".join(self.quote_default(p) for p in parts if isinstance(p, str))
+
+    def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
+        """The prefix parts a dataset's qualified name is built from, for dialects whose DQN prefix differs."""
+        return list(dataset_prefix) if dataset_prefix else []
 
     def literal(self, o: object) -> str:
         if o is None:
@@ -1569,12 +1574,7 @@ class SqlDialect:
         return " ".join(from_parts)
 
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-        name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
-        name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [
-            self.quote_default(name_part) for name_part in name_parts if isinstance(name_part, str)
-        ]
-        return ".".join(quoted_name_parts)
+        return self.qualify_dataset_name(dataset_prefix, dataset_name)
 
     def _build_operator_sql(self, operator: Operator) -> str:
         operators: dict[type, str] = {
