@@ -49,11 +49,16 @@ def _cli_verify(tmp_path, data_source_file_paths: list[str]) -> ExitCode:
     )
 
 
-def test_the_cli_refuses_two_data_source_files_with_one_name(tmp_path):
+def test_the_cli_refuses_two_data_source_files_with_one_name(tmp_path, caplog, monkeypatch):
+    monkeypatch.delenv("SODA_SCAN_ID", raising=False)
     assert _cli_verify(tmp_path, [_duckdb_file(tmp_path, "ds.yml")]) == ExitCode.OK
+    caplog.clear()
     assert _cli_verify(tmp_path, [_duckdb_file(tmp_path, "ds.yml"), _duckdb_file(tmp_path, "ds_copy.yml")]) == (
         ExitCode.LOG_ERRORS
     )
+    refusal = [r for r in caplog.records if "Two data sources are named 'ds'" in r.getMessage()]
+    # Reported as one error line, without a traceback.
+    assert refusal and not any(r.exc_info for r in refusal)
 
 
 def test_a_session_refuses_two_data_sources_with_one_name():
