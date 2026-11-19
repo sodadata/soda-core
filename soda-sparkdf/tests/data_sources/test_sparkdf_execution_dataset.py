@@ -331,6 +331,16 @@ df = spark.createDataFrame([(i, float(i)) for i in range(1, 6)], "id bigint, amo
 df.createOrReplaceTempView(name)
 result = verify()
 assert result.is_passed, result.get_errors_str()
+
+from soda_sparkdf import verify_contract_on_dataframe
+
+df.cache()
+df.count()
+result = verify_contract_on_dataframe(
+    df, data_sources=data_source, contract_file_path=contract_file_path, publish_schema_metadata=False
+)
+assert result.is_passed, result.get_errors_str()
+assert df.storageLevel.useMemory, "the helper dropped the cache the caller set on the DataFrame"
 """
 
 
@@ -338,7 +348,7 @@ assert result.is_passed, result.get_errors_str()
     not glob.glob(os.path.join(os.path.dirname(pyspark.__file__), "jars", "spark-connect_*.jar")),
     reason="this pyspark doesn't bundle Spark Connect",
 )
-def test_connect_guard_and_override_read_the_view(tmp_path, write_contract):
+def test_connect_guard_override_and_dataframe_helper_read_the_view(tmp_path, write_contract):
     template_path = write_contract("NAME")
     script_path = os.path.join(tmp_path, "connect_check.py")
     with open(script_path, "w") as f:
