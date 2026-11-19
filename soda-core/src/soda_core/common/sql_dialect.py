@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Optional, Tuple, final
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
-from soda_core.common.exceptions import UnsupportedSqlStatementError
+from soda_core.common.exceptions import InvalidArgumentException, UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -362,10 +362,14 @@ class SqlDialect:
         The quoted, fully qualified name of a dataset, the one FROM and JOIN write too. A dialect adapts the prefix
         in ``_normalize_dataset_prefix`` and leaves this method alone.
         """
+        # None is a part that isn't there, such as a connection without a database. An empty part is a mistake, in a
+        # DQN or in a warehouse prefix. Checked as given and after the dialect's prefix hook, since a hook can join or
+        # drop parts, and split one into parts.
+        given: list[Optional[str]] = [*(dataset_prefix or []), dataset_name]
         parts: list[str] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
-        # A None part is left out. An empty one is kept and fails the join, as FROM always did: a DQN with an empty
-        # segment is a mistake.
-        return ".".join(self.quote_default(p) for p in parts if isinstance(p, str))
+        if "" in given or "" in parts:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
+        return ".".join(self.quote_default(p) for p in parts if p is not None)
 
     def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
         """The prefix parts a dataset's qualified name is built from, for dialects whose DQN prefix differs."""
