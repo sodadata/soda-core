@@ -19,6 +19,26 @@ class InvalidArgumentException(SodaCoreException):
     """Indicates an invalid argument was passed to a function or method."""
 
 
+class ScanDeletedOnSodaCloudException(SodaCoreException):
+    """Soda Cloud no longer knows the managed scan this run reports into: it answered
+    ``scan_not_found`` to ``sodaCoreScanStart``.
+
+    The scan was deleted on purpose after the job was dispatched, for example because the user
+    deleted its data source or switched off metric monitoring. Nothing went wrong, so this is not
+    a ``ScanExecutionFailedException``: the CLI wiring (``cli.handlers.scan.run_scan``) logs a
+    warning, does not try to mark the (gone) scan as failed, and exits ``OK``.
+
+    @param scan_id: The deleted scan's id (``SODA_SCAN_ID``).
+    """
+
+    def __init__(self, scan_id: str) -> None:
+        super().__init__(
+            f"Scan '{scan_id}' no longer exists on Soda Cloud: it was deleted after this run was started, "
+            f"for example together with its data source or scan definition. Stopping without running it."
+        )
+        self.scan_id = scan_id
+
+
 class ScanExecutionFailedException(SodaCoreException):
     """Raise with a user-facing message for expected/validation failures.
 

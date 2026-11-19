@@ -30,6 +30,7 @@ from soda_core.common.exceptions import (
     DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     InvalidSodaCloudConfigurationException,
+    ScanDeletedOnSodaCloudException,
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
     SodaCloudRequestException,
@@ -330,12 +331,31 @@ def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[st
     ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``; None for any other response."""
     if response is None or response.status_code != 400:
         return None
+    code: Optional[str] = _response_code(response)
+    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
+
+
+# The Soda Cloud response code for a scan id it does not know. On a managed run the scan was
+# created before the job started, so this means it was deleted since: a state of Soda Cloud, not
+# a fault of this run, so ``_execute_cqrs_request`` logs it at info instead of error; the caller
+# that knows what it means (``cli.handlers.scan.run_scan``) logs the one warning people read.
+SCAN_NOT_FOUND_CODE: str = "scan_not_found"
+
+
+def _error_body(response: Optional[Response]) -> dict:
+    """A Soda Cloud error body as a dict; empty without a response or a JSON object body."""
+    if response is None:
+        return {}
     try:
         body = response.json()
     except ValueError:
-        return None
-    code = body.get("code") if isinstance(body, dict) else None
-    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def _response_code(response: Optional[Response]) -> Optional[str]:
+    """The ``code`` field of a Soda Cloud error body; None without a response or a JSON object body."""
+    return _error_body(response).get("code")
 
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -515,6 +535,9 @@ class SodaCloud:
         defaults to now.
         A successful start also moves the scan into its log-accepting state: the scan-id-keyed
         ``batchV4`` log stream only accepts uploads after this command.
+
+        Raises ``ScanDeletedOnSodaCloudException`` when Soda Cloud answers ``scan_not_found``: the
+        scan was deleted after the job was dispatched, which is not a failure of this run.
         """
         command: dict = {
             "type": "sodaCoreScanStart",
@@ -530,6 +553,8 @@ class SodaCloud:
             command_json_dict=command,
             request_log_name="scan_start",
         )
+        if response is not None and not response.ok and _response_code(response) == SCAN_NOT_FOUND_CODE:
+            raise ScanDeletedOnSodaCloudException(scan_id)
         if response is None or not response.ok:
             return None
         try:
@@ -1720,16 +1745,13 @@ class SodaCloud:
                     deferral_deadline=deferral_deadline,
                 )
             elif not response.ok:
-                try:
-                    response_data = response.json()
-                    message = response_data.get("message", "N/A")
-                    code = response_data.get("code", "N/A")
-                except json.JSONDecodeError:
-                    # Fallback for non-JSON responses (e.g., HTML/plain-text error pages)
-                    message = response.text
-                    code = None
+                body: dict = _error_body(response)
+                code: Optional[str] = body.get("code")
+                # Without a JSON object body (e.g. an HTML/plain-text error page), the text is the message.
+                message: str = body.get("message", "N/A") if body else response.text
 
-                logger.error(
+                log = logger.info if code == SCAN_NOT_FOUND_CODE else logger.error
+                log(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"
                     f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
