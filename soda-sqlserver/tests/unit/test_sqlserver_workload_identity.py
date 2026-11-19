@@ -69,8 +69,29 @@ def test_workload_identity_parses_with_client_id() -> None:
     assert config.client_id == "client-from-yaml"
 
 
+def test_workload_identity_parses_with_tenant_id() -> None:
+    config = parse({**CONNECTION, "authentication": "workloadidentity", "tenant_id": "tenant-from-yaml"})
+
+    assert isinstance(config, SqlServerWorkloadIdentityAuthentication)
+    assert config.tenant_id == "tenant-from-yaml"
+
+
+def test_workload_identity_parses_without_tenant_id() -> None:
+    config = parse({**CONNECTION, "authentication": "workloadidentity"})
+
+    assert isinstance(config, SqlServerWorkloadIdentityAuthentication)
+    assert config.tenant_id is None
+
+
 def test_connection_string_has_no_credentials() -> None:
-    config = parse({**CONNECTION, "authentication": "workloadidentity", "client_id": "client-from-yaml"})
+    config = parse(
+        {
+            **CONNECTION,
+            "authentication": "workloadidentity",
+            "client_id": "client-from-yaml",
+            "tenant_id": "tenant-from-yaml",
+        }
+    )
 
     connection_string = SqlServerDataSourceConnection.build_connection_string(config)
 
@@ -83,6 +104,7 @@ def test_connection_string_has_no_credentials() -> None:
     assert "PWD=" not in connection_string
     assert "Authentication=" not in connection_string
     assert "client-from-yaml" not in connection_string
+    assert "tenant-from-yaml" not in connection_string
 
 
 def test_pack_access_token_matches_known_vector() -> None:
@@ -172,6 +194,25 @@ def test_yaml_client_id_overrides_environment(credential_class, pyodbc_connect) 
 
     credential_class.assert_called_once()
     assert credential_class.call_args.kwargs["client_id"] == "client-from-yaml"
+
+
+def test_tenant_id_from_environment_is_used_without_yaml_tenant_id(credential_class, pyodbc_connect) -> None:
+    config = parse({**CONNECTION, "authentication": "workloadidentity"})
+
+    SqlServerDataSourceConnection(name="ds", connection_properties=config)
+
+    credential_class.assert_called_once()
+    assert credential_class.call_args.kwargs["tenant_id"] == "tenant-from-env"
+
+
+def test_yaml_tenant_id_overrides_environment(credential_class, pyodbc_connect) -> None:
+    config = parse({**CONNECTION, "authentication": "workloadidentity", "tenant_id": "tenant-from-yaml"})
+
+    SqlServerDataSourceConnection(name="ds", connection_properties=config)
+
+    credential_class.assert_called_once()
+    assert credential_class.call_args.kwargs["tenant_id"] == "tenant-from-yaml"
+    assert credential_class.call_args.kwargs["token_file_path"] == "/var/run/secrets/azure/tokens/azure-identity-token"
 
 
 def test_default_azure_credential_is_never_used(monkeypatch, credential_class, pyodbc_connect) -> None:

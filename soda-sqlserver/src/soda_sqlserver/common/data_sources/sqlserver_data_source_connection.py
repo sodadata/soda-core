@@ -46,6 +46,12 @@ WORKLOAD_IDENTITY_SETUP_HINT = (
     "webhook injects it, or mount the projected service account token and set AZURE_TENANT_ID, AZURE_CLIENT_ID "
     "and AZURE_FEDERATED_TOKEN_FILE in the runner's Helm values."
 )
+# Entra's error for a client ID that has no service principal in the tenant the token was requested from.
+AADSTS_APPLICATION_NOT_FOUND = "AADSTS700016"
+CROSS_TENANT_HINT = (
+    "The managed identity was not found in tenant '{tenant_id}'. If it lives in another Entra tenant, set "
+    "tenant_id on the connection to that tenant's ID."
+)
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -109,6 +115,10 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
     authentication: Literal["workloadidentity"] = Field(..., description="Authentication type")
     client_id: Optional[str] = Field(
         None, description="Client ID of the managed identity; defaults to AZURE_CLIENT_ID from the pod environment"
+    )
+    tenant_id: Optional[str] = Field(
+        None,
+        description="Entra tenant ID of the managed identity; defaults to AZURE_TENANT_ID from the pod environment",
     )
 
     @field_validator("scope")
@@ -176,24 +186,24 @@ class WorkloadIdentity:
 def resolve_workload_identity(config: SqlServerWorkloadIdentityAuthentication) -> WorkloadIdentity:
     """Checks the pod environment before any credential is built, so that a pod that is not set up for
     workload identity fails with the missing variable and the Kubernetes fix, not a bare ValueError.
-    The YAML client_id wins over AZURE_CLIENT_ID."""
-    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    The YAML tenant_id and client_id win over AZURE_TENANT_ID and AZURE_CLIENT_ID. The token file is the pod's own
+    service account token, the same for every tenant, so it always comes from the environment."""
+    tenant_id = config.tenant_id or os.environ.get("AZURE_TENANT_ID")
     token_file_path = os.environ.get("AZURE_FEDERATED_TOKEN_FILE")
     client_id = config.client_id or os.environ.get("AZURE_CLIENT_ID")
     missing = [
         name
         for name, value in [
-            ("AZURE_TENANT_ID", tenant_id),
+            ("AZURE_TENANT_ID (or tenant_id in the connection)", tenant_id),
             ("AZURE_FEDERATED_TOKEN_FILE", token_file_path),
-            ("AZURE_CLIENT_ID", client_id),
+            ("AZURE_CLIENT_ID (or client_id in the connection)", client_id),
         ]
         if not value
     ]
     if missing:
-        client_id_note = " (or client_id in the connection)" if "AZURE_CLIENT_ID" in missing else ""
         verb = "is" if len(missing) == 1 else "are"
         raise DataSourceConnectionException(
-            f"Workload identity federation is not set up for this pod: {', '.join(missing)}{client_id_note} "
+            f"Workload identity federation is not set up for this pod: {', '.join(missing)} "
             f"{verb} not set in the environment. {WORKLOAD_IDENTITY_SETUP_HINT}"
         )
     return WorkloadIdentity(tenant_id=tenant_id, client_id=client_id, token_file_path=token_file_path)
@@ -217,10 +227,13 @@ def acquire_workload_identity_token(config: SqlServerWorkloadIdentityAuthenticat
     except ClientAuthenticationError as e:
         # Entra's message carries the AADSTS code and description (wrong issuer, subject or audience on
         # the federated credential, unknown client ID, ...); it never contains the assertion itself.
-        raise DataSourceConnectionException(
+        message = (
             f"Entra ID rejected the workload identity token exchange for client ID '{identity.client_id}' "
             f"in tenant '{identity.tenant_id}': {e.message}"
-        ) from e
+        )
+        if AADSTS_APPLICATION_NOT_FOUND in (e.message or ""):
+            message = f"{message} {CROSS_TENANT_HINT.format(tenant_id=identity.tenant_id)}"
+        raise DataSourceConnectionException(message) from e
 
 
 class SqlServerDataSourceConnection(DataSourceConnection):
