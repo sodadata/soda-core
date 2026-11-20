@@ -190,6 +190,77 @@ def test_invalid_values_with_null(data_source_test_helper: DataSourceTestHelper)
     )
 
 
+def test_invalid_values_with_null_in_missing_values(data_source_test_helper: DataSourceTestHelper):
+    # A null in missing_values must not neutralise the invalid check: 'X' is still invalid.
+    # Without the fix the IN list renders `IN ('1', NULL)`, NOT(is_missing) is NULL for 'X'
+    # and the check passes with invalid_count 0.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                missing_values: ['1', null]
+                invalid_values: ['X']
+                checks:
+                  - invalid:
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+
+def test_valid_max_with_null_in_missing_values(data_source_test_helper: DataSourceTestHelper):
+    # Same cause on a numeric column: age 2 is above valid_max 1 and must be counted.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                missing_values: [-1, null]
+                valid_max: 1
+                checks:
+                  - invalid:
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+
+def test_invalid_values_with_only_null(data_source_test_helper: DataSourceTestHelper):
+    # `invalid_values: [null]` used to render an empty `IN ()` (SQL error, check not evaluated).
+    # Nulls are missing, so nothing is invalid: the check passes.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                invalid_values: [null]
+                checks:
+                  - invalid:
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 0
+    )
+
+
 def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
