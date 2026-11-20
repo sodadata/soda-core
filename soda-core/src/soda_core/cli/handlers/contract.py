@@ -50,7 +50,8 @@ def handle_verify_contract(
     ``ContractFetchFailedException``. It becomes a ``ScanExecutionFailedException``
     here, so ``run_scan`` logs its message without a traceback and reports it.
     A file that fails to parse raises ``YamlParserException`` and is converted
-    the same way.
+    the same way, and so is an ``InvalidArgumentException``, such as two data
+    source files with one name.
 
     ``logs`` is the wrapper's collector, threaded into the session so every
     construction/verify record lands in the collector the failure report
