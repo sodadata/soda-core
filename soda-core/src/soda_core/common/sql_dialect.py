@@ -361,7 +361,7 @@ class SqlDialect:
     def qualify_dataset_name(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> str:
         """
         The quoted, fully qualified name of a dataset, the one FROM and JOIN write too. A dialect adapts the prefix
-        in ``_normalize_dataset_prefix`` and leaves this method alone.
+        in ``normalize_dataset_prefix`` and leaves this method alone.
         """
         # None is a part that isn't there, such as a connection without a database. An empty part is a mistake, in a
         # DQN or in a warehouse prefix. Checked as given, before the dialect's prefix hook runs, so the error names the
@@ -370,20 +370,23 @@ class SqlDialect:
         given: list[Optional[str]] = [*(dataset_prefix or []), dataset_name]
         if "" in given:
             raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
-        parts: list[Optional[str]] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
+        parts: list[Optional[str]] = [*self.normalize_dataset_prefix(dataset_prefix), dataset_name]
         if "" in parts:
             raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
         return ".".join(self.quote_default(p) for p in parts if p is not None)
 
-    def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
+    def normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
         """The prefix parts a dataset's qualified name is built from, for dialects whose DQN prefix differs."""
         return list(dataset_prefix) if dataset_prefix else []
 
-    def _keep_declared_prefix_levels(self, dataset_prefix: Optional[list]) -> list:
+    def keep_declared_prefix_levels(self, dataset_prefix: Optional[list]) -> list:
         """For a dialect whose names hold fewer levels than the DQN, such as a schema only: the trailing prefix parts,
-        one for each level ``get_database_prefix_index`` and ``get_schema_prefix_index`` declare. The leading parts it
-        drops are logged once per prefix. A dialect calls it from ``_normalize_dataset_prefix``."""
+        one for each level ``get_database_prefix_index`` and ``get_schema_prefix_index`` declare. An empty part raises,
+        so metadata queries and schema DDL refuse it as names do. A dialect calls it from ``normalize_dataset_prefix``.
+        """
         parts: list = list(dataset_prefix or [])
+        if "" in parts:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {parts}")
         levels: int = sum(
             1 for index in (self.get_database_prefix_index(), self.get_schema_prefix_index()) if index is not None
         )
@@ -392,7 +395,8 @@ class SqlDialect:
         kept: list = parts[len(parts) - levels :]
         if tuple(parts) not in self._warned_dropped_prefixes:
             self._warned_dropped_prefixes.add(tuple(parts))
-            logger.warning(
+            # Debug, since Soda Cloud's [database, schema] for a schema-only dialect is the normal case.
+            logger.debug(
                 f"{type(self).__name__} names a dataset with {levels} prefix level(s): dropping "
                 f"{len(parts) - levels} leading part(s) of {parts}, keeping {kept}"
             )
@@ -2223,12 +2227,14 @@ class SqlDialect:
         database_index: int | None = self.get_database_prefix_index()
         if database_index is None:
             return None
+        prefixes = self.normalize_dataset_prefix(prefixes)
         return prefixes[database_index] if database_index < len(prefixes) else None
 
     def extract_schema_from_prefix(self, prefixes: list[str]) -> str | None:
         schema_index: int | None = self.get_schema_prefix_index()
         if schema_index is None:
             return None
+        prefixes = self.normalize_dataset_prefix(prefixes)
         return prefixes[schema_index] if schema_index < len(prefixes) else None
 
     def is_system_schema(self, schema_name: str) -> bool:

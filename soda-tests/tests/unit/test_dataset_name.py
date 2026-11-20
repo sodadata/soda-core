@@ -3,8 +3,10 @@
 import duckdb
 import pytest
 from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.sql_dialect import FROM, JOIN, SELECT, STAR
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl, DuckDBSqlDialect
@@ -55,7 +57,7 @@ def test_an_empty_part_raises_on_a_dialect_that_splits_prefix_parts():
     # A hook may turn one given part into several, as the Dremio dialect in soda-extensions does with a dotted space
     # and folder.
     class SplittingDialect(DuckDBSqlDialect, sqlglot_dialect="duckdb"):
-        def _normalize_dataset_prefix(self, dataset_prefix):
+        def normalize_dataset_prefix(self, dataset_prefix):
             return [part for given in dataset_prefix or [] for part in given.split(".")]
 
     dialect = SplittingDialect()
@@ -67,9 +69,23 @@ def test_an_empty_part_raises_on_a_dialect_that_splits_prefix_parts():
 def test_a_dialect_with_fewer_levels_keeps_the_trailing_prefix_parts():
     # DuckDB declares one level, the schema.
     class SchemaOnlyDialect(DuckDBSqlDialect, sqlglot_dialect="duckdb"):
-        def _normalize_dataset_prefix(self, dataset_prefix):
-            return self._keep_declared_prefix_levels(dataset_prefix)
+        def normalize_dataset_prefix(self, dataset_prefix):
+            return self.keep_declared_prefix_levels(dataset_prefix)
 
     dialect = SchemaOnlyDialect()
     assert dialect.qualify_dataset_name(["sales"], "orders") == '"sales"."orders"'
     assert dialect.qualify_dataset_name(["warehouse", "sales"], "orders") == '"sales"."orders"'
+    # Metadata reads the same parts: the primary key query filters on the schema, not the leading database.
+    connection = _RecordingConnection()
+    MetadataPrimaryKeysQuery(dialect, connection).execute(["warehouse", "sales"], ["orders"])
+    assert "'sales'" in connection.sql and "warehouse" not in connection.sql
+    with pytest.raises(InvalidArgumentException):
+        dialect.extract_schema_from_prefix(["warehouse", ""])
+
+
+class _RecordingConnection:
+    sql: str = ""
+
+    def execute_query(self, sql: str) -> QueryResult:
+        self.sql = sql
+        return QueryResult(rows=[], columns=())
