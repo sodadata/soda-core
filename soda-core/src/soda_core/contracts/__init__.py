@@ -9,8 +9,8 @@ from soda_core.contracts.api import (
     verify_contracts_on_agent,
     verify_contracts_on_runner,
 )
-from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.failed_rows_sampler import FailedRowsSampler
+from soda_core.contracts.impl.check_selector import CheckSelector
 
 __all__ = [
     "CheckSelector",

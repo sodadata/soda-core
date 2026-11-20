@@ -8,24 +8,16 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.metadata_types import SamplerType
-from soda_core.common.soda_cloud_dto import (
-    DatasetConfigurationDTO,
-    TestRowSamplerConfigurationDTO,
-)
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.soda_cloud_dto import SamplerType as SamplerTypeDTO
+from soda_core.common.soda_cloud_dto import TestRowSamplerConfigurationDTO
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts import FailedRowsSampler
 from soda_core.contracts.api.verify_api import verify_contract
 from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult
-from soda_core.contracts.impl.check_types.failed_rows_check import (
-    FailedRowsCountQuery,
-    FailedRowsSampleQuery,
-)
+from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCountQuery, FailedRowsSampleQuery
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
-from soda_duckdb.common.data_sources.duckdb_data_source import (
-    DuckDBDataSourceImpl,
-    DuckDBSqlDialect,
-)
+from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl, DuckDBSqlDialect
 
 
 class RecordingSampler(FailedRowsSampler):
@@ -133,9 +125,7 @@ def test_public_sampler_receives_rows_columns_and_final_result_once():
     check_impl = _check_impl(sampler, [{"id": 1, "reason": "bad"}])
     result = _check_result()
 
-    from soda_core.contracts.impl.check_types.failed_rows_check import (
-        FailedRowsCheckImpl,
-    )
+    from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCheckImpl
 
     FailedRowsCheckImpl.process_sample(check_impl, result)
 
@@ -184,9 +174,7 @@ def test_empty_sample_does_not_invoke_callback():
     sampler = RecordingSampler()
     check_impl = _check_impl(sampler, [])
 
-    from soda_core.contracts.impl.check_types.failed_rows_check import (
-        FailedRowsCheckImpl,
-    )
+    from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCheckImpl
 
     FailedRowsCheckImpl.process_sample(check_impl, _check_result(CheckOutcome.PASSED))
 
@@ -195,18 +183,14 @@ def test_empty_sample_does_not_invoke_callback():
 
 def test_no_sampler_does_not_invoke_callback():
     check_impl = _check_impl(None, [{"id": 1, "reason": "bad"}])
-    from soda_core.contracts.impl.check_types.failed_rows_check import (
-        FailedRowsCheckImpl,
-    )
+    from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCheckImpl
 
     FailedRowsCheckImpl.process_sample(check_impl, _check_result())
 
 
 def test_sampler_exception_is_not_silently_swallowed():
     check_impl = _check_impl(RaisingSampler(), [{"id": 1, "reason": "bad"}])
-    from soda_core.contracts.impl.check_types.failed_rows_check import (
-        FailedRowsCheckImpl,
-    )
+    from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCheckImpl
 
     with pytest.raises(RuntimeError, match="sampler failed"):
         FailedRowsCheckImpl.process_sample(check_impl, _check_result())
