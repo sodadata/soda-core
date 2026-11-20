@@ -34,6 +34,8 @@ class _StubResult(CheckCollectionResult):
 
 
 class _StubImpl(CheckCollectionImpl):
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
     kind = _KIND
     wire_source = "rejection-stub-wire"
     yaml_class = _StubYaml

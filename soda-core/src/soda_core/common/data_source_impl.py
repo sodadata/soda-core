@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
-from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.exceptions import DataSourceConnectionException, InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -356,6 +357,13 @@ class DataSourceImpl(ABC):
 
     def parse_column_names_from_query_result(self, query_result: QueryResult) -> list[str]:
         return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
+
+    def validate_execution_dataset_read(self, execution_dataset: DatasetIdentifier) -> None:
+        """Raise ``InvalidArgumentException`` unless this data source can read the run's dataset from
+        ``execution_dataset``. Called once per run that reads another dataset, before any check runs. A data source
+        that reads one also declares ``CLOUD_DATA_SOURCE_TYPES_FOR_EXECUTION_DATASET``, the Soda Cloud data source
+        types of the datasets it may publish onto."""
+        raise InvalidArgumentException(f"execution_dataset is not supported for {self.type_name} data sources")
 
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)

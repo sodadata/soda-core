@@ -4,8 +4,10 @@ import logging
 import re
 from enum import Enum
 
+from soda_core.common.checked_dataset import CheckedDataset
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, Measurement
@@ -271,13 +273,21 @@ class InvalidReferenceCountQuery(Query):
 
     def referenced_cte(self) -> CTE:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
-        referenced_dataset_name: str = valid_reference_data.dataset_name
-        referenced_dataset_prefix: Optional[list[str]] = valid_reference_data.dataset_prefix
+        referenced: DatasetIdentifier = DatasetIdentifier(
+            valid_reference_data.data_source_name,
+            valid_reference_data.dataset_prefix,
+            valid_reference_data.dataset_name,
+        )
+        checked_dataset: CheckedDataset = self.metric_impl.contract_impl.checked_dataset
+        # A reference to the contract's own dataset reads what the contract reads.
+        read: DatasetIdentifier = (
+            checked_dataset.execution_dataset if checked_dataset.dataset.is_same_as(referenced) else referenced
+        )
 
         cte = CTE(self._referenced_cte_name).AS(
             [
                 SELECT(STAR()),
-                FROM(referenced_dataset_name).IN(referenced_dataset_prefix),
+                FROM(read.dataset_name).IN(read.prefixes),
             ]
         )
 

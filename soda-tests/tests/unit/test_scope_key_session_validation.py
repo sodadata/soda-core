@@ -77,6 +77,8 @@ class _StubResult(CheckCollectionResult):
 
 
 class _ScopedStubImpl(CheckCollectionImpl):
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
     kind = _SCOPED_KIND
     wire_source = "scope-key-stub"
     yaml_class = _StubYaml

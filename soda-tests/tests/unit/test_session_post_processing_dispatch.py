@@ -105,6 +105,9 @@ class _StubImpl(CheckCollectionImpl):
     """Combine-upload stub. ``verify()`` raises iff the yaml source label is
     ``"broken"`` so we can force an ERROR placeholder for one file."""
 
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
+
     kind = _HANDLER_SKIP_KIND
     wire_source = "stub-handler-wire"
     yaml_class = _StubYaml
