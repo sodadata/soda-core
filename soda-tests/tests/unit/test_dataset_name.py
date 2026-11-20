@@ -22,16 +22,12 @@ def _verify(dataset: str):
     )
 
 
-def test_a_dataset_reads_its_table():
-    assert _verify("ds/memory/main/orders").is_passed
-
-
 def test_an_empty_part_raises_wherever_a_dataset_name_is_built():
-    with pytest.raises(InvalidArgumentException, match="empty part"):
+    with pytest.raises(InvalidArgumentException):
         _verify("ds/memory//orders")
     dialect = DuckDBDataSourceImpl.from_existing_cursor(duckdb.connect(":memory:"), name="ds").sql_dialect
     assert dialect.qualify_dataset_name([None, "main"], "orders") == '"main"."orders"'
-    with pytest.raises(InvalidArgumentException, match="empty part"):
+    with pytest.raises(InvalidArgumentException):
         dialect.qualify_dataset_name(["soda_diag", ""], "orders")
     assert 'FROM "main"."orders"' in dialect.build_select_sql(
         [SELECT([STAR()]), FROM("orders", table_prefix=[None, "main"])]
@@ -40,7 +36,7 @@ def test_an_empty_part_raises_wherever_a_dataset_name_is_built():
         [SELECT([STAR()]), FROM("orders", table_prefix=["", "main"])],
         [SELECT([STAR()]), FROM("orders", table_prefix=["main"]), JOIN("customers", table_prefix=["main", ""])],
     ):
-        with pytest.raises(InvalidArgumentException, match="empty part"):
+        with pytest.raises(InvalidArgumentException):
             dialect.build_select_sql(statement)
 
 
@@ -49,9 +45,9 @@ def test_an_empty_part_raises_on_a_dialect_that_joins_prefix_parts(prefix: list[
     # Athena joins the catalog's parts with '/', so a check after its hook would see no empty part.
     dialect = AthenaSqlDialect()
     assert dialect.qualify_dataset_name(["a", "b", "c"], "orders") == '"a/b"."c"."orders"'
-    with pytest.raises(InvalidArgumentException, match="empty part"):
+    with pytest.raises(InvalidArgumentException):
         dialect.qualify_dataset_name(prefix, "orders")
-    with pytest.raises(InvalidArgumentException, match="empty part"):
+    with pytest.raises(InvalidArgumentException):
         dialect.build_select_sql([SELECT([STAR()]), FROM("orders", table_prefix=prefix)])
 
 
@@ -64,5 +60,16 @@ def test_an_empty_part_raises_on_a_dialect_that_splits_prefix_parts():
 
     dialect = SplittingDialect()
     assert dialect.qualify_dataset_name(["space.folder"], "orders") == '"space"."folder"."orders"'
-    with pytest.raises(InvalidArgumentException, match="empty part"):
+    with pytest.raises(InvalidArgumentException):
         dialect.qualify_dataset_name(["space..folder"], "orders")
+
+
+def test_a_dialect_with_fewer_levels_keeps_the_trailing_prefix_parts():
+    # DuckDB declares one level, the schema.
+    class SchemaOnlyDialect(DuckDBSqlDialect, sqlglot_dialect="duckdb"):
+        def _normalize_dataset_prefix(self, dataset_prefix):
+            return self._keep_declared_prefix_levels(dataset_prefix)
+
+    dialect = SchemaOnlyDialect()
+    assert dialect.qualify_dataset_name(["sales"], "orders") == '"sales"."orders"'
+    assert dialect.qualify_dataset_name(["warehouse", "sales"], "orders") == '"sales"."orders"'

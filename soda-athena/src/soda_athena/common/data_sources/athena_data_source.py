@@ -215,12 +215,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
         """Adapt _collapse_athena_prefixes to the [catalog, schema] list shape the base dialect expects."""
-        if not dataset_prefix:
-            return []
-        catalog, schema = _collapse_athena_prefixes(dataset_prefix)
-        if schema is None:
-            return [catalog] if catalog is not None else list(dataset_prefix)
-        return [catalog, schema]
+        return [part for part in _collapse_athena_prefixes(dataset_prefix) if part is not None]
 
     # The base reads fixed indices into prefixes. That doesn't work for Athena: a catalog
     # containing '/' is over-split by DatasetIdentifier.parse() into an arbitrary number of

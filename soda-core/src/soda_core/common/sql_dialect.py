@@ -168,6 +168,7 @@ class SqlDialect:
             self._get_data_type_name_synonyms()
         )
         self._warned_table_types: set[str] = set()
+        self._warned_dropped_prefixes: set[tuple] = set()
 
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
@@ -369,7 +370,7 @@ class SqlDialect:
         given: list[Optional[str]] = [*(dataset_prefix or []), dataset_name]
         if "" in given:
             raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
-        parts: list[str] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
+        parts: list[Optional[str]] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
         if "" in parts:
             raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
         return ".".join(self.quote_default(p) for p in parts if p is not None)
@@ -377,6 +378,25 @@ class SqlDialect:
     def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
         """The prefix parts a dataset's qualified name is built from, for dialects whose DQN prefix differs."""
         return list(dataset_prefix) if dataset_prefix else []
+
+    def _keep_declared_prefix_levels(self, dataset_prefix: Optional[list]) -> list:
+        """For a dialect whose names hold fewer levels than the DQN, such as a schema only: the trailing prefix parts,
+        one for each level ``get_database_prefix_index`` and ``get_schema_prefix_index`` declare. The leading parts it
+        drops are logged once per prefix. A dialect calls it from ``_normalize_dataset_prefix``."""
+        parts: list = list(dataset_prefix or [])
+        levels: int = sum(
+            1 for index in (self.get_database_prefix_index(), self.get_schema_prefix_index()) if index is not None
+        )
+        if len(parts) <= levels:
+            return parts
+        kept: list = parts[len(parts) - levels :]
+        if tuple(parts) not in self._warned_dropped_prefixes:
+            self._warned_dropped_prefixes.add(tuple(parts))
+            logger.warning(
+                f"{type(self).__name__} names a dataset with {levels} prefix level(s): dropping "
+                f"{len(parts) - levels} leading part(s) of {parts}, keeping {kept}"
+            )
+        return kept
 
     def literal(self, o: object) -> str:
         if o is None:
