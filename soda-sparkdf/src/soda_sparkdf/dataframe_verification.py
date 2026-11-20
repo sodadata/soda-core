@@ -77,9 +77,11 @@ def verify_contract_on_dataframe(
         if "TEMP_TABLE_OR_VIEW_ALREADY_EXISTS" not in str(e):
             raise
         raise InvalidArgumentException(
-            f"The temporary view {view} already exists in this Spark session. Another verification of the same "
-            f"dataset on this session holds it, or the caller registered it. The helper left it in place. If no "
-            f'verification holds it, drop it with spark.sql("DROP VIEW IF EXISTS `{view}`") and run again'
+            f"The temporary view {view} already exists in this Spark session. Another verification on this session "
+            f"holds it, or the caller registered it. The view is named after the contract's dataset key before its "
+            f"variables resolve, so verifications of one contract share it whatever their variables. The helper left "
+            f'it in place. If no verification holds it, drop it with spark.sql("DROP VIEW IF EXISTS `{view}`") and run '
+            f"again"
         ) from None
     try:
         return verify_contract_locally(
@@ -98,7 +100,8 @@ def verify_contract_on_dataframe(
 
 def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[str]) -> str:
     """soda_df_ and the dataset's DQN as a slug. One dataset gets the same view on every run, so two verifications of
-    it on one session clash instead of sharing a view. Spark reads the name as an identifier, so the slug keeps only
+    it on one session clash instead of sharing a view. A key with variables keeps them unresolved, so a templated
+    contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only
     ASCII letters, digits and _."""
     dqn: Any = dataset_identifier
     if contract_file_path:
