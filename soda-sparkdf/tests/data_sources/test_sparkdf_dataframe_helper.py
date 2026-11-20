@@ -89,6 +89,8 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
         responses=[
             MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
             MockResponse(status_code=200, json_object={"scanId": "scan-1", "checks": []}),
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b2"}),
+            MockResponse(status_code=200, json_object={"scanId": "scan-2", "checks": []}),
         ]
     )
     soda_cloud.set_data_source_type(f"{DATASET_PREFIX}/{name}", "databricks")
@@ -106,15 +108,21 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
 
     assert result.is_passed, result.get_errors_str()
     assert _soda_df_views(spark) == []
-    [upload] = [r.json for r in soda_cloud.requests if isinstance(r.json, dict) and "defaultDataSource" in r.json]
-    assert {(c["dataSource"], tuple(c["datasetPrefix"]), c["table"]) for c in upload["checks"]} == {
-        (DATA_SOURCE_NAME, ("spark_catalog", "default"), name)
-    }
+    # publish_schema_metadata=False publishes the results and no columns.
+    assert _verify(df, data_source, contract_file_path, soda_cloud_file_path="soda-cloud.yml", publish=True).is_passed
+    upload, upload_without_columns = (
+        r.json for r in soda_cloud.requests if isinstance(r.json, dict) and "defaultDataSource" in r.json
+    )
+    for published in (upload, upload_without_columns):
+        assert {(c["dataSource"], tuple(c["datasetPrefix"]), c["table"]) for c in published["checks"]} == {
+            (DATA_SOURCE_NAME, ("spark_catalog", "default"), name)
+        }
     # publish_schema_metadata=True sends the DataFrame's columns as the dataset's.
     assert [(c["columnName"], c["sourceDataType"]) for c in upload["metadata"][0]["schema"]] == [
         ("id", "bigint"),
         ("amount", "double"),
     ]
+    assert "metadata" not in upload_without_columns
 
 
 def test_helper_drops_its_view_when_the_verification_raises(spark, df, data_source, contract_file_path):
@@ -124,7 +132,7 @@ def test_helper_drops_its_view_when_the_verification_raises(spark, df, data_sour
     assert _soda_df_views(spark) == []
 
 
-def test_helper_names_the_view_after_the_dataset_identifier(spark, df, data_source, name, monkeypatch):
+def test_helper_names_the_view_after_the_dataset_identifier(spark, df, data_source, name, tmp_path, monkeypatch):
     soda_cloud = MockSodaCloud(responses=[MockResponse(json_object={"contents": _contract(name)})])
     monkeypatch.setattr(SodaCloud, "from_config", staticmethod(lambda *args, **kwargs: soda_cloud))
 
@@ -144,6 +152,14 @@ def test_helper_names_the_view_after_the_dataset_identifier(spark, df, data_sour
         spark.sql(f"DROP VIEW IF EXISTS `{view}`")
     result = verify(**by_identifier)
     assert result.is_passed, result.get_errors_str()
+
+    # Without a DQN there is nothing to name the view after: neither argument, an empty identifier, or a dataset key
+    # that is not a str.
+    not_a_str = tmp_path / "not_a_str.yml"
+    not_a_str.write_text("dataset: 1\n")
+    for no_dqn in ({}, {"dataset_identifier": ""}, {"contract_file_path": str(not_a_str)}):
+        with pytest.raises(InvalidArgumentException, match="names the DataFrame's view after the dataset, and found"):
+            verify(**no_dqn)
 
 
 def test_helper_refuses_a_view_it_did_not_register_and_leaves_it(spark, df, data_source, name, tmp_path):
