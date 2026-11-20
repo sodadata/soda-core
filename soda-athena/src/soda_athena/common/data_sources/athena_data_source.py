@@ -213,15 +213,9 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         """Athena DDL uses Hive parser (backticks) while DML uses Trino parser (double quotes)."""
         return f"`{identifier}`" if isinstance(identifier, str) and len(identifier) > 0 else None
 
-    @staticmethod
-    def _normalize_prefix(dataset_prefix: Optional[list[str]]) -> Optional[list[str]]:
+    def normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
         """Adapt _collapse_athena_prefixes to the [catalog, schema] list shape the base dialect expects."""
-        if not dataset_prefix:
-            return dataset_prefix
-        catalog, schema = _collapse_athena_prefixes(dataset_prefix)
-        if schema is None:
-            return [catalog] if catalog is not None else dataset_prefix
-        return [catalog, schema]
+        return [part for part in _collapse_athena_prefixes(dataset_prefix) if part is not None]
 
     # The base reads fixed indices into prefixes. That doesn't work for Athena: a catalog
     # containing '/' is over-split by DatasetIdentifier.parse() into an arbitrary number of
@@ -233,12 +227,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         _, schema = _collapse_athena_prefixes(prefixes)
         return schema
-
-    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-        return super()._build_qualified_quoted_dataset_name(dataset_name, self._normalize_prefix(dataset_prefix))
-
-    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
-        return super().qualify_dataset_name(self._normalize_prefix(dataset_prefix), dataset_name)
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()

@@ -137,7 +137,7 @@ class TestE2EDDLFlowWithSlashCatalog:
         dialect = AthenaSqlDialect()
 
         # Build the DML-quoted name (using double quotes)
-        dml_name = dialect._build_qualified_quoted_dataset_name(
+        dml_name = dialect.qualify_dataset_name(
             dataset_name=TABLE,
             dataset_prefix=["s3tablescatalog", "my_bucket", SCHEMA],
         )

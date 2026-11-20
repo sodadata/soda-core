@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Optional, Tuple, final
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
-from soda_core.common.exceptions import UnsupportedSqlStatementError
+from soda_core.common.exceptions import InvalidArgumentException, UnsupportedSqlStatementError
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -168,6 +168,7 @@ class SqlDialect:
             self._get_data_type_name_synonyms()
         )
         self._warned_table_types: set[str] = set()
+        self._warned_dropped_prefixes: set[tuple] = set()
 
     def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
         super().__init_subclass__(**kwargs)
@@ -357,14 +358,49 @@ class SqlDialect:
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
 
-    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
+    def qualify_dataset_name(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> str:
         """
-        Creates a fully qualified table name, optionally quoting the table name
+        The quoted, fully qualified name of a dataset, the one FROM and JOIN write too. A dialect adapts the prefix
+        in ``normalize_dataset_prefix`` and leaves this method alone.
         """
-        parts: list[str] = list(dataset_prefix) if dataset_prefix else []
-        parts.append(dataset_name)
-        parts = [self.quote_default(p) for p in parts if p]
-        return ".".join(parts)
+        # None is a part that isn't there, such as a connection without a database. An empty part is a mistake, in a
+        # DQN or in a warehouse prefix. Checked as given, before the dialect's prefix hook runs, so the error names the
+        # whole dataset even when the hook refuses an empty part itself. Checked again after it, since a hook can join
+        # or drop parts, and split one into parts.
+        given: list[Optional[str]] = [*(dataset_prefix or []), dataset_name]
+        if "" in given:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
+        parts: list[Optional[str]] = [*self.normalize_dataset_prefix(dataset_prefix), dataset_name]
+        if "" in parts:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
+        return ".".join(self.quote_default(p) for p in parts if p is not None)
+
+    def normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
+        """The prefix parts a dataset's qualified name is built from, for dialects whose DQN prefix differs."""
+        return list(dataset_prefix) if dataset_prefix else []
+
+    def keep_declared_prefix_levels(self, dataset_prefix: Optional[list]) -> list:
+        """For a dialect whose names hold fewer levels than the DQN, such as a schema only: the trailing prefix parts,
+        one for each level ``get_database_prefix_index`` and ``get_schema_prefix_index`` declare. An empty part raises,
+        so metadata queries and schema DDL refuse it as names do. A dialect calls it from ``normalize_dataset_prefix``.
+        """
+        parts: list = list(dataset_prefix or [])
+        if "" in parts:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {parts}")
+        levels: int = sum(
+            1 for index in (self.get_database_prefix_index(), self.get_schema_prefix_index()) if index is not None
+        )
+        if len(parts) <= levels:
+            return parts
+        kept: list = parts[len(parts) - levels :]
+        if tuple(parts) not in self._warned_dropped_prefixes:
+            self._warned_dropped_prefixes.add(tuple(parts))
+            # Debug, since Soda Cloud's [database, schema] for a schema-only dialect is the normal case.
+            logger.debug(
+                f"{type(self).__name__} names a dataset with {levels} prefix level(s): dropping "
+                f"{len(parts) - levels} leading part(s) of {parts}, keeping {kept}"
+            )
+        return kept
 
     def literal(self, o: object) -> str:
         if o is None:
@@ -1569,12 +1605,7 @@ class SqlDialect:
         return " ".join(from_parts)
 
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-        name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
-        name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [
-            self.quote_default(name_part) for name_part in name_parts if isinstance(name_part, str)
-        ]
-        return ".".join(quoted_name_parts)
+        return self.qualify_dataset_name(dataset_prefix, dataset_name)
 
     def _build_operator_sql(self, operator: Operator) -> str:
         operators: dict[type, str] = {
@@ -2196,12 +2227,14 @@ class SqlDialect:
         database_index: int | None = self.get_database_prefix_index()
         if database_index is None:
             return None
+        prefixes = self.normalize_dataset_prefix(prefixes)
         return prefixes[database_index] if database_index < len(prefixes) else None
 
     def extract_schema_from_prefix(self, prefixes: list[str]) -> str | None:
         schema_index: int | None = self.get_schema_prefix_index()
         if schema_index is None:
             return None
+        prefixes = self.normalize_dataset_prefix(prefixes)
         return prefixes[schema_index] if schema_index < len(prefixes) else None
 
     def is_system_schema(self, schema_name: str) -> bool:
