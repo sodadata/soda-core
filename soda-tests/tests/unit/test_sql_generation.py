@@ -467,6 +467,39 @@ def test_empty_invalid_values_renders_portable_always_false_predicate():
     assert sql_dialect.build_expression_sql(expr) == "1 = 0"
 
 
+def test_missing_values_with_null_does_not_render_null_in_in_list():
+    """`missing_values: ['N/A', null]`: NULL is already covered by `IS NULL`. A NULL inside the
+    IN list makes `c IN ('N/A', NULL)` evaluate to NULL (not FALSE) for every non-missing value,
+    so `NOT(is_missing)` is NULL and the invalid check silently counts nothing."""
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(missing_values=["N/A", None]).is_missing_expr(COLUMN("c"))
+    sql = sql_dialect.build_expression_sql(expr)
+    assert "NULL)" not in sql
+    assert sql == sql_dialect.build_expression_sql(
+        _missing_and_validity(missing_values=["N/A"]).is_missing_expr(COLUMN("c"))
+    )
+
+
+def test_missing_values_with_only_null_renders_no_empty_in_list():
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(missing_values=[None]).is_missing_expr(COLUMN("c"))
+    sql = sql_dialect.build_expression_sql(expr)
+    assert "IN ()" not in sql
+    assert sql == sql_dialect.build_expression_sql(_missing_and_validity().is_missing_expr(COLUMN("c")))
+
+
+def test_invalid_values_with_only_null_renders_no_empty_in_list():
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(invalid_values=[None]).is_invalid_expr(COLUMN("c"))
+    assert "IN ()" not in sql_dialect.build_expression_sql(expr)
+
+
+def test_valid_values_with_only_null_renders_no_empty_in_list():
+    sql_dialect: SqlDialect = SqlDialect()
+    expr = _missing_and_validity(valid_values=[None]).is_invalid_expr(COLUMN("c"))
+    assert "IN ()" not in sql_dialect.build_expression_sql(expr)
+
+
 # ---------------------------------------------------------------------------
 # select_all_paginated_sql — statement-level DISTINCT.
 # `distinct` is a parameter on the dialect method (rather than a string rewrite of
