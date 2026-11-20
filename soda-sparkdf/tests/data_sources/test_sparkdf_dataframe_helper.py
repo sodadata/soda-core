@@ -1,7 +1,8 @@
-import re
+import hashlib
 import uuid
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -70,14 +71,11 @@ def _assert_passes(df, data_sources, contract_file_path: str) -> None:
     assert result.is_passed, result.get_errors_str()
 
 
-def _view_of(result: ContractVerificationSessionResult) -> str:
-    """The view the run read, from its line "Reading <dataset> from <data source>/<view>"."""
-    return next(line for line in result.get_logs() if line.startswith("Reading ")).rsplit("/", 1)[1]
-
-
-def _assert_named_after(view: str, name: str) -> None:
-    # The DQN as a slug, then 8 hex characters of its hash.
-    assert re.fullmatch(f"soda_df_databricks_prod_spark_catalog_default_{name}_[0-9a-f]{{8}}", view), view
+def _view(table: str, slug: Optional[str] = None) -> str:
+    """The view the helper names after the dataset: soda_df_, the DQN as a slug and 8 hex characters of the DQN's
+    SHA-256. An ASCII table name is its own slug."""
+    digest: str = hashlib.sha256(f"{DATASET_PREFIX}/{table}".encode()).hexdigest()[:8]
+    return f"soda_df_databricks_prod_spark_catalog_default_{slug or table}_{digest}"
 
 
 def _soda_df_views(spark: SparkSession) -> list[str]:
@@ -107,7 +105,6 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     )
 
     assert result.is_passed, result.get_errors_str()
-    _assert_named_after(_view_of(result), name)
     assert _soda_df_views(spark) == []
     [upload] = [r.json for r in soda_cloud.requests if isinstance(r.json, dict) and "defaultDataSource" in r.json]
     assert {(c["dataSource"], tuple(c["datasetPrefix"]), c["table"]) for c in upload["checks"]} == {
@@ -127,26 +124,33 @@ def test_helper_drops_its_view_when_the_verification_raises(spark, df, data_sour
     assert _soda_df_views(spark) == []
 
 
-def test_helper_names_the_view_after_the_dataset_identifier(df, data_source, name, monkeypatch):
+def test_helper_names_the_view_after_the_dataset_identifier(spark, df, data_source, name, monkeypatch):
     soda_cloud = MockSodaCloud(responses=[MockResponse(json_object={"contents": _contract(name)})])
     monkeypatch.setattr(SodaCloud, "from_config", staticmethod(lambda *args, **kwargs: soda_cloud))
-    result = verify_contract_on_dataframe(
-        df,
-        data_sources=data_source,
-        dataset_identifier=f"{DATASET_PREFIX}/{name}",
-        # An empty path names no file.
-        contract_file_path="",
-        soda_cloud_file_path="soda-cloud.yml",
-        publish_schema_metadata=False,
-    )
+
+    def verify(**kwargs) -> ContractVerificationSessionResult:
+        return verify_contract_on_dataframe(
+            df, data_sources=data_source, soda_cloud_file_path="soda-cloud.yml", publish_schema_metadata=False, **kwargs
+        )
+
+    # An empty path names no file.
+    by_identifier = {"dataset_identifier": f"{DATASET_PREFIX}/{name}", "contract_file_path": ""}
+    view: str = _view(name)
+    spark.range(1).createTempView(view)
+    try:
+        with pytest.raises(InvalidArgumentException, match=f"{view} already exists"):
+            verify(**by_identifier)
+    finally:
+        spark.sql(f"DROP VIEW IF EXISTS `{view}`")
+    result = verify(**by_identifier)
     assert result.is_passed, result.get_errors_str()
-    _assert_named_after(_view_of(result), name)
 
 
 def test_helper_refuses_a_view_it_did_not_register_and_leaves_it(spark, df, data_source, name, tmp_path):
     # Two datasets whose names have one ASCII slug.
     contract_file_path, sibling = (_contract_file(tmp_path, f"{prefix}_{name}") for prefix in ("销售", "库存"))
-    view: str = _view_of(_verify(df, data_source, contract_file_path))
+    # The slug drops the characters it can't fold to ASCII. The hash keeps them.
+    view: str = _view(f"销售_{name}", slug=name)
     spark.range(1).createTempView(view)
     try:
         _assert_passes(df, data_source, sibling)
