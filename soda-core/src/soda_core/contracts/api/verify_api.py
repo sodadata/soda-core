@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
@@ -89,7 +90,7 @@ def verify_contract_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
     data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     soda_cloud_file_path: Optional[str] = None,
     variables: Optional[Dict[str, str]] = None,
@@ -270,7 +271,7 @@ def verify_contract_on_agent(*args, **kwargs) -> ContractVerificationSessionResu
 
 @soda_trace
 def verify_contract(
-    contract_file_path: Optional[str],
+    contract_file_path: Optional[Union[str, os.PathLike]],
     dataset_identifier: Optional[str],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
@@ -315,7 +316,7 @@ def verify_contract(
 
     # TODO: change this when we fully deprecate a list of contract file paths
     # This is only here to make sure the rest of the code still works.
-    if isinstance(contract_file_path, str):
+    if isinstance(contract_file_path, (str, os.PathLike)):
         contract_file_paths = [contract_file_path]
     else:
         contract_file_paths = None
