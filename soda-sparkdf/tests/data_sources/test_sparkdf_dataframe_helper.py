@@ -1,3 +1,4 @@
+import re
 import uuid
 from textwrap import dedent
 
@@ -68,8 +69,14 @@ def _assert_passes(df, data_sources, contract_file_path: str) -> None:
     assert result.is_passed, result.get_errors_str()
 
 
-def _reading_line(result: ContractVerificationSessionResult) -> str:
-    return next(line for line in result.get_logs() if line.startswith("Reading "))
+def _view_of(result: ContractVerificationSessionResult) -> str:
+    """The view the run read, from its line "Reading <dataset> from <data source>/<view>"."""
+    return next(line for line in result.get_logs() if line.startswith("Reading ")).rsplit("/", 1)[1]
+
+
+def _assert_named_after(view: str, name: str) -> None:
+    # The DQN as a slug, then 8 hex characters of its hash.
+    assert re.fullmatch(f"soda_df_databricks_prod_spark_catalog_default_{name}_[0-9a-f]{{8}}", view), view
 
 
 def _soda_df_views(spark: SparkSession) -> list[str]:
@@ -98,9 +105,7 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     )
 
     assert result.is_passed, result.get_errors_str()
-    assert _reading_line(result) == (
-        f"Reading {DATASET_PREFIX}/{name} from {DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
-    )
+    _assert_named_after(_view_of(result), name)
     assert _soda_df_views(spark) == []
     [upload] = [r.json for r in soda_cloud.requests if isinstance(r.json, dict) and "defaultDataSource" in r.json]
     assert {(c["dataSource"], tuple(c["datasetPrefix"]), c["table"]) for c in upload["checks"]} == {
@@ -126,15 +131,16 @@ def test_helper_names_the_view_after_the_dataset_identifier(df, data_source, nam
         publish_schema_metadata=False,
     )
     assert result.is_passed, result.get_errors_str()
-    assert _reading_line(result) == (
-        f"Reading {DATASET_PREFIX}/{name} from {DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
-    )
+    _assert_named_after(_view_of(result), name)
 
 
-def test_helper_refuses_a_view_it_did_not_register_and_leaves_it(spark, df, data_source, name, contract_file_path):
-    view = f"soda_df_databricks_prod_spark_catalog_default_{name}"
+def test_helper_refuses_a_view_it_did_not_register_and_leaves_it(spark, df, data_source, name, tmp_path):
+    # Two datasets whose names have one ASCII slug.
+    contract_file_path, sibling = (_contract_file(tmp_path, f"{prefix}_{name}") for prefix in ("销售", "库存"))
+    view: str = _view_of(_verify(df, data_source, contract_file_path))
     spark.range(1).createTempView(view)
     try:
+        _assert_passes(df, data_source, sibling)
         with pytest.raises(InvalidArgumentException, match=f"{view} already exists") as raised:
             _verify(df, data_source, contract_file_path)
         assert f'spark.sql("DROP VIEW IF EXISTS `{view}`")' in str(raised.value)
