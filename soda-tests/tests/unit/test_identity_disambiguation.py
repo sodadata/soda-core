@@ -12,6 +12,8 @@ collection_id)`` into the per-check hash.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from soda_core.contracts.impl.contract_verification_impl import CheckImpl, ContractImpl
 
 
@@ -28,8 +30,7 @@ class _ContractStub:
     wire_source = "soda-contract"
     collection_id = None
     data_source_impl = _StubDataSourceImpl()
-    dataset_prefix = "schema"
-    dataset_name = "table"
+    checked_dataset = SimpleNamespace(dataset=SimpleNamespace(prefixes="schema", dataset_name="table"))
 
     # Borrow the production override verbatim so any future refactor that
     # changes ContractImpl's identity prefix is exercised by these tests.
@@ -43,8 +44,7 @@ class _DataStandardStub:
 
     wire_source = "data-standard"
     data_source_impl = _StubDataSourceImpl()
-    dataset_prefix = "schema"
-    dataset_name = "table"
+    checked_dataset = SimpleNamespace(dataset=SimpleNamespace(prefixes="schema", dataset_name="table"))
 
     def __init__(self, collection_id: str):
         self.collection_id = collection_id

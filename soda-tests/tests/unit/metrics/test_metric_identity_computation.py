@@ -6,6 +6,7 @@ distinct hashes for different metric identity inputs.
 """
 
 from datetime import date, datetime
+from types import SimpleNamespace
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 
@@ -411,8 +412,7 @@ class _StubDataSourceImpl:
 
 class _StubContractImpl:
     data_source_impl = _StubDataSourceImpl()
-    dataset_prefix = "schema"
-    dataset_name = "table"
+    checked_dataset = SimpleNamespace(dataset=SimpleNamespace(prefixes="schema", dataset_name="table"))
 
     def identity_prefix(self) -> tuple:
         # Contracts inherit ``CheckCollectionImpl.identity_prefix() == ()``;

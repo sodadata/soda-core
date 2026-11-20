@@ -139,6 +139,9 @@ class DatasetConfigurationDTO(BaseModel):
         None, alias="testRowSamplerConfiguration"
     )
     compute_warehouse_override: Optional[ComputeWarehouseOverrideDTO] = Field(None, alias="computeWarehouseOverride")
+    # The name Soda Cloud gives the type of the dataset's data source, e.g. "databricks", or "spark_df" for a data
+    # source a sparkdf run created.
+    data_source_type: Optional[str] = Field(None, alias="dataSourceType")
 
 
 class TestRowSamplerAbsoluteLimitDTO(BaseModel):

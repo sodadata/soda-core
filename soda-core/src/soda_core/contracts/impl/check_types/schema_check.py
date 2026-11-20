@@ -120,8 +120,8 @@ class SchemaCheckImpl(CheckImpl):
 
         if contract_impl.data_source_impl:
             schema_query: Query = SchemaQuery(
-                dataset_prefixes=contract_impl.dataset_prefix,
-                dataset_name=contract_impl.dataset_name,
+                dataset_prefixes=contract_impl.checked_dataset.execution_dataset.prefixes,
+                dataset_name=contract_impl.checked_dataset.execution_dataset.dataset_name,
                 schema_metric_impl=self.schema_metric,
                 data_source_impl=contract_impl.data_source_impl,
             )

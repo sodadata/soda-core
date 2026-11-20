@@ -84,6 +84,7 @@ def test_each_python_api_call_sends_one_span_without_names(tmp_path):
     assert first["context"]["trace_id"] != second["context"]["trace_id"]
     assert first["attributes"]["result__checks_count"] == 1
     assert first["attributes"]["result__data_source_type"] == "duckdb"
+    assert first["attributes"]["api__execution_dataset_used"] is False
 
     assert output["raised"] == "YamlParserException"
     assert failed["status"] == {"status_code": "ERROR", "description": "YamlParserException"}

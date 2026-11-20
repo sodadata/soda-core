@@ -71,6 +71,9 @@ def _make_passed_result(label: str) -> _StubResult:
 class _StubImpl(CheckCollectionImpl):
     """Combine-uploads stub. ``collection_id`` is read from the yaml source label."""
 
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
+
     kind = _DUP_KIND
     wire_source = "stub-wire"
     yaml_class = _StubYaml

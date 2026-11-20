@@ -75,6 +75,9 @@ class _FakeImpl(CheckCollectionImpl):
     per-yaml dispatch.
     """
 
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
+
     kind = _FAKE_KIND
     wire_source = "fake"
     display_name = "fake"
@@ -166,6 +169,8 @@ class _RaisingYaml(CheckCollectionYaml):
 
 
 class _RaisingImpl(CheckCollectionImpl):
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
     kind = _RAISING_KIND
     wire_source = "raising"
     display_name = "raising"
@@ -326,6 +331,8 @@ def test_init_subclass_does_not_register_empty_kind():
 
     class _NoKindImpl(CheckCollectionImpl):
         # Inherits ``kind = ""`` from the base.
+        # Names no dataset, so activate() sets no checked dataset.
+        checked_dataset = None
         wire_source = "no-kind"
         display_name = "no-kind"
 
@@ -350,6 +357,8 @@ def test_verify_raises_when_wire_source_is_empty():
 
     class _NoWireSourceImpl(CheckCollectionImpl):
         # Inherits ``wire_source = ""`` from the base.
+        # Names no dataset, so activate() sets no checked dataset.
+        checked_dataset = None
         display_name = "no-wire-source"
         yaml_class = _FakeYaml
         result_class = _FakeResult
@@ -417,6 +426,8 @@ def test_subtype_impl_extension_stays_isolated():
     from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
     class _IsoKindImpl(CheckCollectionImpl):
+        # Names no dataset, so activate() sets no checked dataset.
+        checked_dataset = None
         kind = "iso-test-kind"
         wire_source = "iso"
 
