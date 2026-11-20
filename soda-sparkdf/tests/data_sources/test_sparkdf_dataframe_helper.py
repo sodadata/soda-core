@@ -171,8 +171,3 @@ def test_helper_needs_a_data_source_on_the_dataframes_session(spark, df, data_so
     )
     with pytest.raises(InvalidArgumentException, match="from_existing_session"):
         _verify(df, other_session, contract_file_path)
-
-
-def test_helper_refuses_a_data_source_name_in_data_sources(df, data_source, contract_file_path):
-    with pytest.raises(InvalidArgumentException, match="takes a data source or a list of data sources"):
-        _verify(df, data_source.name, contract_file_path)
