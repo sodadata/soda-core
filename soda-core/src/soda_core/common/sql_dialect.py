@@ -363,11 +363,14 @@ class SqlDialect:
         in ``_normalize_dataset_prefix`` and leaves this method alone.
         """
         # None is a part that isn't there, such as a connection without a database. An empty part is a mistake, in a
-        # DQN or in a warehouse prefix. Checked as given and after the dialect's prefix hook, since a hook can join or
-        # drop parts, and split one into parts.
+        # DQN or in a warehouse prefix. Checked as given, before the dialect's prefix hook runs, so the error names the
+        # whole dataset even when the hook refuses an empty part itself. Checked again after it, since a hook can join
+        # or drop parts, and split one into parts.
         given: list[Optional[str]] = [*(dataset_prefix or []), dataset_name]
+        if "" in given:
+            raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
         parts: list[str] = [*self._normalize_dataset_prefix(dataset_prefix), dataset_name]
-        if "" in given or "" in parts:
+        if "" in parts:
             raise InvalidArgumentException(f"A dataset's name can't have an empty part: {given}")
         return ".".join(self.quote_default(p) for p in parts if p is not None)
 

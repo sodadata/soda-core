@@ -26,7 +26,7 @@ def test_a_dataset_reads_its_table():
     assert _verify("ds/memory/main/orders").is_passed
 
 
-def test_an_empty_part_raises_wherever_a_dataset_is_named():
+def test_an_empty_part_raises_wherever_a_dataset_name_is_built():
     with pytest.raises(InvalidArgumentException, match="empty part"):
         _verify("ds/memory//orders")
     dialect = DuckDBDataSourceImpl.from_existing_cursor(duckdb.connect(":memory:"), name="ds").sql_dialect
