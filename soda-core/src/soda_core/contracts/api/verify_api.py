@@ -15,6 +15,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
+from soda_core.contracts.failed_rows_sampler import FailedRowsSampler
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
@@ -98,6 +99,7 @@ def verify_contract_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
+    sampler: Optional[FailedRowsSampler] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
@@ -119,6 +121,7 @@ def verify_contract_locally(
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
         check_selectors=check_selectors,
+        sampler=sampler,
     )
 
 
@@ -271,6 +274,7 @@ def verify_contract(
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
     logs: Optional[Logs] = None,
+    sampler: Optional[FailedRowsSampler] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -278,6 +282,8 @@ def verify_contract(
         raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
     if use_runner is None:
         use_runner = False
+    if sampler is not None and use_runner:
+        raise InvalidArgumentException("Failed rows samplers are only supported for local contract verification")
     if not data_source_file_paths:
         data_source_file_paths = []
 
@@ -345,6 +351,7 @@ def verify_contract(
         check_selectors=check_selectors,
         dwh_data_source_file_path=dwh_data_source_file_path,
         logs=logs,
+        sampler=sampler,
     )
 
     soda_telemetry.ingest_contract_verification_session_result(
