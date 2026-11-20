@@ -113,6 +113,11 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     assert {(c["dataSource"], tuple(c["datasetPrefix"]), c["table"]) for c in upload["checks"]} == {
         (DATA_SOURCE_NAME, ("spark_catalog", "default"), name)
     }
+    # publish_schema_metadata=True sends the DataFrame's columns as the dataset's.
+    assert [(c["columnName"], c["sourceDataType"]) for c in upload["metadata"][0]["schema"]] == [
+        ("id", "bigint"),
+        ("amount", "double"),
+    ]
 
 
 def test_helper_drops_its_view_when_the_verification_raises(spark, df, data_source, contract_file_path):
