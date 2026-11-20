@@ -1330,6 +1330,7 @@ class CheckCollectionImpl:
                             add_scope_rows_tested(check_impl, check_result, measurement_values)
                             _skip_non_numeric_threshold_value(check_result, check_impl.relative_path)
                     check_results.append(check_result)
+                    check_impl.process_sample(check_result)
 
             verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 

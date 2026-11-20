@@ -57,6 +57,7 @@ def execute_check_collections(
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
+    sampler=None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
@@ -214,6 +215,7 @@ def execute_check_collections(
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
+                **({"sampler": sampler} if impl_class.__name__ == "ContractImpl" else {}),
             )
             impl.session_log_records = tuple(pre_session_records)
             constructed.append((impl, impl_class, None, yaml_source))
