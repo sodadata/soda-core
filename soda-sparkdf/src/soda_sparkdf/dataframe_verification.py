@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import unicodedata
@@ -39,10 +40,11 @@ def verify_contract_on_dataframe(
     ``SparkDataFrameDataSource.from_existing_session(df.sparkSession, name="databricks_prod")``. Other data sources,
     such as a reconciliation source, go in the same list.
 
-    For the call the DataFrame is a temporary view of its session, ``soda_df_`` and the dataset's DQN as a slug.
-    The helper refuses to run when a temporary view with that name exists, and leaves that view as it is. Every
-    other keyword goes to ``verify_contract_locally``: ``contract_file_path`` or ``dataset_identifier``,
-    ``publish``, ``soda_cloud_file_path`` and the rest. The helper sets ``execution_dataset`` itself.
+    For the call the DataFrame is a temporary view of its session, ``soda_df_``, the dataset's DQN as a slug and a
+    short hash of the DQN. The helper refuses to run when a temporary view with that name exists, and leaves that view
+    as it is. Every other keyword goes to ``verify_contract_locally``: ``contract_file_path`` or
+    ``dataset_identifier``, ``publish``, ``soda_cloud_file_path`` and the rest. The helper sets ``execution_dataset``
+    itself.
 
     ``publish_schema_metadata`` decides whether the run sends the DataFrame's columns to Soda Cloud as the dataset's
     columns.
@@ -99,10 +101,11 @@ def verify_contract_on_dataframe(
 
 
 def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[str]) -> str:
-    """soda_df_ and the dataset's DQN as a slug. One dataset gets the same view on every run, so two verifications of
-    it on one session clash instead of sharing a view. A key with variables keeps them unresolved, so a templated
-    contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only
-    ASCII letters, digits and _."""
+    """soda_df_, the dataset's DQN as a slug and a hash of the DQN. One dataset gets the same view on every run, so two
+    verifications of it on one session clash instead of sharing a view. A key with variables keeps them unresolved, so
+    a templated contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only
+    ASCII letters, digits and _. The hash keeps apart two DQNs with one slug, such as a/b_c and a_b/c, or ds/销售/订单
+    and ds/库存/订单."""
     dqn: Any = dataset_identifier
     if contract_file_path:
         # verify_contract_locally verifies the file when both are given, so the file names the view.
@@ -114,5 +117,5 @@ def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[s
             "dataset_identifier, or a contract_file_path whose contract has a dataset key"
         )
     ascii_dqn: str = unicodedata.normalize("NFKD", dqn).encode("ascii", "ignore").decode()
-    slug: str = re.sub(r"[^a-z0-9]+", "_", ascii_dqn.lower()).strip("_")
-    return f"soda_df_{slug}" if slug else "soda_df"
+    digest: str = hashlib.sha256(dqn.encode()).hexdigest()[:8]
+    return "soda_df_" + re.sub(r"[^a-z0-9]+", "_", f"{ascii_dqn.lower()}_{digest}").strip("_")
