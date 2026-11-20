@@ -12,7 +12,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api.verify_api import verify_contract_locally
+from soda_core.contracts.api.verify_api import data_sources_as_list, verify_contract_locally
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.telemetry.soda_tracer import soda_trace
 from soda_sparkdf.common.data_sources.sparkdf_data_source import SparkDataFrameDataSourceImpl
@@ -55,10 +55,9 @@ def verify_contract_on_dataframe(
             "verify_contract_on_dataframe sets execution_dataset to the DataFrame's view itself. To read another "
             "relation, call verify_contract_locally with execution_dataset"
         )
-    sources: list = data_sources if isinstance(data_sources, list) else [data_sources]
     if not any(
         isinstance(data_source, SparkDataFrameDataSourceImpl) and data_source.connection.session is df.sparkSession
-        for data_source in sources
+        for data_source in data_sources_as_list(data_sources)
     ):
         raise InvalidArgumentException(
             "data_sources holds no Spark DataFrame data source on the DataFrame's session. Pass one, or a list that "
