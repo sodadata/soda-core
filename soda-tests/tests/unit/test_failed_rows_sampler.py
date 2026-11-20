@@ -133,7 +133,6 @@ def test_public_sampler_receives_rows_columns_and_final_result_once():
     check_impl = _check_impl(sampler, [{"id": 1, "reason": "bad"}])
     result = _check_result()
 
-    # Use the real hook implementation without constructing the full contract graph.
     from soda_core.contracts.impl.check_types.failed_rows_check import (
         FailedRowsCheckImpl,
     )
@@ -282,8 +281,6 @@ def test_verify_contract_locally_delivers_expression_sample_end_to_end(monkeypat
 def test_expression_percentage_sampling_uses_dialect_sampling_not_row_limit(monkeypatch):
     sampler = RecordingSampler()
     monkeypatch.setattr(ContractImpl, "is_test_verification_on_runner", property(lambda self: True))
-    # The current Soda Cloud DTO exposes only absoluteLimit. Exercise the
-    # existing engine path with its internal percentage sampler type directly.
     monkeypatch.setattr("soda_core.check_collections.base.map_sampler_type_from_dto", lambda _: SamplerType.PERCENTAGE)
     sampling_calls = []
     monkeypatch.setattr(DuckDBSqlDialect, "_build_sample_sql", lambda self, sampler_type, sample_size: "")
