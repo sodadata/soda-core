@@ -55,21 +55,15 @@ def verify_contract_on_dataframe(
             "relation, call verify_contract_locally with execution_dataset"
         )
     sources: list = data_sources if isinstance(data_sources, list) else [data_sources]
-    for data_source in sources:
-        if not isinstance(data_source, DataSourceImpl):
-            raise InvalidArgumentException(
-                f"data_sources takes a data source or a list of data sources, as verify_contract_locally does, and "
-                f"got a {type(data_source).__name__}"
-            )
     if not any(
         isinstance(data_source, SparkDataFrameDataSourceImpl) and data_source.connection.session is df.sparkSession
         for data_source in sources
     ):
         raise InvalidArgumentException(
-            "data_sources has no Spark DataFrame data source on the DataFrame's session. Add one named like the "
-            "contract's data source, such as SparkDataFrameDataSource.from_existing_session(df.sparkSession, "
-            "name='<the contract's data source>'). A temporary view belongs to one session, so a data source on "
-            "another session can't read the DataFrame"
+            "data_sources holds no Spark DataFrame data source on the DataFrame's session. Pass one, or a list that "
+            "holds one, named like the contract's data source, such as "
+            "SparkDataFrameDataSource.from_existing_session(df.sparkSession, name='<the contract's data source>'). A "
+            "temporary view belongs to one session, so a data source on another session can't read the DataFrame"
         )
     view: str = _view_name(verify_kwargs.get("dataset_identifier"), verify_kwargs.get("contract_file_path"))
     try:
