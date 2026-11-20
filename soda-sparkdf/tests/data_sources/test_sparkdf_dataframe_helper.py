@@ -4,20 +4,13 @@ from textwrap import dedent
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from pyspark.sql import DataFrame, SparkSession
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_sparkdf import SparkDataFrameDataSource, verify_contract_on_dataframe
 
 DATA_SOURCE_NAME = "databricks_prod"
 DATASET_PREFIX = f"{DATA_SOURCE_NAME}/spark_catalog/default"
-
-
-@pytest.fixture(scope="module")
-def spark() -> SparkSession:
-    return SparkSession.builder.master("local").appName("soda_sparkdf").getOrCreate()
 
 
 @pytest.fixture
@@ -28,11 +21,6 @@ def df(spark) -> DataFrame:
 @pytest.fixture
 def name() -> str:
     return f"orders_{uuid.uuid4().hex[:8]}"
-
-
-@pytest.fixture
-def data_source(spark):
-    return SparkDataFrameDataSource.from_existing_session(session=spark, name=DATA_SOURCE_NAME, use_catalog=True)
 
 
 @pytest.fixture
@@ -80,6 +68,10 @@ def _assert_passes(df, data_sources, contract_file_path: str) -> None:
     assert result.is_passed, result.get_errors_str()
 
 
+def _reading_line(result: ContractVerificationSessionResult) -> str:
+    return next(line for line in result.get_logs() if line.startswith("Reading "))
+
+
 def _soda_df_views(spark: SparkSession) -> list[str]:
     return [t.name for t in spark.catalog.listTables() if t.name.startswith("soda_df_")]
 
@@ -93,9 +85,7 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
             MockResponse(status_code=200, json_object={"scanId": "scan-1", "checks": []}),
         ]
     )
-    soda_cloud.set_dataset_configuration_response(
-        DatasetIdentifier.parse(f"{DATASET_PREFIX}/{name}"), DatasetConfigurationDTO(dataSourceType="databricks")
-    )
+    soda_cloud.set_data_source_type(f"{DATASET_PREFIX}/{name}", "databricks")
     monkeypatch.setattr(SodaCloud, "from_config", staticmethod(lambda *args, **kwargs: soda_cloud))
 
     result = verify_contract_on_dataframe(
@@ -108,8 +98,8 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     )
 
     assert result.is_passed, result.get_errors_str()
-    assert result.contract_verification_results[0].execution_dataset == (
-        f"{DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
+    assert _reading_line(result) == (
+        f"Reading {DATASET_PREFIX}/{name} from {DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
     )
     assert _soda_df_views(spark) == []
     [upload] = [r.json for r in soda_cloud.requests if isinstance(r.json, dict) and "defaultDataSource" in r.json]
@@ -136,8 +126,8 @@ def test_helper_names_the_view_after_the_dataset_identifier(df, data_source, nam
         publish_schema_metadata=False,
     )
     assert result.is_passed, result.get_errors_str()
-    assert result.contract_verification_results[0].execution_dataset == (
-        f"{DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
+    assert _reading_line(result) == (
+        f"Reading {DATASET_PREFIX}/{name} from {DATA_SOURCE_NAME}/soda_df_databricks_prod_spark_catalog_default_{name}"
     )
 
 
