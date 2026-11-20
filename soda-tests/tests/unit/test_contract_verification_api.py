@@ -67,7 +67,8 @@ def test_verify_contract_locally_refuses_data_sources_that_are_not_data_sources(
     contract_file_path.write_text("dataset: ds/main/orders\ncolumns:\n  - name: id\nchecks:\n  - row_count:\n")
 
     def verify(data_sources):
-        return verify_contract_locally(data_sources=data_sources, contract_file_path=str(contract_file_path))
+        # A path object works as its str does.
+        return verify_contract_locally(data_sources=data_sources, contract_file_path=contract_file_path)
 
     assert verify(data_source).is_passed
     with pytest.raises(InvalidArgumentException, match="takes a list of data sources, and got a tuple"):

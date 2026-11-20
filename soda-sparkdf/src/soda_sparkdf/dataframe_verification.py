@@ -45,7 +45,7 @@ def verify_contract_on_dataframe(
     short hash of the DQN. The helper refuses to run when a temporary view with that name exists, and leaves that view
     as it is. Every other keyword goes to ``verify_contract_locally``: ``contract_file_path`` or
     ``dataset_identifier``, ``publish``, ``soda_cloud_file_path`` and the rest. The helper sets ``execution_dataset``
-    itself. ``contract_file_path`` takes a str or a path object, and an empty one names no file.
+    itself. ``contract_file_path`` takes a str or a path object, and ``""`` names no file.
 
     ``publish_schema_metadata`` decides whether the run sends the DataFrame's columns to Soda Cloud as the dataset's
     columns.
@@ -66,10 +66,9 @@ def verify_contract_on_dataframe(
             "SparkDataFrameDataSource.from_existing_session(df.sparkSession, name='<the contract's data source>'). A "
             "temporary view belongs to one session, so a data source on another session can't read the DataFrame"
         )
-    # verify_contract_locally reads a path object as no file and "" as a file, and the view must name what it verifies.
-    contract_file_path = verify_kwargs.pop("contract_file_path", None)
-    if contract_file_path:
-        verify_kwargs["contract_file_path"] = os.fspath(contract_file_path)
+    # verify_contract_locally reads "" as a file, and the view must name what it verifies.
+    if verify_kwargs.get("contract_file_path") == "":
+        del verify_kwargs["contract_file_path"]
     view: str = _view_name(verify_kwargs.get("dataset_identifier"), verify_kwargs.get("contract_file_path"))
     try:
         df.createTempView(view)
@@ -99,7 +98,7 @@ def verify_contract_on_dataframe(
             logger.warning(f"Could not drop the temporary view {view}: {e}")
 
 
-def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[str]) -> str:
+def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[Union[str, os.PathLike]]) -> str:
     """soda_df_, the dataset's DQN as a slug and a hash of the DQN. One dataset gets the same view on every run, so two
     verifications of it on one session clash instead of sharing a view. A key with variables keeps them unresolved, so
     a templated contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only

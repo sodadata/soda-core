@@ -78,12 +78,12 @@ class YamlSource:
         return cls(file_path=file_path, yaml_str=yaml_str)
 
     @classmethod
-    def from_file_path(cls, file_path: str) -> YamlSource:
+    def from_file_path(cls, file_path: str | os.PathLike) -> YamlSource:
         """
-        Raises an assertion exception if file_path is not a str
+        Raises an assertion exception if file_path is not a str or a path object
         """
-        assert isinstance(file_path, str)
-        return cls(file_path=file_path)
+        assert isinstance(file_path, (str, os.PathLike))
+        return cls(file_path=os.fspath(file_path))
 
     def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
         self.file_type: str = self.__file_type
