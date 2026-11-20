@@ -1,5 +1,6 @@
 import re
 import uuid
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -98,7 +99,8 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     result = verify_contract_on_dataframe(
         df,
         data_sources=[data_source],
-        contract_file_path=contract_file_path,
+        # A path object works as its str does.
+        contract_file_path=Path(contract_file_path),
         soda_cloud_file_path="soda-cloud.yml",
         publish=True,
         publish_schema_metadata=True,
@@ -127,6 +129,8 @@ def test_helper_names_the_view_after_the_dataset_identifier(df, data_source, nam
         df,
         data_sources=data_source,
         dataset_identifier=f"{DATASET_PREFIX}/{name}",
+        # An empty path names no file.
+        contract_file_path="",
         soda_cloud_file_path="soda-cloud.yml",
         publish_schema_metadata=False,
     )
