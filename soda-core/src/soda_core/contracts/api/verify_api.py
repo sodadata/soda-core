@@ -239,7 +239,7 @@ def verify_contracts_on_agent(
 @soda_trace
 def verify_contract_on_runner(
     soda_cloud_file_path: str,
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
