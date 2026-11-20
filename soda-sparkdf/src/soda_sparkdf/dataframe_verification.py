@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import unicodedata
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -44,7 +45,7 @@ def verify_contract_on_dataframe(
     short hash of the DQN. The helper refuses to run when a temporary view with that name exists, and leaves that view
     as it is. Every other keyword goes to ``verify_contract_locally``: ``contract_file_path`` or
     ``dataset_identifier``, ``publish``, ``soda_cloud_file_path`` and the rest. The helper sets ``execution_dataset``
-    itself.
+    itself. ``contract_file_path`` takes a str or a path object, and an empty one names no file.
 
     ``publish_schema_metadata`` decides whether the run sends the DataFrame's columns to Soda Cloud as the dataset's
     columns.
@@ -65,6 +66,10 @@ def verify_contract_on_dataframe(
             "SparkDataFrameDataSource.from_existing_session(df.sparkSession, name='<the contract's data source>'). A "
             "temporary view belongs to one session, so a data source on another session can't read the DataFrame"
         )
+    # verify_contract_locally reads a path object as no file and "" as a file, and the view must name what it verifies.
+    contract_file_path = verify_kwargs.pop("contract_file_path", None)
+    if contract_file_path:
+        verify_kwargs["contract_file_path"] = os.fspath(contract_file_path)
     view: str = _view_name(verify_kwargs.get("dataset_identifier"), verify_kwargs.get("contract_file_path"))
     try:
         df.createTempView(view)
@@ -100,7 +105,8 @@ def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[s
     a templated contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only
     ASCII letters, digits and _. The hash keeps apart two DQNs with one slug, such as a/b_c and a_b/c, or ds/销售/订单
     and ds/库存/订单."""
-    dqn: Any = dataset_identifier
+    # A contract's dataset key can hold any YAML value, so the check below narrows it to a str.
+    dqn: object = dataset_identifier
     if contract_file_path:
         # verify_contract_locally verifies the file when both are given, so the file names the view.
         # The dataset key as written. Its variables resolve only in the verification, and the name needs no values.
