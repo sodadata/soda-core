@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
@@ -16,6 +17,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.contract_verification_impl import validate_data_source_impls
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
@@ -84,12 +86,18 @@ def verify_contracts_locally(
     )
 
 
+def data_sources_as_list(data_sources: Union[list[DataSourceImpl], DataSourceImpl]) -> list[DataSourceImpl]:
+    """The data_sources of verify_contract_locally, one data source or a list of them, as a list. Raises
+    InvalidArgumentException for anything else, such as a tuple."""
+    return validate_data_source_impls(data_sources if isinstance(data_sources, list) else [data_sources])
+
+
 @soda_trace
 def verify_contract_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
     data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     soda_cloud_file_path: Optional[str] = None,
     variables: Optional[Dict[str, str]] = None,
@@ -114,8 +122,7 @@ def verify_contract_locally(
     for columns a schema check measured. It must be set when a run with ``execution_dataset`` publishes. ``False``
     leaves the columns out of the result too, with or without ``execution_dataset``.
     """
-    if not isinstance(data_sources, list):
-        data_sources = [data_sources]
+    data_sources = data_sources_as_list(data_sources)
     soda_telemetry.set_attribute("api__execution_dataset_used", execution_dataset is not None)
 
     return verify_contract(
@@ -232,7 +239,7 @@ def verify_contracts_on_agent(
 @soda_trace
 def verify_contract_on_runner(
     soda_cloud_file_path: str,
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
@@ -270,7 +277,7 @@ def verify_contract_on_agent(*args, **kwargs) -> ContractVerificationSessionResu
 
 @soda_trace
 def verify_contract(
-    contract_file_path: Optional[str],
+    contract_file_path: Optional[Union[str, os.PathLike]],
     dataset_identifier: Optional[str],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
@@ -315,7 +322,7 @@ def verify_contract(
 
     # TODO: change this when we fully deprecate a list of contract file paths
     # This is only here to make sure the rest of the code still works.
-    if isinstance(contract_file_path, str):
+    if isinstance(contract_file_path, (str, os.PathLike)):
         contract_file_paths = [contract_file_path]
     else:
         contract_file_paths = None
