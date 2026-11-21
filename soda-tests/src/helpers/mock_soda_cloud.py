@@ -200,6 +200,16 @@ class MockSodaCloud(SodaCloud):
     ):
         self.dataset_configurations[str(dataset_identifier)] = dataset_configuration_dto
 
+    def set_data_source_type(self, dataset_qualified_name: str, data_source_type: Optional[str]) -> None:
+        """The type Soda Cloud reports for the data source of the dataset, keeping the rest of its configuration."""
+        identifier: DatasetIdentifier = DatasetIdentifier.parse(dataset_qualified_name)
+        configuration: DatasetConfigurationDTO = self.dataset_configurations.get(
+            str(identifier), DatasetConfigurationDTO()
+        )
+        self.dataset_configurations[str(identifier)] = configuration.model_copy(
+            update={"data_source_type": data_source_type}
+        )
+
     def fetch_datasets_configurations(
         self, dataset_identifiers: list["DatasetIdentifier"]
     ) -> "DatasetConfigurationsDTO":

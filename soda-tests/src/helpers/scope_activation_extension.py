@@ -37,7 +37,7 @@ class ScopeActivationExtension(CheckCollectionImplExtension):
             scope = contract_impl.scopes[key]
             scope.activate(
                 cte=build_filtered_cte(
-                    contract_impl.dataset_identifier,
+                    contract_impl.checked_dataset.execution_dataset,
                     scope.filter,
                     scope.cte_alias(),
                     contract_impl.filtered_cte_sampler,
@@ -57,7 +57,7 @@ class ScopeActivationExtension(CheckCollectionImplExtension):
                 for metric in contract_impl.metrics
                 if isinstance(metric, AggregationMetricImpl)
                 and metric.scope is scope
-                and metric.dataset_identifier is contract_impl.dataset_identifier
+                and metric.dataset_identifier is contract_impl.checked_dataset.dataset
                 and metric.data_source_impl == contract_impl.data_source_impl
             ]
             # A scope whose only metric is its own row count builds no SQL.

@@ -114,6 +114,9 @@ class _LoggingImpl(CheckCollectionImpl):
     status comes from the impl's own Logs, as in ``CheckCollectionImpl.verify()``.
     """
 
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
+
     kind = _LOGGING_KIND
     wire_source = _WIRE_SOURCE
     display_name = "logging-collection"
@@ -150,6 +153,9 @@ class _RaisingConstructImpl(CheckCollectionImpl):
     """Combine-upload subtype whose __init__ creates its own ``Logs`` and then
     raises — modelling a per-file construction failure (bad YAML, unparseable
     dataset, ...). Must not leave the root logger in a degraded state."""
+
+    # Names no dataset, so activate() sets no checked dataset.
+    checked_dataset = None
 
     kind = _RAISING_KIND
     wire_source = _WIRE_SOURCE

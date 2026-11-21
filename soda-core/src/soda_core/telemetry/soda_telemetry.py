@@ -1,6 +1,6 @@
 import platform
 import types
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -82,7 +82,7 @@ class SodaTelemetry:
 
         trace.set_tracer_provider(self.__provider)
 
-    def set_attribute(self, key: str, value: str) -> None:
+    def set_attribute(self, key: str, value: Union[str, bool, int]) -> None:
         """Set attribute value in the current span."""
         if self.__send:
             current_span = trace.get_current_span()

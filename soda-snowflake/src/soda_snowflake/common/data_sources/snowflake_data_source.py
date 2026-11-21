@@ -173,16 +173,16 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         if warehouse and contract_impl.datasource_warehouse != warehouse:
             if contract_impl.datasource_warehouse is None:
                 logger.info(
-                    f"Setting warehouse to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                    f"Setting warehouse to '{warehouse}' for Contract verification of dataset '{contract_impl.checked_dataset.dataset.to_string()}'"
                 )
             else:
                 logger.info(
-                    f"Switching warehouse from '{contract_impl.datasource_warehouse}' to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                    f"Switching warehouse from '{contract_impl.datasource_warehouse}' to '{warehouse}' for Contract verification of dataset '{contract_impl.checked_dataset.dataset.to_string()}'"
                 )
             self._execute_switch_warehouse(warehouse)
         else:
             logger.info(
-                f"Using warehouse '{contract_impl.datasource_warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                f"Using warehouse '{contract_impl.datasource_warehouse}' for Contract verification of dataset '{contract_impl.checked_dataset.dataset.to_string()}'"
             )
 
     def _execute_switch_warehouse(self, warehouse: str) -> None:

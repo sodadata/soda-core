@@ -72,6 +72,14 @@ class DatasetIdentifier:
         consistent_hash_builder.add(self.to_string())
         return consistent_hash_builder.get_hash()
 
+    def is_same_as(self, other: DatasetIdentifier) -> bool:
+        """Whether both name the same dataset of the same data source. A missing prefix is an empty one."""
+        return (self.data_source_name, list(self.prefixes or []), self.dataset_name) == (
+            other.data_source_name,
+            list(other.prefixes or []),
+            other.dataset_name,
+        )
+
     def __repr__(self):
         return (
             f"DatasetIdentifier(data_source='{self.data_source_name}', "
