@@ -164,3 +164,8 @@ class TestBlockGroupByResultsToCloud:
 
         dto = DatasetConfigurationsDTO.model_validate({"datasetConfigurations": []})
         assert dto.block_group_by_results_to_cloud is None
+
+
+def test_the_data_source_type_parses_from_soda_clouds_name():
+    dto = DatasetConfigurationDTO.model_validate({"datasetQualifiedName": "x", "dataSourceType": "databricks"})
+    assert dto.data_source_type == "databricks"

@@ -242,7 +242,7 @@ def _named_in_the_warning(result: ContractVerificationSessionResult) -> set[str]
     [
         (True, "{name}", None),
         (False, "{name}", None),
-        (True, "{ds}/default/{name}", None),
+        (True, "{ds}/spark_catalog/default/{name}", None),
         # A dotted bare name gets the slash form to pass instead.
         (True, "default.{name}", "execution_dataset='default/"),
     ],
