@@ -88,6 +88,7 @@ def _publish(soda_cloud: MockSodaCloud, data_source, contract: str, execution_da
         soda_cloud_impl=soda_cloud,
         soda_cloud_publish_results=True,
         execution_dataset=execution_dataset,
+        publish_schema_metadata=True,
     )
 
 

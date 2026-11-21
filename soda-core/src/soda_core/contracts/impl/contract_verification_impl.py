@@ -252,7 +252,7 @@ class ContractVerificationSessionImpl:
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
         execution_dataset: Optional[str] = None,
-        publish_schema_metadata: bool = True,
+        publish_schema_metadata: Optional[bool] = None,
         **kwargs,
     ):
         # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
@@ -325,11 +325,17 @@ class ContractVerificationSessionImpl:
         if check_selectors is None:
             check_selectors = []
 
-        if soda_cloud_use_runner and (execution_dataset is not None or not publish_schema_metadata):
+        if soda_cloud_use_runner and (execution_dataset is not None or publish_schema_metadata is False):
             raise InvalidArgumentException(
                 "execution_dataset and publish_schema_metadata=False work only for a local verification, not on a "
                 "runner"
             )
+        if execution_dataset is not None and soda_cloud_publish_results and not isinstance(publish_schema_metadata, bool):
+            raise InvalidArgumentException(
+                "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
+                "decide whether this run sends the dataset's columns to Soda Cloud"
+            )
+        publish_schema_metadata = publish_schema_metadata is not False
 
         if soda_cloud_use_runner:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_runner(

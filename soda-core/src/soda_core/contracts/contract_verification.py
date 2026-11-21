@@ -53,7 +53,7 @@ class ContractVerificationSession:
         check_selectors: Optional[list["CheckSelector"]] = None,
         logs: Optional["Logs"] = None,
         execution_dataset: Optional[str] = None,
-        publish_schema_metadata: bool = True,
+        publish_schema_metadata: Optional[bool] = None,
         **kwargs,
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg

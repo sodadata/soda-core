@@ -90,6 +90,11 @@ def test_a_runner_refuses_what_only_a_local_verification_does(local_only: dict):
         )
 
 
+def test_a_publishing_override_decides_whether_the_columns_go_up():
+    with pytest.raises(InvalidArgumentException, match="must be True or False"):
+        _verify(execution_dataset=EXECUTION_DATASET, soda_cloud_impl=MockSodaCloud(), soda_cloud_publish_results=True)
+
+
 class _OtherKindImpl(ContractImpl):
     """A kind other than contract that uploads per file, as monitors do."""
 
@@ -133,9 +138,8 @@ def _verify_locally(tmp_path, **kwargs):
     [
         ({"execution_dataset": "orders/", "publish_schema_metadata": False}, "DQN without the data source"),
         ({"execution_dataset": object(), "publish_schema_metadata": False}, "DQN without the data source"),
-        ({"execution_dataset": "main/orders_batch", "publish": True}, "must be True or False"),
     ],
-    ids=["malformed", "not a string", "no publish_schema_metadata"],
+    ids=["malformed", "not a string"],
 )
 def test_verify_contract_locally_refuses_a_mistake(tmp_path, mistake: dict, message: str):
     assert _verify_locally(tmp_path).is_passed

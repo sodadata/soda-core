@@ -295,11 +295,6 @@ def verify_contract(
         raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
     if use_runner is None:
         use_runner = False
-    if execution_dataset is not None and publish and not isinstance(publish_schema_metadata, bool):
-        raise InvalidArgumentException(
-            "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
-            "decide whether this run sends the dataset's columns to Soda Cloud"
-        )
     if not data_source_file_paths:
         data_source_file_paths = []
 
@@ -368,7 +363,7 @@ def verify_contract(
         dwh_data_source_file_path=dwh_data_source_file_path,
         logs=logs,
         execution_dataset=execution_dataset,
-        publish_schema_metadata=publish_schema_metadata is not False,
+        publish_schema_metadata=publish_schema_metadata,
     )
 
     soda_telemetry.ingest_contract_verification_session_result(
