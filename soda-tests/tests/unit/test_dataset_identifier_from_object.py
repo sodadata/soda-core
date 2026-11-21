@@ -9,7 +9,7 @@ class _FakeDialect:
     schema_name_to_dataset_prefixes = SqlDialect.schema_name_to_dataset_prefixes
     extract_database_from_prefix = SqlDialect.extract_database_from_prefix
     extract_schema_from_prefix = SqlDialect.extract_schema_from_prefix
-    normalize_dataset_prefix = SqlDialect.normalize_dataset_prefix
+    _normalize_dataset_prefix = SqlDialect._normalize_dataset_prefix
 
     def __init__(self, database_prefix_index, schema_prefix_index):
         self._db = database_prefix_index

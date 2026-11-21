@@ -5,7 +5,7 @@ import pytest
 from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.exceptions import InvalidArgumentException
-from soda_core.common.sql_dialect import FROM, JOIN, SELECT, STAR
+from soda_core.common.sql_dialect import FROM, JOIN, SELECT, STAR, keep_last_prefix_part
 from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
@@ -57,7 +57,7 @@ def test_an_empty_part_raises_on_a_dialect_that_splits_prefix_parts():
     # A hook may turn one given part into several, as the Dremio dialect in soda-extensions does with a dotted space
     # and folder.
     class SplittingDialect(DuckDBSqlDialect, sqlglot_dialect="duckdb"):
-        def normalize_dataset_prefix(self, dataset_prefix):
+        def _normalize_dataset_prefix(self, dataset_prefix):
             return [part for given in dataset_prefix or [] for part in given.split(".")]
 
     dialect = SplittingDialect()
@@ -66,11 +66,11 @@ def test_an_empty_part_raises_on_a_dialect_that_splits_prefix_parts():
         dialect.qualify_dataset_name(["space..folder"], "orders")
 
 
-def test_a_dialect_with_fewer_levels_keeps_the_trailing_prefix_parts():
-    # DuckDB declares one level, the schema.
+def test_a_schema_only_dialect_keeps_the_last_prefix_part():
+    # DuckDB declares one level, the schema, so metadata reads the kept part as the schema.
     class SchemaOnlyDialect(DuckDBSqlDialect, sqlglot_dialect="duckdb"):
-        def normalize_dataset_prefix(self, dataset_prefix):
-            return self.keep_declared_prefix_levels(dataset_prefix)
+        def _normalize_dataset_prefix(self, dataset_prefix):
+            return keep_last_prefix_part(dataset_prefix)
 
     dialect = SchemaOnlyDialect()
     assert dialect.qualify_dataset_name(["sales"], "orders") == '"sales"."orders"'

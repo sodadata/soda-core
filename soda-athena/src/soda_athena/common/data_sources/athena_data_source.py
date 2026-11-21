@@ -213,7 +213,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         """Athena DDL uses Hive parser (backticks) while DML uses Trino parser (double quotes)."""
         return f"`{identifier}`" if isinstance(identifier, str) and len(identifier) > 0 else None
 
-    def normalize_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> list[str]:
+    def _normalize_dataset_prefix(self, dataset_prefix: Optional[list[Optional[str]]]) -> list[Optional[str]]:
         """Adapt _collapse_athena_prefixes to the [catalog, schema] list shape the base dialect expects."""
         return [part for part in _collapse_athena_prefixes(dataset_prefix) if part is not None]
 
