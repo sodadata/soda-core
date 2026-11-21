@@ -12,8 +12,8 @@ Databricks one.
 
 A check's own SQL reads the tables it names, so a job passes the view's name to it in a contract variable. The
 plugin does the same by writing the view's name over the table's in the contract before the run. A verification
-with no Spark data source named like the contract's, or whose SQL names the table in another form, runs as usual,
-and the summary lists it. So does every verification of a test marked
+of a contract read from a file, with no Spark data source named like the contract's, or whose SQL names the table
+in another form, runs as usual, and the summary lists it. So does every verification of a test marked
 ``@pytest.mark.execution_dataset_not_routable(reason)``, for a test that can route but checks something a routed
 run changes. The run fails when nothing was routed, and when a routed run errors on the renamed table, since a test
 that only asserts the contract fails would pass on that error.
@@ -62,8 +62,13 @@ def _routed_execute(cls, *args, **kwargs):
         return _original_execute(cls, *args, **kwargs)
     if kwargs.get("execution_dataset") is not None:
         return _original_execute(cls, *args, **kwargs)
-    source = kwargs["contract_yaml_sources"][0]
-    text: str = source.yaml_str
+    sources: list = kwargs.get("contract_yaml_sources") or []
+    # A contract read from a file has no text until core parses it.
+    text: Optional[str] = sources[0].yaml_str if sources else None
+    if not isinstance(text, str):
+        _not_routed("its contract has no YAML text, as one read from a file")
+        return _original_execute(cls, *args, **kwargs)
+    source = sources[0]
     match = re.search(r"^dataset:\s*(\S+)\s*$", text, re.MULTILINE)
     if not match:
         _not_routed("no dataset key")
@@ -92,7 +97,7 @@ def _routed_execute(cls, *args, **kwargs):
         return _original_execute(cls, *args, **kwargs)
     if before + after != text[: match.start()] + text[match.end() :]:
         routed_source = type(source).from_str(before + match.group(0) + after, file_path=source.file_path)
-        kwargs = {**kwargs, "contract_yaml_sources": [routed_source, *kwargs["contract_yaml_sources"][1:]]}
+        kwargs = {**kwargs, "contract_yaml_sources": [routed_source, *sources[1:]]}
     keyword: str = "VIEW" if session.catalog.getTable(f"{schema}.{name}").tableType == "VIEW" else "TABLE"
     # Checkpointed, so the view holds the rows and doesn't follow the table when it is renamed away.
     session.table(table).localCheckpoint().createOrReplaceTempView(view)
@@ -104,7 +109,11 @@ def _routed_execute(cls, *args, **kwargs):
     session.sql(f"ALTER {keyword} {table} RENAME TO {away}")
     try:
         ROUTED.append(dataset)
-        result = _original_execute(cls, *args, **{**kwargs, "execution_dataset": view})
+        # A publishing override must decide on the columns. The view has the table's, so they go up as on a plain run.
+        publish_schema_metadata: bool = kwargs.get("publish_schema_metadata") is not False
+        result = _original_execute(
+            cls, *args, **{**kwargs, "execution_dataset": view, "publish_schema_metadata": publish_schema_metadata}
+        )
         errors: str = result.get_errors_str()
         if "TABLE_OR_VIEW_NOT_FOUND" in errors and name in errors:
             READ_THE_TABLE.setdefault(_current_test(), errors)
