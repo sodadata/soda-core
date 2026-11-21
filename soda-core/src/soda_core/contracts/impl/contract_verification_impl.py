@@ -330,7 +330,11 @@ class ContractVerificationSessionImpl:
                 "execution_dataset and publish_schema_metadata=False work only for a local verification, not on a "
                 "runner"
             )
-        if execution_dataset is not None and soda_cloud_publish_results and not isinstance(publish_schema_metadata, bool):
+        if (
+            execution_dataset is not None
+            and soda_cloud_publish_results
+            and not isinstance(publish_schema_metadata, bool)
+        ):
             raise InvalidArgumentException(
                 "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
                 "decide whether this run sends the dataset's columns to Soda Cloud"
