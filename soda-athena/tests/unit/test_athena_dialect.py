@@ -24,7 +24,7 @@ class TestAthenaCatalogWithSlash:
 
     def test_qualified_name_regular_catalog(self):
         dialect = AthenaSqlDialect()
-        result = dialect._build_qualified_quoted_dataset_name(
+        result = dialect.qualify_dataset_name(
             dataset_name="my_table",
             dataset_prefix=["awsdatacatalog", "my_schema"],
         )
@@ -32,7 +32,7 @@ class TestAthenaCatalogWithSlash:
 
     def test_qualified_name_catalog_with_slash(self):
         dialect = AthenaSqlDialect()
-        result = dialect._build_qualified_quoted_dataset_name(
+        result = dialect.qualify_dataset_name(
             dataset_name="my_table",
             dataset_prefix=["s3tablescatalog", "bucket_name", "my_schema"],
         )
@@ -40,7 +40,7 @@ class TestAthenaCatalogWithSlash:
 
     def test_qualified_name_no_prefix(self):
         dialect = AthenaSqlDialect()
-        result = dialect._build_qualified_quoted_dataset_name(
+        result = dialect.qualify_dataset_name(
             dataset_name="my_table",
             dataset_prefix=None,
         )
@@ -48,7 +48,7 @@ class TestAthenaCatalogWithSlash:
 
     def test_qualified_name_single_prefix(self):
         dialect = AthenaSqlDialect()
-        result = dialect._build_qualified_quoted_dataset_name(
+        result = dialect.qualify_dataset_name(
             dataset_name="my_table",
             dataset_prefix=["my_schema"],
         )
