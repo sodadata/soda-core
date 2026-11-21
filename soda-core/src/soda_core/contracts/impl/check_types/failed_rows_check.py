@@ -59,6 +59,12 @@ class FailedRowsCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
+        self.sample_rows: list[dict] = []
+        self.sample_columns: list[str] = []
+
+    def process_sample(self, check_result: CheckResult) -> None:
+        if self.contract_impl.sampler is not None and self.sample_rows:
+            self.contract_impl.sampler.process_sample(self.sample_rows, self.sample_columns, check_result)
 
     def setup_metrics(
         self,
@@ -72,6 +78,22 @@ class FailedRowsCheckImpl(CheckImpl):
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
+            if contract_impl.data_source_impl and self.contract_impl.sampler is not None:
+                sample_sql = contract_impl.data_source_impl.sql_dialect.build_select_sql(
+                    [
+                        WITH([self.scope.cte]),
+                        SELECT(STAR()),
+                        FROM(self.scope.cte.alias),
+                        WHERE(self.failed_rows_count_metric_impl.sql_condition_expression()),
+                    ]
+                )
+                if contract_impl.should_apply_sampling:
+                    sample_sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
+                        sql=sample_sql,
+                        sampler_limit=contract_impl.sampler_limit,
+                        sampler_type=contract_impl.sampler_type,
+                    )
+                self.queries.append(FailedRowsSampleQuery(contract_impl.data_source_impl, sample_sql, self))
             self.check_rows_tested_metric_impl = self._resolve_metric(
                 RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
@@ -101,6 +123,7 @@ class FailedRowsCheckImpl(CheckImpl):
                     data_source_impl=contract_impl.data_source_impl,
                     metrics=[self.failed_rows_count_metric_impl],
                     failed_rows_query=sql,
+                    check_impl=self,
                 )
                 self.queries.append(failed_rows_count_query)
 
@@ -320,8 +343,15 @@ STREAMING_COUNT_WARNING_THRESHOLD = 10_000
 
 
 class FailedRowsCountQuery(Query):
-    def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
+    def __init__(
+        self,
+        data_source_impl: Optional[DataSourceImpl],
+        metrics: list[MetricImpl],
+        failed_rows_query: str,
+        check_impl=None,
+    ):
         self.failed_rows_query = failed_rows_query
+        self.check_impl = check_impl
         # Try CTE-wrapped COUNT first (efficient — only transfers a single number).
         # Store the raw query as self.sql for fallback and logging.
         count_sql = data_source_impl.sql_dialect.build_select_sql(
@@ -380,8 +410,55 @@ class FailedRowsCountQuery(Query):
                 )
                 return []
 
+        if self.check_impl is not None and self.check_impl.contract_impl.sampler is not None and metric_value:
+            rows = []
+            columns = []
+
+            def sample_row(row, description):
+                nonlocal columns
+                if not columns:
+                    columns = [c[0] for c in description]
+                rows.append(dict(zip(columns, row)))
+
+            limit = (
+                self.check_impl.contract_impl.sampler_limit
+                if self.check_impl.contract_impl.sampler_type is SamplerType.ABSOLUTE_LIMIT
+                else None
+            )
+            self.data_source_impl.execute_query_one_by_one(
+                sql=self.failed_rows_query, row_callback=sample_row, row_limit=limit
+            )
+            self.check_impl.sample_rows = rows
+            self.check_impl.sample_columns = columns
+
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
+
+
+class FailedRowsSampleQuery(Query):
+    def __init__(self, data_source_impl: DataSourceImpl, sql: str, check_impl: FailedRowsCheckImpl):
+        super().__init__(data_source_impl=data_source_impl, metrics=[], sql=sql)
+        self.check_impl = check_impl
+
+    def execute(self) -> list[Measurement]:
+        rows: list[dict] = []
+        columns: list[str] = []
+
+        def sample_row(row, description):
+            nonlocal columns
+            if not columns:
+                columns = [column[0] for column in description]
+            rows.append(dict(zip(columns, row)))
+
+        limit = (
+            self.check_impl.contract_impl.sampler_limit
+            if self.check_impl.contract_impl.sampler_type is SamplerType.ABSOLUTE_LIMIT
+            else None
+        )
+        self.data_source_impl.execute_query_one_by_one(sql=self.sql, row_callback=sample_row, row_limit=limit)
+        self.check_impl.sample_rows = rows
+        self.check_impl.sample_columns = columns
+        return []
 
 
 class RowsTestedQuery(Query):

@@ -251,6 +251,7 @@ class ContractVerificationSessionImpl:
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
+        sampler=None,
         **kwargs,
     ):
         # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
@@ -269,6 +270,8 @@ class ContractVerificationSessionImpl:
             raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
         if soda_cloud_use_runner is None:
             soda_cloud_use_runner = False
+        if sampler is not None and soda_cloud_use_runner:
+            raise InvalidArgumentException("Failed rows samplers are only supported for local contract verification")
         if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
             soda_cloud_use_runner_blocking_timeout_in_minutes = 60
 
@@ -349,6 +352,7 @@ class ContractVerificationSessionImpl:
                 # A local run matches the check paths as check_path selectors, after the other selectors.
                 check_selectors=[*check_selectors, *CheckSelector.from_check_paths(check_paths)],
                 dwh_files=dwh_files,
+                sampler=sampler,
             )
             return ContractVerificationSessionResult(
                 contract_verification_results=list(local_session_result.results),
@@ -370,6 +374,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        sampler=None,
     ) -> CheckCollectionSessionResult:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
@@ -421,6 +426,7 @@ class ContractVerificationSessionImpl:
                 # use ``ContractImpl`` for unknown-kind fallback so the ERROR
                 # placeholder's ``result_class`` matches that declared return.
                 default_impl_class=ContractImpl,
+                sampler=sampler,
             )
         finally:
             for name in names_to_close:
@@ -623,6 +629,7 @@ class ContractImpl(CheckCollectionImpl):
         publish_results: bool = False,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        sampler=None,
         # Universal kwargs from ``CheckCollectionImpl`` — the session
         # executor passes these and they are the canonical names. The
         # legacy contract-specific aliases (``contract_yaml=`` /
@@ -632,6 +639,7 @@ class ContractImpl(CheckCollectionImpl):
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
     ):
+        self.sampler = sampler
         # Data-source resolution (data_source_impl=None + all_data_source_impls →
         # look up by the dataset's leading name segment) now lives in the base
         # CheckCollectionImpl.__init__, so every kind — contract, data standard,
@@ -1515,6 +1523,9 @@ class CheckImpl:
 
     @abstractmethod
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+        pass
+
+    def process_sample(self, check_result: CheckResult) -> None:
         pass
 
     def _build_check_info(self) -> Check:
