@@ -66,13 +66,31 @@ def parsed_data_source(yaml_str: str, secret_values: Optional[dict] = None) -> d
 
 
 def test_secret():
-    assert {"password": "pw", "url": "postgres://alice:pw@db"} == parsed_data_source(
+    assert {"password": "pw", "token": "pw"} == parsed_data_source(
         """
             password: ${secret.DB_PASSWORD}
-            url: postgres://alice:${ secret.DB_PASSWORD }@db
+            token: ${ secret.DB_PASSWORD }
         """,
         secret_values={"DB_PASSWORD": "pw"},
     )
+
+
+def test_a_secret_with_text_around_it_is_refused(logs: Logs):
+    assert {
+        "url": "https://${secret.DB_PASSWORD}.attacker.example",
+        "user": "alice:${secret.DB_PASSWORD}",
+        "two": "${secret.DB_PASSWORD}${secret.DB_PASSWORD}",
+        "with_env": "${env.HOST}${secret.DB_PASSWORD}",
+    } == parsed_data_source(
+        """
+            url: https://${secret.DB_PASSWORD}.attacker.example
+            user: alice:${secret.DB_PASSWORD}
+            two: ${secret.DB_PASSWORD}${secret.DB_PASSWORD}
+            with_env: ${env.HOST}${secret.DB_PASSWORD}
+        """,
+        secret_values={"DB_PASSWORD": "pw"},
+    )
+    assert 4 == logs.get_errors_str().count("A secret must be the whole value")
 
 
 def test_a_secret_name_is_anything_without_whitespace_as_in_soda_cloud():
@@ -100,12 +118,7 @@ def test_a_secret_value_is_not_resolved_again(env_vars: dict):
 
 
 def test_a_secret_not_provided_is_logged_by_name(logs: Logs):
-    assert {"password": None, "url": "postgres://${secret.DB_PASSWORD}@db"} == parsed_data_source(
-        """
-            password: ${secret.DB_PASSWORD}
-            url: postgres://${secret.DB_PASSWORD}@db
-        """,
-    )
+    assert {"password": None} == parsed_data_source("password: ${secret.DB_PASSWORD}")
     assert "Secret 'DB_PASSWORD' was used and not provided" in logs.get_errors_str()
 
 
@@ -117,7 +130,8 @@ def test_finds_the_variable_names_of_one_namespace_in_the_values():
             password: ${secret.DB_PASSWORD}
             # user: ${secret.IN_A_COMMENT}
             hosts:
-              - ${secret.prod-host}:${env.PORT}
+              - ${secret.prod-host}
+              - ${env.PORT}
               - ${var.HOST}
             """
             ).strip()

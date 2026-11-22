@@ -693,8 +693,15 @@ class VariableResolver:
                     secret_values=secret_values,
                 )
 
+            # A secret must be the whole value. Text around it, such as a URL, could send the secret somewhere else.
+            if any(cls._namespace_and_variable(m)[0] == "secret" for m in re.finditer(pattern, source_text)):
+                logger.error(
+                    msg="A secret must be the whole value, with no other text or variables around it",
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+                return source_text
+
             # Otherwise do a regex replace for all variable patterns in the string, which may be mixed with other text.
-            # Substituted values are not scanned again, so a secret holding ${...} stays as it is.
             return re.sub(
                 pattern=pattern,
                 repl=lambda m: cls._resolve_variable_pattern(
