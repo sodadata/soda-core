@@ -634,13 +634,15 @@ class VariableResolver:
         """The names of the variables of one namespace that the string values of a parsed structure use.
 
         A caller that has to fetch the values first, such as the ``secret`` values a data source configuration uses,
-        finds the names with the same pattern that resolves them.
+        finds the names with the same rules that resolve them. A value that ``resolve`` refuses uses no names.
         """
         if isinstance(obj, dict):
             return set().union(*(cls.find_variable_names(value, namespace) for value in obj.values()))
         if isinstance(obj, list):
             return set().union(*(cls.find_variable_names(item, namespace) for item in obj))
         if isinstance(obj, str):
+            if cls._embeds_a_secret(obj):
+                return set()
             references = (cls._namespace_and_variable(match) for match in re.finditer(cls.VARIABLE_PATTERN, obj))
             return {variable for match_namespace, variable in references if match_namespace == namespace}
         return set()
@@ -664,6 +666,13 @@ class VariableResolver:
         if match.group("secret") is not None:
             return "secret", match.group("secret")
         return match.group("namespace"), match.group("variable")
+
+    @classmethod
+    def _embeds_a_secret(cls, text: str) -> bool:
+        """A secret must be the whole value. Text around it, such as a URL, could send the secret somewhere else."""
+        if re.fullmatch(cls.VARIABLE_PATTERN, text):
+            return False
+        return any(cls._namespace_and_variable(m)[0] == "secret" for m in re.finditer(cls.VARIABLE_PATTERN, text))
 
     @classmethod
     def resolve(
@@ -693,8 +702,7 @@ class VariableResolver:
                     secret_values=secret_values,
                 )
 
-            # A secret must be the whole value. Text around it, such as a URL, could send the secret somewhere else.
-            if any(cls._namespace_and_variable(m)[0] == "secret" for m in re.finditer(pattern, source_text)):
+            if cls._embeds_a_secret(source_text):
                 logger.error(
                     msg="A secret must be the whole value, with no other text or variables around it",
                     extra={ExtraKeys.LOCATION: location} if location else None,

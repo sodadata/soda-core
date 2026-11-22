@@ -133,6 +133,7 @@ def test_finds_the_variable_names_of_one_namespace_in_the_values():
               - ${secret.prod-host}
               - ${env.PORT}
               - ${var.HOST}
+            url: https://${secret.EMBEDDED}.example/${env.EMBEDDED_PATH}
             """
             ).strip()
         )
