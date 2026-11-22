@@ -45,7 +45,7 @@ def verify_contract_on_dataframe(
     short hash of the DQN. The helper refuses to run when a temporary view with that name exists, and leaves that view
     as it is. Every other keyword goes to ``verify_contract_locally``: ``contract_file_path`` or
     ``dataset_identifier``, ``publish``, ``soda_cloud_file_path`` and the rest. The helper sets ``execution_dataset``
-    itself. ``contract_file_path`` takes a str or a path object, and ``""`` names no file.
+    itself. ``contract_file_path`` takes a str or a path object.
 
     ``publish_schema_metadata`` decides whether the run sends the DataFrame's columns to Soda Cloud as the dataset's
     columns.
@@ -65,9 +65,6 @@ def verify_contract_on_dataframe(
             "SparkDataFrameDataSource.from_existing_session(df.sparkSession, name='<the contract's data source>'). A "
             "temporary view belongs to one session, so a data source on another session can't read the DataFrame"
         )
-    # verify_contract_locally reads "" as a file, and the view must name what it verifies.
-    if verify_kwargs.get("contract_file_path") == "":
-        del verify_kwargs["contract_file_path"]
     view: str = _view_name(verify_kwargs.get("dataset_identifier"), verify_kwargs.get("contract_file_path"))
     try:
         df.createTempView(view)

@@ -75,6 +75,11 @@ def test_verify_contract_locally_refuses_data_sources_that_are_not_data_sources(
         verify((data_source,))
 
 
+def test_an_empty_contract_file_path_names_no_file():
+    with pytest.raises(InvalidArgumentException, match="At least one of -c/--contract or -d/--dataset"):
+        verify_contract_locally(data_sources=[], contract_file_path="")
+
+
 @pytest.mark.parametrize(
     "array, expected", [(["a", "b"], False), (["a", None], False), ([None, None], False), ([], True), (None, True)]
 )

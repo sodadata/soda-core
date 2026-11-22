@@ -317,7 +317,8 @@ def verify_contract(
 
     # TODO: change this when we fully deprecate a list of contract file paths
     # This is only here to make sure the rest of the code still works.
-    if isinstance(contract_file_path, (str, os.PathLike)):
+    # An empty path names no file, so a dataset_identifier next to it verifies that dataset's contract.
+    if isinstance(contract_file_path, (str, os.PathLike)) and contract_file_path != "":
         contract_file_paths = [contract_file_path]
     else:
         contract_file_paths = None
