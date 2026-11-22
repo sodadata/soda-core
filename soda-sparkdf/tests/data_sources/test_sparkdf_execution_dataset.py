@@ -332,11 +332,11 @@ df.createOrReplaceTempView(name)
 result = verify()
 assert result.is_passed, result.get_errors_str()
 
-from soda_sparkdf import verify_contract_on_dataframe
+from soda_sparkdf import verify_contract_on_spark_dataframe
 
 df.cache()
 df.count()
-result = verify_contract_on_dataframe(
+result = verify_contract_on_spark_dataframe(
     df, data_sources=data_source, contract_file_path=contract_file_path, publish_schema_metadata=False
 )
 assert result.is_passed, result.get_errors_str()

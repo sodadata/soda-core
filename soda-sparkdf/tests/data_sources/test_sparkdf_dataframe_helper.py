@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame, SparkSession
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
-from soda_sparkdf import SparkDataFrameDataSource, verify_contract_on_dataframe
+from soda_sparkdf import SparkDataFrameDataSource, verify_contract_on_spark_dataframe
 
 DATA_SOURCE_NAME = "databricks_prod"
 DATASET_PREFIX = f"{DATA_SOURCE_NAME}/spark_catalog/default"
@@ -61,7 +61,7 @@ def _contract_file(tmp_path, table: str) -> str:
 
 
 def _verify(df, data_sources, contract_file_path: str, **kwargs) -> ContractVerificationSessionResult:
-    return verify_contract_on_dataframe(
+    return verify_contract_on_spark_dataframe(
         df, data_sources=data_sources, contract_file_path=contract_file_path, publish_schema_metadata=False, **kwargs
     )
 
@@ -96,7 +96,7 @@ def test_helper_publishes_the_dataframe_to_the_contracts_dataset(
     soda_cloud.set_data_source_type(f"{DATASET_PREFIX}/{name}", "databricks")
     monkeypatch.setattr(SodaCloud, "from_config", staticmethod(lambda *args, **kwargs: soda_cloud))
 
-    result = verify_contract_on_dataframe(
+    result = verify_contract_on_spark_dataframe(
         df,
         data_sources=[data_source],
         # A path object works as its str does.
@@ -137,7 +137,7 @@ def test_helper_names_the_view_after_the_dataset_identifier(spark, df, data_sour
     monkeypatch.setattr(SodaCloud, "from_config", staticmethod(lambda *args, **kwargs: soda_cloud))
 
     def verify(**kwargs) -> ContractVerificationSessionResult:
-        return verify_contract_on_dataframe(
+        return verify_contract_on_spark_dataframe(
             df, data_sources=data_source, soda_cloud_file_path="soda-cloud.yml", publish_schema_metadata=False, **kwargs
         )
 

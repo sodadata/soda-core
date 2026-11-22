@@ -24,7 +24,7 @@ logger: logging.Logger = soda_logger
 
 
 @soda_trace
-def verify_contract_on_dataframe(
+def verify_contract_on_spark_dataframe(
     df: "DataFrame",
     *,
     data_sources: Union[list[DataSourceImpl], DataSourceImpl],
@@ -52,7 +52,7 @@ def verify_contract_on_dataframe(
     """
     if "execution_dataset" in verify_kwargs:
         raise InvalidArgumentException(
-            "verify_contract_on_dataframe sets execution_dataset to the DataFrame's view itself. To read another "
+            "verify_contract_on_spark_dataframe sets execution_dataset to the DataFrame's view itself. To read another "
             "relation, call verify_contract_locally with execution_dataset"
         )
     if not any(
@@ -108,7 +108,7 @@ def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[U
         dqn = ContractYamlSource.from_file_path(contract_file_path).parse().yaml_dict.get("dataset")
     if not isinstance(dqn, str) or not dqn:
         raise InvalidArgumentException(
-            "verify_contract_on_dataframe names the DataFrame's view after the dataset, and found none. Pass "
+            "verify_contract_on_spark_dataframe names the DataFrame's view after the dataset, and found none. Pass "
             "dataset_identifier, or a contract_file_path whose contract has a dataset key"
         )
     ascii_dqn: str = unicodedata.normalize("NFKD", dqn).encode("ascii", "ignore").decode()
