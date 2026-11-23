@@ -311,6 +311,11 @@ jobs:
             uv run python -m pytest -ra soda-tests/tests/feature
           fi
           uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
+          if [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
+            # Once more, with every verification reading its dataset from a DataFrame's temporary view through
+            # execution_dataset and the dataset's own table renamed away, so SQL that reads the table fails.
+            uv run --no-sync --no-build python -m pytest -ra -p helpers.execution_dataset_plugin soda-tests/tests/integration
+          fi
 
           if [ "${{ env.TEST_MODULE }}" = "databricks" ]; then
             # hive_metastore always runs without snapshots for now
