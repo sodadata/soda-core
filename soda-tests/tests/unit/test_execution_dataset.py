@@ -117,14 +117,15 @@ class _RefusingExtension(CheckCollectionImplExtension):
         raise InvalidArgumentException("refused by the extension")
 
 
-def test_an_extension_that_refuses_stops_the_run():
-    assert _verify().is_passed
-    ContractImpl.impl_extensions["refusing_for_test"] = _RefusingExtension
-    try:
-        with pytest.raises(InvalidArgumentException, match="refused by the extension"):
-            _verify()
-    finally:
-        ContractImpl.impl_extensions.pop("refusing_for_test", None)
+def test_an_extension_that_refuses_stops_only_an_override_run(monkeypatch):
+    # duckdb refuses execution_dataset, so this test lets it, to reach the extension.
+    monkeypatch.setattr(DuckDBDataSourceImpl, "validate_execution_dataset_read", lambda self, execution_dataset: None)
+    monkeypatch.setitem(ContractImpl.impl_extensions, "refusing_for_test", _RefusingExtension)
+    plain_run = _verify()
+    assert plain_run.has_errors
+    assert "refused by the extension" in plain_run.get_errors_str()
+    with pytest.raises(InvalidArgumentException, match="refused by the extension"):
+        _verify(execution_dataset=EXECUTION_DATASET)
 
 
 def test_a_contract_impl_names_the_contracts_dataset_under_an_override(monkeypatch):

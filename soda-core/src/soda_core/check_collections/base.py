@@ -1026,11 +1026,11 @@ class CheckCollectionImpl:
         for extension in self.extensions:
             try:
                 check_impls.extend(extension.parse_checks(contract_impl=self))
-            except InvalidArgumentException:
-                # A refusal of what the caller passed, such as execution_dataset with a reconciliation source that is
-                # the contract's own dataset, stops the run before any query.
-                raise
             except Exception as e:
+                # Under an override, a refusal such as a reconciliation source that is the contract's own dataset stops
+                # the run before any query. A plain run logs it, as before.
+                if isinstance(e, InvalidArgumentException) and self.checked_dataset.reads_another_dataset:
+                    raise
                 logger.error(f"Error parsing checks with extension {extension.__class__.__name__}: {e}")
 
         return check_impls
