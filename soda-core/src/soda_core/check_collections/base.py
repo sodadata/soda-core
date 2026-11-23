@@ -691,6 +691,19 @@ class CheckCollectionImpl:
         """
         return None
 
+    # Released extensions read these three. They name the contract's dataset, not the one an override reads.
+    @property
+    def dataset_identifier(self) -> DatasetIdentifier:
+        return self.checked_dataset.dataset
+
+    @property
+    def dataset_prefix(self) -> list[str]:
+        return self.checked_dataset.dataset.prefixes
+
+    @property
+    def dataset_name(self) -> str:
+        return self.checked_dataset.dataset.dataset_name
+
     @property
     def thread_label(self) -> str:
         """Per-collection ``thread`` value stamped on each captured record:

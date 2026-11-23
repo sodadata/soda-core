@@ -13,6 +13,7 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api import verify_api
 from soda_core.contracts.contract_verification import ContractVerificationSession
 from soda_core.contracts.impl.contract_verification_impl import CheckCollectionImplExtension, ContractImpl
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
 
 CONTRACT = """
@@ -124,6 +125,18 @@ def test_an_extension_that_refuses_stops_the_run():
             _verify()
     finally:
         ContractImpl.impl_extensions.pop("refusing_for_test", None)
+
+
+def test_a_contract_impl_names_the_contracts_dataset_under_an_override(monkeypatch):
+    monkeypatch.setattr(DuckDBDataSourceImpl, "validate_execution_dataset_read", lambda self, execution_dataset: None)
+    contract_impl = ContractImpl(
+        yaml=ContractYaml.parse(yaml_source=ContractYamlSource.from_str(CONTRACT)),
+        all_data_source_impls={"ds": _duckdb()},
+        execution_dataset=EXECUTION_DATASET,
+    )
+    assert contract_impl.dataset_identifier.to_string() == "ds/main/orders"
+    assert contract_impl.dataset_prefix == ["main"]
+    assert contract_impl.dataset_name == "orders"
 
 
 def _verify_locally(tmp_path, **kwargs):
