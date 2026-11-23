@@ -451,8 +451,7 @@ class _ContractStub:
     wire_source = "soda-contract"
     collection_id = None
     data_source_impl = SimpleNamespace(name="test_ds")
-    dataset_prefix = "schema"
-    dataset_name = "table"
+    checked_dataset = SimpleNamespace(dataset=SimpleNamespace(prefixes="schema", dataset_name="table"))
     identity_prefix = ContractImpl.identity_prefix
 
 

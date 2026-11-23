@@ -24,10 +24,11 @@ from numbers import Number
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Optional
 
+from soda_core.common.checked_dataset import CheckedDataset, parse_execution_dataset
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
-from soda_core.common.exceptions import SodaCoreException
+from soda_core.common.exceptions import InvalidArgumentException, SodaCoreException
 from soda_core.common.filtered_cte import build_filtered_cte
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs, preserve_active_logs
@@ -177,8 +178,8 @@ class CheckCollectionResult:
     measurement_dicts: list[dict] = field(default_factory=list)
     # The dataset's actual columns, when this verification already measured them.
     # Sent to Soda Cloud in the ``metadata`` bucket, which is where Cloud reads a
-    # dataset's column list from. None when nothing measured the columns: the engine
-    # never runs an extra query just to fill this in.
+    # dataset's column list from. None when nothing measured the columns, since the engine
+    # never runs an extra query just to fill this in, or when publish_schema_metadata is False.
     dataset_columns: Optional[list[ColumnMetadata]] = None
     # How many scopes the file declares, and how many of its checks sit outside the base scope and in it. A check
     # whose scope names no declared scope sits outside. Counted from the parsed checks, so a run that builds no
@@ -636,25 +637,17 @@ class CheckCollectionImpl:
         own_exts: dict = cls.__dict__.get("impl_extensions", {})
         return {**global_exts, **own_exts}
 
-    @staticmethod
-    def _resolve_primary_data_source_impl(
-        yaml: CheckCollectionYaml,
-        all_data_source_impls: dict[str, "DataSourceImpl"],
-    ) -> Optional["DataSourceImpl"]:
-        """Resolve this collection's data source from ``all_data_source_impls``.
-
-        Looks up the data source name from ``yaml.dataset`` (the leading segment
-        before the first ``/``), opening the connection lazily. Logs an error and
-        returns None when the named data source is missing.
-        """
-        dataset: Optional[str] = getattr(yaml, "dataset", None)
-        if not dataset:
-            return None
-        data_source_name: str = dataset[: dataset.find("/")] if "/" in dataset else ""
-        if not data_source_name:
-            return None
-        data_source_impl: Optional[DataSourceImpl] = all_data_source_impls.get(data_source_name)
+    def _resolve_primary_data_source_impl(self) -> Optional["DataSourceImpl"]:
+        """Resolve this collection's data source from ``all_data_source_impls`` by the data source name of its DQN,
+        opening the connection lazily. Logs an error and returns None when the named data source is missing."""
+        data_source_name: str = self.checked_dataset.dataset.data_source_name
+        data_source_impl: Optional[DataSourceImpl] = self.all_data_source_impls.get(data_source_name)
         if not isinstance(data_source_impl, DataSourceImpl):
+            if self.checked_dataset.reads_another_dataset:
+                raise InvalidArgumentException(
+                    f"Data source '{data_source_name}' not found. execution_dataset reads from the data source named "
+                    f"like the contract's dataset, so pass one named '{data_source_name}'"
+                )
             logger.error(f"Data source '{data_source_name}' not found")
             return None
         if not data_source_impl.has_open_connection():
@@ -698,6 +691,19 @@ class CheckCollectionImpl:
         """
         return None
 
+    # Released extensions read these three. They name the contract's dataset, not the one an override reads.
+    @property
+    def dataset_identifier(self) -> DatasetIdentifier:
+        return self.checked_dataset.dataset
+
+    @property
+    def dataset_prefix(self) -> list[str]:
+        return self.checked_dataset.dataset.prefixes
+
+    @property
+    def dataset_name(self) -> str:
+        return self.checked_dataset.dataset.dataset_name
+
     @property
     def thread_label(self) -> str:
         """Per-collection ``thread`` value stamped on each captured record:
@@ -726,6 +732,8 @@ class CheckCollectionImpl:
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
+        execution_dataset: Optional[str] = None,
+        publish_schema_metadata: Optional[bool] = None,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -738,6 +746,22 @@ class CheckCollectionImpl:
         # Stamp this collection's ``thread`` label on every record it emits.
         self.logs.label = self.thread_label
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
+        dataset: DatasetIdentifier = DatasetIdentifier.parse(yaml.dataset)
+        # The contract's dataset, which identifies the collection, and the dataset its queries read. Without
+        # execution_dataset they are the same.
+        self.checked_dataset: CheckedDataset = CheckedDataset(
+            dataset, parse_execution_dataset(dataset, execution_dataset)
+        )
+        reads_another_dataset: bool = self.checked_dataset.reads_another_dataset
+        if reads_another_dataset and only_validate_without_execute:
+            raise InvalidArgumentException(
+                "execution_dataset reads the dataset from another one, so verify, don't validate"
+            )
+        if reads_another_dataset and publish_results and not isinstance(publish_schema_metadata, bool):
+            raise InvalidArgumentException(
+                "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
+                "decide whether this run sends the dataset's columns to Soda Cloud"
+            )
         # Resolve the primary data source from the named-data-source map when the
         # caller didn't hand one in. The session executor passes data_source_impl=None
         # and lets each impl resolve its own data source from its dataset name — doing
@@ -745,8 +769,9 @@ class CheckCollectionImpl:
         # future kinds), so a ``kind: data-standard`` file dispatched through the
         # universal executor resolves its data source instead of silently getting None.
         if data_source_impl is None and not only_validate_without_execute:
-            data_source_impl = self._resolve_primary_data_source_impl(yaml, self.all_data_source_impls)
+            data_source_impl = self._resolve_primary_data_source_impl()
         self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
+        self.publish_schema_metadata: bool = publish_schema_metadata is not False
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
         self.soda_config = EnvConfigHelper()
@@ -759,8 +784,6 @@ class CheckCollectionImpl:
         self.execution_timestamp: datetime = execution_timestamp
         self.data_timestamp: datetime = data_timestamp
 
-        self.dataset_name: Optional[str] = None
-
         self.check_attributes: dict[str, Any] = yaml.check_attributes
 
         # The base scope shares the collection's own filter and check attributes. The declared
@@ -769,10 +792,6 @@ class CheckCollectionImpl:
         self.scopes: dict[str, Scope] = {
             key: Scope.from_yaml(scope_yaml) for key, scope_yaml in yaml.scopes.items() if scope_key_error(key) is None
         }
-
-        self.dataset_identifier = DatasetIdentifier.parse(yaml.dataset)
-        self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
-        self.dataset_name = self.dataset_identifier.dataset_name
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -786,8 +805,12 @@ class CheckCollectionImpl:
         self.compute_warehouse: Optional[str] = None
 
         if data_source_impl:
+            execution_dataset_identifier: DatasetIdentifier = self.checked_dataset.execution_dataset
+            if reads_another_dataset:
+                data_source_impl.validate_execution_dataset_read(execution_dataset_identifier)
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
-                dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+                dataset_prefix=execution_dataset_identifier.prefixes,
+                dataset_name=execution_dataset_identifier.dataset_name,
             )
 
             if data_source_impl.data_source_connection:
@@ -809,11 +832,14 @@ class CheckCollectionImpl:
         self.redaction_policy: RedactionPolicy = RedactionPolicy()
         if self.soda_cloud:
             # One fetch carries both this dataset's configuration and the org settings.
-            datasets_configurations = self.soda_cloud.fetch_datasets_configurations([self.dataset_identifier])
+            datasets_configurations = self.soda_cloud.fetch_datasets_configurations([self.checked_dataset.dataset])
             self.dataset_configuration = self.soda_cloud.dataset_configuration_from(
-                datasets_configurations, self.dataset_identifier
+                datasets_configurations, self.checked_dataset.dataset
             )
             self.redaction_policy = RedactionPolicy.from_datasets_configurations(datasets_configurations)
+
+        if reads_another_dataset and publish_results and self.soda_cloud is not None:
+            self._raise_unless_cloud_type_takes_execution_dataset(data_source_impl)
 
         if self.dataset_configuration:
             if (
@@ -832,7 +858,7 @@ class CheckCollectionImpl:
         # Logged before the CTE is built, so it still shows when the sample size is refused.
         if self.filtered_cte_sampler is not None:
             logger.info(
-                f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
+                f"Row sampling is enabled for dataset {self.checked_dataset.dataset.to_string()} "
                 f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', "
                 f"limit:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit}'"
             )
@@ -840,7 +866,7 @@ class CheckCollectionImpl:
         # Dataset defining CTE - used as basis for all queries in this collection. Built after the dataset
         # configuration fetch, which decides the sampler.
         self.cte = build_filtered_cte(
-            self.dataset_identifier, self.filter, SODA_FILTERED_CTE_NAME, self.filtered_cte_sampler
+            self.checked_dataset.execution_dataset, self.filter, SODA_FILTERED_CTE_NAME, self.filtered_cte_sampler
         )
         self.base_scope.activate(cte=self.cte, row_count_metric=self.row_count_metric_impl)
 
@@ -851,7 +877,8 @@ class CheckCollectionImpl:
                 self.extensions.append(extension)
             except Exception as e:
                 logger.error(
-                    f"Error extending {self.display_name} implementation with extension {extension_cls.__name__}: {e}",
+                    f"Error extending {self.display_name} implementation with extension "
+                    f"{extension_cls.__name__}: {e}",
                 )
 
         # Before the columns are parsed: column checks are built there, and a check in an inactive scope is
@@ -1005,6 +1032,10 @@ class CheckCollectionImpl:
             try:
                 check_impls.extend(extension.parse_checks(contract_impl=self))
             except Exception as e:
+                # Under an override, a refusal such as a reconciliation source that is the contract's own dataset stops
+                # the run before any query. A plain run logs it, as before.
+                if isinstance(e, InvalidArgumentException) and self.checked_dataset.reads_another_dataset:
+                    raise
                 logger.error(f"Error parsing checks with extension {extension.__class__.__name__}: {e}")
 
         return check_impls
@@ -1028,7 +1059,7 @@ class CheckCollectionImpl:
                     continue
                 if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
                     metric.data_source_impl == self.data_source_impl
-                    and metric.dataset_identifier == self.dataset_identifier
+                    and metric.dataset_identifier == self.checked_dataset.dataset
                 ):
                     aggregation_metrics.append(metric)
 
@@ -1103,8 +1134,8 @@ class CheckCollectionImpl:
                 aggregation_queries.append(
                     AggregationQuery(
                         cte=scope.cte,
-                        dataset_prefix=self.dataset_prefix,
-                        dataset_name=self.dataset_name,
+                        dataset_prefix=self.checked_dataset.execution_dataset.prefixes,
+                        dataset_name=self.checked_dataset.execution_dataset.dataset_name,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                         metric_aliases=metric_aliases,
@@ -1139,7 +1170,7 @@ class CheckCollectionImpl:
         # anyway would silently return full-scan numbers as though they were sampled, which is a wrong
         # answer rather than a missing one.
         logger.error(
-            f"Row sampling was requested for dataset {self.dataset_identifier.to_string()}, but "
+            f"Row sampling was requested for dataset {self.checked_dataset.dataset.to_string()}, but "
             f"data source '{self.data_source_impl.name}' of type "
             f"'{self.data_source_impl.type_name}' cannot sample rows. No checks were evaluated. "
             f"Remove the sampling configuration for this dataset to run them against all rows."
@@ -1157,6 +1188,24 @@ class CheckCollectionImpl:
         such as session post-processing after every ``verify()`` has returned."""
         with self.logs.activate(self.thread_label), self.redaction_policy.activate():
             yield
+
+    def _raise_unless_cloud_type_takes_execution_dataset(self, data_source_impl: DataSourceImpl) -> None:
+        """Results of a run with execution_dataset publish only onto a dataset whose data source in Soda Cloud is of a
+        type the data source may stand in for, which also refuses a dataset Soda Cloud gives no type for."""
+        cloud_type: Optional[str] = self.dataset_configuration.data_source_type if self.dataset_configuration else None
+        allowed: frozenset[str] = data_source_impl.CLOUD_DATA_SOURCE_TYPES_FOR_EXECUTION_DATASET
+        if cloud_type in allowed:
+            return
+        found: str = (
+            f"is of type {cloud_type}"
+            if cloud_type
+            else "has no type, and execution_dataset publishes only onto a dataset that exists in Soda Cloud"
+        )
+        raise InvalidArgumentException(
+            f"execution_dataset can't publish results onto {self.yaml.dataset}: its data source in Soda Cloud {found}. "
+            f"A {data_source_impl.type_name} data source publishes only onto a dataset of a data source of type "
+            f"{' or '.join(sorted(allowed))}"
+        )
 
     def verify(self) -> CheckCollectionResult:
         if not self.wire_source:
@@ -1192,6 +1241,20 @@ class CheckCollectionImpl:
             return self._verify()
 
     def _verify(self) -> CheckCollectionResult:
+        execution_dataset: str = self.checked_dataset.execution_dataset.to_string()
+        if self.checked_dataset.reads_another_dataset:
+            logger.info(f"Reading {self.yaml.dataset} from {execution_dataset}")
+            own_sql: list[str] = [
+                check.check_path
+                for check in self.all_check_impls
+                if not (check.skip or check.in_inactive_scope or check.unsupported_by_data_source)
+                and check.runs_own_sql()
+            ]
+            if own_sql:
+                logger.warning(
+                    f"These checks run their own SQL, which reads the tables it names, not "
+                    f"{execution_dataset}: {', '.join(repr(path) for path in own_sql)}"
+                )
         from soda_core.contracts.impl.contract_verification_impl import (
             DerivedMetricImpl,
             MeasurementValues,
@@ -1386,8 +1449,8 @@ class CheckCollectionImpl:
         return self.result_class(
             check_collection=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
-                dataset_prefix=self.dataset_prefix,
-                dataset_name=self.dataset_name,
+                dataset_prefix=self.checked_dataset.dataset.prefixes,
+                dataset_name=self.checked_dataset.dataset.dataset_name,
                 soda_qualified_dataset_name=self.soda_qualified_dataset_name,
                 source=YamlFileContentInfo(
                     source_content_str=yaml_source_str_original,
@@ -1406,7 +1469,7 @@ class CheckCollectionImpl:
             status=verification_status,
             log_records=log_records,
             post_processing_stages=post_processing_stages,
-            dataset_columns=_find_measured_dataset_columns(check_results),
+            dataset_columns=_find_measured_dataset_columns(check_results) if self.publish_schema_metadata else None,
             number_of_scopes=scopes_count,
             number_of_scoped_checks=scoped_checks_count,
             number_of_unscoped_checks=unscoped_checks_count,

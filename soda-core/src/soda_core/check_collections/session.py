@@ -57,6 +57,8 @@ def execute_check_collections(
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
+    execution_dataset: Optional[str] = None,
+    publish_schema_metadata: Optional[bool] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
@@ -128,7 +130,13 @@ def execute_check_collections(
     promise and per-yaml ``kind:`` is read exactly once (the same parse
     that drives ``CheckCollectionImpl.for_kind(...)``). The universal
     entrypoint leaves it ``None`` and accepts every registered kind.
+
+    ``execution_dataset`` is the dataset the run reads the single yaml's dataset from: a DQN of the same data source,
+    written without the data source, see ``checked_dataset.py``. ``publish_schema_metadata=False`` keeps the dataset's
+    columns out of the upload.
     """
+    if execution_dataset is not None and len(yaml_sources) != 1:
+        raise InvalidArgumentException("execution_dataset reads the dataset of one contract, so pass a single contract")
     parsed_data_timestamp: Optional[datetime] = _parse_data_timestamp(data_timestamp)
     # The yaml-level parser still takes the ISO string (it has its own
     # validation path); rebuild a string form when callers supplied a
@@ -191,6 +199,13 @@ def execute_check_collections(
                 kind_offenders.append((yaml_source, raw_kind))
                 continue
             impl_class = CheckCollectionImpl.for_kind(raw_kind or "contract")
+            if execution_dataset is not None and (raw_kind or "contract") != "contract":
+                # An override reads a contract's dataset. Other kinds read and publish their own way: data standards
+                # upload after every verify(), and monitors run their own _verify.
+                raise InvalidArgumentException(
+                    f"execution_dataset reads the dataset of a contract, so pass a contract, not a file of kind "
+                    f"'{raw_kind}'"
+                )
 
             yaml = impl_class.yaml_class.parse(
                 yaml_source=yaml_source,
@@ -214,6 +229,8 @@ def execute_check_collections(
                 # subtype yaml has them after construction.
                 data_timestamp=yaml.data_timestamp,
                 execution_timestamp=yaml.execution_timestamp,
+                execution_dataset=execution_dataset,
+                publish_schema_metadata=publish_schema_metadata,
             )
             impl.session_log_records = tuple(pre_session_records)
             constructed.append((impl, impl_class, None, yaml_source))

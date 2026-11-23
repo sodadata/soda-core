@@ -2,11 +2,14 @@ from datetime import datetime, timezone, tzinfo
 from typing import Any, Optional
 
 from freezegun import freeze_time
+from pyspark.errors import AnalysisException
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
 from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName
@@ -446,18 +449,62 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         )
         return cls(data_source_model=ds_model, connection=soda_connection)
 
-    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
-        if len(dataset_prefixes) == 0:
-            return f"DESCRIBE {dataset_name}"
-        elif len(dataset_prefixes) == 1:
-            schema_name: str = dataset_prefixes[0]
-            return f"DESCRIBE {schema_name}.{dataset_name}"
-        elif len(dataset_prefixes) == 2:
-            database_name: str = dataset_prefixes[0]
-            schema_name: str = dataset_prefixes[1]
-            return f"DESCRIBE {database_name}.{schema_name}.{dataset_name}"
+    # The Soda Cloud data source types a DataFrame may stand in for: Databricks, and the Spark DataFrame data source
+    # Soda Cloud creates for a sparkdf run, which it calls spark_df.
+    CLOUD_DATA_SOURCE_TYPES_FOR_EXECUTION_DATASET: frozenset[str] = frozenset({"databricks", "spark_df"})
+
+    def validate_execution_dataset_read(self, execution_dataset: DatasetIdentifier) -> None:
+        if execution_dataset.prefixes:
+            self._raise_unless_the_execution_dataset_exists(execution_dataset)
         else:
-            raise ValueError(f"Invalid number of dataset prefixes: {len(dataset_prefixes)}")
+            self._raise_unless_a_temporary_view(execution_dataset.dataset_name)
+
+    def _raise_unless_the_execution_dataset_exists(self, execution_dataset: DatasetIdentifier) -> None:
+        qualified: str = self.sql_dialect.qualify_dataset_name(
+            execution_dataset.prefixes, execution_dataset.dataset_name
+        )
+        try:
+            exists: bool = self.connection.connection.catalog.tableExists(qualified)
+        except AnalysisException:
+            exists = False
+        if not exists:
+            raise InvalidArgumentException(
+                f"execution_dataset names {execution_dataset.to_string()}, read as {qualified}, and this Spark session has "
+                f"no table or view with that name. execution_dataset is a DQN without the data source, such as "
+                f"'main/sales/orders_batch'"
+            )
+
+    def _raise_unless_a_temporary_view(self, name: str) -> None:
+        # A bare name resolves like a query: with no temporary view of that name Spark silently reads a
+        # same-named table in the current schema, often the real table.
+        needs_view: str = f"execution_dataset '{name}' needs a temporary view named '{name}' in this Spark session"
+        register: str = f"Register the DataFrame on the same session with df.createOrReplaceTempView('{name}')"
+        try:
+            table = self.connection.connection.catalog.getTable(self.sql_dialect.quote_default(name))
+        except AnalysisException:
+            if "." in name:
+                raise InvalidArgumentException(
+                    f"execution_dataset '{name}' is read as one name, and this Spark session has no temporary view "
+                    f"with it. Separate the parts of a qualified name with '/': to read the table {name}, pass "
+                    f"execution_dataset='{name.replace('.', '/')}'"
+                ) from None
+            raise InvalidArgumentException(
+                f"{needs_view}, and there is none. {register}. Temporary views belong to one session, so a view "
+                f"registered in another session isn't visible."
+            ) from None
+        if table.isTemporary:
+            return
+        parts: list[str] = [p for p in [table.catalog, *(table.namespace or [])] if p] + [table.name]
+        raise InvalidArgumentException(
+            f"{needs_view}, but '{name}' resolves to {'.'.join(parts)}, which is not a temporary view. Soda would "
+            f"check that table instead of your DataFrame. {register}, or pass execution_dataset='{'/'.join(parts)}' "
+            f"to check the table on purpose."
+        )
+
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        # Every part quoted, so a view whose name needs quoting is described too.
+        name: str = self.sql_dialect.qualify_dataset_name(dataset_prefix=dataset_prefixes, dataset_name=dataset_name)
+        return f"DESCRIBE {name}"
 
     @property
     def bulk_columns_metadata_available(self) -> bool:

@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectionResult, CheckCollectionYaml
+from soda_core.common.checked_dataset import CheckedDataset
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logs import Location, Logs
 from soda_core.contracts.contract_verification import (
     Check,
@@ -195,10 +197,9 @@ def test_verify_skips_send_check_collection_results_when_alignment_guard_trips()
     impl.only_validate_without_execute = False
     impl.execution_timestamp = None
     impl.data_timestamp = None
-    impl.dataset_prefix = []
-    impl.dataset_name = "customers"
+    dataset = DatasetIdentifier.parse("test_ds/customers")
+    impl.checked_dataset = CheckedDataset(dataset, dataset)
     impl.soda_qualified_dataset_name = "test_ds/customers"
-    impl.dataset_identifier = MagicMock()
     impl.queries = []
     impl.row_count_metric_impl = MagicMock()
     impl.metrics = []

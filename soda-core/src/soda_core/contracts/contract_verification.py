@@ -52,6 +52,8 @@ class ContractVerificationSession:
         dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
         logs: Optional["Logs"] = None,
+        execution_dataset: Optional[str] = None,
+        publish_schema_metadata: Optional[bool] = None,
         **kwargs,
     ) -> ContractVerificationSessionResult:
         from soda_core.common._deprecation import deprecated_kwarg
@@ -94,6 +96,8 @@ class ContractVerificationSession:
             check_selectors=check_selectors,
             dwh_files=dwh_files,
             logs=logs,
+            execution_dataset=execution_dataset,
+            publish_schema_metadata=publish_schema_metadata,
         )
 
 

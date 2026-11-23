@@ -98,12 +98,25 @@ def verify_contract_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
+    execution_dataset: Optional[str] = None,
+    publish_schema_metadata: Optional[bool] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
+
+    ``execution_dataset`` reads the contract's dataset from another dataset of the same data source, for example a
+    Spark DataFrame's temporary view, while results still publish to the contract's dataset. It is that dataset's DQN
+    without the data source: ``orders``, ``main/orders`` or ``spark_catalog/default/orders``. Naming the contract's own
+    table, spelled exactly as in the contract's DQN, makes a plain run. The data source passed in ``data_sources`` must
+    carry the name of the contract's data source. Only Spark DataFrame data sources support it.
+
+    ``publish_schema_metadata`` decides whether the run sends the dataset's columns to Soda Cloud, which it does only
+    for columns a schema check measured. It must be set when a run with ``execution_dataset`` publishes. ``False``
+    leaves the columns out of the result too, with or without ``execution_dataset``.
     """
     if not isinstance(data_sources, list):
         data_sources = [data_sources]
+    soda_telemetry.set_attribute("api__execution_dataset_used", execution_dataset is not None)
 
     return verify_contract(
         contract_file_path=contract_file_path,
@@ -119,6 +132,8 @@ def verify_contract_locally(
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
         check_selectors=check_selectors,
+        execution_dataset=execution_dataset,
+        publish_schema_metadata=publish_schema_metadata,
     )
 
 
@@ -271,6 +286,8 @@ def verify_contract(
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
     logs: Optional[Logs] = None,
+    execution_dataset: Optional[str] = None,
+    publish_schema_metadata: Optional[bool] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -345,6 +362,8 @@ def verify_contract(
         check_selectors=check_selectors,
         dwh_data_source_file_path=dwh_data_source_file_path,
         logs=logs,
+        execution_dataset=execution_dataset,
+        publish_schema_metadata=publish_schema_metadata,
     )
 
     soda_telemetry.ingest_contract_verification_session_result(

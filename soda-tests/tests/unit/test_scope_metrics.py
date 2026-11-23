@@ -160,8 +160,8 @@ def test_a_metric_on_another_dataset_or_data_source_is_never_scoped():
 
     # An equal identifier, not the same object, still counts as the collection's dataset.
     same_dataset = DatasetIdentifier.parse(
-        f"{impl.dataset_identifier.data_source_name}/{'/'.join(impl.dataset_identifier.prefixes)}/"
-        f"{impl.dataset_identifier.dataset_name}"
+        f"{impl.checked_dataset.dataset.data_source_name}/{'/'.join(impl.checked_dataset.dataset.prefixes)}/"
+        f"{impl.checked_dataset.dataset.dataset_name}"
     )
     assert RowCountMetricImpl(contract_impl=impl, check_impl=eu_check, dataset_identifier=same_dataset).scope is (
         impl.scopes["eu"]
@@ -347,10 +347,14 @@ def test_runner_sampling_samples_the_base_cte_and_keeps_every_identity(
 
     sampler = (SamplerType.ABSOLUTE_LIMIT, 3)
     assert impl.filtered_cte_sampler == sampler
-    assert impl.cte == build_filtered_cte(impl.dataset_identifier, "id > 0", SODA_FILTERED_CTE_NAME, sampler)
+    assert impl.cte == build_filtered_cte(
+        impl.checked_dataset.execution_dataset, "id > 0", SODA_FILTERED_CTE_NAME, sampler
+    )
     assert impl.cte != unsampled.cte
     eu = impl.scopes["eu"]
-    assert eu.cte == build_filtered_cte(impl.dataset_identifier, "region = 'eu'", "_soda_filtered_scope_eu", sampler)
+    assert eu.cte == build_filtered_cte(
+        impl.checked_dataset.execution_dataset, "region = 'eu'", "_soda_filtered_scope_eu", sampler
+    )
 
     # The skeleton's base scope asserts hold with sampling on.
     base_scope = impl.base_scope
