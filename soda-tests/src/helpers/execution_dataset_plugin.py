@@ -103,7 +103,10 @@ def _routed_execute(cls, *args, **kwargs):
     session.table(table).localCheckpoint().createOrReplaceTempView(view)
     _views.append((session, view))
     soda_cloud = kwargs.get("soda_cloud_impl")
+    # A handler the test set on the instance comes back after the run.
+    own_http_handle = None
     if isinstance(soda_cloud, MockSodaCloud):
+        own_http_handle = soda_cloud.__dict__.get("_http_handle")
         soda_cloud.set_data_source_type(dataset, "databricks")
         soda_cloud._http_handle = _reusing_the_data_source(soda_cloud._http_handle)
     session.sql(f"ALTER {keyword} {table} RENAME TO {away}")
@@ -121,7 +124,10 @@ def _routed_execute(cls, *args, **kwargs):
     finally:
         session.sql(f"ALTER {keyword} {away} RENAME TO {table}")
         if isinstance(soda_cloud, MockSodaCloud):
-            del soda_cloud._http_handle
+            if own_http_handle is None:
+                del soda_cloud._http_handle
+            else:
+                soda_cloud._http_handle = own_http_handle
 
 
 def _reusing_the_data_source(handle):
