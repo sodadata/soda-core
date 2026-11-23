@@ -330,17 +330,6 @@ class ContractVerificationSessionImpl:
                 "execution_dataset and publish_schema_metadata=False work only for a local verification, not on a "
                 "runner"
             )
-        if (
-            execution_dataset is not None
-            and soda_cloud_publish_results
-            and not isinstance(publish_schema_metadata, bool)
-        ):
-            raise InvalidArgumentException(
-                "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
-                "decide whether this run sends the dataset's columns to Soda Cloud"
-            )
-        publish_schema_metadata = publish_schema_metadata is not False
-
         if soda_cloud_use_runner:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_runner(
                 contract_yaml_sources=contract_yaml_sources,
@@ -391,7 +380,7 @@ class ContractVerificationSessionImpl:
         check_selectors: list[CheckSelector],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         execution_dataset: Optional[str] = None,
-        publish_schema_metadata: bool = True,
+        publish_schema_metadata: Optional[bool] = None,
     ) -> CheckCollectionSessionResult:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
@@ -656,7 +645,7 @@ class ContractImpl(CheckCollectionImpl):
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         execution_dataset: Optional[str] = None,
-        publish_schema_metadata: bool = True,
+        publish_schema_metadata: Optional[bool] = None,
     ):
         # Data-source resolution (data_source_impl=None + all_data_source_impls →
         # look up by the dataset's leading name segment) now lives in the base

@@ -8,6 +8,7 @@ import os
 import duckdb
 import pytest
 from helpers.mock_soda_cloud import MockSodaCloud
+from soda_core.check_collections.session import execute_check_collections
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api import verify_api
@@ -94,6 +95,19 @@ def test_a_runner_refuses_what_only_a_local_verification_does(local_only: dict):
 def test_a_publishing_override_decides_whether_the_columns_go_up():
     with pytest.raises(InvalidArgumentException, match="must be True or False"):
         _verify(execution_dataset=EXECUTION_DATASET, soda_cloud_impl=MockSodaCloud(), soda_cloud_publish_results=True)
+
+
+def test_a_direct_publishing_override_decides_whether_the_columns_go_up():
+    with pytest.raises(InvalidArgumentException, match="must be True or False"):
+        execute_check_collections(
+            yaml_sources=[ContractYamlSource.from_str(CONTRACT)],
+            data_source_impl=None,
+            all_data_source_impls={"ds": _duckdb()},
+            soda_cloud_impl=MockSodaCloud(),
+            publish_results=True,
+            execution_dataset=EXECUTION_DATASET,
+            abort_on_first_error=True,
+        )
 
 
 class _OtherKindImpl(ContractImpl):

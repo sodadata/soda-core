@@ -733,7 +733,7 @@ class CheckCollectionImpl:
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
         execution_dataset: Optional[str] = None,
-        publish_schema_metadata: bool = True,
+        publish_schema_metadata: Optional[bool] = None,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -757,6 +757,11 @@ class CheckCollectionImpl:
             raise InvalidArgumentException(
                 "execution_dataset reads the dataset from another one, so verify, don't validate"
             )
+        if reads_another_dataset and publish_results and not isinstance(publish_schema_metadata, bool):
+            raise InvalidArgumentException(
+                "publish_schema_metadata must be True or False when execution_dataset is set and the run publishes: "
+                "decide whether this run sends the dataset's columns to Soda Cloud"
+            )
         # Resolve the primary data source from the named-data-source map when the
         # caller didn't hand one in. The session executor passes data_source_impl=None
         # and lets each impl resolve its own data source from its dataset name — doing
@@ -766,7 +771,7 @@ class CheckCollectionImpl:
         if data_source_impl is None and not only_validate_without_execute:
             data_source_impl = self._resolve_primary_data_source_impl()
         self.data_source_impl: Optional[DataSourceImpl] = data_source_impl
-        self.publish_schema_metadata: bool = publish_schema_metadata
+        self.publish_schema_metadata: bool = publish_schema_metadata is not False
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
         self.soda_config = EnvConfigHelper()

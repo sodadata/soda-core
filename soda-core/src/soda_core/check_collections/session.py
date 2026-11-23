@@ -58,7 +58,7 @@ def execute_check_collections(
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
     expected_kinds: Optional[set[str]] = None,
     execution_dataset: Optional[str] = None,
-    publish_schema_metadata: bool = True,
+    publish_schema_metadata: Optional[bool] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
