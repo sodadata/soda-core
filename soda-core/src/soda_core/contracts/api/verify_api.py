@@ -86,10 +86,12 @@ def verify_contracts_locally(
     )
 
 
-def data_sources_as_list(data_sources: Union[list[DataSourceImpl], DataSourceImpl]) -> list[DataSourceImpl]:
-    """The data_sources of verify_contract_locally, one data source or a list of them, as a list. Raises
-    InvalidArgumentException for anything else, such as a tuple."""
-    return validate_data_source_impls(data_sources if isinstance(data_sources, list) else [data_sources])
+def data_sources_as_list(data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]]) -> list[DataSourceImpl]:
+    """The data_sources of verify_contract_locally, one data source or a list of them, as a list, and [] for None.
+    Raises InvalidArgumentException for anything else, such as a tuple."""
+    return validate_data_source_impls(
+        data_sources if data_sources is None or isinstance(data_sources, list) else [data_sources]
+    )
 
 
 @soda_trace
