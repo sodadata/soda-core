@@ -213,6 +213,23 @@ def collect_post_processing_stages() -> list[PostProcessingStage]:
     return stages
 
 
+def validate_data_source_impls(data_source_impls: Optional[list[DataSourceImpl]]) -> list[DataSourceImpl]:
+    """Returns data_source_impls, and [] for None. Raises InvalidArgumentException for anything but a list of data
+    sources."""
+    if data_source_impls is None:
+        return []
+    not_data_sources: list = (
+        [d for d in data_source_impls if not isinstance(d, DataSourceImpl)]
+        if isinstance(data_source_impls, list)
+        else [data_source_impls]
+    )
+    if not_data_sources:
+        raise InvalidArgumentException(
+            f"Expected a list of data sources, and got a {type(not_data_sources[0]).__name__}"
+        )
+    return data_source_impls
+
+
 class ContractVerificationSessionImpl:
     """Implements the contract verification session.
 
@@ -292,12 +309,7 @@ class ContractVerificationSessionImpl:
             assert isinstance(variables, dict)
             assert all(isinstance(k, str) and isinstance(v, (str, Number)) for k, v in variables.items())
 
-        # Validate input data_source_impls
-        if data_source_impls is None:
-            data_source_impls = []
-        else:
-            assert isinstance(data_source_impls, list)
-            assert all(isinstance(data_source_impl, DataSourceImpl) for data_source_impl in data_source_impls)
+        data_source_impls = validate_data_source_impls(data_source_impls)
 
         # Validate input data_source_yaml_sources
         if data_source_yaml_sources is None:
