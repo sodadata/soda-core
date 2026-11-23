@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame, SparkSession
 from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
-from soda_sparkdf import SparkDataFrameDataSource, verify_contract_on_spark_dataframe
+from soda_sparkdf import SparkDataFrameDataSource, dataframe_view_name, verify_contract_on_spark_dataframe
 
 DATA_SOURCE_NAME = "databricks_prod"
 DATASET_PREFIX = f"{DATA_SOURCE_NAME}/spark_catalog/default"
@@ -176,6 +176,32 @@ def test_helper_refuses_a_view_it_did_not_register_and_leaves_it(spark, df, data
         assert spark.table(view).count() == 1, "the helper replaced or dropped a view it did not register"
     finally:
         spark.sql(f"DROP VIEW IF EXISTS `{view}`")
+
+
+def test_a_query_check_reads_the_dataframe_through_a_variable(df, data_source, name, tmp_path):
+    contract = tmp_path / "query.yml"
+    contract.write_text(
+        dedent(
+            f"""
+            dataset: {DATASET_PREFIX}/{name}
+            variables:
+              ORDERS:
+                default: {name}
+            columns:
+              - name: amount
+            checks:
+              - failed_rows:
+                  query: SELECT * FROM ${{var.ORDERS}} WHERE amount > 2
+                  threshold:
+                    must_be: 3
+            """
+        ).strip()
+    )
+    view: str = dataframe_view_name(contract_file_path=contract)
+    assert view == _view(name)
+    # No table backs the dataset, so the query finds 3 rows only by reading the DataFrame's view.
+    result = _verify(df, data_source, str(contract), variables={"ORDERS": view})
+    assert result.is_passed, result.get_errors_str()
 
 
 def test_helper_keeps_a_cache_the_caller_set(df, data_source, contract_file_path):

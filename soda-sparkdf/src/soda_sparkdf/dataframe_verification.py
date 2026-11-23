@@ -70,7 +70,10 @@ def verify_contract_on_spark_dataframe(
             "SparkDataFrameDataSource.from_existing_session(df.sparkSession, name='<the contract's data source>'). A "
             "temporary view belongs to one session, so a data source on another session can't read the DataFrame"
         )
-    view: str = _view_name(verify_kwargs.get("dataset_identifier"), verify_kwargs.get("contract_file_path"))
+    view: str = dataframe_view_name(
+        dataset_identifier=verify_kwargs.get("dataset_identifier"),
+        contract_file_path=verify_kwargs.get("contract_file_path"),
+    )
     try:
         df.createTempView(view)
     except AnalysisException as e:
@@ -99,8 +102,16 @@ def verify_contract_on_spark_dataframe(
             logger.warning(f"Could not drop the temporary view {view}: {e}")
 
 
-def _view_name(dataset_identifier: Optional[str], contract_file_path: Optional[Union[str, os.PathLike]]) -> str:
-    """soda_df_, the dataset's DQN as a slug and a hash of the DQN. One dataset gets the same view on every run, so two
+def dataframe_view_name(
+    *,
+    dataset_identifier: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
+) -> str:
+    """The name of the temporary view that verify_contract_on_spark_dataframe gives the DataFrame, for the same
+    dataset_identifier or contract_file_path. A check with its own SQL reads the DataFrame through a contract variable
+    set to this name.
+
+    soda_df_, the dataset's DQN as a slug and a hash of the DQN. One dataset gets the same view on every run, so two
     verifications of it on one session clash instead of sharing a view. A key with variables keeps them unresolved, so
     a templated contract names one view for every value. Spark reads the name as an identifier, so the slug keeps only
     ASCII letters, digits and _. The hash keeps apart two DQNs with one slug, such as a/b_c and a_b/c, or ds/销售/订单
