@@ -50,6 +50,11 @@ def verify_contract_on_spark_dataframe(
     ``publish_schema_metadata`` decides whether the run sends the DataFrame's columns to Soda Cloud as the dataset's
     columns.
     """
+    if not isinstance(publish_schema_metadata, bool):
+        raise InvalidArgumentException(
+            f"publish_schema_metadata must be True or False: decide whether this run sends the DataFrame's columns to "
+            f"Soda Cloud. Got {publish_schema_metadata!r}"
+        )
     if "execution_dataset" in verify_kwargs:
         raise InvalidArgumentException(
             "verify_contract_on_spark_dataframe sets execution_dataset to the DataFrame's view itself. To read another "

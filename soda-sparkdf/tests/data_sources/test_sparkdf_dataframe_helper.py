@@ -193,6 +193,13 @@ def test_helper_refuses_an_execution_dataset(df, data_source, name, contract_fil
         _verify(df, data_source, contract_file_path, execution_dataset=name)
 
 
+def test_helper_needs_publish_schema_metadata_to_be_a_bool(df, data_source, contract_file_path):
+    with pytest.raises(InvalidArgumentException, match="publish_schema_metadata must be True or False"):
+        verify_contract_on_spark_dataframe(
+            df, data_sources=data_source, contract_file_path=contract_file_path, publish_schema_metadata=None
+        )
+
+
 def test_helper_needs_a_data_source_on_the_dataframes_session(spark, df, data_source, contract_file_path):
     _assert_passes(df, data_source, contract_file_path)
     other_session = SparkDataFrameDataSource.from_existing_session(
