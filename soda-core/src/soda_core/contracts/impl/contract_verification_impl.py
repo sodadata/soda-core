@@ -225,7 +225,7 @@ def validate_data_source_impls(data_source_impls: Optional[list[DataSourceImpl]]
     )
     if not_data_sources:
         raise InvalidArgumentException(
-            f"data_sources takes a list of data sources, and got a {type(not_data_sources[0]).__name__}"
+            f"Expected a list of data sources, and got a {type(not_data_sources[0]).__name__}"
         )
     return data_source_impls
 

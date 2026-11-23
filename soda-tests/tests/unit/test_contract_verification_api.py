@@ -74,7 +74,7 @@ def test_verify_contract_locally_refuses_data_sources_that_are_not_data_sources(
     # None is no data source, as [] is.
     with pytest.raises(InvalidArgumentException, match="At least one of -ds/--data-source"):
         verify(None)
-    with pytest.raises(InvalidArgumentException, match="takes a list of data sources, and got a tuple"):
+    with pytest.raises(InvalidArgumentException, match="Expected a list of data sources, and got a tuple"):
         verify((data_source,))
 
 
