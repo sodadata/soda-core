@@ -9,6 +9,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 from soda_databricks.model.data_source.databricks_connection_properties import (
     DatabricksAzureServicePrincipal,
+    DatabricksAzureWorkloadIdentity,
     DatabricksConnectionProperties,
     DatabricksOAuthM2M,
 )
@@ -25,6 +26,9 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         config: DatabricksConnectionProperties,
     ):
         connection_kwargs = config.to_connection_kwargs()
+
+        if isinstance(config, DatabricksAzureWorkloadIdentity):
+            return self._connect_with_workload_identity(config, connection_kwargs)
 
         # OAuth modes: the SDK builds a credentials_provider callable (handling token
         # acquisition + refresh). The credential fields are stripped from connection_kwargs
@@ -51,6 +55,34 @@ class DatabricksDataSourceConnection(DataSourceConnection):
             user_agent_entry="Soda Core",
             **connection_kwargs,
         )
+
+    @staticmethod
+    def _connect_with_workload_identity(config: DatabricksAzureWorkloadIdentity, connection_kwargs: dict):
+        """Connects with an Entra token of the pod's managed identity. The pod environment is checked and the
+        credential is built here, before sql.connect, so a pod that is not set up fails with that diagnosis.
+        The token itself is only requested by the header factory, which the connector calls per request."""
+        from soda_databricks.common.data_sources.databricks_workload_identity import (
+            build_workload_identity_header_factory,
+            databricks_rejection,
+        )
+
+        header_factory = build_workload_identity_header_factory(config)
+        try:
+            return sql.connect(
+                user_agent_entry="Soda Core",
+                # The connector calls credentials_provider() once to obtain the header factory.
+                credentials_provider=lambda: header_factory,
+                **connection_kwargs,
+            )
+        except Exception as e:
+            # The connector wraps an exception from the header factory in its own generic RequestError, so the
+            # Entra diagnosis is taken from the factory rather than from e.
+            if header_factory.last_error is not None:
+                raise header_factory.last_error from e
+            rejection = databricks_rejection(e, config, header_factory.identity)
+            if rejection is not None:
+                raise rejection from e
+            raise
 
     @staticmethod
     def _build_credentials_provider(config: DatabricksConnectionProperties, connection_kwargs: dict):

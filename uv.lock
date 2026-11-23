@@ -2325,6 +2325,7 @@ name = "soda-databricks"
 version = "4.31.1rc0"
 source = { editable = "soda-databricks" }
 dependencies = [
+    { name = "azure-identity" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
     { name = "soda-core" },
@@ -2332,6 +2333,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-identity", specifier = ">=1.17.1,<2" },
     { name = "databricks-sdk", specifier = ">=0.19,<1" },
     { name = "databricks-sql-connector" },
     { name = "soda-core", editable = "soda-core" },
