@@ -99,11 +99,14 @@ def test_parses_with_and_without_client_and_tenant_id(extra):
         {"client_secret": "m2m-s3cr3t-value"},
     ],
 )
-def test_leftover_secret_keys_are_rejected_without_echoing_them(leftover):
-    with pytest.raises(ValidationError) as exc_info:
-        infer(wif_connection(**leftover))
-    assert "extra_forbidden" in str(exc_info.value) or "Extra inputs" in str(exc_info.value)
-    assert list(leftover.values())[0] not in str(exc_info.value)
+def test_leftover_credential_keys_do_not_replace_the_workload_identity(pod_env, credential_cls, leftover):
+    """Unknown keys are kept and passed to the connector, as in every other mode. A leftover credential does not
+    change how the scan authenticates: the connector uses credentials_provider before any other auth argument."""
+    props = infer(wif_connection(**leftover))
+    assert isinstance(props, DatabricksAzureWorkloadIdentity)
+
+    called_kwargs = connect(props)
+    assert called_kwargs["credentials_provider"]()() == {"Authorization": f"Bearer {TOKEN}"}
 
 
 @pytest.mark.parametrize("field", ["client_id", "tenant_id"])
@@ -138,9 +141,10 @@ def test_other_modes_still_parse():
     )
 
 
-def test_use_cloud_fetch_is_accepted_and_passed_to_the_connector():
-    kwargs = infer(wif_connection(use_cloud_fetch=False)).to_connection_kwargs()
+def test_connector_options_pass_through_as_extras():
+    kwargs = infer(wif_connection(use_cloud_fetch=False, _socket_timeout=120)).to_connection_kwargs()
     assert kwargs["use_cloud_fetch"] is False
+    assert kwargs["_socket_timeout"] == 120
     assert "use_cloud_fetch" not in infer(wif_connection()).to_connection_kwargs()
 
 

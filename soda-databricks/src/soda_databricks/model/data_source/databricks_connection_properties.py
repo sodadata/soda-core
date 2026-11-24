@@ -2,7 +2,7 @@ import string
 from abc import ABC
 from typing import Annotated, Any, ClassVar, Dict, Literal, Optional, Union
 
-from pydantic import ConfigDict, Discriminator, Field, SecretStr, Tag, field_validator
+from pydantic import Discriminator, Field, SecretStr, Tag, field_validator
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 # Explicit auth_type discriminator values (Trino/Snowflake/BigQuery style). These literals
@@ -28,12 +28,6 @@ class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):
     http_path: str = Field(..., description="HTTP path for the SQL endpoint or cluster")
     catalog: str = Field(None, description="Default catalog to use")
     session_configuration: Optional[Dict[str, str]] = Field(None, description="Optional session configuration dict")
-    # Declared so that modes with extra="forbid" accept it too. Left out, the connector's default (on) applies.
-    use_cloud_fetch: Optional[bool] = Field(
-        None,
-        description="Download large result sets straight from the workspace's cloud storage (connector default: "
-        "true). Set to false when the runner can reach the SQL warehouse but not that storage account.",
-    )
 
     field_mapping: ClassVar[Dict[str, str]] = {
         "host": "server_hostname",
@@ -115,10 +109,6 @@ class DatabricksAzureWorkloadIdentity(DatabricksSharedConnectionProperties):
     token is exchanged at Entra ID for an access token of a user-assigned managed identity. No credential is
     stored. The connection layer builds a ``credentials_provider``; the identity fields below must NOT be
     emitted as plain ``sql.connect`` kwargs."""
-
-    # Rejects leftover credential keys (azure_client_secret, access_token, ...) instead of keeping them as
-    # plain-text extras.
-    model_config = ConfigDict(extra="forbid")
 
     auth_type: Literal["azure-workload-identity"] = Field(..., description="Auth mode discriminator")
     client_id: Optional[str] = Field(
