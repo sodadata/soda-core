@@ -1,7 +1,8 @@
+import string
 from abc import ABC
 from typing import Annotated, Any, ClassVar, Dict, Literal, Optional, Union
 
-from pydantic import Discriminator, Field, SecretStr, Tag
+from pydantic import Discriminator, Field, SecretStr, Tag, field_validator
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
 
 # Explicit auth_type discriminator values (Trino/Snowflake/BigQuery style). These literals
@@ -9,6 +10,10 @@ from soda_core.model.data_source.data_source_connection_properties import DataSo
 AUTH_TYPE_TOKEN = "personal-access-token"
 AUTH_TYPE_OAUTH_M2M = "databricks-oauth-m2m"
 AUTH_TYPE_AZURE_SP = "azure-service-principal"
+AUTH_TYPE_AZURE_WORKLOAD_IDENTITY = "azure-workload-identity"
+
+# The characters azure.identity accepts in a tenant ID: a GUID or a domain name such as contoso.onmicrosoft.com.
+VALID_TENANT_ID_CHARACTERS = frozenset(string.ascii_letters + string.digits + "-.")
 
 
 class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -99,6 +104,68 @@ class DatabricksAzureServicePrincipal(DatabricksSharedConnectionProperties):
         return connection_kwargs
 
 
+class DatabricksAzureWorkloadIdentity(DatabricksSharedConnectionProperties):
+    """Entra workload identity federation for Azure Databricks: the runner pod's projected service-account
+    token is exchanged at Entra ID for an access token of a user-assigned managed identity. No credential is
+    stored. The connection layer builds a ``credentials_provider``; the identity fields below must NOT be
+    emitted as plain ``sql.connect`` kwargs."""
+
+    auth_type: Literal["azure-workload-identity"] = Field(..., description="Auth mode discriminator")
+    client_id: Optional[str] = Field(
+        None, description="Client ID of the managed identity; defaults to AZURE_CLIENT_ID from the pod environment"
+    )
+    tenant_id: Optional[str] = Field(
+        None,
+        description="Entra tenant ID of the managed identity; defaults to AZURE_TENANT_ID from the pod environment",
+    )
+
+    _credential_fields: ClassVar[tuple] = ("client_id", "tenant_id")
+
+    @field_validator("client_id")
+    @classmethod
+    def _client_id_is_not_empty(cls, client_id: Optional[str]) -> Optional[str]:
+        # An empty value (an unset ${env.X}, say) is rejected rather than read as "left out": that would quietly
+        # fall back to the pod's AZURE_CLIENT_ID, and the scan could then connect as a different identity than
+        # the connection names.
+        if client_id is None:
+            return None
+        client_id = client_id.strip()
+        if not client_id:
+            raise ValueError(
+                "client_id on the connection is empty. Set it to the client ID of the managed identity, or leave "
+                "client_id out to use AZURE_CLIENT_ID from the pod environment."
+            )
+        return client_id
+
+    @field_validator("tenant_id")
+    @classmethod
+    def _tenant_id_is_valid(cls, tenant_id: Optional[str]) -> Optional[str]:
+        # Checked here rather than left to azure.identity, whose ValueError does not say which setting is wrong.
+        # An empty value (an unset ${env.X}, say) is rejected rather than read as "left out", which would quietly
+        # send the token exchange to the pod's own AZURE_TENANT_ID.
+        if tenant_id is None:
+            return None
+        tenant_id = tenant_id.strip()
+        if not tenant_id:
+            raise ValueError(
+                "tenant_id on the connection is empty. Set it to the Entra tenant ID of the managed identity, or "
+                "leave tenant_id out to use AZURE_TENANT_ID from the pod environment."
+            )
+        if any(c not in VALID_TENANT_ID_CHARACTERS for c in tenant_id):
+            raise ValueError(
+                f"tenant_id '{tenant_id}' on the connection is not a valid Entra tenant ID: use the tenant's GUID "
+                f"or its domain name (such as contoso.onmicrosoft.com), which contain only letters, digits, "
+                f"'-' and '.'."
+            )
+        return tenant_id
+
+    def to_connection_kwargs(self) -> dict:
+        connection_kwargs = super().to_connection_kwargs()
+        for field_name in self._credential_fields:
+            connection_kwargs.pop(field_name, None)
+        return connection_kwargs
+
+
 def _discriminate_auth_type(value: Any) -> Optional[str]:
     """Pick the auth mode from the raw ``connection`` mapping (or an already-built model).
 
@@ -117,6 +184,7 @@ DatabricksConnection = Annotated[
         Annotated[DatabricksTokenAuth, Tag(AUTH_TYPE_TOKEN)],
         Annotated[DatabricksOAuthM2M, Tag(AUTH_TYPE_OAUTH_M2M)],
         Annotated[DatabricksAzureServicePrincipal, Tag(AUTH_TYPE_AZURE_SP)],
+        Annotated[DatabricksAzureWorkloadIdentity, Tag(AUTH_TYPE_AZURE_WORKLOAD_IDENTITY)],
     ],
     Discriminator(_discriminate_auth_type),
 ]
