@@ -28,6 +28,12 @@ class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):
     http_path: str = Field(..., description="HTTP path for the SQL endpoint or cluster")
     catalog: str = Field(None, description="Default catalog to use")
     session_configuration: Optional[Dict[str, str]] = Field(None, description="Optional session configuration dict")
+    # Declared so that modes with extra="forbid" accept it too. Left out, the connector's default (on) applies.
+    use_cloud_fetch: Optional[bool] = Field(
+        None,
+        description="Download large result sets straight from the workspace's cloud storage (connector default: "
+        "true). Set to false when the runner can reach the SQL warehouse but not that storage account.",
+    )
 
     field_mapping: ClassVar[Dict[str, str]] = {
         "host": "server_hostname",

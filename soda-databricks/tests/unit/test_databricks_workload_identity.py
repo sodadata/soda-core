@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from azure.core.exceptions import ClientAuthenticationError
+from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from databricks.sql.exc import RequestError
 from pydantic import ValidationError
 from soda_core.common.exceptions import DataSourceConnectionException
@@ -138,6 +138,12 @@ def test_other_modes_still_parse():
     )
 
 
+def test_use_cloud_fetch_is_accepted_and_passed_to_the_connector():
+    kwargs = infer(wif_connection(use_cloud_fetch=False)).to_connection_kwargs()
+    assert kwargs["use_cloud_fetch"] is False
+    assert "use_cloud_fetch" not in infer(wif_connection()).to_connection_kwargs()
+
+
 def test_identity_fields_are_not_connection_kwargs():
     kwargs = infer(wif_connection(client_id="c", tenant_id="t")).to_connection_kwargs()
     assert kwargs == {
@@ -193,9 +199,10 @@ def test_yaml_ids_make_pod_ids_unnecessary(pod_env, credential_cls):
     credential_cls.assert_called_once()
 
 
-def test_token_is_requested_per_request_with_the_databricks_scope_only(pod_env, credential_cls):
-    """The connector calls the header factory for every request; each call must go back to the credential
-    (which caches and refreshes), so a token that expires mid-scan is replaced."""
+def test_each_header_factory_call_asks_the_credential_with_the_databricks_scope_only(pod_env, credential_cls):
+    """The connector calls the header factory when it opens the session and again shortly before the cached
+    token expires; each call must go back to the credential (which caches and refreshes), so a token that
+    expires mid-scan is replaced."""
     credential_cls.return_value.get_token.side_effect = [
         SimpleNamespace(token="first-token", expires_on=1),
         SimpleNamespace(token="refreshed-token", expires_on=2),
@@ -292,6 +299,35 @@ def test_aadsts700016_with_configured_tenant_points_at_the_connection(pod_env, c
 
     message = str(exc_info.value)
     assert "tenant 'bu-tenant', which is set as tenant_id on the connection" in message
+
+
+@pytest.mark.parametrize(
+    "failure, expected",
+    [
+        (
+            FileNotFoundError(2, "No such file or directory", POD_ENV["AZURE_FEDERATED_TOKEN_FILE"]),
+            "FileNotFoundError: [Errno 2] No such file or directory",
+        ),
+        (
+            ServiceRequestError("Failed to resolve 'login.microsoftonline.com'"),
+            "ServiceRequestError: Failed to resolve 'login.microsoftonline.com'",
+        ),
+    ],
+)
+def test_token_request_failures_other_than_entra_rejections_are_surfaced(pod_env, credential_cls, failure, expected):
+    """An unreadable token file or an unreachable Entra endpoint must not end as the connector's bare
+    'Error during request to server'."""
+    credential_cls.return_value.get_token.side_effect = failure
+
+    with pytest.raises(DataSourceConnectionException) as exc_info:
+        _connect_through_header_factory(infer(wif_connection()))
+
+    message = str(exc_info.value)
+    assert message.startswith("Could not get an Entra access token")
+    assert expected in message
+    assert "client ID 'pod-client' in tenant 'pod-tenant'" in message
+    assert POD_ENV["AZURE_FEDERATED_TOKEN_FILE"] in message
+    assert "login.microsoftonline.com" in message
 
 
 @pytest.mark.parametrize("http_code", [401, 403])

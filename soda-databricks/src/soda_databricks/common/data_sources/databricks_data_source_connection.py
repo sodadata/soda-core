@@ -60,7 +60,8 @@ class DatabricksDataSourceConnection(DataSourceConnection):
     def _connect_with_workload_identity(config: DatabricksAzureWorkloadIdentity, connection_kwargs: dict):
         """Connects with an Entra token of the pod's managed identity. The pod environment is checked and the
         credential is built here, before sql.connect, so a pod that is not set up fails with that diagnosis.
-        The token itself is only requested by the header factory, which the connector calls per request."""
+        The token itself is only requested by the header factory, which the connector calls when it opens the
+        session and again shortly before each token expires."""
         from soda_databricks.common.data_sources.databricks_workload_identity import (
             build_workload_identity_header_factory,
             databricks_rejection,
@@ -75,8 +76,8 @@ class DatabricksDataSourceConnection(DataSourceConnection):
                 **connection_kwargs,
             )
         except Exception as e:
-            # The connector wraps an exception from the header factory in its own generic RequestError, so the
-            # Entra diagnosis is taken from the factory rather than from e.
+            # The connector wraps an exception from the header factory in its own generic RequestError, without
+            # chaining it, so the token diagnosis is taken from the factory rather than from e.
             if header_factory.last_error is not None:
                 raise header_factory.last_error from e
             rejection = databricks_rejection(e, config, header_factory.identity)

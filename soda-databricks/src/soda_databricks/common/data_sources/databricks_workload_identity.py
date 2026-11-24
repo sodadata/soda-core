@@ -81,14 +81,19 @@ def resolve_workload_identity(config: DatabricksAzureWorkloadIdentity) -> Worklo
 
 
 class WorkloadIdentityHeaderFactory:
-    """The header factory handed to databricks-sql-connector, which calls it for every HTTP request.
+    """The header factory handed to databricks-sql-connector.
 
-    Each call asks the credential for a token rather than reusing one fetched at connect time:
-    azure-identity caches the access token and only goes back to Entra when it is close to expiry, so
-    a long scan keeps working after the first token expires.
+    The connector does not call it for every request: databricks-sql-connector 4.x wraps it in a
+    ``TokenFederationProvider``, which caches the ``Authorization`` header until one minute before the
+    token's ``exp`` and only then calls the factory again. Each call asks the credential for a token rather
+    than reusing one fetched at connect time; azure-identity caches the access token and renews it within
+    five minutes of expiry, so a long scan keeps working after the first token expires. On each refresh the
+    connector also tries a token exchange at ``https://<host>/oidc/v1/token``; when that fails it logs
+    ``Token exchange failed, using external token`` and sends the Entra token as is.
 
-    The connector wraps any exception raised from here in its own generic ``RequestError``. The last
-    Entra rejection is therefore kept on ``last_error`` so the connection layer can surface it as is.
+    The connector wraps any exception raised from here in its own generic ``RequestError``, without chaining
+    the original. Every failure is therefore kept on ``last_error`` as a ``DataSourceConnectionException``,
+    so the connection layer can surface it as is.
     """
 
     def __init__(self, credential, identity: WorkloadIdentity, tenant_id_configured: bool):
@@ -104,6 +109,11 @@ class WorkloadIdentityHeaderFactory:
             token = self._credential.get_token(AZURE_DATABRICKS_TOKEN_SCOPE).token
         except ClientAuthenticationError as e:
             self.last_error = entra_rejection(e, self.identity, self._tenant_id_configured)
+            raise self.last_error from e
+        except Exception as e:
+            # Not an answer from Entra: an unreadable token file (OSError), an unreachable Entra endpoint
+            # (azure-core's ServiceRequestError), ...
+            self.last_error = token_request_failure(e, self.identity)
             raise self.last_error from e
         self.last_error = None
         return {"Authorization": f"Bearer {token}"}
@@ -121,6 +131,16 @@ def entra_rejection(error, identity: WorkloadIdentity, tenant_id_configured: boo
         hint = CONFIGURED_TENANT_HINT if tenant_id_configured else CROSS_TENANT_HINT
         message = f"{message} {hint.format(tenant_id=identity.tenant_id)}"
     return DataSourceConnectionException(message)
+
+
+def token_request_failure(error: BaseException, identity: WorkloadIdentity) -> DataSourceConnectionException:
+    return DataSourceConnectionException(
+        f"Could not get an Entra access token through workload identity federation for client ID "
+        f"'{identity.client_id}' in tenant '{identity.tenant_id}': {type(error).__name__}: {error}. Check that "
+        f"the service account token file '{identity.token_file_path}' (AZURE_FEDERATED_TOKEN_FILE) is mounted and "
+        f"readable, and that the runner can reach the Entra endpoint (login.microsoftonline.com, or "
+        f"AZURE_AUTHORITY_HOST if set) through its network policy or proxy."
+    )
 
 
 def build_workload_identity_header_factory(config: DatabricksAzureWorkloadIdentity) -> WorkloadIdentityHeaderFactory:
