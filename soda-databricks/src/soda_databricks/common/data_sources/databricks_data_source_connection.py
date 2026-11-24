@@ -16,6 +16,8 @@ from soda_databricks.model.data_source.databricks_connection_properties import (
 
 logger: logging.Logger = soda_logger
 
+USER_AGENT_ENTRY = "Soda Core"
+
 
 class DatabricksDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
@@ -36,7 +38,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         credentials_provider = self._build_credentials_provider(config, connection_kwargs)
         if credentials_provider is not None:
             return sql.connect(
-                user_agent_entry="Soda Core",
+                user_agent_entry=USER_AGENT_ENTRY,
                 credentials_provider=credentials_provider,
                 **connection_kwargs,
             )
@@ -52,7 +54,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
                 "otherwise start an interactive browser login that cannot complete in a non-interactive run."
             )
         return sql.connect(
-            user_agent_entry="Soda Core",
+            user_agent_entry=USER_AGENT_ENTRY,
             **connection_kwargs,
         )
 
@@ -70,7 +72,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         header_factory = build_workload_identity_header_factory(config)
         try:
             return sql.connect(
-                user_agent_entry="Soda Core",
+                user_agent_entry=USER_AGENT_ENTRY,
                 # The connector calls credentials_provider() once to obtain the header factory.
                 credentials_provider=lambda: header_factory,
                 **connection_kwargs,
