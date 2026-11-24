@@ -109,6 +109,7 @@ from soda_core.common.sql_ast import (
     STRING_HASH,
     SUM,
     TIME_DELTA,
+    TIMESTAMP_COERCE,
     TIMESTAMP_ISO_TEXT,
     TO_TIMEZONE,
     TUPLE,
@@ -1394,6 +1395,8 @@ class SqlDialect:
             return self._build_coalesce_sql(expression)
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
+        elif isinstance(expression, TIMESTAMP_COERCE):
+            return self.sql_expr_timestamp_coerce(self.build_expression_sql(expression.expression))
         elif isinstance(expression, WINDOW_FUNCTION):
             return self._build_window_function_sql(expression)
         elif isinstance(expression, PERCENTILE_WITHIN_GROUP):

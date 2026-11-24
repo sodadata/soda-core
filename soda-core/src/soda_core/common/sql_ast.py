@@ -560,6 +560,18 @@ class CAST(SqlExpression):
         self.handle_parent_node_update(self.expression)
 
 
+@dataclass
+class TIMESTAMP_COERCE(SqlExpression):
+    """``expression`` made comparable with the dialect's datetime literals, through
+    ``SqlDialect.sql_expr_timestamp_coerce``: unchanged on most dialects, a cast on BigQuery."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
 # ANSI expressions: the base dialect renders them, so every dialect does.
 
 
