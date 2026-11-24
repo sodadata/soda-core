@@ -127,6 +127,10 @@ class _RefusingExtension(CheckCollectionImplExtension):
     """Refuses what the caller passed while its checks are parsed, as the reconciliation extension does under an
     override."""
 
+    # Python 3.10 replaces a Protocol's own __init__, so a subclass that takes the contract defines one.
+    def __init__(self, contract_impl):
+        self.contract_impl = contract_impl
+
     def parse_checks(self, contract_impl):
         raise InvalidArgumentException("refused by the extension")
 
