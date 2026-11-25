@@ -423,6 +423,28 @@ def test_sql_expr_timestamp_coerce_base_is_identity():
     assert SqlDialect().sql_expr_timestamp_coerce("ts") == "ts"
 
 
+def test_timestamp_coerce_renders_its_expression_unchanged_on_the_base_dialect():
+    sql_dialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(TIMESTAMP_COERCE(COLUMN("ts"))) == '"ts"'
+
+
+def test_timestamp_coerce_routes_its_rendered_expression_through_the_dialect_hook():
+    class MarkingDialect(SqlDialect, sqlglot_dialect="test"):
+        def sql_expr_timestamp_coerce(self, expr: str) -> str:
+            return f"COERCE({expr})"
+
+    sql_dialect = MarkingDialect()
+    window = AND(
+        [
+            GTE(TIMESTAMP_COERCE(COLUMN("ts")), LITERAL("2026-01-01T00:00:00")),
+            LT(TIMESTAMP_COERCE(FUNCTION("DATE", [COLUMN("created_at")])), LITERAL("2026-01-02T00:00:00")),
+        ]
+    )
+    assert sql_dialect.build_expression_sql(window) == (
+        """COERCE("ts") >= '2026-01-01T00:00:00' AND COERCE(DATE("created_at")) < '2026-01-02T00:00:00'"""
+    )
+
+
 def _missing_and_validity(**overrides):
     """Build a MissingAndValidity with all fields defaulted to None, bypassing the YAML
     constructor, so a single validity field can be exercised in isolation."""

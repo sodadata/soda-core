@@ -203,6 +203,12 @@ def test_sql_expr_timestamp_coerce_wraps_in_pruning_safe_datetime_cast():
     assert BigQuerySqlDialect().sql_expr_timestamp_coerce("`dt`") == "CAST(`dt` AS DATETIME)"
 
 
+def test_timestamp_coerce_node_renders_the_datetime_cast():
+    from soda_core.common.sql_ast import TIMESTAMP_COERCE
+
+    assert BigQuerySqlDialect().build_expression_sql(TIMESTAMP_COERCE(COLUMN("dt"))) == "CAST(`dt` AS DATETIME)"
+
+
 def test_literal_datetime_aware_normalizes_to_utc_and_drops_offset():
     # An offset-carrying ISO string cannot coerce to a DATETIME column, and the
     # coerce hook makes the compared expression DATETIME-typed.
