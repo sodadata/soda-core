@@ -147,6 +147,7 @@ class YamlSource:
         variables: Optional[dict[str, str]] = None,
         soda_variables: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
+        secret_values: Optional[dict[str, str]] = None,
     ) -> Optional[YamlObject]:
         """Parse the YAML, then walk the parsed structure and substitute
         ${ns.var} references on string scalars only.
@@ -168,6 +169,7 @@ class YamlSource:
             variable_values=variables,
             soda_variable_values=soda_variables,
             use_env_vars=use_env_vars,
+            secret_values=secret_values,
         )
         return yaml_object
 
@@ -597,6 +599,7 @@ class VariableResolver:
         soda_variable_values: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         location: Optional[Location] = None,
+        secret_values: Optional[dict[str, str]] = None,
     ) -> any:
         # Walks a parsed structure and substitutes ${ns.var} on string scalars
         # only. Mirrors soda-library f2a926c5 (resolve_v4_variables).
@@ -608,19 +611,41 @@ class VariableResolver:
         # whether the input is a plain str or a ruamel ScalarString subclass.
         if isinstance(obj, dict):
             for k in list(obj.keys()):
-                obj[k] = cls.resolve_in_object(obj[k], variable_values, soda_variable_values, use_env_vars, location)
+                obj[k] = cls.resolve_in_object(
+                    obj[k], variable_values, soda_variable_values, use_env_vars, location, secret_values
+                )
             return obj
         if isinstance(obj, list):
             for i in range(len(obj)):
-                obj[i] = cls.resolve_in_object(obj[i], variable_values, soda_variable_values, use_env_vars, location)
+                obj[i] = cls.resolve_in_object(
+                    obj[i], variable_values, soda_variable_values, use_env_vars, location, secret_values
+                )
             return obj
         if isinstance(obj, str):
             # Fast path: untouched strings keep their original (possibly typed)
             # instance — important for downstream type-sensitive validators.
             if "${" not in obj:
                 return obj
-            return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
+            return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location, secret_values)
         return obj
+
+    @classmethod
+    def find_variable_names(cls, obj: any, namespace: str) -> set[str]:
+        """The names of the variables of one namespace that the string values of a parsed structure use.
+
+        A caller that has to fetch the values first, such as the ``secret`` values a data source configuration uses,
+        finds the names with the same rules that resolve them. A value that ``resolve`` refuses uses no names.
+        """
+        if isinstance(obj, dict):
+            return set().union(*(cls.find_variable_names(value, namespace) for value in obj.values()))
+        if isinstance(obj, list):
+            return set().union(*(cls.find_variable_names(item, namespace) for item in obj))
+        if isinstance(obj, str):
+            if cls._embeds_a_secret(obj):
+                return set()
+            references = (cls._namespace_and_variable(match) for match in re.finditer(cls.VARIABLE_PATTERN, obj))
+            return {variable for match_namespace, variable in references if match_namespace == namespace}
+        return set()
 
     # Template slots in the `soda` namespace that the ENGINE substitutes later — per query,
     # per page — not parse-time variables. The resolver passes them through (normalized, so
@@ -630,8 +655,24 @@ class VariableResolver:
     # the dialect's ORDER BY / LIMIT / OFFSET clause on every page.
     RESERVED_SODA_TEMPLATE_SLOTS: frozenset = frozenset({"PAGINATION"})
 
-    # A reference to a variable: its namespace and its name.
-    VARIABLE_PATTERN: str = r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}"
+    # A reference to a variable: its namespace and its name. A secret's name is anything without whitespace, as
+    # Soda Cloud allows; the names of the other namespaces are identifiers.
+    VARIABLE_PATTERN: str = (
+        r"\$\{ *(?:secret\.(?P<secret>[^}\s]+)|(?P<namespace>[a-z]+)\.(?P<variable>[a-zA-Z_][a-zA-Z_0-9]*)) *\}"
+    )
+
+    @classmethod
+    def _namespace_and_variable(cls, match: re.Match) -> tuple[str, str]:
+        if match.group("secret") is not None:
+            return "secret", match.group("secret")
+        return match.group("namespace"), match.group("variable")
+
+    @classmethod
+    def _embeds_a_secret(cls, text: str) -> bool:
+        """A secret must be the whole value. Text around it, such as a URL, could send the secret somewhere else."""
+        if re.fullmatch(cls.VARIABLE_PATTERN, text):
+            return False
+        return any(cls._namespace_and_variable(m)[0] == "secret" for m in re.finditer(cls.VARIABLE_PATTERN, text))
 
     @classmethod
     def resolve(
@@ -641,33 +682,43 @@ class VariableResolver:
         soda_variable_values: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         location: Optional[Location] = None,
+        secret_values: Optional[dict[str, str]] = None,
     ) -> str:
         if isinstance(source_text, str):
             # First pass: sometimes the value is just the variable with quotes. If so, we can just return the value directly, no casting to string needed.
             pattern = cls.VARIABLE_PATTERN
             match = re.fullmatch(pattern, source_text)
             if match:
-                if match.group(1).strip() == "soda" and match.group(2).strip() in cls.RESERVED_SODA_TEMPLATE_SLOTS:
-                    return f"${{soda.{match.group(2).strip()}}}"
+                namespace, variable = cls._namespace_and_variable(match)
+                if namespace == "soda" and variable in cls.RESERVED_SODA_TEMPLATE_SLOTS:
+                    return f"${{soda.{variable}}}"
                 return cls.get_variable(
-                    namespace=match.group(1).strip(),
-                    variable=match.group(2).strip(),
+                    namespace=namespace,
+                    variable=variable,
                     variable_values=variable_values,
                     soda_variable_values=soda_variable_values,
                     use_env_vars=use_env_vars,
                     location=location,
+                    secret_values=secret_values,
                 )
+
+            if cls._embeds_a_secret(source_text):
+                logger.error(
+                    msg="A secret must be the whole value, with no other text or variables around it",
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+                return source_text
 
             # Otherwise do a regex replace for all variable patterns in the string, which may be mixed with other text.
             return re.sub(
                 pattern=pattern,
                 repl=lambda m: cls._resolve_variable_pattern(
-                    namespace=m.group(1).strip(),
-                    variable=m.group(2).strip(),
+                    *cls._namespace_and_variable(m),
                     variable_values=variable_values,
                     soda_variable_values=soda_variable_values,
                     use_env_vars=use_env_vars,
                     location=location,
+                    secret_values=secret_values,
                 ),
                 string=source_text,
             )
@@ -683,6 +734,7 @@ class VariableResolver:
         soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool,
         location: Optional[Location] = None,
+        secret_values: Optional[dict[str, str]] = None,
     ) -> str:
         if namespace == "soda" and variable in cls.RESERVED_SODA_TEMPLATE_SLOTS:
             return f"${{soda.{variable}}}"
@@ -693,6 +745,7 @@ class VariableResolver:
             soda_variable_values=soda_variable_values,
             use_env_vars=use_env_vars,
             location=location,
+            secret_values=secret_values,
         )
         # If the variable is not found, return the original expression. Cast to string in case the value is a number so that we can re-insert it into the text.
         return str(value) if isinstance(value, str) or isinstance(value, Number) else f"${{{namespace}.{variable}}}"
@@ -706,6 +759,7 @@ class VariableResolver:
         soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool = True,
         location: Optional[Location] = None,
+        secret_values: Optional[dict[str, str]] = None,
     ) -> Optional[str]:
         if namespace == "var":
             if not isinstance(variable_values, dict) or variable not in variable_values:
@@ -723,6 +777,14 @@ class VariableResolver:
                 )
             else:
                 return soda_variable_values[variable]
+        elif namespace == "secret":
+            if not isinstance(secret_values, dict) or variable not in secret_values:
+                logger.error(
+                    msg=(f"Secret '{variable}' was used and not provided"),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+            else:
+                return secret_values[variable]
         elif namespace == "env":
             if use_env_vars:
                 return os.getenv(variable) if variable in os.environ else None
