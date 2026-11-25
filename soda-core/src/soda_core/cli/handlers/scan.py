@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.failure_reporting import ScanExecutionFailedException, report_scan_execution_failure
 from soda_core.common.env_config_helper import EnvConfigHelper
+from soda_core.common.exceptions import ScanDeletedOnSodaCloudException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.scan_context import AtomicScanContext, BatchedScanContext, ScanContext, using_scan_context
@@ -39,6 +40,8 @@ def run_scan(
     Returns the command's own exit code on a clean run; ``LOG_ERRORS`` when a failure was
     reported to Soda Cloud; ``RESULTS_NOT_SENT_TO_CLOUD`` when it could not be. For a
     dataset scan the launcher then marks the scan failed itself; for verify it does not.
+    Returns ``OK`` without reporting anything when the scan was deleted on Soda Cloud after
+    the job started: the job has nothing left to do, and the launcher must not alert.
 
     @param soda_cloud: The failure-reporting channel; None when the command can run
         without Cloud.
@@ -57,6 +60,11 @@ def run_scan(
     with using_scan_context(context):
         try:
             exit_code: ExitCode = command(logs)
+        except ScanDeletedOnSodaCloudException as exc:
+            # Deleted on purpose (data source deleted, monitoring switched off, ...): there is no
+            # scan left to mark failed or to end, and exit 0 keeps the launcher from alerting.
+            soda_logger.warning(str(exc))
+            return ExitCode.OK
         except ScanExecutionFailedException as exc:
             # Expected failure: the message is logged without a traceback.
             soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} {exc}")

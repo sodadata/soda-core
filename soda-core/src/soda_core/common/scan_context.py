@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import TYPE_CHECKING, Iterator, Optional
 
-from soda_core.common.exceptions import ScanExecutionFailedException
+from soda_core.common.exceptions import ScanDeletedOnSodaCloudException, ScanExecutionFailedException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 
@@ -109,7 +109,8 @@ class BatchedScanContext(ScanContext):
     ) -> None:
         """Send ``sodaCoreScanStart`` and switch the run's logs to the Cloud log stream, replaying
         what was already captured. Only the first call starts; repeat calls are no-ops. Raises
-        ``ScanExecutionFailedException`` when the start is rejected or the client call fails.
+        ``ScanExecutionFailedException`` when the start is rejected or the client call fails, and
+        lets ``ScanDeletedOnSodaCloudException`` through when the scan was deleted on Soda Cloud.
         """
         # Imported here: logs_queue pulls in soda_cloud, which at module-import time trips the
         # soda_cloud<->contracts import cycle.
@@ -125,6 +126,8 @@ class BatchedScanContext(ScanContext):
             scan_reference: Optional[str] = self.soda_cloud.scan_start(
                 self.scan_id, definition_name, default_data_source, data_timestamp
             )
+        except ScanDeletedOnSodaCloudException:
+            raise
         except Exception as exc:
             raise ScanExecutionFailedException(
                 f"Could not start the batched-ingestion scan '{self.scan_id}' on Soda Cloud: {exc}"
