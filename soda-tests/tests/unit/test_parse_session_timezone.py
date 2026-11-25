@@ -7,6 +7,7 @@ test ``test_session_timezone.py`` exercises the SQL round-trip through real
 connections; here we lock down the pure-function behavior so future changes to
 the parser cannot silently regress.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

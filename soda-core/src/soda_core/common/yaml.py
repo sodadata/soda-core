@@ -216,8 +216,7 @@ class YamlSource:
         raise YamlParserException(f"{self.description} root must be an object, but was {yaml_type}", str(location))
 
 
-class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
-    ...
+class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE): ...
 
 
 def build_data_source_yaml_sources(
@@ -250,12 +249,10 @@ def build_data_source_yaml_sources(
     )
 
 
-class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
-    ...
+class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD): ...
 
 
-class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
-    ...
+class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT): ...
 
 
 # Generalized name for any check-collection YAML source (contract, data

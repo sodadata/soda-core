@@ -9,12 +9,12 @@ from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
-from soda_duckdb.common.data_sources.duckdb_data_source_connection import DuckDBConnectionProperties
-from soda_duckdb.common.data_sources.duckdb_data_source_connection import DuckDBDataSource as DuckDBDataSourceModel
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
+    DuckDBConnectionProperties,
     DuckDBExistingConnectionProperties,
     DuckDBStandardConnectionProperties,
 )
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import DuckDBDataSource as DuckDBDataSourceModel
 
 DuckDBColumn = namedtuple(
     "DuckDBColumn", ["name", "type_code", "display_size", "internal_size", "precision", "scale", "null_ok"]

@@ -16,8 +16,7 @@ AUTH_TYPE_AZURE_WORKLOAD_IDENTITY = "azure-workload-identity"
 VALID_TENANT_ID_CHARACTERS = frozenset(string.ascii_letters + string.digits + "-.")
 
 
-class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC):
-    ...
+class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC): ...
 
 
 class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):

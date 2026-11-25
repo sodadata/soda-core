@@ -148,8 +148,7 @@ def orders_data_source() -> DuckDBDataSourceImpl:
         "CREATE TABLE orders (id INTEGER, customer_id VARCHAR, amount INTEGER, country VARCHAR, status VARCHAR, "
         "updated_at TIMESTAMP)"
     )
-    connection.execute(
-        """
+    connection.execute("""
         INSERT INTO orders VALUES
             (1, 'c1', 10, 'BE', 'open', TIMESTAMP '2026-09-28 10:00:00'),
             (2, 'c2', 250, 'NL', 'open', TIMESTAMP '2026-09-28 09:00:00'),
@@ -157,8 +156,7 @@ def orders_data_source() -> DuckDBDataSourceImpl:
             (4, 'c2', 40, 'XX', 'shipped', TIMESTAMP '2026-09-28 11:00:00'),
             (4, 'c3', 300, 'BE', 'open', TIMESTAMP '2026-09-26 08:00:00'),
             (5, 'c4', 20, 'DE', 'cancelled', TIMESTAMP '2026-09-20 08:00:00')
-        """
-    )
+        """)
     connection.execute("CREATE TABLE countries (code VARCHAR)")
     connection.execute("INSERT INTO countries VALUES ('BE'), ('NL'), ('DE')")
     return DuckDBDataSourceImpl.from_existing_cursor(connection, name="fixture_ds")
