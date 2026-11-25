@@ -18,9 +18,10 @@ from requests import Response
 from soda_core.cli.cli import create_cli_parser
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import interpret_contract_verification_result
+from soda_core.common import soda_cloud as soda_cloud_module
 from soda_core.common.exceptions import ContractFetchFailedException
 from soda_core.common.logging_constants import Emoticons
-from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud import TRANSPORT_RETRY_DELAYS_SECONDS, SodaCloud
 from soda_core.contracts.api.verify_api import verify_contract
 
 DATASET = "my_ds/main/customers"
@@ -122,6 +123,20 @@ def _connection_refused() -> Response:
     raise requests.exceptions.ConnectionError("Connection refused")
 
 
+# A request that cannot reach Soda Cloud is sent this many times when it is safe to resend.
+ATTEMPTS: int = len(TRANSPORT_RETRY_DELAYS_SECONDS) + 1
+
+
+@pytest.fixture(autouse=True)
+def no_retry_waits(monkeypatch):
+    monkeypatch.setattr(soda_cloud_module, "sleep", lambda seconds: None)
+
+
+def _fetches(get_contract: Callable[[], Response]) -> list[str]:
+    """The contract queries one fetch sends: an unreachable Soda Cloud gets every attempt."""
+    return ["sodaCoreGetContract"] * (ATTEMPTS if get_contract is _connection_refused else 1)
+
+
 NO_CONTRACT = "Soda Cloud returned no contract"
 
 # Each way Soda Cloud can fail to hand over the contract, with the reason the error line gives.
@@ -217,7 +232,7 @@ def test_cli_exits_3_and_sends_nothing_when_cloud_cannot_hand_over_the_contract(
     # One error line names the dataset, once, as it was typed.
     assert [message for message in _error_messages(caplog) if DATASET in message] == [_cli_fetch_failure_line(reason)]
     assert not any("DatasetIdentifier(" in record.getMessage() for record in caplog.records)
-    assert transport.request_types == ["sodaCoreGetContract"]
+    assert transport.request_types == _fetches(get_contract)
 
 
 @pytest.mark.parametrize("extra_args", [[], ["-p"], ["-r"]], ids=["local", "publish", "runner"])
@@ -233,7 +248,7 @@ def test_cli_on_a_managed_run_marks_the_scan_failed_with_the_error_when_cloud_ca
     exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file, *extra_args)
 
     assert exit_code == ExitCode.LOG_ERRORS
-    assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
+    assert transport.request_types == _fetches(get_contract) + ["sodaCoreMarkScanFailed"]
     mark = transport.request("sodaCoreMarkScanFailed")
     assert mark["scanId"] == SCAN_ID
     # The report carries the run's logs and the one error line that names the dataset.
@@ -272,8 +287,8 @@ def test_cli_on_a_managed_run_exits_4_when_cloud_is_unreachable_for_the_fetch_an
     exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    # Each attempt dies at login: one for the fetch, one for the failure report.
-    assert attempts == ["login", "login"]
+    # Each request dies at login, every attempt: first for the fetch, then for the failure report.
+    assert attempts == ["login"] * ATTEMPTS * 2
     assert [message for message in _error_messages(caplog) if DATASET in message] == [
         _cli_fetch_failure_line("no response from Soda Cloud")
     ]
@@ -296,7 +311,8 @@ def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_
     exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
 
     assert exit_code == ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
+    # Marking a scan failed is safe to resend, so every attempt is used.
+    assert transport.request_types == ["sodaCoreGetContract"] + ["sodaCoreMarkScanFailed"] * ATTEMPTS
 
 
 REJECTED_API_KEY = (
@@ -382,7 +398,7 @@ def test_api_raises_for_a_failed_fetch_without_marking(monkeypatch, config_files
         )
 
     assert str(exc_info.value) == _fetch_failure_line(reason)
-    assert transport.request_types == ["sodaCoreGetContract"]
+    assert transport.request_types == _fetches(get_contract)
 
 
 def _check_outcomes(result) -> list[tuple]:

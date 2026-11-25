@@ -18,6 +18,7 @@ from time import monotonic, sleep
 from typing import Any, Dict, Optional, TypeVar, Union
 
 import requests
+import urllib3
 from pydantic import BaseModel, ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -246,6 +247,61 @@ def _parse_deferral_budget(raw_budget_seconds: Optional[str]) -> float:
         return budget_seconds
     logger.warning(f"Ignoring {DEFERRAL_BUDGET_ENV_VAR}={raw_budget_seconds!r}: not a valid number of seconds")
     return float(DEFAULT_DEFERRAL_BUDGET_SECONDS)
+
+
+# Every Soda Cloud request gets a connect and a read timeout, so a dead connection ends in an error
+# instead of hanging the run. The read timeout is how long Soda Cloud may stay silent while it handles
+# the request; it is generous because a large results upload can take minutes on the server.
+SODA_CLOUD_CONNECT_TIMEOUT_SECONDS: float = 10.0
+SODA_CLOUD_READ_TIMEOUT_SECONDS: float = 5 * 60.0
+
+# Transport errors: the connection dropped, timed out, or broke mid-answer. Soda Cloud may be perfectly
+# healthy, so the same request is sent again, a few times, with a short backoff (plus jitter).
+TRANSIENT_TRANSPORT_ERRORS: tuple[type[Exception], ...] = (
+    requests.exceptions.ConnectionError,  # includes SSLError and ConnectTimeout
+    requests.exceptions.Timeout,
+    requests.exceptions.ChunkedEncodingError,
+)
+TRANSPORT_RETRY_DELAYS_SECONDS: tuple[float, ...] = (2.0, 5.0, 10.0)
+
+# Commands that Soda Cloud handles idempotently: when the same body arrives twice, the second one leaves
+# the same end state (checked against the Soda Cloud command handlers). These are sent again on every
+# transient transport error. Any other command may already have been processed when the connection
+# dropped, and a second copy would double-process it (a results batch ingested twice, a second scan), so
+# it is only sent again when it provably never reached Soda Cloud (see failed_before_sending). Queries
+# change nothing and are always sent again.
+IDEMPOTENT_COMMAND_TYPES: frozenset[str] = frozenset(
+    {
+        "login",  # an API-key login creates nothing
+        "sodaCoreMarkScanFailed",  # no-op on a scan that is already final
+        "sodaCorePostProcessingUpdate",  # no-op when the stage is already in the requested state
+        "sodaCoreGenerateContractSkeleton",  # schedules only when no generation is running
+        "sodaCoreUpsertDraftContract",  # upsert by dataset identifier
+        "sodaCoreUploadContractFile",  # a second copy only leaves an unused file
+        "sodaCoreV3MigrationFailContractGeneration",  # acts only while generating contracts
+    }
+)
+
+
+def is_idempotent_command(command: dict) -> bool:
+    command_type: Optional[str] = command.get("type")
+    if command_type == "sodaCoreScanStart":
+        # With a scanId it updates that pre-created scan; without one every copy creates a new scan.
+        return bool(command.get("scanId"))
+    return command_type in IDEMPOTENT_COMMAND_TYPES
+
+
+def failed_before_sending(error: Exception) -> bool:
+    """True when the request never left this machine: the connection could not be opened (refused,
+    DNS failure, connect timeout). A TLS error or a dropped connection gives no such guarantee, because
+    it can also happen after the body was sent."""
+    if isinstance(error, requests.exceptions.ConnectTimeout):
+        return True
+    if isinstance(error, requests.exceptions.ConnectionError) and not isinstance(error, requests.exceptions.SSLError):
+        reason = getattr(error.args[0], "reason", None) if error.args else None
+        # NewConnectionError and NameResolutionError are both ConnectTimeoutError subclasses.
+        return isinstance(reason, urllib3.exceptions.ConnectTimeoutError)
+    return False
 
 
 def retry_after_seconds(response: Response) -> float:
@@ -1703,6 +1759,7 @@ class SodaCloud:
                 request_body=request_body,
                 request_log_name=request_log_name,
                 deferral_deadline=deferral_deadline,
+                retry_any_transport_error=request_type == "query" or is_idempotent_command(request_body),
             )
 
             trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
@@ -1743,6 +1800,9 @@ class SodaCloud:
             return response
         except SodaCloudAuthenticationFailedException:
             raise
+        except TRANSIENT_TRANSPORT_ERRORS:
+            # _post_retrying_transport_errors already logged the failure, with the number of attempts.
+            return None
         except Exception as e:
             logger.critical(
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
@@ -1754,7 +1814,12 @@ class SodaCloud:
         return regex.sub(r'"token": "****"', json_str)
 
     def _post_waiting_while_deferred(
-        self, url: str, request_body: dict, request_log_name: str, deferral_deadline: float
+        self,
+        url: str,
+        request_body: dict,
+        request_log_name: str,
+        deferral_deadline: float,
+        retry_any_transport_error: bool = False,
     ) -> Response:
         """Posts the request; on 429 Soda Cloud has done no work yet, so wait for Retry-After (plus a
         little jitter so many clients do not all resend at the same moment) and send the same body
@@ -1764,8 +1829,12 @@ class SodaCloud:
         waited_seconds: float = 0.0
         while True:
             attempts += 1
-            response: Response = self._http_post(
-                url=url, headers=self.headers, json=request_body, request_log_name=request_log_name
+            response: Response = self._post_retrying_transport_errors(
+                request_log_name=request_log_name,
+                retry_any_transport_error=retry_any_transport_error,
+                url=url,
+                headers=self.headers,
+                json=request_body,
             )
             if response.status_code != 429:
                 if attempts > 1 and response.ok:
@@ -1788,7 +1857,46 @@ class SodaCloud:
             sleep(wait_seconds)
             waited_seconds += wait_seconds
 
+    def _post_retrying_transport_errors(
+        self, request_log_name: str, retry_any_transport_error: bool, **kwargs
+    ) -> Response:
+        """Posts the request; when the connection fails (TRANSIENT_TRANSPORT_ERRORS) the same request is
+        sent again after a short backoff, at most len(TRANSPORT_RETRY_DELAYS_SECONDS) more times. With
+        retry_any_transport_error False the request is only sent again when it never left this machine,
+        because Soda Cloud may otherwise already have processed it. The last error is logged and raised."""
+        attempts: int = 0
+        while True:
+            attempts += 1
+            try:
+                response: Response = self._http_post(request_log_name=request_log_name, **kwargs)
+            except TRANSIENT_TRANSPORT_ERRORS as e:
+                may_resend: bool = retry_any_transport_error or failed_before_sending(e)
+                if may_resend and attempts <= len(TRANSPORT_RETRY_DELAYS_SECONDS):
+                    wait_seconds: float = TRANSPORT_RETRY_DELAYS_SECONDS[attempts - 1] * random.uniform(1.0, 1.3)
+                    logger.info(
+                        f"Connection to Soda Cloud failed for {request_log_name} ({type(e).__name__}), "
+                        f"sending it again in {wait_seconds:.1f}s"
+                    )
+                    sleep(wait_seconds)
+                    continue
+                if may_resend:
+                    logger.error(
+                        f"Connection to Soda Cloud failed for {request_log_name}, giving up after {attempts} "
+                        f"attempts: {type(e).__name__}: {e}"
+                    )
+                else:
+                    logger.error(
+                        f"Connection to Soda Cloud failed for {request_log_name} after {attempts} attempt(s): "
+                        f"{type(e).__name__}: {e}. Not sending it again, because Soda Cloud may already "
+                        f"have processed it."
+                    )
+                raise
+            if attempts > 1:
+                logger.info(f"Soda Cloud answered {request_log_name} after {attempts} attempts")
+            return response
+
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
+        kwargs.setdefault("timeout", (SODA_CLOUD_CONNECT_TIMEOUT_SECONDS, SODA_CLOUD_READ_TIMEOUT_SECONDS))
         return requests.post(**kwargs)
 
     def _execute_rest_get(self, relative_url_path: str, request_log_name: str, is_retry: bool = False) -> Response:
@@ -1824,6 +1932,7 @@ class SodaCloud:
         return response
 
     def _http_get(self, **kwargs) -> Response:
+        kwargs.setdefault("timeout", (SODA_CLOUD_CONNECT_TIMEOUT_SECONDS, SODA_CLOUD_READ_TIMEOUT_SECONDS))
         return requests.get(**kwargs)
 
     def _get_token(self) -> str:
@@ -1835,8 +1944,12 @@ class SodaCloud:
             else:
                 raise RuntimeError("No API KEY and/or SECRET provided ")
 
-            login_response = self._http_post(
-                url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_log_name="get_token"
+            login_response = self._post_retrying_transport_errors(
+                request_log_name="get_token",
+                retry_any_transport_error=is_idempotent_command(login_command),
+                url=f"{self.api_url}/command",
+                headers=self.headers,
+                json=login_command,
             )
             if login_response.status_code != 200:
                 raise SodaCloudAuthenticationFailedException(

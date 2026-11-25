@@ -31,6 +31,8 @@ from soda_core.common.exceptions import (
     SodaCloudRequestException,
 )
 from soda_core.common.soda_cloud import (
+    SODA_CLOUD_CONNECT_TIMEOUT_SECONDS,
+    SODA_CLOUD_READ_TIMEOUT_SECONDS,
     ContractSkeletonGenerationState,
     SodaCloud,
     _build_check_collection_results_json_dict,
@@ -87,6 +89,8 @@ soda_cloud:
 )
 
 # The headers every request to Soda Cloud starts from (SodaCloud.headers).
+EXPECTED_TIMEOUT: tuple[float, float] = (SODA_CLOUD_CONNECT_TIMEOUT_SECONDS, SODA_CLOUD_READ_TIMEOUT_SECONDS)
+
 EXPECTED_DEFAULT_REQUEST_HEADERS: dict[str, str] = {
     "User-Agent": f"soda-core/{SODA_CORE_VERSION}",
     "X-Soda-Backpressure": "1",
@@ -722,6 +726,7 @@ def test_fetch_contract(mock_post):
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
         headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        timeout=EXPECTED_TIMEOUT,
         json={
             "type": "sodaCoreContracts",
             "filter": {
@@ -752,6 +757,7 @@ def test_poll_contract_skeleton_generation__completed(mock_post):
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
         headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        timeout=EXPECTED_TIMEOUT,
         json={
             "type": "sodaCoreContractSkeletonGenerationState",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -803,6 +809,7 @@ def test_trigger_contract_skeleton_generation__success(mock_post):
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
         headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        timeout=EXPECTED_TIMEOUT,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -825,6 +832,7 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/command",
         headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        timeout=EXPECTED_TIMEOUT,
         json={
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": "test/some/schema/CUSTOMERS",
@@ -1128,6 +1136,7 @@ def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     mock_post.assert_called_once_with(
         url="https://dev.sodadata.io/api/query",
         headers=EXPECTED_DEFAULT_REQUEST_HEADERS,
+        timeout=EXPECTED_TIMEOUT,
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
     # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
