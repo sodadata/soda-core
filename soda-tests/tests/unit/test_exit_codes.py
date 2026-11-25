@@ -58,3 +58,47 @@ class _StubRollups:
 )
 def test_session_result_to_exit_code_precedence(rollups, expected):
     assert session_result_to_exit_code(rollups) == expected
+
+
+@dataclass
+class _StubRollupsWithCancellation(_StubRollups):
+    results_discarded_because_scan_canceled: bool = False
+
+
+@pytest.mark.parametrize(
+    "rollups, expected",
+    [
+        # The user cancelled the scan: the check outcome decides, never exit 4.
+        (
+            _StubRollupsWithCancellation(
+                sending_results_to_soda_cloud_failed=True, results_discarded_because_scan_canceled=True
+            ),
+            ExitCode.OK,
+        ),
+        (
+            _StubRollupsWithCancellation(
+                is_failed=True, sending_results_to_soda_cloud_failed=True, results_discarded_because_scan_canceled=True
+            ),
+            ExitCode.CHECK_FAILURES,
+        ),
+        (
+            _StubRollupsWithCancellation(
+                is_warned=True, sending_results_to_soda_cloud_failed=True, results_discarded_because_scan_canceled=True
+            ),
+            ExitCode.CHECK_WARNINGS,
+        ),
+        (
+            _StubRollupsWithCancellation(
+                has_errors=True, sending_results_to_soda_cloud_failed=True, results_discarded_because_scan_canceled=True
+            ),
+            ExitCode.LOG_ERRORS,
+        ),
+        # Any other send failure (e.g. a timed-out scan) stays exit 4.
+        (
+            _StubRollupsWithCancellation(sending_results_to_soda_cloud_failed=True),
+            ExitCode.RESULTS_NOT_SENT_TO_CLOUD,
+        ),
+    ],
+)
+def test_session_result_to_exit_code_scan_cancelled_by_user(rollups, expected):
+    assert session_result_to_exit_code(rollups) == expected
