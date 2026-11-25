@@ -847,8 +847,12 @@ class MissingAndValidity:
     def is_missing_expr(self, column_expression: COLUMN | SqlExpressionStr) -> SqlExpression:
         is_missing_clauses: list[SqlExpression] = [IS_NULL(column_expression)]
         if isinstance(self.missing_values, list):
-            literal_values = [LITERAL(value) for value in self.missing_values]
-            is_missing_clauses.append(IN(column_expression, literal_values))
+            # NULL is always missing and already covered by IS NULL above. A NULL inside the IN list
+            # would make `c IN (..., NULL)` evaluate to NULL instead of FALSE for every non-missing
+            # value, so NOT(is_missing) would be NULL and the invalid/valid metrics would count nothing.
+            literal_values = [LITERAL(value) for value in self.missing_values if value is not None]
+            if literal_values:
+                is_missing_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.missing_format, RegexFormat) and isinstance(self.missing_format.regex, str):
             is_missing_clauses.append(REGEX_LIKE(column_expression, self.missing_format.regex))
         return OR.optional(is_missing_clauses)
@@ -858,9 +862,13 @@ class MissingAndValidity:
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
             if None in self.valid_values:
-                invalid_clauses.append(
-                    AND([NOT(IN(column_expression, literal_values)), IS_NOT_NULL(column_expression)])
-                )
+                if literal_values:
+                    invalid_clauses.append(
+                        AND([NOT(IN(column_expression, literal_values)), IS_NOT_NULL(column_expression)])
+                    )
+                else:
+                    # `valid_values: [null]`: no non-null value is valid. Avoid rendering an empty `IN ()`.
+                    invalid_clauses.append(IS_NOT_NULL(column_expression))
             elif not self.valid_values:
                 # No value is valid -> every row is invalid. Use a portable always-true predicate
                 # (1 = 1) rather than a bare boolean literal: a standalone TRUE/FALSE is not a valid
@@ -872,7 +880,11 @@ class MissingAndValidity:
         if isinstance(self.invalid_values, list):
             literal_values = [LITERAL(value) for value in self.invalid_values if value is not None]
             if None in self.invalid_values:
-                invalid_clauses.append(OR([IN(column_expression, literal_values), IS_NULL(column_expression)]))
+                if literal_values:
+                    invalid_clauses.append(OR([IN(column_expression, literal_values), IS_NULL(column_expression)]))
+                else:
+                    # `invalid_values: [null]`: avoid rendering an empty `IN ()`.
+                    invalid_clauses.append(IS_NULL(column_expression))
             elif not self.invalid_values:
                 # No value is explicitly invalid -> always-false predicate (1 = 0); see the
                 # valid_values note above on why a bare boolean literal is not portable.
