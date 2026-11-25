@@ -102,6 +102,20 @@ def test_yaml_tenant_id_satisfies_a_missing_environment_tenant_id(
     assert credential_class.call_args.kwargs["tenant_id"] == "tenant-from-yaml"
 
 
+@pytest.mark.parametrize("tenant_id", [None, "", "   "])
+def test_empty_tenant_id_is_rejected(tenant_id) -> None:
+    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+        parse({**CONNECTION, "authentication": "workloadidentity", "tenant_id": tenant_id})
+
+
+def test_malformed_tenant_id_is_rejected_without_its_value() -> None:
+    malformed = "https://login.microsoftonline.com/tenant"
+    with pytest.raises(ValidationError, match="not a valid Entra tenant ID") as exc_info:
+        parse({**CONNECTION, "authentication": "workloadidentity", "tenant_id": malformed})
+
+    assert malformed not in str(exc_info.value)
+
+
 @pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     secret = "leftover-secret"

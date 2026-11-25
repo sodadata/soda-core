@@ -10,9 +10,13 @@ import pyodbc
 import pytest
 from azure.core.exceptions import ClientAuthenticationError
 from azure.core.pipeline.transport import HttpTransport
+from pydantic import ValidationError
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.yaml import DataSourceYamlSource
 from soda_sqlserver.common.data_sources import sqlserver_data_source_connection as connection_module
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
+    SqlServerDataSource,
     SqlServerDataSourceConnection,
     SqlServerWorkloadIdentityAuthentication,
 )
@@ -253,10 +257,31 @@ def test_missing_token_file_does_not_suggest_the_connection_settings(monkeypatch
     assert "A single connection can" not in str(exc_info.value)
 
 
-@pytest.mark.parametrize("tenant_id", ["", "   "])
+@pytest.mark.parametrize("tenant_id", [None, "", "   "])
 def test_empty_tenant_id_is_rejected(tenant_id) -> None:
     with pytest.raises(ValueError, match="tenant_id on the connection is empty"):
         workload_identity_config(tenant_id=tenant_id)
+
+
+def test_left_out_tenant_id_falls_back_to_the_environment() -> None:
+    assert workload_identity_config().tenant_id is None
+
+
+def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch) -> None:
+    # soda-core resolves a whole-value ${env.X} whose variable is not set to None, not to "".
+    monkeypatch.delenv("SODA_TEST_UNSET_TENANT_ID", raising=False)
+    data_source_yaml = DataSourceYamlSource.from_str(
+        "type: sqlserver\n"
+        "name: ds\n"
+        "connection:\n"
+        "  host: myserver.database.windows.net\n"
+        "  database: sales\n"
+        "  authentication: workloadidentity\n"
+        "  tenant_id: ${env.SODA_TEST_UNSET_TENANT_ID}\n"
+    )
+
+    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+        DataSourceImpl.from_yaml_source(data_source_yaml)
 
 
 @pytest.mark.parametrize(
@@ -267,10 +292,28 @@ def test_empty_tenant_id_is_rejected(tenant_id) -> None:
         "contoso onmicrosoft.com",
     ],
 )
-def test_malformed_tenant_id_is_rejected_with_the_setting_named(tenant_id, credential_class) -> None:
-    with pytest.raises(ValueError, match="on the connection is not a valid Entra tenant ID"):
+def test_malformed_tenant_id_is_rejected_with_the_setting_named(tenant_id) -> None:
+    with pytest.raises(ValueError, match="tenant_id on the connection is not a valid Entra tenant ID") as exc_info:
         workload_identity_config(tenant_id=tenant_id)
-    credential_class.assert_not_called()
+    # The bare connection model shows the input; SqlServerDataSource hides it (see the next test).
+    assert tenant_id not in str(exc_info.value.errors(include_input=False))
+
+
+def test_malformed_tenant_id_is_kept_out_of_data_source_errors() -> None:
+    secret = "client~secret~pasted~into~tenant_id"
+    with pytest.raises(ValidationError) as exc_info:
+        SqlServerDataSource(
+            name="ds",
+            type="sqlserver",
+            connection={
+                "host": "myserver.database.windows.net",
+                "database": "sales",
+                "authentication": "workloadidentity",
+                "tenant_id": secret,
+            },
+        )
+    assert "not a valid Entra tenant ID" in str(exc_info.value)
+    assert secret not in str(exc_info.value)
 
 
 @pytest.mark.parametrize(
