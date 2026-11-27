@@ -49,7 +49,7 @@ def data_source_impl(tmp_path) -> DataSourceImpl:
 
 def _rejected_upload(*args, **kwargs) -> None:
     # Mirrors SodaCloud._upload_contract_yaml_file on a 400: it logs and returns None.
-    soda_logger.critical(f"No fileId received in response: {_UPLOAD_ERROR}")
+    soda_logger.error(f"No fileId received in response: {_UPLOAD_ERROR}")
     return None
 
 

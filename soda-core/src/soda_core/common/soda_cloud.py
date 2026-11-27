@@ -644,8 +644,8 @@ class SodaCloud:
             "type": "sodaCoreGenerateContractSkeleton",
             "datasetIdentifier": dataset_identifier.to_string(),
         }
-        response: Response = self._execute_command(
-            command_json_dict=command_json_dict, request_log_name="generate_contract_skeleton"
+        response: Response = self._require_response(
+            self._execute_command(command_json_dict=command_json_dict, request_log_name="generate_contract_skeleton")
         )
         response_json = response.json()
 
@@ -665,8 +665,8 @@ class SodaCloud:
                     "metadata": {"source": {"filePath": soda_cloud_file_path, "type": "cloud"}},
                 },
             }
-            response: Response = self._execute_command(
-                command_json_dict=command_json_dict, request_log_name="create_draft_contract"
+            response: Response = self._require_response(
+                self._execute_command(command_json_dict=command_json_dict, request_log_name="create_draft_contract")
             )
 
             logger.debug(f"Response from Soda Cloud: {response.json()}")
@@ -684,17 +684,19 @@ class SodaCloud:
                 "type": "sodaCoreUploadContractFile",
                 "contents": contract_yaml,
             }
-            response: Response = self._execute_command(
-                command_json_dict=upload_contract_command, request_log_name="upload_contract_file"
+            response: Response = self._require_response(
+                self._execute_command(
+                    command_json_dict=upload_contract_command, request_log_name="upload_contract_file"
+                )
             )
             response_json = response.json()
             if isinstance(response_json, dict) and "fileId" in response_json:
                 return response_json.get("fileId")
             else:
-                logger.critical(f"No fileId received in response: {response_json}")
+                logger.error(f"No fileId received in response: {response_json}")
                 return None
         except Exception as e:
-            logger.critical(
+            logger.error(
                 msg=f"Soda cloud error: Could not upload {file_label} file to Soda Cloud: {e}",
                 exc_info=True,
             )
@@ -732,7 +734,7 @@ class SodaCloud:
 
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
-            logger.critical("Uploading the contract file failed")
+            logger.error("Uploading the contract file failed")
             return ContractPublicationResult(contract=None)
 
         publish_contract_command: dict = {
@@ -747,8 +749,8 @@ class SodaCloud:
                 },
             },
         }
-        response: Response = self._execute_command(
-            command_json_dict=publish_contract_command, request_log_name="publish_contract"
+        response: Response = self._require_response(
+            self._execute_command(command_json_dict=publish_contract_command, request_log_name="publish_contract")
         )
         response_json = response.json()
 
@@ -795,7 +797,7 @@ class SodaCloud:
     ) -> tuple[bool, Optional[str]]:
         allowed, reason = self._get_contract_permissions(data_source_name, dataset_prefix, dataset_name)
         if reason and not reason in self.CONTRACT_PERMISSION_REASON_TEXTS.keys():
-            logger.critical(f"Received unknown contract permission reason: {reason}")
+            logger.error(f"Received unknown contract permission reason: {reason}")
         return allowed, self.CONTRACT_PERMISSION_REASON_TEXTS.get(reason, None)
 
     def _get_contract_permissions(
@@ -1163,8 +1165,8 @@ class SodaCloud:
             )
         request_dto: RequestDatasetsConfigurationDTO = RequestDatasetsConfigurationDTO(datasets=datasets_request_list)
 
-        response = self._execute_query(
-            request_dto.model_dump(by_alias=True), request_log_name="get_datasets_configurations"
+        response = self._require_response(
+            self._execute_query(request_dto.model_dump(by_alias=True), request_log_name="get_datasets_configurations")
         )
         response_dict = response.json()
 
@@ -1336,7 +1338,7 @@ class SodaCloud:
             )
 
         request = {"type": "sodaCoreContracts", "filter": {"type": "and", "andExpressions": and_expressions}}
-        response = self._execute_query(request, request_log_name="fetch_contract")
+        response = self._require_response(self._execute_query(request, request_log_name="fetch_contract"))
         response_dict = response.json()
 
         if response.status_code != 200 or response_dict.get("results", None) is None:
@@ -1539,7 +1541,7 @@ class SodaCloud:
         has already logged the error answer at ERROR, so inside an active ``Logs`` it counts as an
         error even when the caller recovers. Raises ``SodaCloudException`` when core got no answer
         it could read: the request raised, which includes a request that was never sent, such as a
-        payload core cannot serialize, and core logged the cause at CRITICAL; or a successful answer
+        payload core cannot serialize, and core logged the cause at ERROR; or a successful answer
         does not validate as ``response_model``. A refused API key raises
         ``SodaCloudAuthenticationFailedException`` instead, which is a ``SodaCoreException`` and not a
         ``SodaCloudException``, so catch it separately.
@@ -1559,10 +1561,14 @@ class SodaCloud:
             self._execute_query(copy.deepcopy(query_json_dict), request_log_name), response_model
         )
 
-    def _read_request_answer(self, response: Optional[Response], response_model: type[ResponseModel]) -> ResponseModel:
+    def _require_response(self, response: Optional[Response]) -> Response:
         # _execute_cqrs_request returns None after logging a request that raised.
         if response is None:
             raise SodaCloudException(f"The request to Soda Cloud at {self.host} did not complete")
+        return response
+
+    def _read_request_answer(self, response: Optional[Response], response_model: type[ResponseModel]) -> ResponseModel:
+        response = self._require_response(response)
         try:
             body = response.json()
         except ValueError:
@@ -1744,7 +1750,7 @@ class SodaCloud:
         except SodaCloudAuthenticationFailedException:
             raise
         except Exception as e:
-            logger.critical(
+            logger.error(
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
                 exc_info=True,
             )
@@ -1862,7 +1868,7 @@ class SodaCloud:
             "v3DatasetIds": v3_dataset_ids,
             "v4DatasourceName": v4_datasource_name,
         }
-        response = self._execute_command(request, request_log_name="create_migration")
+        response = self._require_response(self._execute_command(request, request_log_name="create_migration"))
         response_dict = response.json()
 
         if not response.ok or response_dict.get("v3MigrationId", None) is None:
@@ -1881,7 +1887,7 @@ class SodaCloud:
             "v3MigrationId": migration_id,
             "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
         }
-        response = self._execute_command(request, request_log_name="upload_migration_contracts")
+        response = self._require_response(self._execute_command(request, request_log_name="upload_migration_contracts"))
         response.json()  # verify response is in JSON format
 
         if not response.ok:
@@ -1953,7 +1959,7 @@ class SodaCloud:
                 "right": {"type": "string", "value": migration_id},
             },
         }
-        response = self._execute_query(request, request_log_name="get_migration_datasets")
+        response = self._require_response(self._execute_query(request, request_log_name="get_migration_datasets"))
         response_dict = response.json()
 
         if not response.ok or response_dict.get("results", None) is None:
@@ -1973,7 +1979,7 @@ class SodaCloud:
                 "message": error,
             },
         }
-        response = self._execute_command(request, request_log_name="fail_contract_generation")
+        response = self._require_response(self._execute_command(request, request_log_name="fail_contract_generation"))
         response_dict = response.json()
 
         if not response.ok:
@@ -2001,7 +2007,7 @@ class SodaCloud:
             request["error"] = error
         if records_written is not None:
             request["recordsWritten"] = records_written
-        response = self._execute_command(request, request_log_name="post_processing_update")
+        response = self._require_response(self._execute_command(request, request_log_name="post_processing_update"))
         response.json()  # verify response is in JSON format
 
         if response.status_code != 200:
@@ -2700,9 +2706,20 @@ def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optio
     return [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
 
 
+def _cloud_log_level(levelno: int) -> str:
+    # Soda Cloud knows only these four levels and rejects a whole command that carries another one, such as "critical".
+    if levelno >= logging.ERROR:
+        return "error"
+    if levelno >= logging.WARNING:
+        return "warning"
+    if levelno >= logging.INFO:
+        return "info"
+    return "debug"
+
+
 def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
-        "level": log_record.levelname.lower(),
+        "level": _cloud_log_level(log_record.levelno),
         "message": log_record.getMessage(),
         "timestamp": datetime.fromtimestamp(log_record.created, tz=timezone.utc),
         "index": log_record.index if hasattr(log_record, "index") else index,
