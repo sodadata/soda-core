@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from abc import ABC
 from datetime import timezone, tzinfo
+from itertools import islice
 from pathlib import Path
 from typing import Callable, Dict, Iterator, Literal, Optional
 
@@ -16,6 +18,7 @@ from soda_core.common.data_source_connection import (
     memory_optimized_driver_settings,
     parse_session_timezone,
 )
+from soda_core.common.data_source_results import QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
@@ -209,27 +212,36 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
                 logger.debug(f"SQL query one-by-one (one result batch at a time, no read-ahead):\n{sql}")
             cursor.execute(sql)
             description: tuple[tuple] = cursor.description
-            rows: Iterator[tuple] = self._iterate_rows_one_batch_at_a_time(cursor)
-            rows_processed: int = 0
-            while row_limit is None or rows_processed < row_limit:
-                row = next(rows, None)
-                if row is None:
-                    self._raise_if_result_cut_short(cursor, rows_processed)
-                    break
-                rows_processed += 1
+            for row in islice(self._iterate_rows_one_batch_at_a_time(cursor), row_limit):
                 row_callback(row, description)
         finally:
             cursor.close()
         return description
 
+    @contextlib.contextmanager
+    def _execute_query_iterate_streaming(self, sql: str, log_query: bool) -> Iterator[QueryResultIterator]:
+        """Reads the rows one result batch at a time, without read-ahead, like
+        ``_execute_query_one_by_one_streaming``."""
+        cursor = self.connection.cursor()
+        try:
+            if log_query:
+                logger.debug(f"SQL query iterate (one result batch at a time, no read-ahead):\n{sql}")
+            cursor.execute(sql)
+            yield QueryResultIterator(cursor, self._format_row, rows=self._iterate_rows_one_batch_at_a_time(cursor))
+        finally:
+            cursor.close()
+
     def _iterate_rows_one_batch_at_a_time(self, cursor) -> Iterator[tuple]:
+        rows_processed: int = 0
         # get_result_batches() returns None when the query left no result set.
         for result_batch in cursor.get_result_batches() or []:
             for row in result_batch.create_iter(connection=self.connection):
                 # The connector hands conversion errors over as rows; its own fetchone() raises them.
                 if isinstance(row, Exception):
                     raise row
+                rows_processed += 1
                 yield row
+        self._raise_if_result_cut_short(cursor, rows_processed)
 
     @staticmethod
     def _raise_if_result_cut_short(cursor, rows_processed: int) -> None:

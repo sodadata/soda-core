@@ -199,3 +199,47 @@ class TestDispatch:
         _stream(cursor)
 
         assert cursor.events == []
+
+
+class TestExecuteQueryIterateStreaming:
+    # The explicit streaming read does not depend on the memory-optimized driver toggle.
+    @pytest.fixture(autouse=True)
+    def _disable_memory_optimized_driver(self, monkeypatch):
+        monkeypatch.delenv("MEMORY_OPTIMIZED_DRIVER_ENABLED", raising=False)
+        memory_optimized_driver_settings.reset()
+
+    def test_opens_a_batch_only_once_the_caller_has_read_the_previous_one(self):
+        cursor = _FakeSnowflakeCursor([[(1,), (2,)], [(3,)]], description=(("ID", 0),))
+
+        with _make_connection(cursor).execute_query_iterate("SELECT 1", streaming=True) as rows:
+            assert cursor.events == []
+            assert rows.columns == {"ID": 0}
+            for row in rows:
+                cursor.events.append(("row", row))
+
+        assert cursor.events == [
+            ("open batch", 0),
+            ("row", (1,)),
+            ("row", (2,)),
+            ("open batch", 1),
+            ("row", (3,)),
+        ]
+        assert cursor.closed
+
+    def test_stopping_early_opens_no_later_batch_and_closes_the_cursor(self):
+        cursor = _FakeSnowflakeCursor([[(1,), (2,)], [(3,)]], rowcount=3)
+
+        with _make_connection(cursor).execute_query_iterate("SELECT 1", streaming=True) as rows:
+            assert next(rows.batches(2)) == [(1,), (2,)]
+
+        assert cursor.events == [("open batch", 0)]
+        assert cursor.closed
+
+    def test_result_ending_before_the_reported_row_count_raises(self):
+        cursor = _FakeSnowflakeCursor([[(1,)], [(2,)]], rowcount=3)
+
+        with pytest.raises(OperationalError, match="produced 2 row"):
+            with _make_connection(cursor).execute_query_iterate("SELECT 1", streaming=True) as rows:
+                list(rows)
+
+        assert cursor.closed

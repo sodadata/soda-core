@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -192,8 +193,14 @@ class DataSourceImpl(ABC):
             sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )
 
-    def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
-        return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query)
+    def execute_query_iterate(
+        self, sql: str, log_query: bool = True, streaming: bool = False
+    ) -> AbstractContextManager[QueryResultIterator]:
+        # See DataSourceConnection.execute_query_iterate for what streaming changes.
+        return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query, streaming=streaming)
+
+    def supports_streaming_fetch(self) -> bool:
+        return self.data_source_connection.supports_streaming_fetch()
 
     def execute_update(self, sql: str, log_query: bool = True) -> int:
         return self.connection.execute_update(sql=sql, log_query=log_query)

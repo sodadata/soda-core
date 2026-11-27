@@ -1208,19 +1208,21 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         return self.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
 
     @contextlib.contextmanager
-    def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
+    def execute_query_iterate(
+        self, sql: str, log_query: bool = True, streaming: bool = False
+    ) -> Iterator[QueryResultIterator]:
         self._handle_test_boundary()
 
         if self._current_test_id is None:
             if self._real is not None:
-                with self._real.execute_query_iterate(sql, log_query=log_query) as iterator:
+                with self._real.execute_query_iterate(sql, log_query=log_query, streaming=streaming) as iterator:
                     yield iterator
                 return
             raise RuntimeError("No real connection and no test context for snapshot")
 
         if self._mode == "record":
             # Eagerly consume all rows from the real connection so we can cache them.
-            with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
+            with self._real.execute_query_iterate(sql, log_query=log_query, streaming=streaming) as real_iter:
                 cursor_description = real_iter._cursor.description
                 rows = [tuple(row) for row in real_iter]
             normalized_desc = self._normalize_description(cursor_description)
