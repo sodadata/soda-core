@@ -116,6 +116,12 @@ def test_malformed_tenant_id_is_rejected_without_its_value() -> None:
     assert malformed not in str(exc_info.value)
 
 
+@pytest.mark.parametrize("client_id", [None, "", "   "])
+def test_empty_client_id_is_rejected(client_id) -> None:
+    with pytest.raises(ValidationError, match="client_id on the connection is empty"):
+        parse({**CONNECTION, "authentication": "workloadidentity", "client_id": client_id})
+
+
 @pytest.mark.parametrize("leftover_key", ["client_secret", "password", "user"])
 def test_workload_identity_rejects_leftover_credentials(leftover_key) -> None:
     secret = "leftover-secret"

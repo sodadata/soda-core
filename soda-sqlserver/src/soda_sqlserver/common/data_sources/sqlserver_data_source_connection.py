@@ -135,19 +135,14 @@ class SqlServerWorkloadIdentityAuthentication(SqlServerConnectionProperties):
     @field_validator("client_id")
     @classmethod
     def _client_id_is_not_empty(cls, client_id: Optional[str]) -> Optional[str]:
-        # An empty or blank value is rejected rather than read as "left out": that would quietly fall back to the
-        # pod's AZURE_CLIENT_ID, and the scan could then connect as a different identity than the connection names.
-        # None is still accepted and falls back to AZURE_CLIENT_ID, so that existing configs with a bare
-        # `client_id:` keep working. That includes an unset ${env.X}, which soda-core resolves to None, not "".
-        if client_id is None:
-            return None
-        client_id = client_id.strip()
-        if not client_id:
+        # Pydantic runs this only when client_id is present, so leaving it out still falls back to AZURE_CLIENT_ID.
+        # A null or blank value is rejected rather than quietly falling back to it, which may be another identity.
+        if client_id is None or not client_id.strip():
             raise ValueError(
                 "client_id on the connection is empty. Set it to the client ID of the managed identity, or leave "
                 "client_id out to use AZURE_CLIENT_ID from the pod environment."
             )
-        return client_id
+        return client_id.strip()
 
     @field_validator("tenant_id")
     @classmethod
