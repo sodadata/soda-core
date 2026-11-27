@@ -11,7 +11,9 @@ import pytest
 from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from databricks.sql.exc import RequestError
 from pydantic import ValidationError
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.yaml import DataSourceYamlSource
 from soda_databricks.common.data_sources import databricks_data_source_connection as conn_mod
 from soda_databricks.common.data_sources import databricks_workload_identity as wif_mod
 from soda_databricks.common.data_sources.databricks_data_source_connection import DatabricksDataSourceConnection
@@ -109,15 +111,50 @@ def test_leftover_credential_keys_do_not_replace_the_workload_identity(pod_env, 
     assert called_kwargs["credentials_provider"]()() == {"Authorization": f"Bearer {TOKEN}"}
 
 
-@pytest.mark.parametrize("field", ["client_id", "tenant_id"])
-def test_empty_client_or_tenant_id_is_rejected(field):
-    with pytest.raises(ValidationError, match=f"{field} on the connection is empty"):
-        infer(wif_connection(**{field: "  "}))
+@pytest.mark.parametrize("tenant_id", [None, "", "  "])
+def test_null_or_empty_tenant_id_is_rejected(tenant_id):
+    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+        infer(wif_connection(tenant_id=tenant_id))
+
+
+def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch):
+    # soda-core resolves an unset ${env.X} to None, not "".
+    monkeypatch.delenv("SODA_TEST_UNSET_DATABRICKS_TENANT_ID", raising=False)
+    data_source_yaml = DataSourceYamlSource.from_str(
+        "type: databricks\n"
+        "name: ds\n"
+        "connection:\n"
+        "  auth_type: azure-workload-identity\n"
+        "  host: adb-123.azuredatabricks.net\n"
+        "  http_path: /sql/1.0/warehouses/abc\n"
+        "  tenant_id: ${env.SODA_TEST_UNSET_DATABRICKS_TENANT_ID}\n"
+    )
+
+    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+        DataSourceImpl.from_yaml_source(data_source_yaml)
+
+
+@pytest.mark.parametrize("client_id", ["", "  "])
+def test_empty_client_id_is_rejected(client_id):
+    with pytest.raises(ValidationError, match="client_id on the connection is empty"):
+        infer(wif_connection(client_id=client_id))
+
+
+def test_null_client_id_falls_back_to_the_environment(pod_env, credential_cls):
+    connect(infer(wif_connection(client_id=None)))
+    assert credential_cls.call_args.kwargs["client_id"] == "pod-client"
 
 
 def test_tenant_id_with_invalid_characters_is_rejected():
     with pytest.raises(ValidationError, match="not a valid Entra tenant ID"):
         infer(wif_connection(tenant_id="evil/../tenant"))
+
+
+def test_malformed_tenant_id_is_kept_out_of_data_source_errors():
+    secret = "client~secret~pasted~into~tenant_id"
+    with pytest.raises(ValidationError, match="tenant_id on the connection is not a valid Entra tenant ID") as exc_info:
+        infer(wif_connection(tenant_id=secret))
+    assert secret not in str(exc_info.value)
 
 
 def test_other_modes_still_parse():
