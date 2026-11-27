@@ -1190,17 +1190,17 @@ class CheckCollectionImpl:
             yield
 
     def _raise_unless_cloud_type_takes_execution_dataset(self, data_source_impl: DataSourceImpl) -> None:
-        """Results of a run with execution_dataset publish only onto a dataset whose data source in Soda Cloud is of a
-        type the data source may stand in for, which also refuses a dataset Soda Cloud gives no type for."""
-        cloud_type: Optional[str] = self.dataset_configuration.data_source_type if self.dataset_configuration else None
+        """Results of a run with execution_dataset publish onto a dataset Soda Cloud doesn't have yet, or onto one whose
+        data source in Soda Cloud is of a type the data source may stand in for. A configuration without a type, from a
+        backend that doesn't send it, is refused."""
+        if self.dataset_configuration is None:
+            # Soda Cloud returns no configuration for a dataset it doesn't have, and publishing creates it.
+            return
+        cloud_type: Optional[str] = self.dataset_configuration.data_source_type
         allowed: frozenset[str] = data_source_impl.CLOUD_DATA_SOURCE_TYPES_FOR_EXECUTION_DATASET
         if cloud_type in allowed:
             return
-        found: str = (
-            f"is of type {cloud_type}"
-            if cloud_type
-            else "has no type, and execution_dataset publishes only onto a dataset that exists in Soda Cloud"
-        )
+        found: str = f"is of type {cloud_type}" if cloud_type else "has no type"
         raise InvalidArgumentException(
             f"execution_dataset can't publish results onto {self.yaml.dataset}: its data source in Soda Cloud {found}. "
             f"A {data_source_impl.type_name} data source publishes only onto a dataset of a data source of type "
