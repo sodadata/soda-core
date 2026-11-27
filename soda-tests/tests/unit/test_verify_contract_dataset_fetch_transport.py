@@ -299,6 +299,31 @@ def test_cli_on_a_managed_run_exits_4_when_only_the_failure_report_cannot_reach_
     assert transport.request_types == ["sodaCoreGetContract", "sodaCoreMarkScanFailed"]
 
 
+def test_cli_on_a_managed_run_reports_a_dataset_configuration_query_that_did_not_complete(
+    monkeypatch, caplog, config_files
+):
+    # SAS-15139: the contract arrives, then the dataset configuration query loses its connection.
+    monkeypatch.setenv("SODA_SCAN_ID", SCAN_ID)
+    transport = _Transport(lambda: _response(200, {"contents": CONTRACT_YAML}))
+
+    def configuration_unreachable(soda_cloud: SodaCloud, request_log_name: str = None, **kwargs) -> Response:
+        if (kwargs.get("json") or {}).get("type") == "sodaCoreDatasetsConfiguration":
+            raise requests.exceptions.SSLError("EOF occurred in violation of protocol")
+        return transport(request_log_name, **kwargs)
+
+    monkeypatch.setattr(SodaCloud, "_http_post", configuration_unreachable)
+    data_source_file, soda_cloud_file = config_files
+
+    exit_code = _run_cli(monkeypatch, "-d", DATASET, "-ds", data_source_file, "-sc", soda_cloud_file)
+
+    mark = transport.request("sodaCoreMarkScanFailed")
+    # Soda Cloud rejects the whole report when one log has a level it does not know.
+    assert {log["level"] for log in mark["logs"]} <= {"debug", "info", "warning", "error"}
+    assert any("did not complete" in log["message"] for log in mark["logs"])
+    assert not any("NoneType" in message for message in _error_messages(caplog))
+    assert exit_code == ExitCode.LOG_ERRORS
+
+
 REJECTED_API_KEY = (
     "Soda Cloud authentication failed. The provided API keys are unknown or invalid. Please verify your credentials."
 )

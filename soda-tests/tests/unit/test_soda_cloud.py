@@ -37,6 +37,7 @@ from soda_core.common.soda_cloud import (
     _build_diagnostics_json_dict,
     _build_token_usage_dicts,
     _build_v4_diagnostics_check_type_json_dict,
+    build_log_cloud_json_dict,
 )
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -1191,6 +1192,38 @@ def test_execute_command_and_query_with_an_error_answer_raise_with_its_status_an
         send({"type": "sodaCoreSomething"}, _FileAnswer, request_log_name="something")
     assert str(exc.value) == "Soda Cloud at mock.soda.io answered with status 400: no"
     assert (exc.value.status, exc.value.code) == (400, "invalid_request")
+
+
+@pytest.mark.parametrize(
+    "levelno, level",
+    [
+        (logging.DEBUG, "debug"),
+        (logging.INFO, "info"),
+        (25, "info"),
+        (logging.WARNING, "warning"),
+        (logging.ERROR, "error"),
+        (logging.CRITICAL, "error"),
+    ],
+)
+def test_log_records_reach_soda_cloud_with_a_level_it_knows(levelno, level):
+    record = logging.LogRecord("soda", levelno, __file__, 1, "message", None, None)
+    assert build_log_cloud_json_dict(record, 0)["level"] == level
+
+
+@pytest.mark.parametrize(
+    "send",
+    [
+        lambda cloud: cloud.fetch_contract(DatasetIdentifier.parse("ds/schema/orders")),
+        lambda cloud: cloud.post_processing_update("diagnosticWarehouse", "scan-id", PostProcessingStageState.FAILED),
+    ],
+    ids=["fetch_contract", "post_processing_update"],
+)
+def test_a_cloud_call_whose_request_did_not_complete_raises_a_soda_cloud_exception(send):
+    soda_cloud = MockSodaCloud([])
+    with mock.patch.object(soda_cloud, "_http_post", side_effect=ConnectionError("down")):
+        with pytest.raises(SodaCloudException) as exc:
+            send(soda_cloud)
+    assert str(exc.value) == "The request to Soda Cloud at mock.soda.io did not complete"
 
 
 def test_execute_command_with_a_refused_api_key_raises_the_authentication_failure():
