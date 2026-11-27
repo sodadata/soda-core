@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import Any, Protocol
+from collections.abc import Callable, Iterator, Sequence
+from itertools import islice
+from typing import Any, Optional, Protocol
 
 
 class Cursor(Protocol):
@@ -57,18 +58,38 @@ class QueryResult:
 
 
 class QueryResultIterator:
-    def __init__(self, cursor: Cursor, format_row: Callable[[Any], tuple]):
+    """The rows of one query, read once, in order.
+
+    By default the rows come from the cursor's ``fetchone``. A connection that fetches another way passes its own
+    ``rows``, such as a server-side cursor or one result batch at a time. The cursor still gives the column metadata
+    and the row count either way.
+    """
+
+    def __init__(
+        self,
+        cursor: Cursor,
+        format_row: Callable[[Any], tuple],
+        rows: Optional[Iterator[Sequence[Any]]] = None,
+    ):
         self._cursor = cursor
         self._format_row = format_row
+        self._rows: Iterator[Sequence[Any]] = iter(cursor.fetchone, None) if rows is None else rows
 
     def __iter__(self) -> QueryResultIterator:
         return self
 
     def __next__(self) -> Sequence[Any]:
-        row = self._cursor.fetchone()
-        if row is None:
-            raise StopIteration
-        return self._format_row(row)
+        return self._format_row(next(self._rows))
+
+    def batches(self, max_rows: int) -> Iterator[list[Sequence[Any]]]:
+        """Reads the rest of the rows in lists of at most ``max_rows``.
+
+        This reads the same rows as iterating, so it does not run the query again. ``max_rows`` sets only the size of
+        the lists handed back. How many rows the driver fetches from the database at a time is up to the connection.
+        """
+        if max_rows < 1:
+            raise ValueError(f"max_rows must be at least 1, not {max_rows}")
+        return iter(lambda: list(islice(self, max_rows)), [])
 
     @property
     def row_count(self) -> int:

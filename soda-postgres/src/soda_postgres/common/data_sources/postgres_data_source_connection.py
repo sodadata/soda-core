@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Literal, Optional, Union
+from typing import Callable, ClassVar, Dict, Iterator, Literal, Optional, Union
 
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
@@ -14,7 +15,8 @@ from soda_core.common.data_source_connection import (
     memory_optimized_driver_settings,
     parse_session_timezone,
 )
-from soda_core.common.data_source_results import QueryResult
+from soda_core.common.data_source_results import QueryResult, QueryResultIterator
+from soda_core.common.exceptions import SodaCoreException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.value_size import estimate_value_size
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -40,6 +42,43 @@ def _estimate_row_bytes(row: tuple) -> int:
     # jsonb as parsed dicts/lists) — shallow getsizeof counted a 10 MB json
     # document as ~hundreds of bytes, pinning the batch at the row cap.
     return sum(estimate_value_size(value) for value in row)
+
+
+def _fetch_in_byte_budgeted_batches(cursor: psycopg.ServerCursor, row_limit: Optional[int] = None) -> Iterator[tuple]:
+    """Yields the rows of a server-side cursor, fetching them in batches that keep to
+    ``STREAM_FETCH_BUDGET_BYTES``.
+
+    The first fetch is a single probe row; after that the batch size is
+    ``STREAM_FETCH_BUDGET_BYTES`` divided by the widest row observed so far, clamped
+    to [1, STREAM_FETCH_MAX_BATCH_ROWS]. Fat rows (>= budget) therefore stream one
+    at a time, while thin rows amortise FETCH round-trips. Memory footprint is
+    bounded by roughly one batch (~the budget) plus the single largest row,
+    regardless of result-set size.
+    """
+    rows_fetched: int = 0
+    batch_size: int = 1  # single probe row first, to size subsequent batches
+    max_row_bytes: int = 1
+    while row_limit is None or rows_fetched < row_limit:
+        fetch_count: int = batch_size if row_limit is None else min(batch_size, row_limit - rows_fetched)
+        rows = cursor.fetchmany(fetch_count)
+        if not rows:
+            return
+        yield from rows
+        rows_fetched += len(rows)
+        # Size against the widest row seen so far (monotonic), so a
+        # late fat row permanently shrinks the batch back down.
+        # Growth is ramped: shrinking applies immediately, but the
+        # batch may only grow STREAM_FETCH_GROWTH_FACTOR x per
+        # fetch (thin-probe overshoot bound).
+        max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
+        batch_size = max(
+            1,
+            min(
+                STREAM_FETCH_MAX_BATCH_ROWS,
+                STREAM_FETCH_BUDGET_BYTES // max_row_bytes,
+                batch_size * STREAM_FETCH_GROWTH_FACTOR,
+            ),
+        )
 
 
 class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -160,6 +199,38 @@ class PostgresDataSourceConnection(DataSourceConnection):
         # so it advertises the capability and implements _execute_query_one_by_one_streaming.
         return True
 
+    @contextlib.contextmanager
+    def _execute_query_iterate_streaming(self, sql: str, log_query: bool) -> Iterator[QueryResultIterator]:
+        """Reads the rows through a server-side (named) cursor, in the same
+        byte-budgeted batches as ``_execute_query_one_by_one_streaming``.
+
+        Unlike that callback path, the cursor is not held (``withhold=False``):
+        it lives only as long as the transaction it was declared in. A caller that
+        commits or rolls back on this connection before it has read every row gets
+        an error on its next read, rather than Postgres copying the rest of the
+        result on the server to keep the cursor alive.
+
+        A server-side cursor needs a transaction, so a connection in autocommit
+        mode raises instead of falling back to reading the whole result.
+        """
+        if self.connection.autocommit:
+            raise SodaCoreException(
+                f"Cannot stream the rows of a query on '{self.name}': the connection is in autocommit mode, "
+                "and Postgres needs a transaction for a server-side cursor"
+            )
+        cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
+        if log_query:
+            logger.debug(f"SQL query iterate (server-side cursor {cursor_name}):\n{sql}")
+        try:
+            with self.connection.cursor(name=cursor_name) as cursor:
+                cursor.execute(sql)
+                yield QueryResultIterator(cursor, self._format_row, rows=_fetch_in_byte_budgeted_batches(cursor))
+        except psycopg.errors.Error:
+            # A failed statement aborts the transaction, so roll back to leave the
+            # connection usable, like the other postgres query methods.
+            self.rollback()
+            raise
+
     def _execute_query_one_by_one_streaming(
         self,
         sql: str,
@@ -182,13 +253,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
         and OOM-killed K8s pods (see memory_management/MEMORY_ANALYSIS.md).
 
         Strategy: open a named (server-side) cursor and fetch in adaptive
-        batches. The first fetch is a single probe row; after that the
-        batch size is ``STREAM_FETCH_BUDGET_BYTES`` divided by the widest
-        row observed so far, clamped to [1, STREAM_FETCH_MAX_BATCH_ROWS].
-        Fat rows (>= budget) therefore stream one at a time, while thin
-        rows amortise FETCH round-trips. Memory footprint is bounded by
-        roughly one batch (~the budget) plus the single largest row,
-        regardless of result-set size.
+        batches; see ``_fetch_in_byte_budgeted_batches``.
 
         Caveats:
           * Server-side cursors require an open transaction. If the
@@ -254,35 +319,8 @@ class PostgresDataSourceConnection(DataSourceConnection):
             with self.connection.cursor(name=cursor_name, withhold=True) as cursor:
                 cursor.execute(sql)
                 description: tuple[tuple] = cursor.description
-                rows_processed: int = 0
-                batch_size: int = 1  # single probe row first, to size subsequent batches
-                max_row_bytes: int = 1
-                while True:
-                    if row_limit is not None and rows_processed >= row_limit:
-                        break
-                    fetch_count: int = batch_size
-                    if row_limit is not None:
-                        fetch_count = min(fetch_count, row_limit - rows_processed)
-                    rows = cursor.fetchmany(fetch_count)
-                    if not rows:
-                        break
-                    for row in rows:
-                        row_callback(row, description)
-                        rows_processed += 1
-                    # Size against the widest row seen so far (monotonic), so a
-                    # late fat row permanently shrinks the batch back down.
-                    # Growth is ramped: shrinking applies immediately, but the
-                    # batch may only grow STREAM_FETCH_GROWTH_FACTOR x per
-                    # fetch (thin-probe overshoot bound).
-                    max_row_bytes = max(max_row_bytes, max(_estimate_row_bytes(row) for row in rows))
-                    batch_size = max(
-                        1,
-                        min(
-                            STREAM_FETCH_MAX_BATCH_ROWS,
-                            STREAM_FETCH_BUDGET_BYTES // max_row_bytes,
-                            batch_size * STREAM_FETCH_GROWTH_FACTOR,
-                        ),
-                    )
+                for row in _fetch_in_byte_budgeted_batches(cursor, row_limit=row_limit):
+                    row_callback(row, description)
             return description
         except psycopg.errors.Error as e:
             # The error may come from the stream itself OR from a row_callback

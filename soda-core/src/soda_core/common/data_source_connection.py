@@ -431,10 +431,12 @@ class DataSourceConnection(ABC):
 
     def supports_streaming_fetch(self) -> bool:
         """Whether this adapter implements a real bounded-memory streaming fetch
-        (i.e. overrides ``_execute_query_one_by_one_streaming``). Base: ``False``;
-        postgres and snowflake return ``True``. Used by
+        (i.e. overrides ``_execute_query_one_by_one_streaming`` and
+        ``_execute_query_iterate_streaming``). Base: ``False``; postgres and
+        snowflake return ``True``. Used by
         ``execute_query_one_by_one_prefer_streaming`` to decide whether the
-        streaming impl is worth dispatching to."""
+        streaming impl is worth dispatching to, and by callers of
+        ``execute_query_iterate(streaming=True)`` to know it will not raise."""
         return False
 
     def execute_query_one_by_one_prefer_streaming(
@@ -496,7 +498,25 @@ class DataSourceConnection(ABC):
         )
 
     @contextlib.contextmanager
-    def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
+    def execute_query_iterate(
+        self, sql: str, log_query: bool = True, streaming: bool = False
+    ) -> Iterator[QueryResultIterator]:
+        """Runs ``sql`` and yields its rows as an iterator. Leaving the ``with`` block closes the cursor, also when the
+        caller stops reading early.
+
+        Without ``streaming``, the driver decides how much of the result it holds in memory. Many drivers fetch the
+        whole result as soon as the query runs.
+
+        With ``streaming=True``, the rows come from the database a part at a time, so memory stays at about one part
+        however large the result is. This does not depend on ``MEMORY_OPTIMIZED_DRIVER_ENABLED``. A connection that
+        cannot stream raises an error instead of reading the whole result; ``supports_streaming_fetch`` says which
+        ones can. Read the rows before committing or rolling back on this connection: a streaming read may need the
+        transaction it started in.
+        """
+        if streaming:
+            with self._execute_query_iterate_streaming(sql, log_query=log_query) as rows:
+                yield rows
+            return
         cursor = self.connection.cursor()
         if log_query:
             logger.debug(f"SQL query iterate:\n{sql}")
@@ -505,6 +525,13 @@ class DataSourceConnection(ABC):
             yield QueryResultIterator(cursor, self._format_row)
         finally:
             cursor.close()
+
+    @contextlib.contextmanager
+    def _execute_query_iterate_streaming(self, sql: str, log_query: bool) -> Iterator[QueryResultIterator]:
+        """The streaming read behind ``execute_query_iterate(streaming=True)``. A connection that overrides this also
+        returns ``True`` from ``supports_streaming_fetch``."""
+        raise NotImplementedError(f"{type(self).__name__} cannot stream the rows of a query")
+        yield  # pragma: no cover - makes this a generator, so the error comes on entering the with block
 
     def commit(self) -> None:
         # noinspection PyUnresolvedReferences

@@ -417,7 +417,7 @@ class TestSnapshotConnectionQueryIterate:
         from contextlib import contextmanager
 
         @contextmanager
-        def mock_iterate(sql, log_query=True):
+        def mock_iterate(sql, log_query=True, streaming=False):
             yield real_iter
 
         real_conn.execute_query_iterate = mock_iterate
@@ -1369,7 +1369,7 @@ class TestSessionLevelOperations:
         real_iter = QueryResultIterator(fake_cursor, format_row=tuple)
 
         @contextmanager
-        def mock_iterate(sql, log_query=True):
+        def mock_iterate(sql, log_query=True, streaming=False):
             yield real_iter
 
         real_conn.execute_query_iterate = mock_iterate

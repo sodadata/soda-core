@@ -58,3 +58,21 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
             assert rows[0][0] == "1"
             assert rows[1][0] == "2"
             assert rows[2][0] == "3"
+
+
+@pytest.mark.no_snapshot
+def test_data_source_query_result_iterator_streaming(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_yaml_source: DataSourceYamlSource = data_source_test_helper._create_data_source_yaml_source()
+    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
+
+    with data_source_impl:
+        if not data_source_impl.supports_streaming_fetch():
+            pytest.skip(f"{data_source_impl.type_name} cannot stream the rows of a query")
+        id_quoted = data_source_test_helper.quote_column("id")
+        with data_source_impl.execute_query_iterate(
+            f"SELECT * FROM {test_table.qualified_name} ORDER BY {id_quoted}", streaming=True
+        ) as query_result_iterator:
+            assert [column.lower() for column in query_result_iterator.columns] == ["id", "country"]
+            assert list(query_result_iterator.batches(2)) == [[("1", "US"), ("2", "BE")], [("3", "NL")]]
