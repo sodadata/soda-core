@@ -117,9 +117,10 @@ def test_null_or_empty_tenant_id_is_rejected(tenant_id):
         infer(wif_connection(tenant_id=tenant_id))
 
 
-def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch):
+@pytest.mark.parametrize("field", ["tenant_id", "client_id"])
+def test_unset_env_variable_in_tenant_or_client_id_is_rejected(monkeypatch, field):
     # soda-core resolves an unset ${env.X} to None, not "".
-    monkeypatch.delenv("SODA_TEST_UNSET_DATABRICKS_TENANT_ID", raising=False)
+    monkeypatch.delenv("SODA_TEST_UNSET_DATABRICKS_ID", raising=False)
     data_source_yaml = DataSourceYamlSource.from_str(
         "type: databricks\n"
         "name: ds\n"
@@ -127,22 +128,17 @@ def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch):
         "  auth_type: azure-workload-identity\n"
         "  host: adb-123.azuredatabricks.net\n"
         "  http_path: /sql/1.0/warehouses/abc\n"
-        "  tenant_id: ${env.SODA_TEST_UNSET_DATABRICKS_TENANT_ID}\n"
+        f"  {field}: ${{env.SODA_TEST_UNSET_DATABRICKS_ID}}\n"
     )
 
-    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+    with pytest.raises(ValidationError, match=f"{field} on the connection is empty"):
         DataSourceImpl.from_yaml_source(data_source_yaml)
 
 
-@pytest.mark.parametrize("client_id", ["", "  "])
-def test_empty_client_id_is_rejected(client_id):
+@pytest.mark.parametrize("client_id", [None, "", "  "])
+def test_null_or_empty_client_id_is_rejected(client_id):
     with pytest.raises(ValidationError, match="client_id on the connection is empty"):
         infer(wif_connection(client_id=client_id))
-
-
-def test_null_client_id_falls_back_to_the_environment(pod_env, credential_cls):
-    connect(infer(wif_connection(client_id=None)))
-    assert credential_cls.call_args.kwargs["client_id"] == "pod-client"
 
 
 def test_tenant_id_with_invalid_characters_is_rejected():

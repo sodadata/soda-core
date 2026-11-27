@@ -124,17 +124,14 @@ class DatabricksAzureWorkloadIdentity(DatabricksSharedConnectionProperties):
     @field_validator("client_id")
     @classmethod
     def _client_id_is_not_empty(cls, client_id: Optional[str]) -> Optional[str]:
-        # A blank value is rejected rather than quietly falling back to the pod's AZURE_CLIENT_ID, which may be
-        # another identity. None (a bare `client_id:` or an unset ${env.X}) still falls back, for existing configs.
-        if client_id is None:
-            return None
-        client_id = client_id.strip()
-        if not client_id:
+        # Runs only when client_id is present, so leaving it out still falls back to AZURE_CLIENT_ID. A null or
+        # blank value is rejected rather than quietly falling back to it, which may be another identity.
+        if client_id is None or not client_id.strip():
             raise ValueError(
                 "client_id on the connection is empty. Set it to the client ID of the managed identity, or leave "
                 "client_id out to use AZURE_CLIENT_ID from the pod environment."
             )
-        return client_id
+        return client_id.strip()
 
     @field_validator("tenant_id")
     @classmethod
