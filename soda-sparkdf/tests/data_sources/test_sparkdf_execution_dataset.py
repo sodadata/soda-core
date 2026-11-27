@@ -266,7 +266,7 @@ def test_execution_dataset_must_name_a_view_or_an_existing_table(
 
 @pytest.mark.parametrize(
     "cloud_data_source_type, refusal",
-    [("spark_df", None), ("snowflake", "of type snowflake"), (None, "exists in Soda Cloud")],
+    [("spark_df", None), ("snowflake", "of type snowflake"), (None, "has no type")],
 )
 def test_results_publish_only_onto_a_databricks_or_spark_dataframe_dataset(
     spark, data_source, name, cloud_data_source_type, refusal
@@ -289,6 +289,16 @@ def test_results_publish_only_onto_a_databricks_or_spark_dataframe_dataset(
         soda_cloud_impl=soda_cloud,
         execution_dataset=name,
     ).is_passed
+
+
+def test_results_publish_onto_a_dataset_soda_cloud_does_not_have_yet(spark, data_source, name):
+    _create_table(spark, name)
+    _register_view(spark, name)
+    soda_cloud = _publishing_cloud()
+    soda_cloud.set_dataset_unknown(f"{DATA_SOURCE_NAME}/spark_catalog/default/{name}")
+
+    assert _publish(soda_cloud, data_source, _contract(name), name).is_passed
+    assert _results_upload(soda_cloud)["defaultDataSource"] == DATA_SOURCE_NAME
 
 
 # Spark Connect can't share a process with the classic session above, so this runs in its own.

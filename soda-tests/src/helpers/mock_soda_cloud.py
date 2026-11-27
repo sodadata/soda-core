@@ -65,6 +65,7 @@ class MockSodaCloud(SodaCloud):
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
         self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
+        self.unknown_datasets: set[str] = set()
         self._block_group_by_results_to_cloud_response: bool = False
         # Fixture-driven historic-data responses, keyed by identity.
         # Only consulted when at least one fixture is registered, so existing
@@ -210,13 +211,21 @@ class MockSodaCloud(SodaCloud):
             update={"data_source_type": data_source_type}
         )
 
+    def set_dataset_unknown(self, dataset_qualified_name: str) -> None:
+        """Soda Cloud doesn't have the dataset: it returns no configuration for it, as for a dataset never onboarded."""
+        self.unknown_datasets.add(str(DatasetIdentifier.parse(dataset_qualified_name)))
+
     def fetch_datasets_configurations(
         self, dataset_identifiers: list["DatasetIdentifier"]
     ) -> "DatasetConfigurationsDTO":
         # Fixture-driven, never consumes `responses`: it would be annoying to have to set up a mock response
         # for every test just to return an empty configuration. Also the path fetch_dataset_configuration takes.
         return DatasetConfigurationsDTO(
-            dataset_configurations=[self._dataset_configuration(identifier) for identifier in dataset_identifiers],
+            dataset_configurations=[
+                self._dataset_configuration(identifier)
+                for identifier in dataset_identifiers
+                if str(identifier) not in self.unknown_datasets
+            ],
             block_group_by_results_to_cloud=self._block_group_by_results_to_cloud_response,
         )
 
