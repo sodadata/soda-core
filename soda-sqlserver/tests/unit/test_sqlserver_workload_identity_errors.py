@@ -267,9 +267,10 @@ def test_left_out_tenant_id_falls_back_to_the_environment() -> None:
     assert workload_identity_config().tenant_id is None
 
 
-def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch) -> None:
+@pytest.mark.parametrize("field", ["tenant_id", "client_id"])
+def test_unset_env_variable_in_tenant_or_client_id_is_rejected(monkeypatch, field) -> None:
     # soda-core resolves a whole-value ${env.X} whose variable is not set to None, not to "".
-    monkeypatch.delenv("SODA_TEST_UNSET_TENANT_ID", raising=False)
+    monkeypatch.delenv("SODA_TEST_UNSET_ID", raising=False)
     data_source_yaml = DataSourceYamlSource.from_str(
         "type: sqlserver\n"
         "name: ds\n"
@@ -277,10 +278,10 @@ def test_unset_env_variable_in_tenant_id_is_rejected(monkeypatch) -> None:
         "  host: myserver.database.windows.net\n"
         "  database: sales\n"
         "  authentication: workloadidentity\n"
-        "  tenant_id: ${env.SODA_TEST_UNSET_TENANT_ID}\n"
+        f"  {field}: ${{env.SODA_TEST_UNSET_ID}}\n"
     )
 
-    with pytest.raises(ValidationError, match="tenant_id on the connection is empty"):
+    with pytest.raises(ValidationError, match=f"{field} on the connection is empty"):
         DataSourceImpl.from_yaml_source(data_source_yaml)
 
 
@@ -397,10 +398,14 @@ def test_debug_logs_contain_neither_assertion_nor_token(caplog, failure, entra_t
     assert FEDERATED_ASSERTION not in caplog.text
 
 
-@pytest.mark.parametrize("client_id", ["", "   "])
+@pytest.mark.parametrize("client_id", [None, "", "   "])
 def test_empty_client_id_is_rejected(client_id) -> None:
     with pytest.raises(ValueError, match="client_id on the connection is empty"):
         workload_identity_config(client_id=client_id)
+
+
+def test_left_out_client_id_falls_back_to_the_environment() -> None:
+    assert workload_identity_config().client_id is None
 
 
 @pytest.mark.parametrize("client_id", ["client-from-yaml", " client-from-yaml "])
